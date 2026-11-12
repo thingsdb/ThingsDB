@@ -29,20 +29,20 @@ lws_plat_service(struct lws_context *context, int timeout_ms)
 {
 	int n = _lws_plat_service_tsi(context, timeout_ms, 0);
 
-#if !defined(LWS_AMAZON_RTOS)
-	esp_task_wdt_reset();
-#endif
-
 	return n;
 }
 
+
+/* one tick of the os scheduler, and how long we may go without waiting one */
+#define LWS_FREERTOS_TICK_US	((lws_usec_t)portTICK_PERIOD_MS * LWS_US_PER_MS)
+#define LWS_FREERTOS_YIELD_US	(500 * LWS_US_PER_MS)
 
 int
 _lws_plat_service_tsi(struct lws_context *context, int timeout_ms, int tsi)
 {
 	volatile struct lws_context_per_thread *vpt;
 	struct lws_context_per_thread *pt;
-	lws_usec_t timeout_us;
+	lws_usec_t timeout_us, t0, t1;
 	int n = -1, m, c, a = 0;
 
 	/* stay dead once we are dead */
@@ -87,12 +87,12 @@ _lws_plat_service_tsi(struct lws_context *context, int timeout_ms, int tsi)
 		timeout_ms = 2000000000;
 	timeout_us = ((lws_usec_t)timeout_ms) * LWS_US_PER_MS;
 
-	if (!pt->service_tid_detected && context->vhost_list) {
+	if (!pt->service_tid_detected && lws_dll2_get_head(&context->vhost_list_owner)) {
 		lws_fakewsi_def_plwsa(pt);
 
 		lws_fakewsi_prep_plwsa_ctx(context);
 
-		pt->service_tid = context->vhost_list->protocols[0].callback(
+		pt->service_tid = lws_vhost_first(context)->protocols[0].callback(
 			(struct lws *)plwsa, LWS_CALLBACK_GET_THREAD_ID,
 			NULL, NULL, 0);
 		pt->service_tid_detected = 1;
@@ -101,115 +101,158 @@ _lws_plat_service_tsi(struct lws_context *context, int timeout_ms, int tsi)
 	/*
 	 * is there anybody with pending stuff that needs service forcing?
 	 */
-#if !defined(LWS_AMAZON_RTOS)
-again:
-#endif
-	n = 0;
-	if (lws_service_adjust_timeout(context, 1, tsi)) {
 #if defined(LWS_AMAZON_RTOS)
-again:
-#endif /* LWS_AMAZON_RTOS */
+	int skip_adjust = 0;
+#endif
 
-		a = 0;
-		if (timeout_us) {
-			lws_usec_t us;
+	do {
+		int adjust_res;
+		n = 0;
+#if defined(LWS_AMAZON_RTOS)
+		if (skip_adjust)
+			adjust_res = 1;
+		else
+#endif
+		adjust_res = lws_service_adjust_timeout(context, 1, tsi);
 
-			lws_pt_lock(pt, __func__);
-			/* don't stay in poll wait longer than next hr timeout */
-			us = __lws_sul_service_ripe(pt->pt_sul_owner,
-						    LWS_COUNT_PT_SUL_OWNERS,
-						    lws_now_usecs());
-			if (us && us < timeout_us)
-				timeout_us = us;
+		if (adjust_res) {
+			a = 0;
+#if defined(LWS_AMAZON_RTOS)
+			skip_adjust = 1;
+#endif
+			if (timeout_us) {
+				lws_usec_t us;
 
-			lws_pt_unlock(pt);
-		}
+				lws_context_lock(pt->context, __func__); /* cx then pt */
+				lws_pt_lock(pt, __func__);
+				/* don't stay in poll wait longer than next hr timeout */
+				us = __lws_sul_service_ripe(&pt->pt_sul_owner[0].owner,
+							    LWS_COUNT_PT_SUL_OWNERS,
+							    lws_now_usecs());
+				if (us && us < timeout_us)
+					timeout_us = us;
 
-	//	n = poll(pt->fds, pt->fds_count, timeout_ms);
-		{
-			fd_set readfds, writefds, errfds;
-			struct timeval tv = { timeout_us / LWS_US_PER_SEC,
-					      timeout_us % LWS_US_PER_SEC }, *ptv = &tv;
-			int max_fd = 0;
-			FD_ZERO(&readfds);
-			FD_ZERO(&writefds);
-			FD_ZERO(&errfds);
+				/*
+				 * lwip's select() makes any wait that isn't
+				 * zero at least 1ms, and waits for that in
+				 * whole ticks, plus one: a sul due in a few us,
+				 * eg, one rescheduled at once by a long job
+				 * done in chunks, is held up for two ticks,
+				 * 20ms at 100Hz.  We can't wait for less than
+				 * a tick anyway: poll instead.
+				 */
+				if (timeout_us < LWS_FREERTOS_TICK_US)
+					timeout_us = 0;
 
-			for (n = 0; n < (int)pt->fds_count; n++) {
-				pt->fds[n].revents = 0;
-				if (pt->fds[n].fd >= max_fd)
-					max_fd = pt->fds[n].fd;
-				if (pt->fds[n].events & LWS_POLLIN)
-					FD_SET(pt->fds[n].fd, &readfds);
-				if (pt->fds[n].events & LWS_POLLOUT)
-					FD_SET(pt->fds[n].fd, &writefds);
-				FD_SET(pt->fds[n].fd, &errfds);
+				lws_pt_unlock(pt);
+				lws_context_unlock(pt->context);
 			}
 
-			vpt->inside_poll = 1;
-			lws_memory_barrier();
-			n = select(max_fd + 1, &readfds, &writefds, &errfds, ptv);
-			vpt->inside_poll = 0;
-			lws_memory_barrier();
-			n = 0;
+		//	n = poll(pt->fds, pt->fds_count, timeout_ms);
+			{
+				fd_set readfds, writefds, errfds;
+				struct timeval tv = { timeout_us / LWS_US_PER_SEC,
+						      timeout_us % LWS_US_PER_SEC }, *ptv = &tv;
+				int max_fd = 0;
+				FD_ZERO(&readfds);
+				FD_ZERO(&writefds);
+				FD_ZERO(&errfds);
 
-			for (m = 0; m < (int)pt->fds_count; m++) {
-				c = 0;
-				if (FD_ISSET(pt->fds[m].fd, &readfds)) {
-					pt->fds[m].revents |= LWS_POLLIN;
-					c = 1;
-				}
-				if (FD_ISSET(pt->fds[m].fd, &writefds)) {
-					pt->fds[m].revents |= LWS_POLLOUT;
-					c = 1;
-				}
-				if (FD_ISSET(pt->fds[m].fd, &errfds)) {
-					// lwsl_notice("errfds %d\n", pt->fds[m].fd);
-					pt->fds[m].revents |= LWS_POLLHUP;
-					c = 1;
+				for (n = 0; n < (int)pt->fds_count; n++) {
+					pt->fds[n].revents = 0;
+					if (pt->fds[n].fd >= max_fd)
+						max_fd = pt->fds[n].fd;
+					if (pt->fds[n].events & LWS_POLLIN)
+						FD_SET(pt->fds[n].fd, &readfds);
+					if (pt->fds[n].events & LWS_POLLOUT)
+						FD_SET(pt->fds[n].fd, &writefds);
+					FD_SET(pt->fds[n].fd, &errfds);
 				}
 
-				if (c)
-					n++;
+				vpt->inside_poll = 1;
+				lws_memory_barrier();
+				t0 = lws_now_usecs();
+				n = select(max_fd + 1, &readfds, &writefds, &errfds, ptv);
+				vpt->inside_poll = 0;
+				lws_memory_barrier();
+				n = 0;
+
+				/*
+				 * With work always due, eg, a long render that
+				 * reschedules itself at once, select() never
+				 * waits, and tasks of lower priority than ours,
+				 * the idle task with them, never run.  The task
+				 * watchdog sees the idle task starved after a
+				 * few seconds, so if we didn't wait a tick for a
+				 * while, wait one now.
+				 */
+				t1 = lws_now_usecs();
+				if (t1 - t0 >= LWS_FREERTOS_TICK_US)
+					pt->last_os_yield = t1;
+				else
+					if (t1 - pt->last_os_yield >
+							LWS_FREERTOS_YIELD_US) {
+						vTaskDelay(1);
+						pt->last_os_yield = lws_now_usecs();
+					}
+
+				for (m = 0; m < (int)pt->fds_count; m++) {
+					c = 0;
+					if (FD_ISSET(pt->fds[m].fd, &readfds)) {
+						pt->fds[m].revents |= LWS_POLLIN;
+						c = 1;
+					}
+					if (FD_ISSET(pt->fds[m].fd, &writefds)) {
+						pt->fds[m].revents |= LWS_POLLOUT;
+						c = 1;
+					}
+					if (FD_ISSET(pt->fds[m].fd, &errfds)) {
+						// lwsl_notice("errfds %d\n", pt->fds[m].fd);
+						pt->fds[m].revents |= LWS_POLLHUP;
+						c = 1;
+					}
+
+					if (c)
+						n++;
+				}
 			}
-		}
 
-		m = 0;
+			m = 0;
 
-	#if defined(LWS_ROLE_WS) && !defined(LWS_WITHOUT_EXTENSIONS)
-		m |= !!pt->ws.rx_draining_ext_list;
-	#endif
+		#if defined(LWS_ROLE_WS) && !defined(LWS_WITHOUT_EXTENSIONS)
+			m |= !!pt->ws.rx_draining_ext_list;
+		#endif
 
 #if defined(LWS_WITH_TLS)
-		if (pt->context->tls_ops &&
-		    pt->context->tls_ops->fake_POLLIN_for_buffered)
-			m |= pt->context->tls_ops->fake_POLLIN_for_buffered(pt);
+			if (pt->context->tls_ops &&
+			    pt->context->tls_ops->fake_POLLIN_for_buffered)
+				m |= pt->context->tls_ops->fake_POLLIN_for_buffered(pt);
 #endif
-		if (!m && !n)
-			return 0;
-	} else
-		a = 1;
+			if (!m && !n)
+				return 0;
+		} else
+			a = 1;
 
-	m = lws_service_flag_pending(context, tsi);
-	c = m ? -1 : n;
+		m = lws_service_flag_pending(context, tsi);
+		c = m ? -1 : n;
 
-	/* any socket with events to service? */
-	for (n = 0; n < (int)pt->fds_count && c; n++) {
-		if (!pt->fds[n].revents)
-			continue;
+		/* any socket with events to service? */
+		for (n = 0; n < (int)pt->fds_count && c; n++) {
+			if (!pt->fds[n].revents)
+				continue;
 
-		c--;
+			c--;
 
-		m = lws_service_fd_tsi(context, &pt->fds[n], tsi);
-		if (m < 0)
-			return -1;
-		/* if something closed, retry this slot */
-		if (m)
-			n--;
-	}
+			m = lws_service_fd_tsi(context, &pt->fds[n], tsi);
+			if (m < 0)
+				return -1;
+			/* if something closed, retry this slot */
+			if (m)
+				n--;
+		}
+		lws_service_do_ripe_rxflow(pt);
 
-	if (a)
-		goto again;
+	} while (a);
 
 	return 0;
 }

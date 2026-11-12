@@ -34,6 +34,29 @@
 #include <dlfcn.h>
 #endif
 #include <dirent.h>
+#if defined(__APPLE__)
+#include <limits.h>
+#endif
+
+#if defined(__APPLE__)
+int
+lws_plat_path_canonical(const char *path, char *buf, size_t len)
+{
+	char p[PATH_MAX];
+	size_t n;
+
+	/* apple's realpath() gives each component the name it has on disk */
+	if (!realpath(path, p))
+		return 1;
+
+	n = strlen(p);
+	if (n >= len)
+		return 1;
+	memcpy(buf, p, n + 1);
+
+	return 0;
+}
+#endif
 
 int lws_plat_apply_FD_CLOEXEC(int n)
 {
@@ -84,7 +107,7 @@ _lws_plat_file_open(const struct lws_plat_file_ops *fops_own,
 		    const char *vpath, lws_fop_flags_t *flags)
 {
 	struct stat stat_buf;
-	int ret = lws_open(filename, (*flags) & LWS_FOP_FLAGS_MASK, 0664);
+	int ret = lws_open(filename, (int)((*flags) & LWS_FOP_FLAGS_MASK), 0664);
 	lws_fop_fd_t fop_fd;
 
 	if (ret < 0)

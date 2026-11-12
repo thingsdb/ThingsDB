@@ -46,11 +46,41 @@
  * you allocate new objects (to keep the whole cache under the specified limit),
  * or when their expiry time arrives.  So you shouldn't keep copies of pointers
  * to cached objects after returning to the event loop.
+ *
+ * The apis are threadsafe with LWS_MAX_SMP > 1: each call holds the lock of
+ * the cache and the levels chained to it while it works.  But then another
+ * service thread may also destroy an item as soon as the call that gave you
+ * a pointer into the cache returns.  If you use pointers from
+ * lws_cache_item_get() or lws_cache_lookup() after the call, and other
+ * threads may use the same cache, hold lws_cache_lock() over the call and
+ * your use of the pointer.
  */
 ///@{
 
 
 struct lws_cache_ttl_lru;
+
+/**
+ * lws_cache_lock() - hold the lock of a cache and the levels chained to it
+ *
+ * \param cache: any level of the cache
+ *
+ * Only needed to keep pointers into the cache valid while using them when
+ * other service threads may use the same cache (LWS_MAX_SMP > 1).  The lock
+ * may be taken again by the same thread, eg, by calling the cache apis while
+ * holding it.  Don't take other locks, or call apis that might, while holding
+ * it.  Without SMP it has no locking effect.
+ */
+LWS_VISIBLE LWS_EXTERN void
+lws_cache_lock(struct lws_cache_ttl_lru *cache);
+
+/**
+ * lws_cache_unlock() - release the lock taken by lws_cache_lock()
+ *
+ * \param cache: the same level given to lws_cache_lock()
+ */
+LWS_VISIBLE LWS_EXTERN void
+lws_cache_unlock(struct lws_cache_ttl_lru *cache);
 
 /**
  * lws_cache_write_through() - add a new cache item object in all layers
@@ -60,7 +90,9 @@ struct lws_cache_ttl_lru;
  * \param source: optional payload for the cached item, NULL means caller will
  *		  write the payload
  * \param size: the size of the object to allocate
- * \param expiry: the usec time that the object will autodestroy
+ * \param expiry: the usec time that the object will autodestroy, in the time of
+ *		  the cache's service thread (info.tsi): that is lws_now_usecs()
+ *		  unless the app gives the time with lws_service_set_now()
  * \param ppay: NULL, or a pointer to a void * to be set to the L1 payload
  *
  * If an item with the key already exists, it is destroyed before allocating a
@@ -125,6 +157,11 @@ typedef struct lws_cache_match {
  * get operations on each item in its desired order, that will bring the items
  * to the head of the LRU list and occupy L1 cache.
  *
+ * The results pointer is only valid until the next call on the cache: getting
+ * a listed item that is not in L1 writes it there, which may evict the result
+ * set itself, or an item it names, which also destroys the result set.  So
+ * copy the results before getting the items they list.
+ *
  * Returns 0 if proceeded alright, or nonzero if error.  If there was an error,
  * any partial results set has been deallocated cleanly before returning.
  */
@@ -157,16 +194,18 @@ lws_cache_item_get(struct lws_cache_ttl_lru *cache, const char *specific_key,
  * lws_cache_item_remove() - remove item from all cache levels
  *
  * \param cache: the cache to search for the key
- * \param wildcard_key: the item key string
+ * \param specific_key: the item key string
  *
- * Removes any copy of any item matching the \p wildcard_key from any cache
- * level in one step.
+ * Removes any copy of the item with the key \p specific_key from any cache
+ * level in one step.  The key is matched literally at every level: wildcard
+ * characters in it have no special meaning, only lws_cache_lookup() takes
+ * wildcards.
  *
  * Adding or removing cache items may cause invalidation of cached queries
  * that could refer to the removed item.
  */
 LWS_VISIBLE LWS_EXTERN int
-lws_cache_item_remove(struct lws_cache_ttl_lru *cache, const char *wildcard_key);
+lws_cache_item_remove(struct lws_cache_ttl_lru *cache, const char *specific_key);
 
 /**
  * lws_cache_footprint() - query the amount of storage used by the cache layer
@@ -223,7 +262,9 @@ struct lws_cache_creation_info {
 	const char			*name;
 	/**< Mandatory: short cache name */
 	lws_cache_item_destroy_cb	cb;
-	/**< NULL, or a callback that can hook cache item destory */
+	/**< NULL, or a callback that can hook cache item destory.  It is
+	 * called with the cache lock held, so it must not call cache or sul
+	 * apis or take other locks */
 	struct lws_cache_ttl_lru	*parent;
 	/**< NULL, or next cache level */
 	const struct lws_cache_ops	*ops;
@@ -235,6 +276,10 @@ struct lws_cache_creation_info {
 			const char 	*filepath;
 			/**< the filepath to store items in */
 		} nscookiejar;
+		struct {
+			const char 	*dir;
+			/**< the directory to store the hashed blob files in */
+		} blob;
 	} u;
 	/**< these are extra configuration for specific cache types */
 
@@ -245,7 +290,12 @@ struct lws_cache_creation_info {
 	/**< 0, or the max number of items allowed in the cache before
 	 *   destroying lru items to keep it under the limit */
 	size_t				max_payload;
-	/**< 0, or the max allowed payload size for one item */
+	/**< 0, or the max allowed payload size for one item.  For
+	 *   lws_cache_ops_nscookiejar, max_footprint (bytes), max_items (lines)
+	 *   and max_payload (line length) of 0 mean the jar's own defaults
+	 *   (1MiB, 3000, 8192) rather than no limit, and a host may have at
+	 *   most 50 lines: the jar is rewritten on the event loop for each
+	 *   change, so it must stay bounded.  The oldest lines go first. */
 	int				tsi;
 	/**< 0 unless using SMP, then tsi to bind sul to */
 };
@@ -283,8 +333,9 @@ struct lws_cache_ops {
 	/**+ add keys for search_key matches not already listed in the results
 	 * owner */
 	int
-	(*invalidate)(struct lws_cache_ttl_lru *cache, const char *wildcard_key);
-	/**< remove matching item(s) from cache level */
+	(*invalidate)(struct lws_cache_ttl_lru *cache, const char *specific_key);
+	/**< remove the item with this key from cache level, matching the key
+	 * literally (not as a wildcard) */
 
 	int
 	(*get)(struct lws_cache_ttl_lru *cache, const char *specific_key,
@@ -341,8 +392,31 @@ lws_cache_destroy(struct lws_cache_ttl_lru **cache);
 LWS_VISIBLE LWS_EXTERN int
 lws_cache_expunge(struct lws_cache_ttl_lru *cache);
 
-LWS_VISIBLE extern const struct lws_cache_ops lws_cache_ops_heap,
-					      lws_cache_ops_nscookiejar;
+LWS_VISIBLE LWS_EXTERN_FOR_DATA const struct lws_cache_ops lws_cache_ops_heap;
+LWS_VISIBLE LWS_EXTERN_FOR_DATA const struct lws_cache_ops lws_cache_ops_nscookiejar;
+LWS_VISIBLE LWS_EXTERN_FOR_DATA const struct lws_cache_ops lws_cache_ops_blob;
+
+/**
+ * lws_cache_ops_blob - file-backed level for binary blobs
+ *
+ * This cache level stores each item as one file in the hashed directory
+ * layout walked by the lws_diskcache trimmer, at
+ * "<dir>/<h0>/<h1>/<sha1(key) hex>".  The file is a small header carrying the
+ * item expiry, followed by the payload bytes.  Items are looked up by hashing
+ * the key, so gets do not need any in-memory index of the directory.
+ *
+ * The level maintains itself with a sul on the event loop: each maintenance
+ * pass does a bounded amount of dir scanning, and when a full scan finds the
+ * cache over max_footprint, the oldest files are deleted a batch at a time
+ * until it is back under.  There is never a mass-deletion pass that could
+ * block the event loop.  Expired items are dropped from the store when
+ * encountered.
+ *
+ * Because item keys exist on disk only as hashes, it is not possible to
+ * enumerate keys matching a wildcard: lookup() always produces an empty
+ * result set and invalidate() can only remove specific keys given without
+ * wildcards.  write() requires the payload to be passed in \p source.
+ */
 
 ///@}
 

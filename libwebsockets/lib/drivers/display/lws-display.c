@@ -124,13 +124,32 @@ lws_display_state_active(lws_display_state_t *lds)
 				 waiting_ms * LWS_US_PER_MS);
 }
 
+lws_usec_t
+lws_display_anim_interval(const lws_display_t *disp, lws_usec_t want)
+{
+	lws_usec_t least;
+
+	if (!disp->anim_hz)
+		return disp->bistable ? 0 : want;
+
+	least = LWS_US_PER_SEC / disp->anim_hz;
+
+	return want > least ? want : least;
+}
+
 void
 lws_display_state_off(lws_display_state_t *lds)
 {
 	/* if no control over backlight, don't bother power down display
 	 * since it would continue to emit, just show all-white or whatever */
-	if (lds->bl_lcs)
+	if (lds->bl_lcs) {
+		/*
+		 * We may not have faded it out first, eg, if we are going
+		 * down: don't leave it emitting
+		 */
+		lws_display_state_set_brightness(lds, &lws_pwmseq_static_off);
 		lds->disp->power(lds, 0);
+	}
 	lws_sul_cancel(&lds->sul_autodim);
 	lds->state = LWSDISPS_OFF;
 }
@@ -147,7 +166,7 @@ lws_display_alloc_diffusion(const lws_surface_info_t *ic, lws_surface_error_t **
 	/* defer creation of dlo's 2px-high dlo-width, 2 bytespp or 6 bytespp
 	 * error diffusion buffer */
 
-	by = ((ic->wh_px[0].whole + 15) / 8) * 8;
+	by = (size_t)(((ic->wh_px[0].whole + 15) / 8) * 8);
 	size = gsize * 2u * (unsigned int)by;
 
 	lwsl_info("%s: alloc'd %u for width %d\n", __func__, (unsigned int)size,
@@ -301,8 +320,6 @@ lws_display_palettize_grey(const lws_surface_info_t *ic,
 
 	for (n = 0; n < pdepth; n++) {
 
-		y = LWSDC_ALPHA(palette[n]);
-
 		ea.rgb[0] = (int16_t)((int)da.rgb[0] - (int)(LWSDC_R(palette[n])));
 
 		sum = ea.rgb[0] < 0 ? -ea.rgb[0] : ea.rgb[0];
@@ -351,6 +368,14 @@ yuv_to_rgb(uint8_t *rgb, const uint8_t *_yuv)
 }
 #endif
 
+uint16_t
+lws_display_565(lws_display_colour_t c)
+{
+	return (uint16_t)(((gamma2_2[LWSDC_R(c)] >> 3) << 11) |
+			  ((gamma2_2[LWSDC_G(c)] >> 2) << 5) |
+			   (gamma2_2[LWSDC_B(c)] >> 3));
+}
+
 lws_display_palette_idx_t
 lws_display_palettize_col(const lws_surface_info_t *ic,
 			  const lws_display_colour_t *palette, size_t pdepth,
@@ -370,7 +395,6 @@ lws_display_palettize_col(const lws_surface_info_t *ic,
 		da.rgb[0] = 0;
 	if (da.rgb[0] > 255)
 		da.rgb[0] = 255;
-	yd = da.rgb[0];
 	d.rgb[1] = (int)gamma2_2[LWSDC_G(c)];
 	d.rgb[2] = (int)gamma2_2[LWSDC_B(c)];
 	da.rgb[1] = d.rgb[1] + ectx->rgb[1];
@@ -387,13 +411,14 @@ lws_display_palettize_col(const lws_surface_info_t *ic,
 	yd = RGB_TO_Y(da.rgb[0], da.rgb[1], da.rgb[2]);
 
 	if (ic->type == LWSSURF_565) {
-		ya[0] = d.rgb[0] >> 3;
+		ya[0] = (uint8_t)(d.rgb[0] >> 3);
 		ectx->rgb[0] = (int16_t)((int)da.rgb[0] - (ya[0] << 3));
-		ya[1] = d.rgb[1] >> 2;
+		ya[1] = (uint8_t)(d.rgb[1] >> 2);
 		ectx->rgb[1] = (int16_t)((int)da.rgb[1] - (ya[1] << 2));
-		ya[2] = d.rgb[2] >> 3;
+		ya[2] = (uint8_t)(d.rgb[2] >> 3);
 		ectx->rgb[2] = (int16_t)((int)da.rgb[2] - (ya[2] << 3));
 
+		/* the same as lws_display_565(c): the error isn't in it */
 		return (lws_display_palette_idx_t)((ya[0] << 11) | (ya[1] << 5) | (ya[2]));
 	}
 
@@ -406,7 +431,7 @@ lws_display_palettize_col(const lws_surface_info_t *ic,
 		lws_colour_error_t ea;
 		int sum;
 
-		y = LWSDC_ALPHA(palette[n]);
+		y = (int)LWSDC_ALPHA(palette[n]);
 
 		ea.rgb[0] = (int16_t)((int)da.rgb[0] - (int)(LWSDC_R(palette[n])));
 		ea.rgb[1] = (int16_t)((int)da.rgb[1] - (int)(LWSDC_G(palette[n])));

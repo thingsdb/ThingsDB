@@ -1,7 +1,7 @@
 /*
  * libwebsockets - small server side websockets and web server implementation
  *
- * Copyright (C) 2010 - 2021 Andy Green <andy@warmcat.com>
+ * Copyright (C) 2010 - 2026 Andy Green <andy@warmcat.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to
@@ -23,58 +23,83 @@
  */
 
 #include "private-lib-core.h"
+
+const char *mbedtls_client_preload_filepath;
 #include "private-lib-tls-mbedtls.h"
 
-#if defined(LWS_WITH_TLS_JIT_TRUST)
+extern int lws_plat_mbedtls_net_send(void *ctx, const unsigned char *buf, size_t len);
+extern int lws_plat_mbedtls_net_recv(void *ctx, unsigned char *buf, size_t len);
+
+#if defined(LWS_WITH_TLS_JIT_TRUST) && defined(LWS_HAVE_mbedtls_ssl_set_verify)
 
 /*
- * We get called for each peer certificate that was provided in turn.
+ * mbedtls calls this for each cert in the peer's chain as it verifies it.
  *
- * Our job is just to collect the AKID and SKIDs into ssl->kid_chain, and walk
- * later at verification result time if it failed.
- *
- * None of these should be trusted, even if a misconfigured server sends us
- * his root CA.
+ * Our job is just to collect the SKID and AKID of each into the wsi's
+ * kid_chain; if the verification result turns out to be "not trusted", the
+ * JIT trust code sorts them into a hierarchy and asks the system for the CA
+ * whose SKID the top of the chain names.  None of these certs are trusted
+ * by being seen here, even if a misconfigured server sends us its root.
  */
 
 static int
-lws_mbedtls_client_verify_callback(SSL *ssl, mbedtls_x509_crt *x509)
+lws_mbedtls_client_verify_cb(void *opaque, mbedtls_x509_crt *x509, int depth,
+			     uint32_t *flags)
 {
+	struct lws *wsi = (struct lws *)opaque;
+	lws_tls_kid_chain_t *ch = &wsi->io->tls.kid_chain;
 	union lws_tls_cert_info_results ci;
 
-	/* we reached the max we can hold? */
+	(void)depth;
+	(void)flags;
 
-	if (ssl->kid_chain.count == LWS_ARRAY_SIZE(ssl->kid_chain.akid))
+	if (ch->count == LWS_ARRAY_SIZE(ch->akid))
 		return 0;
 
-	/* if not, stash the SKID and AKID into the next kid slot */
+	/*
+	 * the len is the usable size of ci.ns.name[]; the backend rejects a
+	 * KID that does not fit in it
+	 */
 
 	if (!lws_tls_mbedtls_cert_info(x509, LWS_TLS_CERT_INFO_SUBJECT_KEY_ID,
-				       &ci, 0))
-		lws_tls_kid_copy(&ci,
-				 &ssl->kid_chain.skid[ssl->kid_chain.count]);
+				       &ci, sizeof(ci.ns.name)))
+		lws_tls_kid_copy(&ci, &ch->skid[ch->count]);
 
 	if (!lws_tls_mbedtls_cert_info(x509, LWS_TLS_CERT_INFO_AUTHORITY_KEY_ID,
-				       &ci, 0))
-		lws_tls_kid_copy(&ci,
-				 &ssl->kid_chain.akid[ssl->kid_chain.count]);
+				       &ci, sizeof(ci.ns.name)))
+		lws_tls_kid_copy(&ci, &ch->akid[ch->count]);
 
-	ssl->kid_chain.count++;
-
-	// lwsl_notice("%s: %u\n", __func__, ssl->kid_chain.count);
+	ch->count++;
 
 	return 0;
 }
 
+/*
+ * The verify callback's opaque is the wsi whose kid_chain it fills: set it at
+ * creation, and again when the conn moves to another wsi (keep-warm hand-off)
+ */
+void
+lws_mbedtls_client_set_verify(struct lws *wsi)
+{
+	mbedtls_ssl_set_verify(&wsi->io->tls.ssl->ssl,
+			       lws_mbedtls_client_verify_cb, wsi);
+}
 #endif
+
+int ERR_get_error(void)
+{
+	return 0;
+}
+
+
 
 int
 lws_ssl_client_bio_create(struct lws *wsi)
 {
-	char hostname[128], *p;
-	const char *alpn_comma = wsi->a.context->tls.alpn_default;
-	struct alpn_ctx protos;
-	int fl = SSL_VERIFY_PEER;
+	struct lws_tls_conn *conn;
+	char hostname[LWS_TLS_CLIENT_HOSTNAME_LEN];
+	char temp_alpn[128], alpn_filtered[128];
+	const char *alpn_comma = NULL;
 
 	if (wsi->stash)
 		lws_strncpy(hostname, wsi->stash->cis[CIS_HOST], sizeof(hostname));
@@ -82,177 +107,137 @@ lws_ssl_client_bio_create(struct lws *wsi)
 		if (lws_hdr_copy(wsi, hostname, sizeof(hostname),
 				_WSI_TOKEN_CLIENT_HOST) <= 0) {
 			lwsl_err("%s: Unable to get hostname\n", __func__);
-
 			return -1;
 		}
 
-	/*
-	 * remove any :port part on the hostname... necessary for network
-	 * connection but typical certificates do not contain it
-	 */
-	p = hostname;
-	while (*p) {
-		if (*p == ':') {
-			*p = '\0';
-			break;
-		}
-		p++;
-	}
+	/* remove any :port part on the hostname */
+	lws_tls_client_strip_port(hostname);
 
-	wsi->tls.ssl = SSL_new(wsi->a.vhost->tls.ssl_client_ctx);
-	if (!wsi->tls.ssl) {
-		lwsl_info("%s: SSL_new() failed\n", __func__);
+	conn = lws_zalloc(sizeof(*conn), "mbedtls client conn");
+	if (!conn) {
+		lwsl_info("%s: conn alloc failed\n", __func__);
 		return -1;
 	}
+
+	wsi->io->tls.ssl = (lws_tls_conn *)conn;
+	conn->wsi = wsi;
+	conn->ctx = wsi->a.vhost->tls.ssl_client_ctx;
+	if (!conn->ctx) {
+		lwsl_err("%s: vhost has no client tls ctx\n", __func__);
+		lws_free(conn);
+		wsi->io->tls.ssl = NULL;
+
+		return -1;
+	}
+
+	mbedtls_ssl_init(&conn->ssl);
+	mbedtls_net_init(&conn->net);
+
+	/*
+	 * Offer only the ALPN the connection asked for: its client connect
+	 * info's (as the openssl, openhitls and bearssl backends also do), or
+	 * its ALPN header.  The vhost or context default list names every
+	 * role in the build: offered by a raw or STARTTLS client (eg,
+	 * lws_smtpc), which asks for none, it let the server pick "h2" and
+	 * have lws set up h2 state on a connection that stays raw.
+	 */
+
+	if (wsi->role_ops && !strcmp(wsi->role_ops->name, "quic")) {
+		/*
+		 * QUIC only carries QUIC-mapped ALPNs (h3 family).  The
+		 * stash / vhost lists are the TCP ALPNs (eg, "h2,http/1.1"):
+		 * offering those on QUIC can get "h2" negotiated on top of
+		 * the UDP transport, where the h2 role can never make
+		 * progress.  For the alt-svc QUIC race, connect2 puts the
+		 * h3-only list in wsi->alpn (the TCP fallback restores the
+		 * original from there); native h3 streams also carry their
+		 * ALPN in wsi->alpn.
+		 */
+		alpn_comma = wsi->alpn[0] ? wsi->alpn : "h3";
+	} else
+	if (wsi->stash) {
+		alpn_comma = wsi->stash->cis[CIS_ALPN];
+	} else {
+		if (lws_hdr_copy(wsi, temp_alpn, sizeof(temp_alpn),
+				_WSI_TOKEN_CLIENT_ALPN) > 0)
+			alpn_comma = temp_alpn;
+	}
+
+	if (lws_tls_client_alpn_transport(wsi, &alpn_comma, alpn_filtered,
+					  sizeof(alpn_filtered))) {
+		mbedtls_ssl_free(&conn->ssl);
+		lws_free(conn);
+		wsi->io->tls.ssl = NULL;
+
+		return -1;
+	}
+
+	if (alpn_comma) {
+		lwsl_info("%s: %s: client conn sending ALPN list '%s'\n",
+			  __func__, lws_wsi_tag(wsi), alpn_comma);
+		/*
+		 * this is per-connection, it must not be written into the
+		 * vhost-shared client config
+		 */
+		lws_mbedtls_conn_set_alpn(conn, alpn_comma);
+	}
+
+	if (mbedtls_ssl_setup(&conn->ssl, conn->own_conf ? &conn->conf :
+							  &conn->ctx->conf)) {
+		lwsl_info("%s: mbedtls_ssl_setup failed\n", __func__);
+		mbedtls_ssl_free(&conn->ssl);
+		lws_free(conn);
+		wsi->io->tls.ssl = NULL;
+		return -1;
+	}
+
+#if defined(LWS_WITH_TLS_JIT_TRUST) && defined(LWS_HAVE_mbedtls_ssl_set_verify)
+	/*
+	 * Per-connection verify callback so we can capture the peer chain's
+	 * key identifiers for JIT trust; the vhost-shared conf cannot carry a
+	 * per-wsi opaque.  Start each connection with an empty chain.
+	 */
+	memset(&wsi->io->tls.kid_chain, 0, sizeof(wsi->io->tls.kid_chain));
+	lws_mbedtls_client_set_verify(wsi);
+#endif
 
 #if defined(LWS_WITH_TLS_SESSIONS)
 	if (!(wsi->a.vhost->options & LWS_SERVER_OPTION_DISABLE_TLS_SESSION_CACHE))
 		lws_tls_reuse_session(wsi);
 #endif
 
-	if (wsi->a.vhost->tls.ssl_info_event_mask)
-		SSL_set_info_callback(wsi->tls.ssl, lws_ssl_info_callback);
+	/*
+	 * mbedtls_ssl_set_hostname() gives both the SNI and the name the
+	 * server's cert is checked against.  The SNI tells the server which
+	 * of its vhosts we want, so it is sent whether or not the name is
+	 * checked, as the other backends do; when it isn't, the cert's name
+	 * mismatch is excused afterwards (lws_mbedtls_verify_result()).
+	 * RFC 6066 3 forbids a literal address in the SNI, so with nothing to
+	 * check, a literal isn't given at all.
+	 */
 
-	if (!(wsi->tls.use_ssl & LCCSCF_SKIP_SERVER_CERT_HOSTNAME_CHECK)) {
-		X509_VERIFY_PARAM *param = SSL_get0_param(wsi->tls.ssl);
-		/* Enable automatic hostname checks */
-	//	X509_VERIFY_PARAM_set_hostflags(param,
-	//				X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS);
+	if (!(wsi->use_ssl & LCCSCF_SKIP_SERVER_CERT_HOSTNAME_CHECK) ||
+	    !lws_tls_client_host_is_literal(hostname)) {
 		lwsl_info("%s: setting hostname %s\n", __func__, hostname);
-		if (X509_VERIFY_PARAM_set1_host(param, hostname, 0) != 1)
+		if (mbedtls_ssl_set_hostname(&conn->ssl, hostname))
 			return -1;
 	}
 
-	if (wsi->a.vhost->tls.alpn)
-		alpn_comma = wsi->a.vhost->tls.alpn;
+	conn->net.MBEDTLS_PRIVATE_V30_ONLY(fd) = (int)wsi->io->desc.sockfd;
+	mbedtls_ssl_set_bio(&conn->ssl, &conn->net, lws_plat_mbedtls_net_send, lws_plat_mbedtls_net_recv, NULL);
 
-	if (wsi->stash) {
-		lws_strncpy(hostname, wsi->stash->cis[CIS_HOST],
-				sizeof(hostname));
-		if (wsi->stash->cis[CIS_ALPN])
-			alpn_comma = wsi->stash->cis[CIS_ALPN];
-	} else {
-		if (lws_hdr_copy(wsi, hostname, sizeof(hostname),
-				_WSI_TOKEN_CLIENT_ALPN) > 0)
-			alpn_comma = hostname;
-	}
-
-	protos.len = (uint8_t)lws_alpn_comma_to_openssl(alpn_comma, protos.data,
-					       sizeof(protos.data) - 1);
-
-	lwsl_info("%s: %s: client conn sending ALPN list '%s' (protos.len %d)\n",
-		  __func__, lws_wsi_tag(wsi), alpn_comma, protos.len);
-
-	/* with mbedtls, protos is not pointed to after exit from this call */
-	SSL_set_alpn_select_cb(wsi->tls.ssl, &protos);
-
-	if (wsi->flags & LCCSCF_ALLOW_SELFSIGNED) {
-		lwsl_notice("%s: allowing selfsigned\n", __func__);
-		fl = SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
-	}
-
-	if (wsi->flags & LCCSCF_ALLOW_INSECURE)
-		fl = SSL_VERIFY_NONE;
-
-	/*
-	 * use server name indication (SNI), if supported,
-	 * when establishing connection
-	 */
-#if defined(LWS_WITH_TLS_JIT_TRUST)
-	SSL_set_verify(wsi->tls.ssl, SSL_VERIFY_PEER,
-			lws_mbedtls_client_verify_callback);
-	(void)fl;
-#else
-	SSL_set_verify(wsi->tls.ssl, fl, NULL);
-#endif
-
-	SSL_set_fd(wsi->tls.ssl, (int)wsi->desc.sockfd);
-
-	if (wsi->sys_tls_client_cert) {
-		lws_system_blob_t *b = lws_system_get_blob(wsi->a.context,
-					LWS_SYSBLOB_TYPE_CLIENT_CERT_DER,
-					wsi->sys_tls_client_cert - 1);
-		const uint8_t *pem_data = NULL;
-		uint8_t *data = NULL;
-		lws_filepos_t flen;
-		size_t size;
-		int err = 0;
-
-		if (!b)
-			goto no_client_cert;
-
-		/*
-		 * Set up the per-connection client cert
-		 */
-
-		size = lws_system_blob_get_size(b);
-		if (!size)
-			goto no_client_cert;
-
-		if (lws_system_blob_get_single_ptr(b, &pem_data))
-			goto no_client_cert;
-
-		if (lws_tls_alloc_pem_to_der_file(wsi->a.context, NULL,
-						  (const char *)pem_data, size,
-						  &data, &flen))
-			goto no_client_cert;
-		size = (size_t) flen;
-
-		err = SSL_use_certificate_ASN1(wsi->tls.ssl, data, (int)size);
-		lws_free_set_NULL(data);
-		if (err != 1)
-			goto no_client_cert;
-
-		b = lws_system_get_blob(wsi->a.context,
-					LWS_SYSBLOB_TYPE_CLIENT_KEY_DER,
-					wsi->sys_tls_client_cert - 1);
-		if (!b)
-			goto no_client_cert;
-		size = lws_system_blob_get_size(b);
-		if (!size)
-			goto no_client_cert;
-
-		if (lws_system_blob_get_single_ptr(b, &pem_data))
-			goto no_client_cert;
-
-		if (lws_tls_alloc_pem_to_der_file(wsi->a.context, NULL,
-						  (const char *)pem_data, size,
-						  &data, &flen))
-			goto no_client_cert;
-		size = (size_t) flen;
-
-		err = SSL_use_PrivateKey_ASN1(0, wsi->tls.ssl, data, (int)size);
-		lws_free_set_NULL(data);
-		if (err != 1)
-			goto no_client_cert;
-
-		/* no wrapper api for check key */
-
-		lwsl_notice("%s: set system client cert %u\n", __func__,
-				wsi->sys_tls_client_cert - 1);
-	}
-
-	return 0;
-
-no_client_cert:
-	lwsl_err("%s: unable to set up system client cert %d\n", __func__,
-			wsi->sys_tls_client_cert - 1);
-
-	return 1;
-}
-
-int ERR_get_error(void)
-{
 	return 0;
 }
 
+#if defined(LWS_WITH_TCP_TLS)
 enum lws_ssl_capable_status
 lws_tls_client_connect(struct lws *wsi, char *errbuf, size_t elen)
 {
-	int m, n = SSL_connect(wsi->tls.ssl), en;
+	int n, en;
 
-	if (n == 1) {
-		lws_tls_server_conn_alpn(wsi);
+	n = mbedtls_ssl_handshake(&wsi->io->tls.ssl->ssl);
+
+	if (n == 0) {
 #if defined(LWS_WITH_TLS_SESSIONS)
 		lws_tls_session_new_mbedtls(wsi);
 #endif
@@ -261,22 +246,19 @@ lws_tls_client_connect(struct lws *wsi, char *errbuf, size_t elen)
 	}
 
 	en = (int)LWS_ERRNO;
-	m = SSL_get_error(wsi->tls.ssl, n);
 
-	if (m == SSL_ERROR_WANT_READ || SSL_want_read(wsi->tls.ssl))
+	if (n == MBEDTLS_ERR_SSL_WANT_READ)
 		return LWS_SSL_CAPABLE_MORE_SERVICE_READ;
 
-	if (m == SSL_ERROR_WANT_WRITE || SSL_want_write(wsi->tls.ssl))
+#if defined(MBEDTLS_ERR_SSL_RECEIVED_NEW_SESSION_TICKET)
+	if (n == MBEDTLS_ERR_SSL_RECEIVED_NEW_SESSION_TICKET)
+		return LWS_SSL_CAPABLE_MORE_SERVICE_READ;
+#endif
+
+	if (n == MBEDTLS_ERR_SSL_WANT_WRITE)
 		return LWS_SSL_CAPABLE_MORE_SERVICE_WRITE;
 
-	if (!n) /* we don't know what he wants, but he says to retry */
-		return LWS_SSL_CAPABLE_MORE_SERVICE;
-
-	if (m == SSL_ERROR_SYSCALL && !en && n >= 0) /* otherwise we miss explicit failures and spin
-						      * in hs state 17 until timeout... */
-		return LWS_SSL_CAPABLE_MORE_SERVICE;
-
-	lws_snprintf(errbuf, elen, "mbedtls connect %d %d %d", n, m, en);
+	lws_snprintf(errbuf, elen, "mbedtls connect err %d %d", n, en);
 
 	return LWS_SSL_CAPABLE_ERROR;
 }
@@ -284,84 +266,50 @@ lws_tls_client_connect(struct lws *wsi, char *errbuf, size_t elen)
 int
 lws_tls_client_confirm_peer_cert(struct lws *wsi, char *ebuf, size_t ebuf_len)
 {
-	int n;
-	unsigned int avoid = 0;
-	X509 *peer = SSL_get_peer_certificate(wsi->tls.ssl);
-	struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
-	const char *type = "";
-	char *sb = (char *)&pt->serv_buf[0];
+	uint32_t flags;
 
-	if (!peer) {
-#if defined(LWS_WITH_SYS_METRICS)
-		lws_metrics_hist_bump_describe_wsi(wsi, lws_metrics_priv_to_pub(
-					wsi->a.context->mth_conn_failures),
-						   "tls=\"nocert\"");
+	if (!wsi->io->tls.ssl)
+		return -1;
+
+	flags = lws_mbedtls_verify_result(wsi);
+	if (flags == 0)
+		return 0;
+
+	/*
+	 * "self-signed is OK" is only about chain trust... it must not also
+	 * excuse BADCERT_BAD_MD ("signed with a hash the profile rejects",
+	 * eg MD5 / SHA-1), which is an independent property.  The openssl
+	 * backend maps this flag only to the three self-signed / invalid-CA
+	 * errors and never relaxes the signature algorithm check.
+	 */
+
+	if (wsi->use_ssl & LCCSCF_ALLOW_SELFSIGNED)
+		flags &= ~(uint32_t)MBEDTLS_X509_BADCERT_NOT_TRUSTED;
+
+	if (wsi->use_ssl & LCCSCF_ALLOW_EXPIRED)
+		flags &= ~((uint32_t)MBEDTLS_X509_BADCERT_EXPIRED | (uint32_t)MBEDTLS_X509_BADCERT_FUTURE);
+	if (wsi->use_ssl & LCCSCF_ALLOW_INSECURE)
+		flags = 0;
+
+	if (flags != 0) {
+		mbedtls_x509_crt_verify_info(ebuf, ebuf_len, "  ! ", flags);
+		lwsl_info("%s: cert problem: %s\n", __func__, ebuf);
+#if defined(LWS_WITH_TLS_JIT_TRUST)
+		/*
+		 * We did not have the CA to validate the chain.  Hand the key
+		 * identifiers collected during the handshake to JIT trust,
+		 * which asks the system for the CA and, if it gets it, makes
+		 * a vhost trusting it for the retry.
+		 */
+		if (flags & MBEDTLS_X509_BADCERT_NOT_TRUSTED)
+			lws_tls_jit_trust_sort_kids(wsi, &wsi->io->tls.kid_chain);
 #endif
-		lwsl_info("peer did not provide cert\n");
-		lws_snprintf(ebuf, ebuf_len, "no peer cert");
-
 		return -1;
 	}
 
-	n = (int)SSL_get_verify_result(wsi->tls.ssl);
-	lwsl_debug("get_verify says %d\n", n);
-
-	switch (n) {
-	case X509_V_OK:
-		return 0;
-
-	case X509_V_ERR_HOSTNAME_MISMATCH:
-		type = "hostname";
-		avoid = LCCSCF_SKIP_SERVER_CERT_HOSTNAME_CHECK;
-		break;
-
-	case X509_V_ERR_INVALID_CA:
-		type = "invalidca";
-		avoid = LCCSCF_ALLOW_SELFSIGNED;
-		break;
-
-	case X509_V_ERR_CERT_NOT_YET_VALID:
-		type = "notyetvalid";
-		avoid = LCCSCF_ALLOW_EXPIRED;
-		break;
-
-	case X509_V_ERR_CERT_HAS_EXPIRED:
-		type = "expired";
-		avoid = LCCSCF_ALLOW_EXPIRED;
-		break;
-	}
-
-	lwsl_info("%s: cert problem: %s\n", __func__, type);
-#if defined(LWS_WITH_SYS_METRICS)
-	{
-		char buckname[64];
-		lws_snprintf(buckname, sizeof(buckname), "tls=\"%s\"", type);
-		lws_metrics_hist_bump_describe_wsi(wsi,
-		     lws_metrics_priv_to_pub(wsi->a.context->mth_conn_failures),
-			      buckname);
-	}
-#endif
-	if (wsi->tls.use_ssl & avoid) {
-		lwsl_info("%s: allowing anyway\n", __func__);
-
-		return 0;
-	}
-
-#if defined(LWS_WITH_TLS_JIT_TRUST)
-	if (n == X509_V_ERR_INVALID_CA)
-	    lws_tls_jit_trust_sort_kids(wsi, &wsi->tls.ssl->kid_chain);
-#endif
-	lws_snprintf(ebuf, ebuf_len,
-		"server's cert didn't look good, %s (use_ssl 0x%x) X509_V_ERR = %d: %s\n",
-		type, (unsigned int)wsi->tls.use_ssl, n,
-		ERR_error_string((unsigned long)n, sb));
-
-	lwsl_info("%s\n", ebuf);
-
-	lws_tls_err_describe_clear();
-
-	return -1;
+	return 0;
 }
+#endif
 
 int
 lws_tls_client_create_vhost_context(struct lws_vhost *vh,
@@ -378,9 +326,7 @@ lws_tls_client_create_vhost_context(struct lws_vhost *vh,
 					unsigned int key_mem_len
 					)
 {
-	X509 *d2i_X509(X509 **cert, const unsigned char **buffer, long len);
-	SSL_METHOD *method = (SSL_METHOD *)TLS_client_method();
-	unsigned long error;
+	struct lws_tls_ctx *ctx;
 	int n;
 
 #if defined(LWS_WITH_TLS_SESSIONS)
@@ -389,142 +335,135 @@ lws_tls_client_create_vhost_context(struct lws_vhost *vh,
 	lws_tls_session_cache(vh, info->tls_session_timeout);
 #endif
 
-	if (!method) {
-		error = (unsigned long)ERR_get_error();
-		lwsl_err("problem creating ssl method %lu: %s\n",
-			error, ERR_error_string(error,
-				      (char *)vh->context->pt[0].serv_buf));
+	ctx = lws_zalloc(sizeof(*ctx), "mbedtls client ctx");
+	if (!ctx)
 		return 1;
-	}
-	/* create context */
-	vh->tls.ssl_client_ctx = SSL_CTX_new(method, &vh->context->mcdc);
-	if (!vh->tls.ssl_client_ctx) {
-		error = (unsigned long)ERR_get_error();
-		lwsl_err("problem creating ssl context %lu: %s\n",
-			error, ERR_error_string(error,
-				      (char *)vh->context->pt[0].serv_buf));
-		return 1;
-	}
 
-	if (!ca_filepath && (!ca_mem || !ca_mem_len))
-		return 0;
+	vh->tls.ssl_client_ctx = ctx;
 
-	if (ca_filepath) {
-#if !defined(LWS_PLAT_OPTEE)
-		uint8_t *buf;
-		lws_filepos_t len;
+	mbedtls_ssl_config_init(&ctx->conf);
 
-		if (alloc_file(vh->context, ca_filepath, &buf, &len)) {
-			lwsl_err("Load CA cert file %s failed\n", ca_filepath);
-			return 1;
-		}
-		vh->tls.x509_client_CA = d2i_X509(NULL, (const uint8_t **)&buf, (long)len);
-		free(buf);
-
-		lwsl_info("Loading vh %s client CA for verification %s\n", vh->name, ca_filepath);
-#endif
-	} else {
-		vh->tls.x509_client_CA = d2i_X509(NULL, (const uint8_t **)&ca_mem, (long)ca_mem_len);
-		lwsl_info("%s: using mem client CA cert %d\n",
-			    __func__, ca_mem_len);
-	}
-
-	if (!vh->tls.x509_client_CA) {
-		lwsl_err("client CA: x509 parse failed\n");
+	if (mbedtls_ssl_config_defaults(&ctx->conf,
+					MBEDTLS_SSL_IS_CLIENT,
+					MBEDTLS_SSL_TRANSPORT_STREAM,
+					MBEDTLS_SSL_PRESET_DEFAULT)) {
+		lwsl_err("mbedtls_ssl_config_defaults failed\n");
 		return 1;
 	}
 
-	if (!vh->tls.ssl_ctx)
-		SSL_CTX_add_client_CA(vh->tls.ssl_client_ctx, vh->tls.x509_client_CA);
-	else
-		SSL_CTX_add_client_CA(vh->tls.ssl_ctx, vh->tls.x509_client_CA);
+	/* TLS 1.2 floor + no peer-initiated renegotiation, see C-406.  The
+	 * override is info.ssl_client_options_clear */
+	lws_mbedtls_conf_floor(&ctx->conf, info ?
+				(long)info->ssl_client_options_clear : 0);
 
-	/* support for client-side certificate authentication */
-	if (cert_filepath) {
-#if !defined(LWS_PLAT_OPTEE)
-		uint8_t *buf;
-		lws_filepos_t amount;
+	mbedtls_ssl_conf_authmode(&ctx->conf, MBEDTLS_SSL_VERIFY_OPTIONAL);
 
-		if (lws_tls_use_any_upgrade_check_extant(cert_filepath) !=
-				LWS_TLS_EXTANT_YES &&
-		    (info->options & LWS_SERVER_OPTION_IGNORE_MISSING_CERT))
-			return 0;
+	/*
+	 * Map the configured cipher list (OpenSSL, IANA or mbedtls spelling)
+	 * to mbedtls ciphersuite ids and apply it... an entry that maps to
+	 * nothing fails the vhost, rather than leaving the caller believing a
+	 * restriction is in force when it is not
+	 */
 
-		lwsl_notice("%s: doing cert filepath %s\n", __func__,
-				cert_filepath);
+	if (lws_mbedtls_conf_ciphers(ctx, vh->name,
+				     info ? info->client_tls_ciphers_iana : NULL,
+				     cipher_list,
+				     info ? info->client_tls_1_3_plus_cipher_list :
+					    NULL))
+		return 1;
 
-		if (alloc_file(vh->context, cert_filepath, &buf, &amount))
-			return 1;
-
-		buf[amount++] = '\0';
-
-		n = SSL_CTX_use_certificate_ASN1(vh->tls.ssl_client_ctx,
-				(int)amount, buf);
-		lws_free(buf);
-		if (n < 1) {
-			lwsl_err("problem %d getting cert '%s'\n", n,
-				 cert_filepath);
-			lws_tls_err_describe_clear();
-			return 1;
-		}
-
-		lwsl_info("Loaded client cert %s\n", cert_filepath);
+#if !defined(LWS_HAVE_MBEDTLS_V4)
+	mbedtls_ssl_conf_rng(&ctx->conf, lws_gencrypto_mbedtls_rngf, vh->context);
 #endif
-	} else if (cert_mem && cert_mem_len) {
-		/* lwsl_hexdump_notice(cert_mem, cert_mem_len - 1); */
-		n = SSL_CTX_use_certificate_ASN1(vh->tls.ssl_client_ctx,
-						 (int)cert_mem_len, cert_mem);
-		if (n < 1) {
-			lwsl_err("%s: (mbedtls) problem interpreting client cert\n",
-				 __func__);
-			lws_tls_err_describe_clear();
+
+	if (ca_filepath || mbedtls_client_preload_filepath) {
+#if !defined(LWS_PLAT_OPTEE)
+		ctx->ca_chain = lws_zalloc(sizeof(*ctx->ca_chain), "ca_chain");
+		if (!ctx->ca_chain)
+			return 1;
+		mbedtls_x509_crt_init(ctx->ca_chain);
+
+		if (ca_filepath) {
+			n = mbedtls_x509_crt_parse_file(ctx->ca_chain, ca_filepath);
+			if (n != 0) {
+				lwsl_err("problem interpreting client ca: %d\n", n);
+				return 1;
+			}
+		}
+
+		if (mbedtls_client_preload_filepath) {
+			n = mbedtls_x509_crt_parse_file(ctx->ca_chain, mbedtls_client_preload_filepath);
+			if (n != 0) {
+				lwsl_err("problem interpreting preload client ca: %d\n", n);
+			}
+		}
+#endif
+		mbedtls_ssl_conf_ca_chain(&ctx->conf, ctx->ca_chain, NULL);
+	} else if (ca_mem && ca_mem_len) {
+		ctx->ca_chain = lws_zalloc(sizeof(*ctx->ca_chain), "ca_chain");
+		if (!ctx->ca_chain)
+			return 1;
+		mbedtls_x509_crt_init(ctx->ca_chain);
+		n = lws_mbedtls_x509_crt_parse_mem(ctx->ca_chain, ca_mem,
+						   ca_mem_len);
+		if (n != 0) {
+			lwsl_err("client CA: x509 parse failed: %d\n", n);
 			return 1;
 		}
-		lwsl_info("%s: using mem client cert %d\n",
-			    __func__, cert_mem_len);
+		mbedtls_ssl_conf_ca_chain(&ctx->conf, ctx->ca_chain, NULL);
+		lwsl_info("%s: using mem client CA cert %d\n", __func__, ca_mem_len);
 	}
 
-	if (private_key_filepath) {
+	if (cert_filepath || (cert_mem && cert_mem_len)) {
+		ctx->chain = lws_zalloc(sizeof(*ctx->chain), "chain");
+		ctx->key = lws_zalloc(sizeof(*ctx->key), "key");
+		if (!ctx->chain || !ctx->key)
+			return 1;
+
+		mbedtls_x509_crt_init(ctx->chain);
+		mbedtls_pk_init(ctx->key);
+
+		if (cert_filepath) {
 #if !defined(LWS_PLAT_OPTEE)
-
-		uint8_t *buf;
-		lws_filepos_t amount;
-
-		lwsl_notice("%s: doing private key filepath %s\n", __func__,
-				private_key_filepath);
-		if (alloc_file(vh->context, private_key_filepath, &buf, &amount))
-			return 1;
-
-		buf[amount++] = '\0';
-
-		n = SSL_CTX_use_PrivateKey_ASN1(0, vh->tls.ssl_client_ctx,
-				buf, (long)amount);
-
-		lws_free(buf);
-		if (n < 1) {
-			lwsl_err("problem %d getting private key '%s'\n", n,
-				 private_key_filepath);
-			lws_tls_err_describe_clear();
-			return 1;
-		}
-
-		lwsl_notice("Loaded private key %s\n", private_key_filepath);
+			n = mbedtls_x509_crt_parse_file(ctx->chain, cert_filepath);
+			if (n != 0) {
+				lwsl_err("problem %d getting cert '%s'\n", n, cert_filepath);
+				return 1;
+			}
 #endif
-	} else if (key_mem && key_mem_len) {
-		/* lwsl_hexdump_notice(cert_mem, cert_mem_len - 1); */
-		n = SSL_CTX_use_PrivateKey_ASN1(0, vh->tls.ssl_client_ctx,
-				key_mem, (long)key_mem_len - 1);
-
-		if (n < 1) {
-			lwsl_err("%s: (mbedtls) problem interpreting private key\n",
-				 __func__);
-			lws_tls_err_describe_clear();
-			return 1;
+		} else {
+			n = lws_mbedtls_x509_crt_parse_mem(ctx->chain, cert_mem,
+							   cert_mem_len);
+			if (n != 0) {
+				lwsl_err("problem interpreting client cert: %d\n", n);
+				return 1;
+			}
 		}
-		lwsl_info("%s: using mem private key %d\n",
-			    __func__, key_mem_len);
 
+		if (private_key_filepath) {
+#if !defined(LWS_PLAT_OPTEE)
+#if defined(MBEDTLS_VERSION_NUMBER) && MBEDTLS_VERSION_NUMBER >= 0x03000000 && !defined(LWS_HAVE_MBEDTLS_V4)
+			n = mbedtls_pk_parse_keyfile(ctx->key, private_key_filepath, NULL, lws_gencrypto_mbedtls_rngf, vh->context);
+#else
+			n = mbedtls_pk_parse_keyfile(ctx->key, private_key_filepath, NULL);
+#endif
+			if (n != 0) {
+				lwsl_err("problem %d getting private key '%s'\n", n, private_key_filepath);
+				return 1;
+			}
+#endif
+		} else if (key_mem && key_mem_len) {
+			n = lws_mbedtls_pk_parse_key_mem(vh->context, ctx->key,
+							 key_mem, key_mem_len);
+			if (n != 0) {
+				lwsl_err("problem interpreting private key: %d\n", n);
+				return 1;
+			}
+		}
+
+		mbedtls_ssl_conf_own_cert(&ctx->conf, ctx->chain, ctx->key);
 	}
+
 	return 0;
 }
 
@@ -532,11 +471,25 @@ int
 lws_tls_client_vhost_extra_cert_mem(struct lws_vhost *vh,
                 const uint8_t *der, size_t der_len)
 {
-	if (SSL_CTX_add_client_CA_ASN1(vh->tls.ssl_client_ctx, (int)der_len, der) != 1) {
-		lwsl_err("%s: failed\n", __func__);
+	struct lws_tls_ctx *ctx = vh->tls.ssl_client_ctx;
+	int n;
+
+	if (!ctx)
+		return 1;
+
+	if (!ctx->ca_chain) {
+		ctx->ca_chain = lws_zalloc(sizeof(*ctx->ca_chain), "ca_chain");
+		if (!ctx->ca_chain)
 			return 1;
+		mbedtls_x509_crt_init(ctx->ca_chain);
+		mbedtls_ssl_conf_ca_chain(&ctx->conf, ctx->ca_chain, NULL);
+	}
+
+	n = mbedtls_x509_crt_parse_der(ctx->ca_chain, der, der_len);
+	if (n != 0) {
+		lwsl_err("%s: failed: %d\n", __func__, n);
+		return 1;
 	}
 
 	return 0;
 }
-

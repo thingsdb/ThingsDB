@@ -47,6 +47,22 @@ typedef enum {
 	SSSEQ_CONNECTED,
 } lws_ss_seq_state_t;
 
+/*
+ * Where the client's incoming multipart parser is in the response body.  The
+ * delimiter is matched against u.http.boundary, which is CRLF--boundary, in
+ * the PREAMBLE and PART states.
+ */
+
+enum lws_ss_multipart_state {
+	LWSSS_MP_PREAMBLE,	/* before the first delimiter, discarded */
+	LWSSS_MP_PART,		/* inside a part, issued to the app */
+	LWSSS_MP_TAIL,		/* matched a delimiter, what follows it? */
+	LWSSS_MP_TAIL_DASH,	/* seen one '-' after the delimiter */
+	LWSSS_MP_TAIL_LWSP,	/* transport padding before the CRLF */
+	LWSSS_MP_TAIL_CR,	/* seen the CR of the delimiter line CRLF */
+	LWSSS_MP_EPILOGUE,	/* after the close delimiter, discarded */
+};
+
 struct lws_sss_proxy_conn;
 
 /**
@@ -77,6 +93,12 @@ typedef struct lws_ss_handle {
 	const lws_ss_policy_t	*policy;  /**< system policy for stream */
 
 	struct lws		*wsi;	  /**< the stream wsi if any */
+	/*
+	 * Why the last connection ended, kept from its wsi when it went: see
+	 * lws_ss_close_cause()
+	 */
+	const char		*close_cause;
+	int			close_cause_arg;
 
 	struct lws_sss_proxy_conn *conn_if_sspc_onw;
 
@@ -115,34 +137,39 @@ typedef struct lws_ss_handle {
 
 			/* common to all http-related protocols */
 
-			/* incoming multipart parsing */
+			/*
+			 * incoming multipart parsing, reset at the start of
+			 * each response
+			 */
 
-			char boundary[24];	/* --boundary from headers */
-			uint8_t boundary_len;	/* length of --boundary */
+			char boundary[24];	/* CRLF--boundary from headers */
+			uint8_t boundary_len;	/* length of CRLF--boundary */
 			uint8_t boundary_seq;	/* current match amount */
-			uint8_t boundary_dashes; /* check for -- after */
-			uint8_t boundary_post; /* swallow post CRLF */
+			uint8_t mp_state;	/* enum lws_ss_multipart_state */
 
-			uint8_t som:1;	/* SOM has been sent */
-			uint8_t eom:1;  /* EOM has been sent */
-			uint8_t any:1;	/* any content has been sent */
+			uint8_t som:1;	/* SOM sent for the current part */
 
 
 			uint8_t good_respcode:1; /* 200 type response code */
 
 			union {
 				struct { /* LWSSSP_H1 */
-#if defined(WIN32)
+#if defined(WIN32) || defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
 					uint8_t dummy;
 #endif
 				} h1;
 				struct { /* LWSSSP_H2 */
-#if defined(WIN32)
+#if defined(WIN32) || defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
 					uint8_t dummy;
 #endif
 				} h2;
+				struct { /* LWSSSP_H3 */
+#if defined(WIN32) || defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
+					uint8_t dummy;
+#endif
+				} h3;
 				struct { /* LWSSSP_WS */
-#if defined(WIN32)
+#if defined(WIN32) || defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
 					uint8_t dummy;
 #endif
 				} ws;
@@ -164,6 +191,8 @@ typedef struct lws_ss_handle {
 			uint32_t			unacked_size;
 			uint8_t				retry_count;
 			uint8_t				send_unacked:1;
+			/* a WRITEABLE waited for the stream's ack */
+			uint8_t				tx_deferred:1;
 		} mqtt;
 #endif
 #if defined(LWS_WITH_SYS_SMD)
@@ -198,6 +227,7 @@ typedef struct lws_ss_handle {
 
 	uint8_t			txn_resp_set:1; /**< user code set one */
 	uint8_t			txn_resp_pending:1; /**< we have yet to send */
+	uint8_t			txn_n_acked:1; /** < set if we did NACK or ACK */
 	uint8_t			hanging_som:1;
 	uint8_t			inside_msg:1;
 	uint8_t			being_serialized:1; /* we are not the consumer */
@@ -207,6 +237,10 @@ typedef struct lws_ss_handle {
 	uint8_t			inside_connect:1; /* set if we are currently
 						   * creating the onward
 						   * connect */
+	uint8_t			destroy_pending:1; /* the user code gave up
+						    * on us inside the connect
+						    * call, we are destroyed
+						    * once it returns */
 } lws_ss_handle_t;
 
 /* connection helper that doesn't need to hang around after connection starts */
@@ -215,7 +249,7 @@ union lws_ss_contemp {
 #if defined(LWS_ROLE_MQTT)
 	lws_mqtt_client_connect_param_t ccp;
 #else
-#if defined(WIN32)
+#if defined(WIN32) || defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
 	uint8_t	dummy;
 #endif
 #endif
@@ -305,18 +339,33 @@ typedef enum {
 	RPAR_ORD0,
 } rx_parser_t;
 
+/*
+ * LWS_SS_SER_STREAMTYPE_MAX_LEN is defined in
+ * lws-secure-streams-client.h: the streamtype[] size here must follow it
+ */
+
 struct lws_ss_serialization_parser {
-	char			streamtype[32];
+	char			streamtype[LWS_SS_SER_STREAMTYPE_MAX_LEN + 1];
 	char			rideshare[32];
 	char			metadata_name[32];
 
 	uint64_t		ust_pwait;
 
-	lws_ss_metadata_t	*ssmd;
+	/*
+	 * proxy: a client metadata value being received, staged here until
+	 * all of it has arrived and it can be installed on the onward handle
+	 */
+	uint8_t			*mdstage;
+	/*
+	 * client: an rx metadata entry being received, staged here until all
+	 * of its value has arrived and it can be listed on the handle
+	 */
+	struct lws_sspc_metadata *rxmd;
+	/* client: where the next byte of that value goes */
 	uint8_t			*rxmetaval;
 
 	int			ps;
-	int			ctr;
+	lws_ss_constate_t	ctr;
 
 	uint32_t		usd_phandling;
 	uint32_t		flags;
@@ -393,6 +442,13 @@ typedef struct lws_sspc_handle {
 
 	lws_dll2_owner_t	metadata_owner;
 	lws_dll2_owner_t	metadata_owner_rx;
+	lws_dll2_owner_t	metadata_owner_synced;
+	/*
+	 * The last value of each named metadata that was sent to the proxy.
+	 * If the proxy link is lost, the proxy side stream goes with it, and
+	 * these are requeued to recreate its metadata on the new link, since
+	 * the user code only sees CREATING (where it may set them) once.
+	 */
 
 	struct lws_dll2		client_list;
 	struct lws_tx_credit	txc;
@@ -412,6 +468,7 @@ typedef struct lws_sspc_handle {
 
 	lws_usec_t		us_earliest_write_req;
 	lws_usec_t		us_start_upstream;
+	lws_usec_t		us_timeout_set;
 
 	unsigned long		writeable_len;
 
@@ -434,9 +491,29 @@ typedef struct lws_sspc_handle {
 	uint8_t			pending_timeout_update:1;
 	uint8_t			pending_writeable_len:1;
 	uint8_t			creating_cb_done:1;
+	/**< user code has seen CREATING, it only ever sees it once per handle
+	 * even if the proxy link is lost and the proxy side stream recreated */
 	uint8_t			ss_dangling_connected:1;
+	uint8_t			timeout_armed:1;
+	/**< user timeout is set and has not fired or been cancelled yet */
+	uint8_t			onward_wanted:1;
+	/**< the stream should be trying to have an onward connection, so a
+	 * recreated proxy side stream must be asked to connect again */
+	uint8_t			destroy_pending:1;
+	/**< user code returned DESTROY_ME for a link retry, the handle is
+	 * destroyed from sul_retry when nothing else is using it */
 } lws_sspc_handle_t;
 
+/*
+ * Policy parsing builds one singly-linked chain per object type via
+ * jpargs .heads[] / .curr[] (union u below), so named objects can be
+ * looked up while later parts of the JSON are still parsing.  This is a
+ * deliberate hand-rolled arrangement, not an lws_dll2 conversion
+ * candidate: it is single-threaded parse-time state with no
+ * mutation-during-walk (the walks only run between object allocations),
+ * and the listed structs are also used for compiled-in policies where
+ * extra dll2 members would bloat them on size-constrained targets.
+ */
 typedef struct backoffs {
 	struct backoffs *next;
 	const char *name;
@@ -464,6 +541,14 @@ enum {
 };
 
 
+/*
+ * How many external auth blob slots (LWS_SYSBLOB_TYPE_EXT_AUTHn) a policy
+ * "auth" object's .blob_index may select between... see blob_idx[] in
+ * secure-streams/system/auth-sigv4/sign.c
+ */
+
+#define LWS_SS_POLICY_AUTH_BLOB_SLOTS 4
+
 struct policy_cb_args {
 	struct lejp_ctx jctx;
 	struct lws_context *context;
@@ -482,12 +567,52 @@ struct policy_cb_args {
 
 	uint8_t *p;
 
+	/*
+	 * for a non-overlay parse, the policy list that was in force when we
+	 * started, so we can put it back if the new one does not parse
+	 */
+	const lws_ss_policy_t *prev_pss_policies;
+	/*
+	 * context->server_der_list as it was when we started.  Server certs
+	 * this parse keeps are added in front of it, so everything before
+	 * it on the list is ours, and it and everything after belongs to
+	 * the policy that was in force.
+	 */
+	lws_ss_x509_t *prev_server_der_list;
+
+	/*
+	 * A metadata value longer than a lejp string chunk arrives in pieces;
+	 * collect it here so the key makes one metadata item.  The policy
+	 * metadata's value_length is a uint8_t, which is the limit.
+	 */
+	char md_value[255];
+	size_t md_value_len;
+
 	int count;
 	int pvosp;
 	char pending_respmap;
 
 	uint8_t parse_data:1;
+	uint8_t overlay:1;
+	/*
+	 * Set when the JSON is coming from an untrusted source, eg, fetched
+	 * over the network.  Conveniences meant for app-provided policy, like
+	 * "a buffer that doesn't start with { is a filename", are then refused.
+	 */
+	uint8_t untrusted:1;
+	/*
+	 * Set when lejp saw the whole document.  Until then the policy is
+	 * whatever came before the end of the input, eg, a fetch cut short,
+	 * and must not be installed.
+	 */
+	uint8_t complete:1;
 };
+
+/*
+ * Mark the in-progress policy parse as being fed from an untrusted source
+ */
+void
+lws_ss_policy_parse_untrusted(struct lws_context *context);
 
 #if defined(LWS_WITH_SYS_SMD)
 extern const lws_ss_policy_t pol_smd;
@@ -520,6 +645,9 @@ lws_ss_deserialize_tx_payload(struct lws_dsh *dsh, struct lws *wsi,
 void
 lws_sspc_sul_retry_cb(lws_sorted_usec_list_t *sul);
 
+void
+lws_sspc_connect_attempt(lws_sspc_handle_t *h);
+
 const lws_ss_policy_t *
 lws_ss_policy_lookup(const struct lws_context *context, const char *streamtype);
 
@@ -531,7 +659,10 @@ int
 lws_sspc_destroy_dll(struct lws_dll2 *d, void *user);
 
 void
-lws_sspc_rxmetadata_destroy(lws_sspc_handle_t *h);
+lws_sspc_metadata_list_destroy(lws_dll2_owner_t *owner);
+
+void
+lws_sspc_relink_restore(lws_sspc_handle_t *h);
 
 int
 lws_ss_policy_set(struct lws_context *context, const char *name);
@@ -542,11 +673,19 @@ lws_ss_sys_fetch_policy(struct lws_context *context);
 lws_ss_state_return_t
 lws_ss_event_helper(lws_ss_handle_t *h, lws_ss_constate_t cs);
 
+#if defined(LWS_WITH_SERVER)
+int
+lws_ss_server_accept_bind(struct lws *new_wsi);
+#endif
+
 lws_ss_state_return_t
 _lws_ss_backoff(lws_ss_handle_t *h, lws_usec_t us_override);
 
 lws_ss_state_return_t
 lws_ss_backoff(lws_ss_handle_t *h);
+
+void
+lws_ss_network_improved(struct lws_context *cx);
 
 int
 _lws_ss_handle_state_ret_CAN_DESTROY_HANDLE(lws_ss_state_return_t r, struct lws *wsi,
@@ -594,6 +733,15 @@ _lws_ss_request_tx(lws_ss_handle_t *h);
 
 int
 __lws_ss_proxy_bind_ss_to_conn_wsi(void *parconn, size_t dsh_size);
+
+/*
+ * The size of the dsh the proxy keeps for a proxied stream of policy _pol,
+ * which buffers what is passing through in both directions
+ */
+#define LWS_SS_PROXY_DSH_DEFAULT_SIZE	32768
+#define lws_ss_proxy_dsh_size(_pol) ((_pol)->proxy_buflen ? \
+		(size_t)(_pol)->proxy_buflen : \
+		(size_t)LWS_SS_PROXY_DSH_DEFAULT_SIZE)
 
 struct lws_vhost *
 lws_ss_policy_ref_trust_store(struct lws_context *context,
@@ -655,6 +803,8 @@ typedef int (* const secstream_protocol_add_txcr_t)(lws_ss_handle_t *h, int add)
 
 typedef int (* const secstream_protocol_get_txcr_t)(lws_ss_handle_t *h);
 
+typedef void (* const secstream_protocol_destroy_t)(lws_ss_handle_t *h);
+
 #if defined(LWS_WITH_SECURE_STREAMS)
 
 struct ss_pcols {
@@ -664,6 +814,8 @@ struct ss_pcols {
 	secstream_protocol_connect_munge_t		munge;
 	secstream_protocol_add_txcr_t			tx_cr_add;
 	secstream_protocol_get_txcr_t			tx_cr_est;
+	/* free what the protocol keeps on the handle, as it is destroyed */
+	secstream_protocol_destroy_t			destroy;
 };
 #endif
 
@@ -726,12 +878,14 @@ lws_ss_proxy_destroy(struct lws_context *cx);
 
 extern const struct ss_pcols ss_pcol_h1;
 extern const struct ss_pcols ss_pcol_h2;
+extern const struct ss_pcols ss_pcol_h3;
 extern const struct ss_pcols ss_pcol_ws;
 extern const struct ss_pcols ss_pcol_mqtt;
 extern const struct ss_pcols ss_pcol_raw;
 
 extern const struct lws_protocols protocol_secstream_h1;
 extern const struct lws_protocols protocol_secstream_h2;
+extern const struct lws_protocols protocol_secstream_h3;
 extern const struct lws_protocols protocol_secstream_ws;
 extern const struct lws_protocols protocol_secstream_mqtt;
 extern const struct lws_protocols protocol_secstream_raw;

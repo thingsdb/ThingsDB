@@ -37,7 +37,7 @@ if (LWS_WITH_CLIENT)
 				secure-streams/system/fetch-policy/fetch-policy.c
 			)
 		endif()
-		if (LWS_ROLE_H1)
+		if (LWS_ROLE_H1 OR LWS_ROLE_H2 OR LWS_ROLE_H3)
 			list(APPEND SOURCES
 				secure-streams/protocols/ss-h1.c
 			)
@@ -45,6 +45,11 @@ if (LWS_WITH_CLIENT)
 		if (LWS_ROLE_H2)
 			list(APPEND SOURCES
 				secure-streams/protocols/ss-h2.c
+			)
+		endif()
+		if (LWS_ROLE_H3)
+			list(APPEND SOURCES
+				secure-streams/protocols/ss-h3.c
 			)
 		endif()
 		if (LWS_ROLE_WS)

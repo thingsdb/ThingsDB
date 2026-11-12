@@ -24,11 +24,6 @@
 
 #include "private-lib-core.h"
 
-int lws_plat_apply_FD_CLOEXEC(int n)
-{
-	return 0;
-}
-
 
 lws_fop_fd_t IRAM_ATTR
 _lws_plat_file_open(const struct lws_plat_file_ops *fops_own,
@@ -125,11 +120,11 @@ lws_find_string_in_file(const char *filename, const char *string, int stringlen)
 int
 lws_find_string_in_file(const char *filename, const char *string, int stringlen)
 {
-	nvs_handle nvh;
-	size_t s;
-	int n;
-	char buf[64], result[64];
 	const char *p = strchr(string, ':'), *q;
+	char buf[64], result[64];
+	size_t s, gl, rl;
+	nvs_handle nvh;
+	int n;
 
 	if (!p)
 		return 0;
@@ -140,16 +135,39 @@ lws_find_string_in_file(const char *filename, const char *string, int stringlen)
 		buf[n++] = *q++;
 	buf[n] = '\0';
 
-	ESP_ERROR_CHECK(nvs_open(filename, NVS_READWRITE, &nvh));
+	/*
+	 * This is reached from HTTP Basic auth with the unauthenticated peer's
+	 * credentials... so it must not be able to take the device down, and
+	 * it must not leak the stored password by how long it takes to fail.
+	 *
+	 * NVS_READONLY since we only look things up here; NVS_READWRITE would
+	 * create the namespace as a side effect.
+	 */
 
-	s = sizeof(result) - 1;
+	if (nvs_open(filename, NVS_READONLY, &nvh) != ESP_OK) {
+		lwsl_notice("%s: unable to open nvs ns\n", __func__);
+
+		return 0;
+	}
+
+	s = sizeof(result);
 	n = nvs_get_str(nvh, buf, result, &s);
 	nvs_close(nvh);
 
 	if (n != ESP_OK)
 		return 0;
 
-	return !strcmp(p + 1, result);
+	/* nvs_get_str() NUL-terminates, but do not trust it blindly */
+
+	result[sizeof(result) - 1] = '\0';
+
+	gl = strlen(p + 1);
+	rl = strlen(result);
+
+	if (gl != rl)
+		return 0;
+
+	return !lws_timingsafe_bcmp(p + 1, result, (uint32_t)rl);
 }
 #endif
 
@@ -182,10 +200,10 @@ int
 lws_plat_write_cert(struct lws_vhost *vhost, int is_key, int fd, void *buf,
 			size_t len)
 {
-	const char *name = vhost->tls.alloc_cert_path;
+	const char *name = vhost->tls.cfg_alloc_cert_path;
 
 	if (is_key)
-		name = vhost->tls.key_path;
+		name = vhost->tls.cfg_key_path;
 
 	return lws_plat_write_file(name, buf, len) < 0;
 }
@@ -197,12 +215,16 @@ lws_plat_read_file(const char *filename, void *buf, size_t len)
 	size_t s = 0;
 	int n = 0;
 
-	if (nvs_open("lws-station", NVS_READWRITE, &nvh)) {
+	/*
+	 * One handle only... a second nvs_open() here would overwrite and so
+	 * leak this one on every call, until the handle pool is exhausted
+	 */
+
+	if (nvs_open("lws-station", NVS_READONLY, &nvh)) {
 		lwsl_notice("%s: failed to open nvs\n", __func__);
 		return 1;
 	}
 
-	ESP_ERROR_CHECK(nvs_open("lws-station", NVS_READWRITE, &nvh));
 	if (nvs_get_blob(nvh, filename, NULL, &s) != ESP_OK)
 		goto bail;
 	if (s > len)

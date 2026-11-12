@@ -34,20 +34,20 @@ lws_jwe_encrypt_cbc_hs(struct lws_jwe *jwe, uint8_t *cek,
 	struct lws_gencrypto_keyelem el;
 	struct lws_genhmac_ctx hmacctx;
 	struct lws_genaes_ctx aesctx;
-	size_t paddedlen;
+	size_t olen, paddedlen;
 	uint8_t al[8];
 
 	/* Caller must have prepared space for the results */
 
 	if (jwe->jws.map.len[LJWE_ATAG] != (unsigned int)hlen / 2) {
 		lwsl_notice("%s: expected tag len %d, got %d\n", __func__,
-			    hlen / 2, jwe->jws.map.len[LJWE_ATAG]);
+			    hlen / 2, (int)jwe->jws.map.len[LJWE_ATAG]);
 		return -1;
 	}
 
 	if (jwe->jws.map.len[LJWE_IV] != 16) {
 		lwsl_notice("expected iv len %d, got %d\n", 16,
-				jwe->jws.map.len[LJWE_IV]);
+				(int)jwe->jws.map.len[LJWE_IV]);
 		return -1;
 	}
 
@@ -69,7 +69,13 @@ lws_jwe_encrypt_cbc_hs(struct lws_jwe *jwe, uint8_t *cek,
 	 *    2.  The IV used is a 128-bit value generated randomly or
 	 *        pseudorandomly for use in the cipher.
 	 */
-	lws_get_random(jwe->jws.context, (void *)jwe->jws.map.buf[LJWE_IV], 16);
+	if (lws_get_random(jwe->jws.context,
+			   (void *)jwe->jws.map.buf[LJWE_IV], 16) != 16) {
+		/* a predictable or zero IV must never be used */
+		lwsl_err("%s: unable to get random IV\n", __func__);
+
+		return -1;
+	}
 
 	/*
 	 *  3.  The plaintext is CBC encrypted using PKCS #7 padding using
@@ -91,22 +97,27 @@ lws_jwe_encrypt_cbc_hs(struct lws_jwe *jwe, uint8_t *cek,
 	/*
 	 * the plaintext gets delivered to us in LJWE_CTXT, this replaces the
 	 * plaintext there with the ciphertext, which will be larger by some
-	 * padding bytes
+	 * padding bytes: the whole blocks come out of lws_genaes_crypt(), and
+	 * the padded final block out of lws_genaes_final() just after them
 	 */
+	paddedlen = lws_gencrypto_padded_length(LWS_AES_CBC_BLOCKLEN,
+						jwe->jws.map.len[LJWE_CTXT]);
 	n = lws_genaes_crypt(&aesctx, (uint8_t *)jwe->jws.map.buf[LJWE_CTXT],
 			     jwe->jws.map.len[LJWE_CTXT],
 			     (uint8_t *)jwe->jws.map.buf[LJWE_CTXT],
 			     (uint8_t *)jwe->jws.map.buf[LJWE_IV],
-			     NULL, NULL, LWS_AES_CBC_BLOCKLEN);
-	paddedlen = lws_gencrypto_padded_length(LWS_AES_CBC_BLOCKLEN,
-						jwe->jws.map.len[LJWE_CTXT]);
-	jwe->jws.map.len[LJWE_CTXT] = (uint32_t)paddedlen;
-	lws_genaes_destroy(&aesctx, (uint8_t *)jwe->jws.map.buf[LJWE_CTXT] +
-			   paddedlen - LWS_AES_CBC_BLOCKLEN, LWS_AES_CBC_BLOCKLEN);
-	if (n) {
+			     NULL, &olen, LWS_AES_CBC_BLOCKLEN);
+	if (!n)
+		n = lws_genaes_final(&aesctx,
+				     (uint8_t *)jwe->jws.map.buf[LJWE_CTXT] +
+									olen,
+				     paddedlen - olen, &olen);
+	n |= lws_genaes_destroy(&aesctx, NULL, 0);
+	if (n || olen != paddedlen) {
 		lwsl_err("%s: lws_genaes_crypt failed\n", __func__);
 		return -1;
 	}
+	jwe->jws.map.len[LJWE_CTXT] = (uint32_t)paddedlen;
 
 	/*
 	 * 4.  The octet string AL is equal to the number of bits in the
@@ -167,19 +178,20 @@ lws_jwe_auth_and_decrypt_cbc_hs(struct lws_jwe *jwe, uint8_t *enc_cek,
 	struct lws_gencrypto_keyelem el;
 	struct lws_genhmac_ctx hmacctx;
 	struct lws_genaes_ctx aesctx;
+	size_t ptlen = 0;
 	uint8_t al[8];
 
 	/* Some sanity checks on what came in */
 
 	if (jwe->jws.map.len[LJWE_ATAG] != (unsigned int)hlen / 2) {
 		lwsl_notice("%s: expected tag len %d, got %d\n", __func__,
-				hlen / 2, jwe->jws.map.len[LJWE_ATAG]);
+				hlen / 2, (int)jwe->jws.map.len[LJWE_ATAG]);
 		return -1;
 	}
 
 	if (jwe->jws.map.len[LJWE_IV] != 16) {
 		lwsl_notice("expected iv len %d, got %d\n", 16,
-				jwe->jws.map.len[LJWE_IV]);
+				(int)jwe->jws.map.len[LJWE_IV]);
 		return -1;
 	}
 
@@ -222,13 +234,20 @@ lws_jwe_auth_and_decrypt_cbc_hs(struct lws_jwe *jwe, uint8_t *enc_cek,
 		return -1;
 	}
 
-	/* first half of digest is the auth tag */
+	/*
+	 * First half of digest is the auth tag.
+	 *
+	 * On a mismatch, digest holds the *valid* tag for the (possibly
+	 * attacker-edited) header, IV and ciphertext under the recipient's
+	 * key.  It must never be logged: anyone who can read the log could
+	 * then forge that message, and with it drive a padding oracle.
+	 */
 
-	if (lws_timingsafe_bcmp(digest, jwe->jws.map.buf[LJWE_ATAG], (unsigned int)hlen / 2)) {
-		lwsl_err("%s: auth failed: hmac tag (%d) != ATAG (%d)\n",
-			 __func__, hlen / 2, jwe->jws.map.len[LJWE_ATAG]);
-		lwsl_hexdump_notice(jwe->jws.map.buf[LJWE_ATAG], (unsigned int)hlen / 2);
-		lwsl_hexdump_notice(digest, (unsigned int)hlen / 2);
+	n = lws_timingsafe_bcmp(digest, jwe->jws.map.buf[LJWE_ATAG],
+				(unsigned int)hlen / 2);
+	lws_explicit_bzero(digest, sizeof(digest));
+	if (n) {
+		lwsl_info("%s: auth failed\n", __func__);
 		return -1;
 	}
 
@@ -236,8 +255,20 @@ lws_jwe_auth_and_decrypt_cbc_hs(struct lws_jwe *jwe, uint8_t *enc_cek,
 	el.buf = enc_cek + (hlen / 2);
 	el.len = (unsigned int)hlen / 2;
 
+	if (jwe->jws.map.len[LJWE_CTXT] % LWS_AES_CBC_BLOCKLEN) {
+		lwsl_notice("%s: ciphertext len %d not multiple of block size\n",
+			    __func__, (int)jwe->jws.map.len[LJWE_CTXT]);
+		return -1;
+	}
+
+	/*
+	 * This is after the tag check, so the padding check in
+	 * lws_genaes_final() is not a padding oracle: anything that reaches
+	 * it was made by someone with the MAC key
+	 */
+
 	if (lws_genaes_create(&aesctx, LWS_GAESO_DEC, LWS_GAESM_CBC,
-			      &el, LWS_GAESP_NO_PADDING, NULL)) {
+			      &el, LWS_GAESP_WITH_PADDING, NULL)) {
 		lwsl_err("%s: lws_genaes_create failed\n", __func__);
 
 		return -1;
@@ -247,24 +278,18 @@ lws_jwe_auth_and_decrypt_cbc_hs(struct lws_jwe *jwe, uint8_t *enc_cek,
 			     jwe->jws.map.len[LJWE_CTXT],
 			     (uint8_t *)jwe->jws.map.buf[LJWE_CTXT],
 			     (uint8_t *)jwe->jws.map.buf[LJWE_IV], NULL, NULL, 16);
-
-	/* Strip the PKCS #7 padding */
-
-	if (jwe->jws.map.len[LJWE_CTXT] < LWS_AES_CBC_BLOCKLEN ||
-	    jwe->jws.map.len[LJWE_CTXT] <= (unsigned char)jwe->jws.map.buf[LJWE_CTXT]
-						[jwe->jws.map.len[LJWE_CTXT] - 1]) {
-		lwsl_err("%s: invalid padded ciphertext length: %d. Corrupt data?\n",
-				__func__, jwe->jws.map.len[LJWE_CTXT]);
-		return -1;
-	}
-	jwe->jws.map.len[LJWE_CTXT] = (uint32_t)((int)jwe->jws.map.len[LJWE_CTXT] -
-		jwe->jws.map.buf[LJWE_CTXT][jwe->jws.map.len[LJWE_CTXT] - 1]);
-
+	if (!n)
+		/* checks and removes the PKCS #7 padding */
+		n = lws_genaes_final(&aesctx, NULL, 0, &ptlen);
 	n |= lws_genaes_destroy(&aesctx, NULL, 0);
 	if (n) {
-		lwsl_err("%s: lws_genaes_crypt failed\n", __func__);
+		lwsl_err("%s: decrypt failed, ciphertext length %d\n",
+			 __func__, (int)jwe->jws.map.len[LJWE_CTXT]);
+
 		return -1;
 	}
+
+	jwe->jws.map.len[LJWE_CTXT] = (uint32_t)ptlen;
 
 	return (int)jwe->jws.map.len[LJWE_CTXT];
 }

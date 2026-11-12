@@ -52,6 +52,7 @@ struct alg_names {
 	{ "ES256",	LWSCOSE_WKAECDSA_ALG_ES256 },
 	{ "ES384", 	LWSCOSE_WKAECDSA_ALG_ES384 },
 	{ "ES512",	LWSCOSE_WKAECDSA_ALG_ES512 },
+	{ "EdDSA",	LWSCOSE_WKAEDDSA_ALG_EDDSA },
 	{ "HS256_64", 	LWSCOSE_WKAHMAC_256_64 },
 	{ "HS256", 	LWSCOSE_WKAHMAC_256_256 },
 	{ "HS384", 	LWSCOSE_WKAHMAC_384_384 },
@@ -186,13 +187,185 @@ b:
 	return lws_ptr_diff_size_t(t, ot);
 }
 
+/*
+ * The alg list head as an alg pointer, NULL if the list is empty.
+ *
+ * The !alg checks at the call sites rely on this returning NULL for an
+ * empty list; that must not be done with a bare container_of() on the
+ * list head, which is only NULL while list is the first member of
+ * lws_cose_sig_alg_t.
+ */
+static lws_cose_sig_alg_t *
+alg_get_head(struct lws_cose_validate_context *cps)
+{
+	struct lws_dll2 *d = lws_dll2_get_head(&cps->algs);
+
+	return d ? lws_container_of(d, lws_cose_sig_alg_t, list) : NULL;
+}
+
+/*
+ * Accumulate a piece of the signature bstr.
+ *
+ * The bstr header length can't be trusted to bound this: for an
+ * indefinite-length bstr lecp never sets item.u.u64, and there is no limit on
+ * how many fragments follow.  So bound every append by the room actually left.
+ */
+
+static int
+sig_agg(struct lws_cose_validate_context *cps, struct lecp_ctx *ctx)
+{
+	if (cps->sig_agg_pos + ctx->npos > sizeof(cps->sig_agg)) {
+		lwsl_notice("%s: oversize signature\n", __func__);
+
+		return 1;
+	}
+
+	memcpy(cps->sig_agg + cps->sig_agg_pos, ctx->buf, ctx->npos);
+	cps->sig_agg_pos += ctx->npos;
+
+	return 0;
+}
+
+/*
+ * How much of the start of a captured protected bucket is the bucket's own
+ * bstr header?  The raw capture holds the bstr exactly as it was serialized,
+ * which is what has to go into the Sig_structure, but the header has to come
+ * off again before the map inside can be handed back to the parser.
+ *
+ * Returns 0 if it doesn't start with a definite-length bstr header, eg, the
+ * unprotected bucket, whose map header is not part of the capture.
+ */
+
+static size_t
+bstr_hdr_len(const uint8_t *p, size_t len)
+{
+	uint8_t u;
+
+	if (!len || ((*p) & LWS_CBOR_MAJTYP_MASK) != LWS_CBOR_MAJTYP_BSTR)
+		return 0;
+
+	u = (*p) & LWS_CBOR_SUBMASK;
+
+	if (u < LWS_CBOR_1)
+		return 1;
+
+	switch (u) {
+	case LWS_CBOR_1:
+		return 2;
+	case LWS_CBOR_2:
+		return 3;
+	case LWS_CBOR_4:
+		return 5;
+	case LWS_CBOR_8:
+		return 9;
+	}
+
+	return 0; /* indefinite or reserved, not something we can strip */
+}
+
+/*
+ * The captured bucket as it has to appear in the Sig_structure.
+ *
+ * RFC9052 4.4: an empty protected bucket appears there as a zero-length bstr.
+ * Objects in the wild (and the cose-wg vectors) serialize the empty bucket
+ * either as h'' or as h'a0' (a bstr holding an empty map), but sign h'' for
+ * both, so both have to normalize here.  Anything else goes in exactly as it
+ * was serialized, which is what the raw capture holds... rebuilding a
+ * canonical bstr header from the content length instead mis-hashes a peer's
+ * long-form header and drops a one-byte bucket on the floor.
+ */
+
+static const uint8_t *
+sig_bucket(const uint8_t *p, size_t *s)
+{
+	static const uint8_t empty = LWS_CBOR_MAJTYP_BSTR; /* ie, h'' */
+	size_t hl = bstr_hdr_len(p, *s);
+
+	if (hl > *s)
+		/* malformed, the parse of it will have bailed already */
+		return p;
+
+	if (*s - hl == 0 ||
+	    (*s - hl == 1 && p[hl] == LWS_CBOR_MAJTYP_MAP /* h'a0' */)) {
+		*s = 1;
+
+		return &empty;
+	}
+
+	return p;
+}
+
+/*
+ * Hand the map inside a captured bucket back to the parser as a subtree.
+ *
+ * lecp_parse_subtree() is inside a pushed level, so it cannot return 0 to mean
+ * "the subtree was complete"... a truncated subtree, eg, a map that declares
+ * more pairs than it carries, used to be indistinguishable from a complete
+ * one.  It leaves the levels it pushed live above its barrier, and the rest of
+ * the object is then parsed at a path depth that matches none of the tests in
+ * the callback: the object "validates" to an empty results list.  Confirm the
+ * parser came back to exactly the state it went in at, and fail the whole
+ * validation if it did not.
+ */
+
+static int
+parse_bucket(struct lws_cose_validate_context *cps, uint8_t *p, size_t s)
+{
+	struct lecp_ctx *ctx = &cps->ctx;
+	uint8_t sp = ctx->sp;
+	uint8_t ppos = ctx->pst[ctx->pst_sp].ppos;
+	size_t hl = bstr_hdr_len(p, s);
+	int n;
+
+	if (hl > s)
+		return 1;
+
+	if (hl == s)
+		/* a zero-length bucket, ie, no params, nothing to parse */
+		return 0;
+
+	cps->sub = 1;
+	n = lecp_parse_subtree(ctx, p + hl, s - hl);
+	cps->sub = 0;
+
+	if (n != LECP_CONTINUE)
+		return 1;
+
+	if (ctx->sp != sp) {
+		/*
+		 * The subtree did not complete inside the bucket bytes: the
+		 * levels it pushed are still live above its barrier, and
+		 * lwcp_completed()'s walk will stop at that barrier forever
+		 * after, ie, the rest of the object is parsed at a depth the
+		 * state machine below matches nothing at
+		 */
+
+		lwsl_notice("%s: incomplete bucket\n", __func__);
+
+		return 1;
+	}
+
+	/*
+	 * A bstr map key inside the bucket appends itself to the shared path,
+	 * and at the subtree's own base level lecp_parse_map_is_key() is
+	 * looking at the parent level of the *outer* parse, across the
+	 * barrier, so the path can grow for something that is not a map key at
+	 * all.  Either way it is not the outer parse's path, put it back.
+	 */
+
+	ctx->pst[ctx->pst_sp].ppos = ppos;
+	ctx->path[ppos] = '\0';
+
+	return 0;
+}
+
 static int
 apply_external(struct lws_cose_validate_context *cps)
 {
 	lws_cose_sig_alg_t *alg;
 	uint8_t t[9];
 
-	alg = lws_container_of(cps->algs.head, lws_cose_sig_alg_t, list);
+	alg = alg_get_head(cps);
 	if (!alg)
 		/* expected if no key */
 		return 0;
@@ -239,22 +412,44 @@ create_alg(struct lecp_ctx *ctx, struct lws_cose_validate_context *cps)
 	lws_cose_validate_res_t *res;
 	lws_cose_sig_alg_t *alg;
 	lws_cose_key_t *ck;
-	uint8_t *p;
+	const uint8_t *p;
 	size_t s;
+
+	/*
+	 * Each of these costs a hash of the whole (stashed) payload and a
+	 * public key verify, and each also creates a result object that lives
+	 * until the validation context is destroyed... the object chooses how
+	 * many of them there are, so the cost is quadratic in its size unless
+	 * we refuse to go past a sane number
+	 */
+
+	if (++cps->sigs > MAX_COSE_SIGNATURES) {
+		lwsl_warn("%s: too many signatures\n", __func__);
+
+		return 1;
+	}
 
 	/* with sign1, we can hash the payload in a
 	 * single pass */
 
 	ck = lws_cose_key_from_set(cps->info.keyset, sl->kid.buf, sl->kid.len);
 	if (!ck) {
-		lwsl_notice("%s: no key\n", __func__);
-		lwsl_hexdump_notice(sl->kid.buf, sl->kid.len);
+		lwsl_info("%s: no key\n", __func__);
 		goto no_key_or_alg;
 	}
 
 	// lwsl_notice("%s: cps->alg %d\n", __func__, (int)cps->alg);
 
-	alg = lws_cose_val_alg_create(cps->info.cx, ck, cps->st[0].alg,
+	/*
+	 * sl0->alg is the alg for the thing we are validating: for cose_sign
+	 * the per-signature state IS sl0 (sp stays 0 inside the signature
+	 * array) and it is reset at the start of every cose_signature, so each
+	 * signature gets its own alg.  For cose_mac, sl is the recipient and
+	 * its alg is a key-management alg (eg, "direct"), not the MAC alg,
+	 * which only exists at the body level.
+	 */
+
+	alg = lws_cose_val_alg_create(cps->info.cx, ck, sl0->alg,
 				      LWSCOSE_WKKO_VERIFY);
 	if (!alg) {
 		lwsl_info("%s: no alg\n", __func__);
@@ -290,30 +485,10 @@ no_key_or_alg:
 	/*
 	 * Hash step 2: A zero-length bstr, or a copy of the
 	 *              OUTER protected headers
-	 *
-	 *              A zero-entry map alone becomes a zero-
-	 *              length bstr
 	 */
 
-	if (sl0->ph_pos[0] < 2) {
-		/* nothing to speak of */
-		sl0->ph[0][0] = LWS_CBOR_MAJTYP_BSTR;
-		p = &sl0->ph[0][0];
-		s = 1;
-	} else {
-		if (sl0->ph_pos[0] < 24) {
-			sl0->ph[0][2] = (uint8_t)
-			   (LWS_CBOR_MAJTYP_BSTR | sl0->ph_pos[0]);
-			p = &sl0->ph[0][2];
-			s = (size_t)sl0->ph_pos[0] + 1;
-		} else {
-			sl0->ph[0][1] = LWS_CBOR_MAJTYP_BSTR |
-					LWS_CBOR_1;
-			sl0->ph[0][2] = (uint8_t)sl0->ph_pos[0];
-			p = &sl0->ph[0][1];
-			s = (size_t)sl0->ph_pos[0] + 2;
-		}
-	}
+	s = (size_t)sl0->ph_pos[0];
+	p = sig_bucket(sl0->ph[0] + 3, &s);
 
 	if (lws_cose_val_alg_hash(alg, p, s))
 		goto bail;
@@ -323,25 +498,8 @@ no_key_or_alg:
 	 */
 
 	if (cps->info.sigtype == SIGTYPE_MULTI) {
-		if (sl->ph_pos[2] < 2) {
-			/* nothing to speak of */
-			sl->ph[2][0] = LWS_CBOR_MAJTYP_BSTR;
-			p = &sl->ph[2][0];
-			s = 1;
-		} else {
-			if (sl->ph_pos[2] < 24) {
-				sl->ph[2][2] = (uint8_t)
-				   (LWS_CBOR_MAJTYP_BSTR | sl->ph_pos[2]);
-				p = &sl->ph[2][2];
-				s = (size_t)sl->ph_pos[2] + 1;
-			} else {
-				sl->ph[2][1] = LWS_CBOR_MAJTYP_BSTR |
-						LWS_CBOR_1;
-				sl->ph[2][2] = (uint8_t)sl->ph_pos[2];
-				p = &sl->ph[2][1];
-				s = (size_t)sl->ph_pos[2] + 2;
-			}
-		}
+		s = (size_t)sl->ph_pos[1];
+		p = sig_bucket(sl->ph[1] + 3, &s);
 
 		if (lws_cose_val_alg_hash(alg, p, s))
 			goto bail;
@@ -374,7 +532,6 @@ no_key_or_alg:
 
 	if (lws_cose_val_alg_hash(alg, cps->payload_stash, cps->payload_pos))
 		goto bail;
-lwsl_notice("a %d\n", (int)cps->sig_agg_pos);
 
 	lws_cose_val_alg_destroy(cps, &alg, (const uint8_t *)cps->sig_agg,
 				 cps->sig_agg_pos);
@@ -422,22 +579,74 @@ static const char * const reason_names[] = {
 };
 #endif
 
+/*
+ * Only the protected buckets are captured: they go into the Sig_structure
+ * exactly as they were serialized.  The unprotected ones are not signed and
+ * are parsed inline like the rest of the object, there is nothing to keep of
+ * them... capturing them anyway capped them at MAX_BLOBBED_PARAMS, which an
+ * honest x5chain in an unprotected bucket is far larger than.
+ */
+
 static int
 ph_index(struct lws_cose_validate_context *cps)
 {
 	switch (cps->tli) {
 	case ST_OUTER_PROTECTED:
 		return 0;
-	case ST_OUTER_UNPROTECTED:
-		return 1;
 	case ST_INNER_PROTECTED:
-		return 2;
-	case ST_INNER_UNPROTECTED:
-		return 3;
+		return 1;
 	}
 
 	assert(0);
 	return 0;
+}
+
+/*
+ * A map key or value in a header bucket that is not an int.
+ *
+ * A key that is not an int is none of the labels we act on, and must not
+ * leave the previous int key's label to be applied to its own value.
+ *
+ * lws only implements int algs, but RFC9052 3.1: whatever the protected
+ * bucket names as the alg is the alg, the unprotected bucket must not get to
+ * substitute one of its own just because we cannot use the protected one.  So
+ * a protected alg of any other type still marks the alg as protected, as the
+ * reserved alg 0 that no key can be used with: that signer gets
+ * create_alg()'s -1001 no-alg result, the same as for a protected int alg
+ * lws does not implement.  One in the unprotected bucket is just ignored.
+ */
+
+static void
+bucket_item_not_int(struct lws_cose_validate_context *cps,
+		    struct lecp_ctx *ctx)
+{
+	lws_cose_validate_param_stack_t *sl = &cps->st[cps->sp];
+
+	switch (cps->tli) {
+	case ST_OUTER_PROTECTED:
+	case ST_INNER_PROTECTED:
+	case ST_OUTER_UNPROTECTED:
+	case ST_INNER_UNPROTECTED:
+		break;
+	default:
+		return;
+	}
+
+	if (lecp_parse_map_is_key(ctx)) {
+		cps->map_key = 0;
+		return;
+	}
+
+	if (cps->map_key != LWSCOSE_WKL_ALG)
+		return;
+
+	cps->map_key = 0;
+
+	if (cps->tli == ST_OUTER_PROTECTED || cps->tli == ST_INNER_PROTECTED) {
+		lwsl_info("%s: protected alg we can't use\n", __func__);
+		sl->alg = 0;
+		sl->alg_prot = 1;
+	}
 }
 
 static signed char
@@ -464,7 +673,9 @@ cb_cose_sig(struct lecp_ctx *ctx, char reason)
 
 	case LECPCB_TAG_START:
 
-		lwsl_notice("%s: tag sigtype %d\n", __func__, cps->info.sigtype);
+		bucket_item_not_int(cps, ctx);
+
+		lwsl_info("%s: tag sigtype %d\n", __func__, cps->info.sigtype);
 
 		switch (cps->info.sigtype) {
 		default:
@@ -489,36 +700,56 @@ cb_cose_sig(struct lecp_ctx *ctx, char reason)
 				cps->info.sigtype = SIGTYPE_MAC;
 				break;
 			default:
-				goto unexpected_tag;
+				goto unexpected_tag_l;
 			}
 			break;
 		case SIGTYPE_MULTI:
 			if (ctx->item.u.u64 != LWSCOAP_CONTENTFORMAT_COSE_SIGN)
-				goto unexpected_tag;
+				goto unexpected_tag_l;
 			break;
 		case SIGTYPE_SINGLE:
 			if (ctx->item.u.u64 != LWSCOAP_CONTENTFORMAT_COSE_SIGN1)
-				goto unexpected_tag;
+				goto unexpected_tag_l;
 			break;
 		case SIGTYPE_COUNTERSIGNED:
 			if (ctx->item.u.u64 != LWSCOAP_CONTENTFORMAT_COSE_SIGN)
-				goto unexpected_tag;
+				goto unexpected_tag_l;
 			break;
 		case SIGTYPE_MAC0:
 			if (ctx->item.u.u64 != LWSCOAP_CONTENTFORMAT_COSE_MAC0)
-				goto unexpected_tag;
+				goto unexpected_tag_l;
 			break;
 		case SIGTYPE_MAC:
-			if (ctx->item.u.u64 != LWSCOAP_CONTENTFORMAT_COSE_MAC) {
-unexpected_tag:
-				lwsl_warn("%s: unexpected tag %d\n", __func__,
-						(int)ctx->item.u.u64);
-				goto bail;
-			}
+			if (ctx->item.u.u64 != LWSCOAP_CONTENTFORMAT_COSE_MAC)
+				goto unexpected_tag_l;
 			break;
 		}
 
 		cps->depth++;
+		break;
+
+	case LECPCB_OBJECT_START:
+		bucket_item_not_int(cps, ctx);
+		break;
+
+	case LECPCB_ARRAY_START:
+
+		bucket_item_not_int(cps, ctx);
+
+		if (cps->sub || cps->tli != ST_OUTER_PROTECTED ||
+		    ctx->pst[ctx->pst_sp].ppos != 2)
+			break;
+
+		/*
+		 * The outer array has just opened, and its first item is the
+		 * protected bucket.  Start the raw capture now, before the
+		 * bucket's first byte: switching it on from inside the item's
+		 * own ARRAY_ITEM_START is a byte late, which loses the bstr
+		 * header of a canonical bucket and, for a long-form one, keeps
+		 * part of that header as if it were bucket content.
+		 */
+
+		lecp_parse_report_raw(ctx, 1);
 		break;
 
 	case LECPCB_ARRAY_ITEM_START:
@@ -526,19 +757,69 @@ unexpected_tag:
 		if (cps->sub)
 			break;
 
-		if (ctx->pst[ctx->pst_sp].ppos == 4 ||
-		    ctx->pst[ctx->pst_sp].ppos == 6) {
-			switch (cps->tli) {
-			case ST_INNER_UNPROTECTED:
-			case ST_INNER_PROTECTED:
-				hi = ph_index(cps);
-				sl = &cps->st[cps->sp];
-				sl->ph_pos[hi] = 0;
-				lecp_parse_report_raw(ctx, 1);
+		/*
+		 * The cose_signatures / recipients are the items at ppos 4
+		 * ([][]), and their own items, the protected bucket, the
+		 * unprotected bucket and the signature / ciphertext, are at
+		 * exactly ppos 6 ([][][]).  Items of arrays nested anywhere
+		 * inside those, eg, an x5chain in the unprotected bucket, are
+		 * deeper and are nothing to do with the bucket state.
+		 */
+
+		if (ctx->pst[ctx->pst_sp].ppos == 4) {
+			/*
+			 * A new cose_signature is starting.  Rearm the signer
+			 * state: without this only the first signature of a
+			 * cose_sign was ever parsed (tli stuck at
+			 * ST_INNER_EXCESS), and each signature must use its
+			 * own alg and kid rather than inherit the previous
+			 * one's.
+			 */
+			if (cps->tli == ST_INNER_EXCESS)
+				cps->tli = ST_INNER_PROTECTED;
+
+			if (cps->tli != ST_INNER_PROTECTED)
 				break;
-			default:
-				break;
+
+			sl = &cps->st[cps->sp];
+			sl->alg = 0;
+			sl->alg_prot = 0;
+			/* nor may a previous map key linger */
+			cps->map_key = 0;
+			if (sl->kid.buf) {
+				lws_free(sl->kid.buf);
+				sl->kid.buf = NULL;
+				sl->kid.len = 0;
 			}
+
+			/*
+			 * Start the raw capture of the element's protected
+			 * bucket already: the bucket's first byte is consumed
+			 * before its own ARRAY_ITEM_START below
+			 */
+			lecp_parse_report_raw(ctx, 1);
+			break;
+		}
+
+		if (ctx->pst[ctx->pst_sp].ppos == 6) {
+			if (cps->tli != ST_INNER_PROTECTED)
+				break;
+
+			/*
+			 * The element's protected bucket is starting.  The
+			 * capture also holds a long-form element array's count
+			 * byte(s) ahead of the bucket's first byte: only the
+			 * bucket's own first byte belongs, as for the outer
+			 * protected bucket below.
+			 */
+			if (ctx->cbor_pos > 1) {
+				ctx->cbor[0] = ctx->cbor[ctx->cbor_pos - 1];
+				ctx->cbor_pos = 1;
+			}
+
+			sl = &cps->st[cps->sp];
+			sl->ph_pos[ph_index(cps)] = 0;
+			lecp_parse_report_raw(ctx, 1);
 			break;
 		}
 
@@ -546,7 +827,6 @@ unexpected_tag:
 			break;
 
 		switch (cps->tli) {
-		case ST_OUTER_UNPROTECTED:
 		case ST_OUTER_PROTECTED:
 			/*
 			 * Holy type confusion, Batman... this is a CBOR bstr
@@ -555,7 +835,18 @@ unexpected_tag:
 			 * it anyway since it is part of the signing plaintext
 			 * in bstr form, let's get it and then parse it at the
 			 * END of the bstr.
+			 *
+			 * For the protected bucket the capture was switched
+			 * on at ARRAY_START, before this item's first byte;
+			 * a long-form outer array (98 nn...) put its count
+			 * byte(s) in the capture ahead of that byte, and they
+			 * were hashed as bucket content and re-parsed as its
+			 * first item.  Only this item's opcode byte belongs.
 			 */
+			if (ctx->cbor_pos > 1) {
+				ctx->cbor[0] = ctx->cbor[ctx->cbor_pos - 1];
+				ctx->cbor_pos = 1;
+			}
 			lecp_parse_report_raw(ctx, 1);
 			break;
 
@@ -583,8 +874,9 @@ unexpected_tag:
 			sl = &cps->st[cps->sp];
 			switch (cps->tli) {
 			case ST_OUTER_UNPROTECTED:
+				/* parsed inline, and not captured */
 				break;
-				/* fallthru */
+
 			case ST_OUTER_PROTECTED:
 				lecp_parse_report_raw(ctx, 0);
 
@@ -593,14 +885,9 @@ unexpected_tag:
 				if (!sl->ph_pos[hi] || cps->sub)
 					break;
 
-				cps->sub = 1;
-				s = (size_t)sl->ph_pos[hi];
-
-				if (lecp_parse_subtree(&cps->ctx,
-						       sl->ph[hi] + 3, s) !=
-							      LECP_CONTINUE)
+				if (parse_bucket(cps, sl->ph[hi] + 3,
+						 (size_t)sl->ph_pos[hi]))
 					goto bail;
-				cps->sub = 0;
 				break;
 
 			case ST_OUTER_PAYLOAD:
@@ -626,10 +913,7 @@ unexpected_tag:
 				break;
 
 			case ST_INNER_UNPROTECTED:
-				lwsl_notice("ST_INNER_UNPROTECTED end\n");
-				break;
 			case ST_INNER_PROTECTED:
-				lwsl_notice("ST_INNER_PROTECTED end\n");
 				break;
 
 			case ST_INNER_EXCESS:
@@ -637,84 +921,73 @@ unexpected_tag:
 				cps->tli--; /* so no change */
 				break;
 			}
-			if (!cps->sub)
-				cps->tli++;
+			cps->tli++;
+			break;
 		}
 
-		if (ctx->pst[ctx->pst_sp].ppos >= 4) {
-			uint8_t *p;
-			uint8_t u;
-			size_t s1;
-
-			switch (cps->tli) {
-			case ST_INNER_UNPROTECTED:
-			case ST_INNER_PROTECTED:
-
-				hi = ph_index(cps);
-				sl = &cps->st[cps->sp];
-				p = sl->ph[hi] + 3;
-				lecp_parse_report_raw(ctx, 0);
-
-				if (!sl->ph_pos[hi] || cps->sub) {
-					if (!cps->sub)
-						cps->tli++;
-					break;
-				}
-
-				cps->sub = 1;
-				s = (size_t)sl->ph_pos[hi];
-
-				/*
-				 * somehow the raw captures the
-				 * initial BSTR container length,
-				 * let's strip it
-				 */
-
-				u = (*p) & LWS_CBOR_SUBMASK;
-				if (((*p) & LWS_CBOR_MAJTYP_MASK) ==
-							LWS_CBOR_MAJTYP_BSTR) {
-					s1 = 1;
-					if (u == LWS_CBOR_1)
-						s1 = 2;
-					else if (u == LWS_CBOR_2)
-						s1 = 3;
-					else if (u == LWS_CBOR_4)
-						s1 = 5;
-					else if (u == LWS_CBOR_8)
-						s1 = 9;
-
-					if (s1 > s)
-						goto bail;
-
-					sl->ph_pos[hi] = (int)
-						(sl->ph_pos[hi] - (ssize_t)s1);
-					s = s - s1;
-					memmove(p, p + s1, s);
-				}
-
-				if (lecp_parse_subtree(&cps->ctx, p, s) !=
-								LECP_CONTINUE)
-					goto bail;
-
-				cps->sub = 0;
-
-				if (!cps->sub)
-					cps->tli++;
-				break;
-
-			case ST_INNER_SIGNATURE:
-				if (cps->info.sigtype == SIGTYPE_MAC) {
-					// lwsl_err("Y: alg %d\n", (int)cps->alg);
-					if (create_alg(ctx, cps))
-						goto bail;
-				}
-				cps->tli++;
-				break;
-			default:
-				break;
+		if (ctx->pst[ctx->pst_sp].ppos == 4) {
+			/*
+			 * A whole cose_signature / recipient has ended.  If it
+			 * did not get as far as the end of its third item, it
+			 * was not [ protected, unprotected, signature ], and
+			 * the next one must not start from where it left off
+			 */
+			if (cps->tli >= ST_INNER_PROTECTED &&
+			    cps->tli <= ST_INNER_SIGNATURE) {
+				lwsl_notice("%s: short cose_signature\n",
+					    __func__);
+				goto bail;
 			}
+			break;
 		}
 
+		if (ctx->pst[ctx->pst_sp].ppos != 6)
+			/*
+			 * The end of an item of an array nested inside one of
+			 * the element's items, eg, an x5chain certificate in
+			 * the unprotected bucket, is not the end of the bucket
+			 * it is in
+			 */
+			break;
+
+		switch (cps->tli) {
+		case ST_INNER_PROTECTED:
+			sl = &cps->st[cps->sp];
+			hi = ph_index(cps);
+			lecp_parse_report_raw(ctx, 0);
+
+			/*
+			 * The capture holds the bucket as it was serialized,
+			 * ie, including its own bstr header... parse_bucket()
+			 * takes the header off again to get at the map inside,
+			 * we must leave the capture itself alone since it is
+			 * also the Sig_structure piece
+			 */
+
+			if (sl->ph_pos[hi] &&
+			    parse_bucket(cps, sl->ph[hi] + 3,
+					 (size_t)sl->ph_pos[hi]))
+				goto bail;
+
+			cps->tli++;
+			break;
+
+		case ST_INNER_UNPROTECTED:
+			/* parsed inline, and not captured */
+			cps->tli++;
+			break;
+
+		case ST_INNER_SIGNATURE:
+			if (cps->info.sigtype == SIGTYPE_MAC &&
+			    create_alg(ctx, cps))
+				goto bail;
+
+			cps->tli++;
+			break;
+
+		default:
+			break;
+		}
 		break;
 
 	case LECPCB_VAL_NUM_INT:
@@ -734,37 +1007,67 @@ unexpected_tag:
 			// lwsl_notice("%s: key %d val %d\n", __func__, (int)cps->map_key, (int)ctx->item.u.i64);
 
 			if (cps->map_key == LWSCOSE_WKL_ALG) {
+				int prot = cps->tli == ST_OUTER_PROTECTED ||
+					   cps->tli == ST_INNER_PROTECTED;
+
 				sl = &cps->st[cps->sp];
 				cps->map_key = 0;
-				if (cps->tli == ST_INNER_PROTECTED ||
-				     cps->tli == ST_INNER_UNPROTECTED ||
-				     cps->tli == ST_INNER_SIGNATURE) {
-					sl->alg = ctx->item.u.i64;
-					if (!cps->st[0].alg)
-						cps->st[0].alg = sl->alg;
-				} else
-					sl->alg = ctx->item.u.i64;
+
+				/*
+				 * RFC9052 3.1: the unprotected bucket is not
+				 * covered by the signature, so an alg from
+				 * there must never replace one that came from
+				 * the protected bucket... otherwise anybody can
+				 * downgrade the alg of an otherwise valid
+				 * object (eg, HS512 -> HS256_64, or an ECDSA
+				 * object into an HMAC one).  We still accept an
+				 * unprotected alg if the protected bucket did
+				 * not give us one, as RFC9052's own test
+				 * vectors require.
+				 */
+
+				if (!prot && sl->alg_prot)
+					break;
+
+				sl->alg = ctx->item.u.i64;
+				sl->alg_prot = (char)prot;
 				break;
 			}
+
+			/* the value of a label we don't act on */
+			cps->map_key = 0;
 			break;
 		}
 		break;
 
-	case LECPCB_VAL_STR_END:
-		switch (cps->tli) {
-		case ST_OUTER_UNPROTECTED:
-			break;
-		}
+	case LECPCB_VAL_TRUE:
+	case LECPCB_VAL_FALSE:
+	case LECPCB_VAL_NULL:
+	case LECPCB_VAL_UNDEFINED:
+	case LECPCB_VAL_RESERVED:
+	case LECPCB_VAL_FLOAT16:
+	case LECPCB_VAL_FLOAT32:
+	case LECPCB_VAL_FLOAT64:
+	case LECPCB_VAL_SIMPLE:
+	case LECPCB_VAL_STR_START:
+		bucket_item_not_int(cps, ctx);
 		break;
 
 	case LECPCB_VAL_BLOB_START:
 
-		lwsl_notice("%s: blob size %d\n", __func__, (int)ctx->item.u.u64);
+		bucket_item_not_int(cps, ctx);
 
 		if (cps->tli == ST_OUTER_SIGN1_SIGNATURE ||
 		    cps->tli == ST_INNER_SIGNATURE) {
-			if (ctx->item.u.u64 > sizeof(cps->sig_agg))
-				goto bail;
+			/*
+			 * Reset unconditionally, and don't look at
+			 * item.u.u64 at all: lecp does not set it for a
+			 * zero-length or an indefinite-length bstr, so what is
+			 * in there is whatever the previous item left (eg, the
+			 * alg -7 from the protected bucket, which as a u64
+			 * rejected a legal empty signature).  sig_agg() bounds
+			 * the accumulate by the room actually left.
+			 */
 			cps->sig_agg_pos = 0;
 			break;
 		}
@@ -781,8 +1084,7 @@ unexpected_tag:
 			     ctx->item.u.u64);
 
 		if (cps->info.sigtype == SIGTYPE_SINGLE) {
-			alg = lws_container_of(cps->algs.head,
-					       lws_cose_sig_alg_t, list);
+			alg = alg_get_head(cps);
 			if (!alg)
 				/* expected if no key */
 				break;
@@ -792,6 +1094,25 @@ unexpected_tag:
 			}
 
 			break;
+		}
+
+		/*
+		 * We are about to allocate on the strength of a length the
+		 * attacker wrote in the bstr header, before a single payload
+		 * byte has arrived... cap it.  And the payload slot must hold
+		 * exactly one bstr: a second one would otherwise silently
+		 * replace (and leak) the buffer we already have.
+		 */
+
+		if (cps->payload_stash) {
+			lwsl_notice("%s: extra payload bstr\n", __func__);
+			goto bail;
+		}
+
+		if (ctx->item.u.u64 > MAX_STASHED_PAYLOAD) {
+			lwsl_notice("%s: payload len %llu too big\n", __func__,
+				    (unsigned long long)ctx->item.u.u64);
+			goto bail;
 		}
 
 		cps->payload_stash_size = (size_t)(ctx->item.u.u64 + s);
@@ -824,8 +1145,7 @@ unexpected_tag:
 				cps->payload_pos += ctx->npos;
 				break;
 			}
-			alg = lws_container_of(cps->algs.head,
-					       lws_cose_sig_alg_t, list);
+			alg = alg_get_head(cps);
 			if (!alg)
 				/* expected if no key */
 				break;
@@ -840,9 +1160,8 @@ unexpected_tag:
 		case ST_OUTER_SIGN1_SIGNATURE:
 			/* the sig is big compared to ctx->buf... we need to
 			 * stash it then */
-			memcpy(cps->sig_agg + cps->sig_agg_pos, ctx->buf,
-				ctx->npos);
-			cps->sig_agg_pos = cps->sig_agg_pos + ctx->npos;
+			if (sig_agg(cps, ctx))
+				goto bail;
 			break;
 		}
 		break;
@@ -852,9 +1171,8 @@ unexpected_tag:
 
 		case ST_INNER_SIGNATURE:
 			if (cps->info.sigtype == SIGTYPE_MULTI) {
-				memcpy(cps->sig_agg + cps->sig_agg_pos, ctx->buf,
-					ctx->npos);
-				cps->sig_agg_pos = cps->sig_agg_pos + ctx->npos;
+				if (sig_agg(cps, ctx))
+					goto bail;
 				// lwsl_err("Y: alg %d\n", (int)cps->alg);
 				if (create_alg(ctx, cps))
 					goto bail;
@@ -894,8 +1212,7 @@ unexpected_tag:
 				cps->payload_pos += ctx->npos;
 				break;
 			}
-			alg = lws_container_of(cps->algs.head,
-					       lws_cose_sig_alg_t, list);
+			alg = alg_get_head(cps);
 			if (!alg)
 				/* expected if no key */
 				break;
@@ -910,13 +1227,10 @@ unexpected_tag:
 			if (cps->info.sigtype == SIGTYPE_MULTI)
 				break;
 
-			memcpy(cps->sig_agg + cps->sig_agg_pos, ctx->buf,
-				ctx->npos);
-			cps->sig_agg_pos += ctx->npos;
+			if (sig_agg(cps, ctx))
+				goto bail;
 
-			alg = lws_container_of(cps->algs.head,
-					lws_cose_sig_alg_t, list);
-			lwsl_notice("b\n");
+			alg = alg_get_head(cps);
 			if (alg)
 				lws_cose_val_alg_destroy(cps, &alg,
 							 cps->sig_agg,
@@ -943,22 +1257,25 @@ unexpected_tag:
 		switch (cps->tli) {
 		case ST_INNER_PROTECTED:
 		case ST_OUTER_PROTECTED:
-		case ST_INNER_UNPROTECTED:
-		case ST_OUTER_UNPROTECTED:
 			sl = &cps->st[cps->sp];
 			hi = ph_index(cps);
-			if (sl->ph_pos[hi] + 3 + ctx->cbor_pos >
+			if (sl->ph_pos[hi] + 3 + ctx->cbor_len >
 					(int)sizeof(sl->ph[hi]) - 3)
 				/* more protected cbor than we can handle */
 				goto bail;
 			memcpy(sl->ph[hi] + 3 + sl->ph_pos[hi], ctx->cbor,
-			       ctx->cbor_pos);
-			sl->ph_pos[hi] += ctx->cbor_pos;
+			       ctx->cbor_len);
+			sl->ph_pos[hi] += ctx->cbor_len;
 			break;
 		}
 	}
 
 	return 0;
+
+unexpected_tag_l:
+	lwsl_warn("%s: unexpected tag %d\n", __func__,
+			(int)ctx->item.u.u64);
+	goto bail;
 
 bail:
 
@@ -1001,6 +1318,18 @@ lws_cose_validate_chunk(struct lws_cose_validate_context *cps,
 		return LECP_CONTINUE;
 
 	lecp_destruct(&cps->ctx);
+
+	/*
+	 * A document that completed without producing a single result (a
+	 * bare simple value, an empty signatures array, a countersigned
+	 * object...) has verified nothing: a caller folding the results
+	 * list into a verdict would read an empty one as success.
+	 */
+	if (!n && !cps->results.count) {
+		lwsl_notice("%s: no signature to validate\n", __func__);
+
+		return LECP_REJECT_CALLBACK;
+	}
 
 	return n;
 }

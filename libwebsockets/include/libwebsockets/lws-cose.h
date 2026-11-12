@@ -286,8 +286,9 @@ typedef int (*lws_cose_key_import_callback)(struct lws_cose_key *s, void *user);
 /** lws_cose_jwk_import() - Create an lws_cose_key_t object from cose_key CBOR
  *
  * \param pkey_set: NULL, or a pointer to an lws_dll2_owner_t for a cose_key set
- * \param cb: callback for each jwk-processed key, or NULL if importing a single
- *	      key with no parent "keys" JSON
+ * \param cb: NULL, or a callback for each key of a key set as it is imported.
+ *	      It must not unlink or destroy the key; returning nonzero halts
+ *	      the import, which then fails as a whole.
  * \param user: pointer to be passed to the callback, otherwise ignored by lws.
  *		NULL if importing a single key with no parent "keys" JSON
  * \param in: a single cose_key
@@ -298,6 +299,12 @@ typedef int (*lws_cose_key_import_callback)(struct lws_cose_key *s, void *user);
  * zero or more cose_key CBOR, and adds each to the \p pkey_set
  * lws_dll2_owner_t struct.  Created lws_cose_key_t are filled with data from
  * the COSE representation and can be used with other COSE crypto ops.
+ *
+ * \p pkey_set may already hold keys, eg, from an earlier import: the imported
+ * keys are added after them, and a key whose kid is already in the set fails
+ * the import.  The import is all or nothing... if it fails, or the set is
+ * empty, none of its keys are added and the keys already in \p pkey_set are
+ * left as they were.
  */
 LWS_VISIBLE LWS_EXTERN lws_cose_key_t *
 lws_cose_key_import(lws_dll2_owner_t *pkey_set, lws_cose_key_import_callback cb,
@@ -433,10 +440,22 @@ lws_cose_validate_create(const lws_cose_validate_create_info_t *info);
  * \param cps: the validation context
  * \param in: the chunk of CBOR (does not have to be logically complete)
  * \param in_len: number of bytes available at \p in
+ * \param used_in: NULL, or set to how much of \p in was used
  *
  * Parses signature CBOR to produce a list of result objects.
  *
+ * Returns 0 when the COSE object is complete and produced at least one result
+ * object, which you then assess via lws_cose_validate_results().
  *
+ * Returns LECP_CONTINUE (-1) when the object is not complete yet: pass the next
+ * chunk.  If your input ends while this is the last return, the object was
+ * truncated: the results list only holds whatever results were produced
+ * before the input ran out, which may already include passing ones, and the
+ * object must be treated as not validated.
+ *
+ * Any other return (one of the LECP_REJECT_ codes) means the object could not
+ * be validated, including LECP_REJECT_CALLBACK for a complete object that did
+ * not produce a single result.
  */
 LWS_VISIBLE LWS_EXTERN int
 lws_cose_validate_chunk(struct lws_cose_validate_context *cps,
@@ -501,6 +520,27 @@ LWS_VISIBLE LWS_EXTERN int
 lws_cose_sign_add(struct lws_cose_sign_context *csc, cose_param_t alg,
 		  const lws_cose_key_t *ck);
 
+/**
+ * lws_cose_sign_payload_chunk() - pass inline payload in, get the signed object out
+ *
+ * \param csc: the signing context
+ * \param in: the current chunk of the inline payload
+ * \param in_len: number of bytes available at \p in
+ *
+ * The payload may be passed in any number of chunks of any size, adding up to
+ * exactly the create info's inline_payload_len.  The signed object is emitted
+ * into the create info's lec output context, which may be much smaller than
+ * the payload.
+ *
+ * Returns LWS_LECPCTX_RET_AGAIN if the output filled: drain lec.used bytes
+ * from it, reset it with lws_lec_setbuf(), and call again with the *same*
+ * \p in and \p in_len, the signing context tracks how much of that chunk it
+ * already took.  Returns LWS_LECPCTX_RET_FINISHED when all of \p in was used:
+ * drain the output, then either call again with the next payload chunk, or,
+ * if that was the last chunk, the object is complete.
+ * LWS_LECPCTX_RET_FAIL means the signing failed, or the chunks exceeded
+ * inline_payload_len, and the object must not be used.
+ */
 LWS_VISIBLE LWS_EXTERN enum lws_lec_pctx_ret
 lws_cose_sign_payload_chunk(struct lws_cose_sign_context *csc,
 			    const uint8_t *in, size_t in_len);

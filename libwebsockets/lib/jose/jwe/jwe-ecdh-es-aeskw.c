@@ -202,11 +202,11 @@ lws_jwe_encrypt_ecdh(struct lws_jwe *jwe, char *temp, int *temp_len,
 	uint8_t shared_secret[LWS_JWE_LIMIT_KEY_ELEMENT_BYTES],
 		derived[LWS_JWE_LIMIT_KEY_ELEMENT_BYTES];
 	int m, n, ret = -1, ot = *temp_len, ss_len = sizeof(shared_secret),
-	  //  kw_hlen = lws_genhash_size(jwe->jose.alg->hash_type),
-	    enc_hlen = (int)lws_genhmac_size(jwe->jose.enc_alg->hmac_type),
-	    ekbytes = 32; //jwe->jose.alg->keybits_fixed / 8;
+	    enc_hlen = (int)lws_genhmac_size(jwe->jose.enc_alg->hmac_type);
 	struct lws_genec_ctx ecctx;
 	struct lws_jwk *ephem = &jwe->jose.recipient[jwe->recip].jwk_ephemeral;
+
+	memset(&ecctx, 0, sizeof(ecctx));
 
 	if (jwe->jws.jwk->kty != LWS_GENCRYPTO_KTY_EC) {
 		lwsl_err("%s: unexpected kty %d\n", __func__, jwe->jws.jwk->kty);
@@ -219,14 +219,18 @@ lws_jwe_encrypt_ecdh(struct lws_jwe *jwe, char *temp, int *temp_len,
 
 	/* Generate jose.jwk_ephemeral on the peer public key curve */
 
-	if (lws_genecdh_create(&ecctx, jwe->jws.context, NULL))
+	if (lws_genecdh_create(&ecctx, jwe->jws.context, NULL)) {
+		lwsl_err("%s: lws_genecdh_create failed\n", __func__);
 		goto bail;
+	}
 
 	/* ephemeral context gets random key on same curve as recip pubkey */
 	if (lws_genecdh_new_keypair(&ecctx, LDHS_OURS, (const char *)
 				jwe->jws.jwk->e[LWS_GENCRYPTO_EC_KEYEL_CRV].buf,
-				ephem->e))
+				ephem->e)) {
+		lwsl_err("%s: lws_genecdh_new_keypair failed\n", __func__);
 		goto bail;
+	}
 
 	/* peer context gets js->jwk key */
 	if (lws_genecdh_set_key(&ecctx, jwe->jws.jwk->e, LDHS_THEIRS)) {
@@ -235,6 +239,7 @@ lws_jwe_encrypt_ecdh(struct lws_jwe *jwe, char *temp, int *temp_len,
 	}
 
 	/* combine our ephemeral key and the peer pubkey to get the secret */
+	ss_len = (int)jwe->jws.jwk->e[LWS_GENCRYPTO_EC_KEYEL_X].len;
 
 	if (lws_genecdh_compute_shared_secret(&ecctx, shared_secret, &ss_len)) {
 		lwsl_notice("%s: lws_genecdh_compute_shared_secret failed\n",
@@ -271,13 +276,6 @@ lws_jwe_encrypt_ecdh(struct lws_jwe *jwe, char *temp, int *temp_len,
 		goto bail;
 	}
 
-	/* in P-521 case, we get a 66-byte shared secret for a 64-byte key */
-	if (ss_len < enc_hlen) {
-		lwsl_err("%s: concat KDF bad derived key len %d\n", __func__,
-			 ss_len);
-		goto bail;
-	}
-
 	/*
 	 * For "ECDH-ES", that was it, and we use what we just wrapped in
 	 * wrapped as the CEK without publishing it.
@@ -302,7 +300,7 @@ lws_jwe_encrypt_ecdh(struct lws_jwe *jwe, char *temp, int *temp_len,
 		/* wrap with the derived key */
 
 		el.buf = derived;
-		el.len = (unsigned int)enc_hlen / 2;
+		el.len = (unsigned int)jwe->jose.alg->keybits_fixed / 8;
 
 		if (lws_genaes_create(&aesctx, LWS_GAESO_ENC, LWS_GAESM_KW, &el,
 					1, NULL)) {
@@ -338,9 +336,45 @@ lws_jwe_encrypt_ecdh(struct lws_jwe *jwe, char *temp, int *temp_len,
 	jwe->jws.map.buf[LJWE_JOSE] = temp;
 
 	m = n = lws_snprintf(temp, (size_t)*temp_len,
-			     "{\"alg\":\"%s\", \"enc\":\"%s\", \"epk\":",
+			     "{\"alg\":\"%s\", \"enc\":\"%s\", ",
 			     jwe->jose.alg->alg, jwe->jose.enc_alg->alg);
 	*temp_len -= n;
+
+	/*
+	 * The apu / apv the caller gave went into our Concat KDF: the
+	 * recipient's must too, so they have to be in the header we emit, or
+	 * it derives a different key and the unwrap fails
+	 */
+	for (n = LJJHI_APU; n <= LJJHI_APV; n++) {
+		int l;
+
+		if (!jwe->jose.e[n].buf)
+			continue;
+
+		l = lws_snprintf(temp + (ot - *temp_len), (size_t)*temp_len,
+				 "\"%s\":\"", n == LJJHI_APU ? "apu" : "apv");
+		*temp_len -= l;
+		m += l;
+		l = lws_b64_encode_string_url((const char *)jwe->jose.e[n].buf,
+					      (int)jwe->jose.e[n].len,
+					      temp + (ot - *temp_len),
+					      *temp_len);
+		if (l < 0) {
+			lwsl_err("%s: apu / apv does not fit\n", __func__);
+			goto bail;
+		}
+		*temp_len -= l;
+		m += l;
+		l = lws_snprintf(temp + (ot - *temp_len), (size_t)*temp_len,
+				 "\", ");
+		*temp_len -= l;
+		m += l;
+	}
+
+	n = lws_snprintf(temp + (ot - *temp_len), (size_t)*temp_len,
+			 "\"epk\":");
+	*temp_len -= n;
+	m += n;
 
 	n = lws_jwk_export(ephem, 0, temp + (ot - *temp_len), temp_len);
 	if (n < 0) {
@@ -368,8 +402,8 @@ bail:
 	lws_genec_destroy(&ecctx);
 
 	/* cleanse the shared secret (watch out for cek at parent too) */
-	lws_explicit_bzero(shared_secret, (unsigned int)ekbytes);
-	lws_explicit_bzero(derived, (unsigned int)ekbytes);
+	lws_explicit_bzero(shared_secret, sizeof(shared_secret));
+	lws_explicit_bzero(derived, sizeof(derived));
 
 	return ret;
 }
@@ -380,7 +414,6 @@ lws_jwe_encrypt_ecdh_cbc_hs(struct lws_jwe *jwe, char *temp, int *temp_len)
 	int ss_len, // kw_hlen = lws_genhash_size(jwe->jose.alg->hash_type),
 	    enc_hlen = (int)lws_genhmac_size(jwe->jose.enc_alg->hmac_type);
 	uint8_t cek[LWS_JWE_LIMIT_KEY_ELEMENT_BYTES];
-	int ekbytes = jwe->jose.alg->keybits_fixed / 8;
 	int n, ot = *temp_len, ret = -1;
 
 	/* if we will produce an EKEY, make space for it */
@@ -436,7 +469,8 @@ bail:
 		jwe->jws.map.len[LJWE_EKEY] = 0;
 	}
 
-	lws_explicit_bzero(cek, (unsigned int)ekbytes);
+	/* cleanse the whole buffer, the CEK is longer than the KW key */
+	lws_explicit_bzero(cek, sizeof(cek));
 
 	return ret;
 }
@@ -454,10 +488,16 @@ lws_jwe_auth_and_decrypt_ecdh(struct lws_jwe *jwe)
 {
 	uint8_t shared_secret[LWS_JWE_LIMIT_KEY_ELEMENT_BYTES],
 		derived[LWS_JWE_LIMIT_KEY_ELEMENT_BYTES];
-	int ekbytes = jwe->jose.enc_alg->keybits_fixed / 8,
-		      enc_hlen = (int)lws_genhmac_size(jwe->jose.enc_alg->hmac_type);
+	int enc_hlen = (int)lws_genhmac_size(jwe->jose.enc_alg->hmac_type);
 	struct lws_genec_ctx ecctx;
 	int n, ret = -1, ss_len = sizeof(shared_secret);
+
+	/*
+	 * The backend ec context is destroyed at bail: on every path, so it
+	 * must stay destroyable (== all-NULL slots) even if
+	 * lws_genecdh_create() itself fails partway
+	 */
+	memset(&ecctx, 0, sizeof(ecctx));
 
 	if (jwe->jws.jwk->kty != LWS_GENCRYPTO_KTY_EC) {
 		lwsl_err("%s: unexpected kty %d\n", __func__, jwe->jws.jwk->kty);
@@ -501,6 +541,7 @@ lws_jwe_auth_and_decrypt_ecdh(struct lws_jwe *jwe)
 	}
 
 	/* combine their ephemeral key and our private key to get the secret */
+	ss_len = (int)jwe->jws.jwk->e[LWS_GENCRYPTO_EC_KEYEL_X].len;
 
 	if (lws_genecdh_compute_shared_secret(&ecctx, shared_secret, &ss_len)) {
 		lwsl_notice("%s: lws_genecdh_compute_shared_secret failed\n",
@@ -509,16 +550,11 @@ lws_jwe_auth_and_decrypt_ecdh(struct lws_jwe *jwe)
 		goto bail;
 	}
 
-	lws_genec_destroy(&ecctx);
-
-	if (ss_len < enc_hlen) {
-		lwsl_err("%s: ss_len %d ekbytes %d\n", __func__, ss_len, enc_hlen);
-		goto bail;
-	}
-
 	/*
 	 * Derive the CEK from the shared secret... amount of bytes written to
-	 * cek[] matches bitcount in jwe->jose.enc_alg->keybits_fixed
+	 * cek[] matches bitcount in jwe->jose.enc_alg->keybits_fixed.  The
+	 * Concat KDF produces any length from any size of shared secret, eg,
+	 * a 64-byte A256CBC-HS512 CEK from a P-256 secret of 32 bytes
 	 */
 
 	if (lws_jwa_concat_kdf(jwe,
@@ -540,10 +576,18 @@ lws_jwe_auth_and_decrypt_ecdh(struct lws_jwe *jwe)
 		struct lws_genaes_ctx aesctx;
 		int m;
 
-		/* Confirm space for EKEY */
+		/*
+		 * The EKEY must be exactly the "enc" algorithm's CEK length
+		 * plus the RFC3394 wrap overhead.  The KW unwrap emits len - 8
+		 * bytes into shared_secret[] with no output size argument, so
+		 * any other EKEY length is not only malformed, it would smash
+		 * the stack before the payload is authenticated.
+		 */
 
-		if (jwe->jws.map.len[LJWE_EKEY] < (unsigned int)enc_hlen) {
-			lwsl_err("%s: missing EKEY\n", __func__);
+		if (jwe->jws.map.len[LJWE_EKEY] != (unsigned int)enc_hlen +
+					LWS_JWE_RFC3394_OVERHEAD_BYTES) {
+			lwsl_err("%s: bad EKEY len %u\n", __func__,
+				 (unsigned int)jwe->jws.map.len[LJWE_EKEY]);
 
 			goto bail;
 		}
@@ -551,7 +595,7 @@ lws_jwe_auth_and_decrypt_ecdh(struct lws_jwe *jwe)
 		/* unwrap with the KEK we derived */
 
 		el.buf = derived;
-		el.len = (unsigned int)enc_hlen / 2;
+		el.len = (unsigned int)jwe->jose.alg->keybits_fixed / 8;
 
 		if (lws_genaes_create(&aesctx, LWS_GAESO_DEC, LWS_GAESM_KW,
 				      &el, 1, NULL)) {
@@ -592,10 +636,17 @@ lws_jwe_auth_and_decrypt_ecdh(struct lws_jwe *jwe)
 	ret = 0;
 
 bail:
-	/* cleanse wrapped on stack that contained the CEK / wrapped key */
-	lws_explicit_bzero(derived, (unsigned int)ekbytes);
-	/* cleanse the shared secret */
-	lws_explicit_bzero(shared_secret, (unsigned int)ekbytes);
+	/* the ec context outlives the shared secret computation, on any path */
+
+	lws_genec_destroy(&ecctx);
+
+	/*
+	 * Cleanse the whole of both buffers, not just ekbytes of them: the raw
+	 * ECDH secret can be longer than the CEK (66 bytes for P-521), and the
+	 * KW unwrap wrote the recovered CEK into shared_secret[] as well
+	 */
+	lws_explicit_bzero(derived, sizeof(derived));
+	lws_explicit_bzero(shared_secret, sizeof(shared_secret));
 
 	return ret;
 }

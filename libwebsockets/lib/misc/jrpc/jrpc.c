@@ -91,6 +91,7 @@ req_cb(struct lejp_ctx *ctx, char reason)
 	lws_jrpc_obj_t *r = (lws_jrpc_obj_t *)ctx->user;
 	lws_jrpc_t *jrpc;
 	char *p;
+	int n;
 
 	lwsl_warn("%s: %d '%s' %s (sp %d, pst_sp %d)\n", __func__, reason, ctx->path, ctx->buf, ctx->sp, ctx->pst_sp);
 
@@ -109,7 +110,18 @@ req_cb(struct lejp_ctx *ctx, char reason)
 		 * errors is only the current batch entry.
 		 */
 
-		jrpc = lws_container_of(r->list.owner, lws_jrpc_t, req_owner);
+		/*
+		 * The binding is decided by the method name, so we can only do
+		 * it if we already saw it... JSON member order is the sender's
+		 * choice, and accepting "params" first would bind the request
+		 * to a catch-all handler while the sender named some other
+		 * method, and latch it so the real name is never looked up
+		 */
+
+		if (!r->method[0])
+			goto fail_invalid_request;
+
+		jrpc = lws_dll2_owner_container(&r->list, lws_jrpc_t, req_owner);
 		r->pmethod = lws_jrpc_method_lookup(jrpc, r->method);
 		if (!r->pmethod || !r->pmethod->cb)
 			/*
@@ -118,33 +130,53 @@ req_cb(struct lejp_ctx *ctx, char reason)
 			 */
 			goto fail_method_not_found;
 
-		r->inside_params = 1;
-
 		lwsl_notice("%s: params: entering subparser\n", __func__);
-		lejp_parser_push(ctx, r, r->pmethod->paths,
-				 (uint8_t)r->pmethod->count_paths, r->pmethod->cb);
+
+		/*
+		 * If the push fails, the params subtree is delivered to our
+		 * own callback and path table instead of the method's
+		 */
+
+		if (lejp_parser_push(ctx, r, r->pmethod->paths,
+				     (uint8_t)r->pmethod->count_paths,
+				     r->pmethod->cb))
+			goto fail_internal_error;
+
+		r->inside_params = 1;
 	}
 
 	if (reason == LEJPCB_COMPLETE && !r->response) {
 		if (!r->has_jrpc_member)
 			goto fail_invalid_request;
-		if (r->method[0] && !r->pmethod) {
-			jrpc = lws_container_of(r->list.owner, lws_jrpc_t,
+
+		if (!r->pmethod) {
+			/*
+			 * A request object with no "method" member at all is
+			 * an invalid request... we must not fall through to
+			 * dispatch on the NULL binding
+			 */
+
+			if (!r->method[0])
+				goto fail_invalid_request;
+
+			jrpc = lws_dll2_owner_container(&r->list, lws_jrpc_t,
 						req_owner);
 			r->pmethod = lws_jrpc_method_lookup(jrpc, r->method);
-			if (!r->pmethod || !r->pmethod->cb)
-				/*
-				 * There's nothing we can do with no method
-				 * binding, or one that lacks a callback...
-				 */
-				goto fail_method_not_found;
 		}
+
+		if (!r->pmethod || !r->pmethod->cb)
+			/*
+			 * There's nothing we can do with no method
+			 * binding, or one that lacks a callback...
+			 */
+			goto fail_method_not_found;
 
 		/*
 		 * Indicate that the whole of the request has been parsed now
 		 * and the id is known, so the method can complete and finalize
 		 * its response
 		 */
+		r->method_started = 1;
 		r->pmethod->cb(ctx, LEJPCB_USER_START);
 
 		return 0;
@@ -163,7 +195,7 @@ req_cb(struct lejp_ctx *ctx, char reason)
 		 * A String specifying the version of the JSON-RPC protocol.
 		 * MUST be exactly "2.0".
 		 */
-		if (ctx->npos != 3 && strcmp(ctx->buf, "2.0")) {
+		if (ctx->npos != 3 || strcmp(ctx->buf, "2.0")) {
 			r->parse_result = LWSJRPCWKE__INVALID_REQUEST;
 			return -1;
 		}
@@ -220,17 +252,31 @@ req_cb(struct lejp_ctx *ctx, char reason)
 			/* it already defaults to null */
 			break;
 
-		p = r->id;
-		if (reason == LEJPCB_VAL_STR_END)
-			*p++ = '\"';
-
-		lws_strnncpy(p, ctx->buf, ctx->npos, sizeof(r->id) - 2);
-
-		if (reason == LEJPCB_VAL_STR_END) {
-			p += strlen(p);
-			*p++ = '\"';
-			*p = '\0';
+		if (reason != LEJPCB_VAL_STR_END) {
+			/* a number, lejp already restricted it to [-0-9.eE] */
+			lws_strnncpy(r->id, ctx->buf, ctx->npos,
+				     sizeof(r->id));
+			break;
 		}
+
+		/*
+		 * lejp gives us the string with the JSON escapes already
+		 * decoded, and we hand this back to be spliced into our
+		 * response JSON verbatim... so it has to be re-escaped here,
+		 * or the sender can inject arbitrary members into our own
+		 * response object.  If the escaped version doesn't fit, we
+		 * can't reflect the id at all and the request is unusable.
+		 */
+
+		n = (int)ctx->npos;
+		r->id[0] = '\"';
+		lws_json_purify(r->id + 1, ctx->buf, (int)sizeof(r->id) - 2, &n);
+		if (n != (int)ctx->npos)
+			goto fail_invalid_request;
+
+		p = r->id + strlen(r->id);
+		*p++ = '\"';
+		*p = '\0';
 
 		break;
 
@@ -276,6 +322,11 @@ fail_method_not_found:
 	r->parse_result = LWSJRPCWKE__METHOD_NOT_FOUND;
 
 	return -1;
+
+fail_internal_error:
+	r->parse_result = LWSJRPCWKE__INTERNAL_ERROR;
+
+	return -1;
 }
 
 const char *
@@ -317,7 +368,14 @@ lws_jrpc_obj_parse(lws_jrpc_t *jrpc, int type, void *opaque,
 	n = lejp_parse(&r->lejp_ctx, (uint8_t *)buf, (int)l);
 	lwsl_debug("%s: raw parse result %d\n", __func__, n);
 	if (n == LEJP_REJECT_CALLBACK)
-		return r->parse_result;
+		/*
+		 * lejp reports a rejection from any callback on the parsing
+		 * stack the same way, including the method's own params
+		 * subparser, which doesn't set parse_result... that must not
+		 * be reported to the caller as a successful, complete parse
+		 */
+		return r->parse_result ? r->parse_result :
+					 LWSJRPCWKE__INVALID_PARAMS;
 
 	if (n < -1)
 		return LWSJRPCWKE__PARSE_ERROR;
@@ -338,6 +396,15 @@ lws_jrpc_obj_destroy(lws_jrpc_obj_t **_r)
 
 	if (!r)
 		return;
+
+	/*
+	 * A handler that is still completing asynchronously holds a pointer
+	 * to us: tell it we are going, so it does not use it afterwards
+	 */
+	if (r->method_started && r->pmethod && r->pmethod->cb) {
+		r->method_started = 0;
+		r->pmethod->cb(&r->lejp_ctx, LEJPCB_USER_DESTROYING);
+	}
 
 	lws_dll2_remove(&r->list);
 
@@ -375,7 +442,7 @@ lws_jrpc_destroy(lws_jrpc_t **_jrpc)
 		return;
 
 	lws_start_foreach_dll_safe(struct lws_dll2 *, p, p1,
-				   jrpc->req_owner.head) {
+				   lws_dll2_get_head(&jrpc->req_owner)) {
 		lws_jrpc_obj_t *r = lws_container_of(p, lws_jrpc_obj_t, list);
 
 		lws_jrpc_obj_destroy(&r);

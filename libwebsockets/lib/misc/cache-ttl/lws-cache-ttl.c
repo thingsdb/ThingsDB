@@ -34,7 +34,7 @@
 void
 lws_cache_clear_matches(lws_dll2_owner_t *results_owner)
 {
-	lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1, results_owner->head) {
+	lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1, lws_dll2_get_head(results_owner)) {
 		lws_cache_match_t *item = lws_container_of(d, lws_cache_match_t,
 							   list);
 		lws_dll2_remove(d);
@@ -42,14 +42,122 @@ lws_cache_clear_matches(lws_dll2_owner_t *results_owner)
 	} lws_end_foreach_dll_safe(d, d1);
 }
 
+/*
+ * Locking
+ *
+ * A cache and the levels chained to it are shared by all the service threads
+ * when LWS_MAX_SMP > 1, while their expiry / maintenance suls run on the
+ * service thread of info.tsi, with that pt's lock held.  So every public api
+ * holds the lock of the outermost level of the chain while it works, and the
+ * sul callbacks take it too.
+ *
+ * The chain lock is a leaf lock: nothing else is locked while it is held.  In
+ * particular (re)arming or cancelling a sul takes the pt lock, and a sul
+ * callback already holds that when it takes ours.  So while locked, levels
+ * only note the sul change they want with lws_cache_schedule() or
+ * lws_cache_unschedule(), and lws_cache_unlock() applies it after dropping
+ * the lock.  The same code path is used without SMP.
+ *
+ * lws_cache_lock() / lws_cache_unlock() are also exported, so users who keep
+ * using a pointer into the cache after the call that returned it can hold
+ * the chain lock over that (see the api docs).
+ */
+
+static struct lws_cache_ttl_lru *
+lws_cache_root(struct lws_cache_ttl_lru *cache)
+{
+	while (cache->info.parent)
+		cache = cache->info.parent;
+
+	return cache;
+}
+
+void
+lws_cache_base_init(struct lws_cache_ttl_lru *cache,
+		    const struct lws_cache_creation_info *info)
+{
+	cache->info = *info;
+#if LWS_MAX_SMP > 1
+	lws_mutex_refcount_init(&cache->mr);
+#endif
+}
+
+void
+lws_cache_lock(struct lws_cache_ttl_lru *cache)
+{
+	struct lws_cache_ttl_lru *root = lws_cache_root(cache);
+
+#if LWS_MAX_SMP > 1
+	lws_mutex_refcount_lock(&root->mr, __func__);
+#endif
+	root->lock_depth++;
+}
+
+void
+lws_cache_unlock(struct lws_cache_ttl_lru *cache)
+{
+	struct lws_cache_ttl_lru *root = lws_cache_root(cache), *c,
+				 *pend[LWS_CACHE_MAX_LEVELS];
+	lws_usec_t at[LWS_CACHE_MAX_LEVELS];
+	sul_cb_t cb[LWS_CACHE_MAX_LEVELS];
+	int n = 0, m;
+
+	assert(root->lock_depth > 0);
+
+	if (--root->lock_depth) {
+		/* only the outermost unlock applies the sul changes */
+#if LWS_MAX_SMP > 1
+		lws_mutex_refcount_unlock(&root->mr);
+#endif
+		return;
+	}
+
+	/* collect the sul changes the levels want, while still locked */
+
+	for (c = root; c && n < (int)LWS_ARRAY_SIZE(pend); c = c->child) {
+		if (!c->sul_pending)
+			continue;
+
+		c->sul_pending = 0;
+		pend[n] = c;
+		cb[n] = c->sul_pending_cb;
+		at[n++] = c->sul_pending_at;
+	}
+
+#if LWS_MAX_SMP > 1
+	lws_mutex_refcount_unlock(&root->mr);
+#endif
+
+	for (m = 0; m < n; m++) {
+		if (!cb[m]) {
+			lws_sul_cancel(&pend[m]->sul);
+			continue;
+		}
+
+		lwsl_cache("%s: %s schedule %llu\n", __func__,
+			   pend[m]->info.name, (unsigned long long)at[m]);
+
+		/* expiries are in the time of the sul's service thread */
+
+		lws_sul_schedule(pend[m]->info.cx, pend[m]->info.tsi,
+				 &pend[m]->sul, cb[m], at[m] -
+				 lws_cx_now(pend[m]->info.cx, pend[m]->info.tsi));
+	}
+}
+
 void
 lws_cache_schedule(struct lws_cache_ttl_lru *cache, sul_cb_t cb, lws_usec_t e)
 {
-	lwsl_cache("%s: %s schedule %llu\n", __func__, cache->info.name,
-			(unsigned long long)e);
+	cache->sul_pending_cb = cb;
+	cache->sul_pending_at = e;
+	cache->sul_pending = 1;
+}
 
-	lws_sul_schedule(cache->info.cx, cache->info.tsi, &cache->sul, cb,
-			 e - lws_now_usecs());
+void
+lws_cache_unschedule(struct lws_cache_ttl_lru *cache)
+{
+	cache->sul_pending_cb = NULL;
+	cache->sul_pending = 1;
 }
 
 int
@@ -60,7 +168,17 @@ lws_cache_write_through(struct lws_cache_ttl_lru *cache,
 	struct lws_cache_ttl_lru *levels[LWS_CACHE_MAX_LEVELS], *c = cache;
 	int n = 0, r = 0;
 
-	lws_cache_item_remove(cache, specific_key);
+	lws_cache_lock(cache); /* ------------------------------ cache { */
+
+	/*
+	 * Each level's write replaces any item it already has with this key,
+	 * so only the innermost level, which also holds the cached lookup
+	 * results that the new item may change, needs an explicit remove.
+	 * Removing it from the outer levels first too would mean, eg, the
+	 * cookie jar being rewritten twice for every cookie.
+	 */
+
+	cache->info.ops->invalidate(cache, specific_key);
 
 	/* starting from L1 */
 
@@ -73,9 +191,27 @@ lws_cache_write_through(struct lws_cache_ttl_lru *cache,
 
 	while (n) {
 		n--;
-		r = levels[n]->info.ops->write(levels[n], specific_key,
-						source, size, expiry, ppay);
+		/*
+		 * Aggregate the results from all levels, so a level that
+		 * refused the item (eg, a backing store payload size cap) is
+		 * not hidden by an inner level that accepted it
+		 */
+		if (!levels[n]->info.ops->write(levels[n], specific_key,
+						source, size, expiry, ppay))
+			continue;
+
+		r = 1;
+
+		/*
+		 * This level refused the new item, but it must not keep
+		 * serving the old one either
+		 */
+		if (levels[n] != cache)
+			levels[n]->info.ops->invalidate(levels[n],
+							specific_key);
 	}
+
+	lws_cache_unlock(cache); /* ----------------------------- } cache */
 
 	return r;
 }
@@ -87,21 +223,18 @@ lws_cache_write_through(struct lws_cache_ttl_lru *cache,
  * If L1 has a cached version though, we will just use that.
  */
 
-int
-lws_cache_lookup(struct lws_cache_ttl_lru *cache, const char *wildcard_key,
-		 const void **pdata, size_t *psize)
+static int
+__lws_cache_lookup(struct lws_cache_ttl_lru *cache, const char *wildcard_key,
+		   const char *meta_key, const void **pdata, size_t *psize)
 {
 	struct lws_cache_ttl_lru *l1 = cache;
 	lws_dll2_owner_t results_owner;
 	lws_usec_t expiry = 0;
-	char meta_key[128];
 	uint8_t *p, *temp;
 	size_t sum = 0;
 	int n;
 
 	memset(&results_owner, 0, sizeof(results_owner));
-	meta_key[0] = META_ITEM_LEADING;
-	lws_strncpy(&meta_key[1], wildcard_key, sizeof(meta_key) - 2);
 
 	/*
 	 * If we have a cached result set in L1 already, return that
@@ -140,7 +273,11 @@ lws_cache_lookup(struct lws_cache_ttl_lru *cache, const char *wildcard_key,
 		sum += 8; /* payload size, name length */
 		sum += m->tag_size + 1;
 
-		if (m->expiry && (!expiry || expiry < m->expiry))
+		/*
+		 * ...the *earliest*, so the meta entry cannot outlive any of
+		 * the components it names
+		 */
+		if (m->expiry && (!expiry || m->expiry < expiry))
 			expiry = m->expiry;
 
 	} lws_end_foreach_dll(d);
@@ -200,77 +337,160 @@ lws_cache_lookup(struct lws_cache_ttl_lru *cache, const char *wildcard_key,
 }
 
 int
+lws_cache_lookup(struct lws_cache_ttl_lru *cache, const char *wildcard_key,
+		 const void **pdata, size_t *psize)
+{
+	size_t wkl = strlen(wildcard_key);
+	char *meta_key;
+	int n;
+
+	/*
+	 * The result set is cached in L1 under the whole wildcard key with
+	 * META_ITEM_LEADING in front: it must never be cut short, or two
+	 * different lookups would share one result set
+	 */
+
+	meta_key = lws_malloc(wkl + 2, __func__);
+	if (!meta_key)
+		return 1;
+
+	meta_key[0] = META_ITEM_LEADING;
+	memcpy(&meta_key[1], wildcard_key, wkl + 1);
+
+	lws_cache_lock(cache); /* ------------------------------ cache { */
+	n = __lws_cache_lookup(cache, wildcard_key, meta_key, pdata, psize);
+	lws_cache_unlock(cache); /* ----------------------------- } cache */
+
+	lws_free(meta_key);
+
+	return n;
+}
+
+int
 lws_cache_item_get(struct lws_cache_ttl_lru *cache, const char *specific_key,
 		   const void **pdata, size_t *psize)
 {
-	while (cache) {
-		if (!cache->info.ops->get(cache, specific_key, pdata, psize)) {
+	struct lws_cache_ttl_lru *c = cache;
+	int n = 1;
+
+	lws_cache_lock(cache); /* ------------------------------ cache { */
+
+	while (c) {
+		if (!c->info.ops->get(c, specific_key, pdata, psize)) {
 			lwsl_cache("%s: hit\n", __func__);
-			return 0;
+			n = 0;
+			break;
 		}
 
-		cache = cache->info.parent;
+		c = c->info.parent;
 	}
 
-	return 1;
+	lws_cache_unlock(cache); /* ----------------------------- } cache */
+
+	return n;
 }
 
 int
 lws_cache_expunge(struct lws_cache_ttl_lru *cache)
 {
+	struct lws_cache_ttl_lru *c = cache;
 	int ret = 0;
 
-	while (cache) {
-		ret |= cache->info.ops->expunge(cache);
+	lws_cache_lock(cache); /* ------------------------------ cache { */
 
-		cache = cache->info.parent;
+	while (c) {
+		ret |= c->info.ops->expunge(c);
+
+		c = c->info.parent;
 	}
+
+	lws_cache_unlock(cache); /* ----------------------------- } cache */
 
 	return ret;
 }
 
 int
-lws_cache_item_remove(struct lws_cache_ttl_lru *cache, const char *wildcard_key)
+lws_cache_item_remove(struct lws_cache_ttl_lru *cache, const char *specific_key)
 {
-	while (cache) {
-		if (cache->info.ops->invalidate(cache, wildcard_key))
-			return 1;
+	struct lws_cache_ttl_lru *c = cache;
+	int n = 0;
 
-		cache = cache->info.parent;
+	lws_cache_lock(cache); /* ------------------------------ cache { */
+
+	while (c) {
+		if (c->info.ops->invalidate(c, specific_key)) {
+			n = 1;
+			break;
+		}
+
+		c = c->info.parent;
 	}
 
-	return 0;
+	lws_cache_unlock(cache); /* ----------------------------- } cache */
+
+	return n;
 }
 
 uint64_t
 lws_cache_footprint(struct lws_cache_ttl_lru *cache)
 {
-	return cache->current_footprint;
+	uint64_t f;
+
+	lws_cache_lock(cache); /* ------------------------------ cache { */
+	f = cache->current_footprint;
+	lws_cache_unlock(cache); /* ----------------------------- } cache */
+
+	return f;
 }
 
 void
 lws_cache_debug_dump(struct lws_cache_ttl_lru *cache)
 {
 #if defined(_DEBUG)
-	if (cache->info.ops->debug_dump)
-		cache->info.ops->debug_dump(cache);
+	if (!cache->info.ops->debug_dump)
+		return;
+
+	lws_cache_lock(cache); /* ------------------------------ cache { */
+	cache->info.ops->debug_dump(cache);
+	lws_cache_unlock(cache); /* ----------------------------- } cache */
 #endif
 }
 
 int
 lws_cache_results_walk(lws_cache_results_t *walk_ctx)
 {
+	size_t tl;
+
 	if (!walk_ctx->size)
 		return 1;
 
+	/*
+	 * Each result is two 32-bit lengths, the tag and its NUL.  A result
+	 * that does not fit in what is left ends the walk: we must not read,
+	 * or step the cursor, past the end of the result set.
+	 */
+
+	if (walk_ctx->size < 9)
+		goto truncated;
+
+	tl = lws_ser_ru32be(walk_ctx->ptr + 4);
+	if (tl > walk_ctx->size - 9 || walk_ctx->ptr[8 + tl])
+		goto truncated;
+
 	walk_ctx->payload_len = lws_ser_ru32be(walk_ctx->ptr);
-	walk_ctx->tag_len = lws_ser_ru32be(walk_ctx->ptr + 4);
+	walk_ctx->tag_len = tl;
 	walk_ctx->tag = walk_ctx->ptr + 8;
 
 	walk_ctx->ptr += walk_ctx->tag_len + 1 + 8;
 	walk_ctx->size -= walk_ctx->tag_len + 1 + 8;
 
 	return 0;
+
+truncated:
+	lwsl_err("%s: truncated result set\n", __func__);
+	walk_ctx->size = 0;
+
+	return 1;
 }
 
 struct lws_cache_ttl_lru *
@@ -295,6 +515,20 @@ lws_cache_destroy(struct lws_cache_ttl_lru **_cache)
 	assert(cache->info.ops->destroy);
 
 	lws_sul_cancel(&cache->sul);
+
+	/*
+	 * Levels may be destroyed in either order: do not leave the other
+	 * level of the pair holding a pointer to this one
+	 */
+
+	if (cache->child && cache->child->info.parent == cache)
+		cache->child->info.parent = NULL;
+	if (cache->info.parent && cache->info.parent->child == cache)
+		cache->info.parent->child = NULL;
+
+#if LWS_MAX_SMP > 1
+	lws_mutex_refcount_destroy(&cache->mr);
+#endif
 
 	cache->info.ops->destroy(_cache);
 }

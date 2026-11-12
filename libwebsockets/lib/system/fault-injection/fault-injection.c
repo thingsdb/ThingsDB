@@ -29,7 +29,7 @@
 static lws_fi_priv_t *
 lws_fi_lookup(const lws_fi_ctx_t *fic, const char *name)
 {
-	lws_start_foreach_dll(struct lws_dll2 *, p, fic->fi_owner.head) {
+	lws_start_foreach_dll(struct lws_dll2 *, p, lws_dll2_get_head(&fic->fi_owner)) {
 		lws_fi_priv_t *pv = lws_container_of(p, lws_fi_priv_t, list);
 
 		if (!strcmp(pv->fi.name, name))
@@ -44,6 +44,7 @@ int
 lws_fi(const lws_fi_ctx_t *fic, const char *name)
 {
 	lws_fi_priv_t *pv;
+	uint64_t n64;
 	int n;
 
 	pv = lws_fi_lookup(fic, name);
@@ -56,10 +57,15 @@ lws_fi(const lws_fi_ctx_t *fic, const char *name)
 		goto inject;
 
 	case LWSFI_DETERMINISTIC:
-		pv->fi.times++;
-		if (pv->fi.times >= pv->fi.pre)
-			if (pv->fi.times < pv->fi.pre + pv->fi.count)
-				goto inject;
+		/*
+		 * .pre calls go by without the fault, then the next .count
+		 * have it.  Counting the calls from 0, that's calls .pre to
+		 * .pre + .count - 1.  Counting them from 1, as this used to,
+		 * shifted it a call early, so .pre 0 never injected at all.
+		 */
+		n64 = pv->fi.times++;
+		if (n64 >= pv->fi.pre && n64 < pv->fi.pre + pv->fi.count)
+			goto inject;
 		return 0;
 
 	case LWSFI_PROBABILISTIC:
@@ -102,6 +108,18 @@ lws_fi_range(const lws_fi_ctx_t *fic, const char *name, uint64_t *result)
 	if (pv->fi.type != LWSFI_RANGE) {
 		lwsl_err("%s: fault %s is not a 123..456 range\n",
 			 __func__, name);
+		return 1;
+	}
+
+	if (pv->fi.count <= pv->fi.pre) {
+		/*
+		 * The parser refuses these, but lws_fi_add() is public and the
+		 * application may have added the rule itself... a zero-width
+		 * range would be a division by zero below, and an inverted one
+		 * underflows to a huge modulus
+		 */
+		lwsl_err("%s: fault %s has an empty range\n", __func__, name);
+
 		return 1;
 	}
 
@@ -181,7 +199,7 @@ lws_fi_import(lws_fi_ctx_t *fic_dest, const lws_fi_ctx_t *fic_src)
 	lws_xos_init(&fic_dest->xos, lws_xos((lws_xos_t *)&fic_src->xos));
 
 	lws_start_foreach_dll_safe(struct lws_dll2 *, p, p1,
-				   fic_src->fi_owner.head) {
+				   lws_dll2_get_head(&fic_src->fi_owner)) {
 		lws_fi_priv_t *pv = lws_container_of(p, lws_fi_priv_t, list);
 
 		lws_dll2_remove(&pv->list);
@@ -224,7 +242,7 @@ lws_fi_inherit_copy(lws_fi_ctx_t *fic_dest, const lws_fi_ctx_t *fic_src,
 		vl = strlen(value);
 
 	lws_start_foreach_dll_safe(struct lws_dll2 *, p, p1,
-				   fic_src->fi_owner.head) {
+				   lws_dll2_get_head(&fic_src->fi_owner)) {
 		lws_fi_priv_t *pv = lws_container_of(p, lws_fi_priv_t, list);
 		size_t nl = strlen(pv->fi.name);
 
@@ -250,7 +268,7 @@ void
 lws_fi_destroy(const lws_fi_ctx_t *fic)
 {
 	lws_start_foreach_dll_safe(struct lws_dll2 *, p, p1,
-				   fic->fi_owner.head) {
+				   lws_dll2_get_head(&fic->fi_owner)) {
 		lws_fi_priv_t *pv = lws_container_of(p, lws_fi_priv_t, list);
 
 		if (pv->fi.type == LWSFI_PATTERN_ALLOC && pv->fi.pattern) {
@@ -281,10 +299,36 @@ enum {
 	PARSE_COMMA
 };
 
+/*
+ * Commit the rule we just finished parsing, if there was a valid one, and
+ * reset the scratch fi ready for the next.
+ *
+ * Nothing may be committed without a name having been parsed for it (fi.name
+ * would be garbage), and nothing may be committed twice, since each committed
+ * rule takes ownership of the pattern allocation and lws_fi_destroy() frees
+ * the pattern of every rule on the list.
+ */
+
+static void
+lws_fi_deser_commit(lws_fi_ctx_t *fic, lws_fi_t *fi, int valid)
+{
+	if (valid && !lws_fi_add(fic, fi))
+		/* the list owns any pattern allocation now */
+		goto reset;
+
+	/* rejected, or OOM... we still own any pattern allocation */
+
+	if (fi->type == LWSFI_PATTERN_ALLOC && fi->pattern)
+		lws_free((void *)fi->pattern);
+
+reset:
+	memset(fi, 0, sizeof(*fi));
+}
+
 void
 lws_fi_deserialize(lws_fi_ctx_t *fic, const char *sers)
 {
-	int state = PARSE_NAME, m;
+	int state = PARSE_NAME, m, have_name = 0;
 	struct lws_tokenize ts;
 	lws_fi_t fi;
 	char nm[64];
@@ -293,6 +337,8 @@ lws_fi_deserialize(lws_fi_ctx_t *fic, const char *sers)
 	 * Go through the comma-separated list of faults
 	 * creating them and adding to the lws_context info
 	 */
+
+	memset(&fi, 0, sizeof(fi));
 
 	lws_tokenize_init(&ts, sers, LWS_TOKENIZE_F_DOT_NONTERM |
 				     LWS_TOKENIZE_F_NO_INTEGERS |
@@ -322,6 +368,7 @@ lws_fi_deserialize(lws_fi_ctx_t *fic, const char *sers)
 					     sizeof(nm));
 				fi.name = nm;
 				fi.type = LWSFI_ALWAYS;
+				have_name = 1;
 
 				lwsl_notice("%s: name %.*s\n", __func__,
 					    (int)ts.token_len, ts.token);
@@ -346,7 +393,7 @@ lws_fi_deserialize(lws_fi_ctx_t *fic, const char *sers)
 					pat = lws_zalloc((ts.token_len >> 3) + 1,
 							 __func__);
 					if (!pat)
-						return;
+						goto bail;
 					fi.pattern = pat;
 					fi.count = (uint64_t)ts.token_len;
 
@@ -386,6 +433,13 @@ lws_fi_deserialize(lws_fi_ctx_t *fic, const char *sers)
 						lwsl_err("%s: range must have "
 							 "smaller first!\n",
 							 __func__);
+						/*
+						 * Refuse the rule: an empty or
+						 * inverted range is a division
+						 * by zero in lws_fi_range()
+						 */
+						have_name = 0;
+						break;
 					}
 
 					lwsl_notice("%s: range %llx .."
@@ -405,15 +459,21 @@ lws_fi_deserialize(lws_fi_ctx_t *fic, const char *sers)
 
 		case LWS_TOKZE_DELIMITER:
 			if (*ts.token == ',') {
-				lws_fi_add(fic, &fi);
+				/*
+				 * Commit whatever we have, if anything: a
+				 * leading, trailing or doubled comma just
+				 * means there was no rule to commit
+				 */
+				lws_fi_deser_commit(fic, &fi, have_name);
+				have_name = 0;
 				state = PARSE_NAME;
 				break;
 			}
 			if (*ts.token == '(') {
 				lwsl_notice("%s: (\n", __func__);
-				if (state != PARSE_NAME) {
+				if (state != PARSE_NAME || !have_name) {
 					lwsl_err("%s: misplaced (\n", __func__);
-					return;
+					goto bail;
 				}
 				state = PARSE_WHEN;
 				break;
@@ -421,7 +481,7 @@ lws_fi_deserialize(lws_fi_ctx_t *fic, const char *sers)
 			if (*ts.token == ')') {
 				if (state != PARSE_ENDBR) {
 					lwsl_err("%s: misplaced )\n", __func__);
-					return;
+					goto bail;
 				}
 				state = PARSE_NAME;
 				break;
@@ -429,7 +489,7 @@ lws_fi_deserialize(lws_fi_ctx_t *fic, const char *sers)
 			if (*ts.token == '%') {
 				if (state != PARSE_PC) {
 					lwsl_err("%s: misplaced %%\n", __func__);
-					return;
+					goto bail;
 				}
 				state = PARSE_ENDBR;
 				break;
@@ -437,11 +497,17 @@ lws_fi_deserialize(lws_fi_ctx_t *fic, const char *sers)
 			break;
 
 		case LWS_TOKZE_ENDED:
-			lws_fi_add(fic, &fi);
+			lws_fi_deser_commit(fic, &fi, have_name);
 			return;
 
 		default:
-			return;
+			goto bail;
 		}
 	} while (ts.e > 0);
+
+	return;
+
+bail:
+	/* discard the partial rule, including any pattern we allocated */
+	lws_fi_deser_commit(fic, &fi, 0);
 }

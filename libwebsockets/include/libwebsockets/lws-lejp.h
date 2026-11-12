@@ -30,6 +30,7 @@
  */
 //@{
 struct lejp_ctx;
+struct lwsac;
 
 #if !defined(LWS_ARRAY_SIZE)
 #define LWS_ARRAY_SIZE(_x) (sizeof(_x) / sizeof(_x[0]))
@@ -79,7 +80,9 @@ enum lejp_reasons {
 	LEJP_REJECT_NUM_TOO_LONG = -20,
 	LEJP_REJECT_MP_C_OR_E_NEITHER = -21,
 	LEJP_REJECT_UNKNOWN = -22,
-	LEJP_REJECT_CALLBACK = -23
+	LEJP_REJECT_CALLBACK = -23,
+	LEJP_REJECT_MP_KEY_ILLEGAL_CHAR = -24,
+	LEJP_REJECT_PATH_TOO_LONG = -25
 };
 
 #define LEJP_FLAG_CB_IS_VALUE 64
@@ -110,6 +113,7 @@ enum lejp_callbacks {
 	LEJPCB_OBJECT_END	= 17,
 
 	LEJPCB_USER_START	= 32,
+	LEJPCB_USER_DESTROYING	= 33, /* the object the parse belongs to is going */
 };
 
 /**
@@ -121,6 +125,15 @@ enum lejp_callbacks {
  *	and receives calls as the parsing progresses.
  *
  *	All of the callbacks may be ignored and just return 0.
+ *
+ *	Return 0 to continue parsing.  ANY nonzero return, positive or
+ *	negative, aborts the parse: lejp issues LEJPCB_FAILED and lejp_parse()
+ *	returns LEJP_REJECT_CALLBACK.  So a callback must not return nonzero
+ *	unless it means it, and conversely a consumer reporting a fatal error
+ *	(eg, OOM) can use any nonzero value it likes.  The informational
+ *	reasons LEJPCB_CONSTRUCTED, LEJPCB_DESTRUCTED, LEJPCB_START and
+ *	LEJPCB_FAILED have nowhere to report a failure to, and their return is
+ *	ignored.
  *
  *	The reasons it might get called, found in @reason, are:
  *
@@ -178,13 +191,21 @@ LWS_EXTERN signed char _lejp_callback(struct lejp_ctx *ctx, char reason);
 typedef signed char (*lejp_callback)(struct lejp_ctx *ctx, char reason);
 
 #ifndef LEJP_MAX_PARSING_STACK_DEPTH
-#define LEJP_MAX_PARSING_STACK_DEPTH 8
+#define LEJP_MAX_PARSING_STACK_DEPTH 10
 #endif
 #ifndef LEJP_MAX_DEPTH
+#if defined(LWS_ESP_PLATFORM)
 #define LEJP_MAX_DEPTH 16
+#else
+#define LEJP_MAX_DEPTH 64
+#endif
 #endif
 #ifndef LEJP_MAX_INDEX_DEPTH
+#if defined(LWS_ESP_PLATFORM)
 #define LEJP_MAX_INDEX_DEPTH 12
+#else
+#define LEJP_MAX_INDEX_DEPTH 64
+#endif
 #endif
 #ifndef LEJP_MAX_PATH
 #define LEJP_MAX_PATH 192
@@ -192,6 +213,21 @@ typedef signed char (*lejp_callback)(struct lejp_ctx *ctx, char reason);
 #ifndef LEJP_STRING_CHUNK
 /* must be >= 30 to assemble floats */
 #define LEJP_STRING_CHUNK 254
+#endif
+
+/*
+ * These are tunable, but every index into the arrays they size is a uint8_t
+ * in struct lejp_ctx, so they are hard-capped: LEJP_MAX_PATH, LEJP_MAX_DEPTH,
+ * LEJP_MAX_INDEX_DEPTH and LEJP_MAX_PARSING_STACK_DEPTH must each be <= 255,
+ * and LEJP_STRING_CHUNK <= 254.  Raising one past its cap does not overflow
+ * the array, but the bounds checks stop firing and the parser silently
+ * corrupts what it collected.
+ */
+
+#if LEJP_MAX_PATH > 255 || LEJP_MAX_DEPTH > 255 || \
+    LEJP_MAX_INDEX_DEPTH > 255 || LEJP_MAX_PARSING_STACK_DEPTH > 255 || \
+    LEJP_STRING_CHUNK > 254
+#error "LEJP_ size knob is larger than its uint8_t index can represent"
 #endif
 
 enum num_flags {
@@ -203,7 +239,7 @@ enum num_flags {
 
 struct _lejp_stack {
 	char			s; /* lejp_state stack*/
-	char			p;	/* path length */
+	uint8_t			p;	/* path length, 0 .. LEJP_MAX_PATH - 1 */
 	char			i; /* index array length */
 	char			b; /* user bitfield */
 };
@@ -215,7 +251,36 @@ struct _lejp_parsing_stack {
 	uint8_t			count_paths;
 	uint8_t			ppos;
 	uint8_t			path_match;
+	/*
+	 * ctx->sp when this level was pushed, and if it was pushed by the
+	 * ARRAY_START callback, in which case the ']' closing that array pops
+	 * it (these fit in what was padding before)
+	 */
+	uint8_t			sp;
+	uint8_t			pushed_at_array;
+	/*
+	 * Where in ctx->path_save the path of the level below this one was
+	 * kept when this level was pushed, and its length, so it can be put
+	 * back in ctx->path when this level is popped (also in what was
+	 * padding before)
+	 */
+	uint8_t			path_save_ofs;
+	uint8_t			path_save_len;
 };
+
+typedef struct lejp_string_piece {
+	struct lejp_string_piece	*next;
+	const char			*piece;
+	size_t				len;
+} lejp_string_piece_t;
+
+typedef struct {
+	lejp_string_piece_t	*sph;
+	lejp_string_piece_t	**sp_next;
+	int			pieces;
+	size_t			asl;
+	char			*fp;
+} lejp_string_unifier_t;
 
 struct lejp_ctx {
 
@@ -232,7 +297,15 @@ struct lejp_ctx {
 	uint16_t i[LEJP_MAX_INDEX_DEPTH]; /* index array */
 	uint16_t wild[LEJP_MAX_INDEX_DEPTH]; /* index array */
 	char path[LEJP_MAX_PATH];
+	/*
+	 * A pushed parser writes its paths from path[0], over the top of the
+	 * paths of the levels below it: their paths as they were at each push
+	 * are kept here, one after the other, and put back at each pop
+	 */
+	char path_save[LEJP_MAX_PATH];
 	char buf[LEJP_STRING_CHUNK + 1];
+
+	lejp_string_unifier_t	su;
 
 	/* size_t */
 
@@ -245,11 +318,41 @@ struct lejp_ctx {
 	/* short */
 
 	uint16_t uni;
+	uint16_t uni_hi; /* pending \uD800-\uDBFF surrogate half, or 0 */
 #define LEJP_FLAG_FEAT_OBJECT_INDEXES				(1 << 0)
 #define LEJP_FLAG_FEAT_LEADING_WC				(1 << 1)
+/*
+ * Reject object key names containing the characters lejp uses to represent
+ * the document structure in ctx->path, ie, '.', '[' and ']'.  Without this,
+ * a peer can choose a key name that synthesizes the same path as a completely
+ * different document shape, eg, {"s[].foo":1} produces the same path as
+ * {"s":[{"foo":1}]}.  It's optional since a key legitimately containing '.'
+ * (eg, a hostname) is not that unusual; set it if your paths care.
+ */
+#define LEJP_FLAG_FEAT_STRICT_KEY_CHARS				(1 << 2)
+/*
+ * Accept lejp's nonstandard '#' to-end-of-line comment extension, outside of
+ * strings, at any depth.  RFC 8259 has no comments, so with this set lejp
+ * assigns a meaning to documents every conformant JSON parser rejects, eg,
+ * {"a":1#,"b":2 LF } is {"a":1} to lejp and a syntax error to everybody else.
+ * Wherever the same bytes are also seen by another parser - a JOSE header the
+ * relying party also reads, a policy a management tool also reads - the two
+ * disagree about what the document says, and lejp's view is the one the
+ * security decision is made on.  So it's off by default and network-facing
+ * parses must leave it off; it exists for hand-written, locally-owned config
+ * files.  In-tree, lejp-conf.c (the lwsws config parser) sets it, and so does
+ * the Secure Streams policy parser in policy-json.c: policies are
+ * operator-authored, even when fetched from the operator's own server, and
+ * their format has always allowed comments.
+ *
+ * Deliberately not part of LEJP_FLAG_LATEST, which means "the best current
+ * behaviours", ie, the strictest.
+ */
+#define LEJP_FLAG_FEAT_COMMENTS					(1 << 3)
 #define LEJP_FLAG_LATEST \
 					(LEJP_FLAG_FEAT_OBJECT_INDEXES | \
-					 LEJP_FLAG_FEAT_LEADING_WC)
+					 LEJP_FLAG_FEAT_LEADING_WC | \
+					 LEJP_FLAG_FEAT_STRICT_KEY_CHARS)
 	uint16_t flags;
 
 	/* char */
@@ -265,6 +368,7 @@ struct lejp_ctx {
 	uint8_t wildcount;
 	uint8_t pst_sp; /* parsing stack head */
 	uint8_t outer_array;
+	int8_t failed; /* 0, or the LEJP_REJECT_... this ctx failed with */
 };
 
 LWS_VISIBLE LWS_EXTERN void
@@ -285,6 +389,12 @@ lejp_change_callback(struct lejp_ctx *ctx,
 /*
  * push the current paths / paths_count and lejp_cb to a stack in the ctx, and
  * start using the new ones
+ *
+ * The new parser sees paths relative to where it was pushed, starting from
+ * ctx->path[0]; the path the current parser had reached is kept and restored
+ * for it when the new one is popped.  Returns -1 without changing anything if
+ * the parsing stack is full, or if the paths kept for all the pushed levels
+ * would add up to more than LEJP_MAX_PATH.
  */
 LWS_VISIBLE LWS_EXTERN int
 lejp_parser_push(struct lejp_ctx *ctx, void *user, const char * const *paths,
@@ -292,7 +402,8 @@ lejp_parser_push(struct lejp_ctx *ctx, void *user, const char * const *paths,
 
 /*
  * pop the previously used paths / paths_count and lejp_cb, and continue
- * parsing using those as before
+ * parsing using those as before, with ctx->path back to what they had reached
+ * when the popped parser was pushed
  */
 LWS_VISIBLE LWS_EXTERN int
 lejp_parser_pop(struct lejp_ctx *ctx);
@@ -306,4 +417,10 @@ lejp_get_wildcard(struct lejp_ctx *ctx, int wildcard, char *dest, int len);
 
 LWS_VISIBLE LWS_EXTERN const char *
 lejp_error_to_string(int e);
+
+LWS_VISIBLE LWS_EXTERN int
+lejp_string_unify(struct lejp_ctx *ctx, struct lwsac **ac);
+
+LWS_VISIBLE LWS_EXTERN int
+lejp_string_unify_part(struct lejp_ctx *ctx, struct lwsac **ac, char reason);
 //@}

@@ -30,8 +30,10 @@ int
 lws_set_proxy(struct lws_vhost *vhost, const char *proxy)
 {
 	char authstring[96];
+#if defined(LWS_ROLE_H1) || defined(LWS_ROLE_H2)
 	int brackets = 0;
-	char *p;
+#endif
+	const char *p;
 
 	if (!proxy)
 		return -1;
@@ -40,7 +42,7 @@ lws_set_proxy(struct lws_vhost *vhost, const char *proxy)
 	if (!strncmp(proxy, "http://", 7))
 		proxy += 7;
 
-	p = strrchr(proxy, '@');
+	p = (char *)strrchr(proxy, '@');
 	if (p) { /* auth is around */
 
 		if (lws_ptr_diff_size_t(p, proxy) > sizeof(authstring) - 1)
@@ -84,26 +86,27 @@ lws_set_proxy(struct lws_vhost *vhost, const char *proxy)
 
 #if defined(LWS_WITH_IPV6)
 	if (brackets) {
+		char *ncp;
+
 		/* original is IPv6 format "[::1]:443" */
 
-		p = strchr(vhost->http.http_proxy_address, ']');
-		if (!p) {
+		ncp = (char *)strchr(vhost->http.http_proxy_address, ']');
+		if (!ncp) {
 			lwsl_vhost_err(vhost, "malformed proxy '%s'", proxy);
 
 			return -1;
 		}
-		*p++ = '\0';
+		*ncp++ = '\0';
 	}
 #endif
 
-	p = strchr(p, ':');
+	p = (char *)strchr(p, ':');
 	if (!p && !vhost->http.http_proxy_port) {
 		lwsl_vhost_err(vhost, "http_proxy needs to be ads:port");
 
 		return -1;
 	}
 	if (p) {
-		*p = '\0';
 		vhost->http.http_proxy_port = (unsigned int)atoi(p + 1);
 	}
 
@@ -117,5 +120,82 @@ auth_too_long:
 	lwsl_vhost_err(vhost, "proxy auth too long");
 
 	return -1;
+}
+#endif
+
+int
+lws_client_stash_create(struct lws *wsi, const char **cisin)
+{
+	size_t size;
+	char *pc;
+	int n;
+	struct client_info_stash *old_stash = wsi->stash;
+	struct client_info_stash *new_stash;
+
+	size = sizeof(*new_stash) + 1;
+
+	/*
+	 * Let's overallocate the stash object with space for all the args
+	 * in one hit.
+	 */
+	for (n = 0; n < CIS_COUNT; n++)
+		if (cisin[n])
+			size += strlen(cisin[n]) + 1;
+
+	new_stash = lws_malloc(size, "client stash");
+	if (!new_stash)
+		return 1;
+
+	/* all the pointers default to NULL, but no need to zero the args */
+	memset(new_stash, 0, sizeof(*new_stash));
+
+	pc = (char *)&new_stash[1];
+
+	for (n = 0; n < CIS_COUNT; n++)
+		if (cisin[n]) {
+			size_t mm;
+			new_stash->cis[n] = pc;
+			if (n == CIS_PATH && cisin[n][0] != '/')
+				*pc++ = '/';
+			mm = strlen(cisin[n]) + 1;
+			memcpy(pc, cisin[n], mm);
+			pc += mm;
+		}
+
+	if (old_stash)
+		lws_free(old_stash);
+
+	wsi->stash = new_stash;
+
+	return 0;
+}
+
+#if defined(LWS_WITH_CONMON)
+/*
+ * A conmon record is data both halves hold: IO fills it in as the transport
+ * does its work, and sansIO drops what the connection's previous life left
+ * in it when the connection is reset (as does anyone who took a copy with
+ * lws_conmon_wsi_take()), so freeing it is neither half's
+ */
+
+static void
+lws_conmon_addrinfo_destroy(struct addrinfo *ai)
+{
+	while (ai) {
+		struct addrinfo *ai1 = ai->ai_next;
+
+		lws_free(ai);
+		ai = ai1;
+	}
+}
+
+void
+lws_conmon_release(struct lws_conmon *conmon)
+{
+	if (!conmon)
+		return;
+
+	lws_conmon_addrinfo_destroy(conmon->dns_results_copy);
+	conmon->dns_results_copy = NULL;
 }
 #endif

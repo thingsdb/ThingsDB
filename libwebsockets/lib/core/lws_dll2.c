@@ -28,6 +28,96 @@
 #include <sys/types.h>
 #endif
 
+/*
+ * Default is to assert at the exact point a _safe iterator's cached next
+ * node was invalidated by the loop body; tests can set this to recover
+ * quietly instead of dying.
+ */
+int lws_dll2_guard_quiet;
+
+int
+lws_dll2_is_in_list(struct lws_dll2_owner *owner, struct lws_dll2 *d)
+{
+	struct lws_dll2 *p = owner->head;
+
+	/*
+	 * Deliberately only walks live members and compares pointers: it must
+	 * never touch d itself, so a freed candidate can be safely probed.
+	 */
+	while (p) {
+		if (p == d)
+			return 1;
+		p = p->next;
+	}
+
+	return 0;
+}
+
+static struct lws_dll2 *
+_lws_dll2_safe_advance(struct lws_dll2_owner *ow, uint32_t *gen,
+		       struct lws_dll2 *cand, const char *dir,
+		       struct lws_dll2 *restart)
+{
+	if (!ow || ow->generation == *gen)
+		/* fast path: nothing touched the list since cand was cached */
+		return cand;
+
+	*gen = ow->generation;
+
+	if (!cand || lws_dll2_is_in_list(ow, cand))
+		/* the list changed, but our cached node is still a member */
+		return cand;
+
+	/*
+	 * The cached node was removed during the loop body... if the body
+	 * also freed it, advancing to it is a UAF read.  This is the exact
+	 * point the mistake becomes visible, rather than dying somewhere
+	 * unrelated later, so make it as loud as the build allows.
+	 */
+	lwsl_err("%s: dll2 _safe iterator: cached %s %p removed from list "
+		 "%p during loop body (gen %u, count %u): fix the loop body "
+		 "to re-seed (see the ops-quic close_after_rx loops)\n",
+		 __func__, dir, cand, ow, (unsigned int)*gen,
+		 (unsigned int)ow->count);
+
+	/*
+	 * Die right here at the point of the mistake, unless the app/test
+	 * explicitly opted to recover quietly via lws_dll2_guard_quiet
+	 */
+	assert(lws_dll2_guard_quiet);
+
+	/*
+	 * Recover in release builds by restarting from the live end of the
+	 * list the walk began at (head for forwards, tail for backwards).
+	 * Note the current node cannot be used as an anchor to resume from
+	 * its successor: the supported usage is that the loop body may
+	 * remove and free the current node itself, so by the time we run it
+	 * may no longer exist at all and must not be passed in or touched.
+	 *
+	 * Re-seeding from the start means nodes before the invalidation
+	 * point that are still on the list are revisited; loop bodies must
+	 * be written to tolerate that (ie, act by predicate, not one-shot).
+	 */
+
+	return restart;
+}
+
+struct lws_dll2 *
+_lws_dll2_safe_next(struct lws_dll2_owner *ow, uint32_t *gen,
+		    struct lws_dll2 *cand)
+{
+	return _lws_dll2_safe_advance(ow, gen, cand, "next",
+				      ow ? ow->head : NULL);
+}
+
+struct lws_dll2 *
+_lws_dll2_safe_prev(struct lws_dll2_owner *ow, uint32_t *gen,
+		    struct lws_dll2 *cand)
+{
+	return _lws_dll2_safe_advance(ow, gen, cand, "prev",
+				      ow ? ow->tail : NULL);
+}
+
 int
 lws_dll2_is_detached(const struct lws_dll2 *d)
 {
@@ -91,6 +181,7 @@ lws_dll2_add_head(struct lws_dll2 *d, struct lws_dll2_owner *owner)
 
 	d->owner = owner;
 	owner->count++;
+	owner->generation++;
 }
 
 /*
@@ -134,6 +225,7 @@ lws_dll2_add_before(struct lws_dll2 *d, struct lws_dll2 *after)
 	after->prev = d;
 
 	owner->count++;
+	owner->generation++;
 }
 
 /* add us to the list that prev is in, just after him
@@ -170,6 +262,7 @@ lws_dll2_add_insert(struct lws_dll2 *d, struct lws_dll2 *prev)
 		owner->tail = d;
 
 	owner->count++;
+	owner->generation++;
 }
 
 void
@@ -196,6 +289,7 @@ lws_dll2_add_tail(struct lws_dll2 *d, struct lws_dll2_owner *owner)
 
 	d->owner = owner;
 	owner->count++;
+	owner->generation++;
 }
 
 void
@@ -221,6 +315,7 @@ lws_dll2_remove(struct lws_dll2 *d)
 		d->owner->head = d->next;
 
 	d->owner->count--;
+	d->owner->generation++;
 
 	/* we're out of the list, we should not point anywhere any more */
 	d->owner = NULL;
@@ -242,6 +337,16 @@ lws_dll2_owner_clear(struct lws_dll2_owner *d)
 	d->head = NULL;
 	d->tail = NULL;
 	d->count = 0;
+
+	/*
+	 * This is also the way callers initialize stack owners, so it must
+	 * never read (and then modify) the generation.  Set it back to the
+	 * epoch instead of bumping: any live _safe iterator can only exist
+	 * on an owner with members, which implies at least one add since
+	 * the last clear, so its cached generation is nonzero and the reset
+	 * to 0 is still always detectable as a list change.
+	 */
+	d->generation = 0;
 }
 
 void

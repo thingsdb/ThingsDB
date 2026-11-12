@@ -24,26 +24,383 @@
 
 #include "private-lib-core.h"
 #include "private-lib-tls.h"
+#if defined(LWS_WITH_OPENHITLS)
+#include "openhitls/private.h"
+#endif
+
+#if defined(LWS_WITH_TLS_KEYLOG) && !defined(LWS_WITH_OPENHITLS) && \
+	!defined(LWS_WITH_GNUTLS) && !defined(LWS_WITH_MBEDTLS) && \
+	!defined(LWS_WITH_BEARSSL) && !defined(LWS_WITH_SCHANNEL)
+void
+lws_klog_dump(const SSL *ssl, const char *line)
+{
+	struct lws *wsi = (struct lws *)SSL_get_ex_data(ssl,
+					  openssl_websocket_private_data_index);
+	char path[128], hdr[128], ts[64];
+	size_t w = 0, wx = 0;
+	int fd, t;
+
+	if (!wsi || !wsi->a.context->keylog_file[0] || !wsi->a.vhost)
+		return;
+
+	lws_snprintf(path, sizeof(path), "%s.%s", wsi->a.context->keylog_file,
+			wsi->a.vhost->name);
+
+	fd = open(path, O_CREAT | O_RDWR | O_APPEND, 0600);
+	if (fd == -1) {
+		lwsl_vhost_warn(wsi->a.vhost, "Failed to append %s", path);
+		return;
+	}
+
+	/* the first item in the chunk */
+	if (!strncmp(line, "SERVER_HANDSHAKE_TRAFFIC_SECRET", 31)) {
+		w += (size_t)write(fd, "\n# ", 3);
+		wx += 3;
+		t = lwsl_timestamp(LLL_WARN, ts, sizeof(ts));
+		wx += (size_t)t;
+		w += (size_t)write(fd, ts, (size_t)t);
+
+		t = lws_snprintf(hdr, sizeof(hdr), "%s\n", wsi->lc.gutag);
+		w += (size_t)write(fd, hdr, (size_t)t);
+		wx += (size_t)t;
+
+		lwsl_vhost_warn(wsi->a.vhost, "appended ssl keylog: %s", path);
+	}
+
+	wx += strlen(line) + 1;
+	w += (size_t)write(fd, line,
+#if defined(WIN32)
+			(unsigned int)
+#endif
+			strlen(line));
+	w += (size_t)write(fd, "\n", 1);
+	close(fd);
+
+	if (w != wx) {
+		lwsl_vhost_warn(wsi->a.vhost, "Failed to write %s", path);
+		return;
+	}
+}
+#endif
+
 
 #if defined(LWS_WITH_NETWORK)
-#if defined(LWS_WITH_MBEDTLS) || (defined(OPENSSL_VERSION_NUMBER) && \
+
+/*
+ * What identifies "the CA store this vhost verifies client certs against"?
+ *
+ * It is the vhost's client CA config, ie, either the CA file path or the
+ * in-memory CA blob it was created with.  We reduce that to a short digest
+ * once, at vhost creation, for two reasons: a connection can then record
+ * which store its peer certificate was actually verified against without
+ * keeping a pointer to a vhost that may be destroyed while it lives on, and
+ * comparing two vhosts' stores is then a fixed-size memcmp.
+ *
+ * Two vhosts naming the same CA file are taken to be the same store even if
+ * the file changed on disk in between; two vhosts with identical CA content
+ * reached different ways are taken to be different stores.  Both of those
+ * err the way the config reads, and the second only ever refuses.
+ */
+
+void
+lws_tls_vhost_set_client_ca_id(struct lws_vhost *vh)
+{
+	uint8_t digest[20];
+	const uint8_t *in;
+	size_t len;
+
+	memset(vh->tls.client_ca_id, 0, sizeof(vh->tls.client_ca_id));
+
+	if (vh->tls.cfg_ssl_ca_filepath) {
+		in = (const uint8_t *)vh->tls.cfg_ssl_ca_filepath;
+		/*
+		 * hash the NUL too, so a path can never collide with a blob
+		 * that happens to start with the same bytes
+		 */
+		len = strlen(vh->tls.cfg_ssl_ca_filepath) + 1;
+	} else if (vh->tls.cfg_server_ssl_ca_mem &&
+		   vh->tls.cfg_server_ssl_ca_mem_len) {
+		in = (const uint8_t *)vh->tls.cfg_server_ssl_ca_mem;
+		len = vh->tls.cfg_server_ssl_ca_mem_len;
+	} else
+		/* no client CA at all: the identity stays all-zero */
+		return;
+
+	lws_SHA1(in, len, digest);
+
+	memcpy(vh->tls.client_ca_id, digest, sizeof(vh->tls.client_ca_id));
+}
+
+/*
+ * Note on \p wsi which vhost's client-cert CA store his peer certificate was
+ * verified against, ie, whose client-cert policy his TLS handshake actually
+ * ran under.  Only the first record for a connection counts: the SNI callback
+ * knows this authoritatively and speaks first, the post-accept adaptation in
+ * lws_tls_server_accept_completed() fills it in for backends whose SNI
+ * callback cannot (C-318).
+ */
+
+void
+lws_tls_wsi_record_hs_ca(struct lws *wsi, struct lws_vhost *vh)
+{
+	if (!wsi || !vh || wsi->io->tls.hs_ca_id_valid)
+		return;
+
+	memcpy(wsi->io->tls.hs_ca_id, vh->tls.client_ca_id,
+	       sizeof(wsi->io->tls.hs_ca_id));
+	wsi->io->tls.hs_ca_id_valid = 1;
+}
+
+/*
+ * A TLS SNI callback chose the vhost for the handshake it is setting up: the
+ * connection's client-cert policy is that vhost's, which the session records,
+ * and then the connection is bound to it (lws_vhost_bind_wsi_sni()).
+ */
+void
+lws_tls_sni_bind(struct lws_vhost *vh, struct lws *wsi)
+{
+	lws_tls_wsi_record_hs_ca(wsi, vh);
+	lws_vhost_bind_wsi_sni(vh, wsi);
+}
+
+#if defined(LWS_ROLE_QUIC)
+/*
+ * A quic connection's tls session.  quic runs the handshake inside its own
+ * packets, so the session is made when quic asks, the client's when its
+ * transport is up, the server's when a connection's first Initial arrives,
+ * and is set up for quic (lws_tls_quic_init()).  Returns 0, or -1 when it
+ * could not be made.
+ */
+int
+lws_tls_quic_session(struct lws *wsi, lws_tls_quic_secret_cb cb)
+{
+#if defined(LWS_WITH_CLIENT)
+	if (lwsi_role_client(wsi)) {
+		const char *cce = NULL;
+
+		/* creates the session only if there is none yet */
+		if (lws_client_create_tls(wsi, &cce, 0) == CCTLS_RETURN_ERROR) {
+			lwsl_wsi_err(wsi, "no tls session: %s",
+				     cce ? cce : "unknown");
+			return -1;
+		}
+	} else
+#endif
+	{
+#if defined(LWS_WITH_SERVER)
+		/*
+		 * quic has no mode without tls, so a server connection on a
+		 * vhost with no tls ctx must not come into being at all.  The
+		 * ctx can be missing on a listener that exists: a vhost with
+		 * LWS_SERVER_OPTION_IGNORE_MISSING_CERT and no cert yet (its
+		 * listener was made for use_ssl), or a quic listener adopted
+		 * onto a vhost without tls.  info, not err: any Initial reaches
+		 * here.
+		 */
+		if (!wsi->a.vhost || !wsi->a.vhost->tls.ssl_ctx) {
+			lwsl_wsi_info(wsi, "vhost has no tls ctx for quic");
+			return -1;
+		}
+
+		/*
+		 * Its tls restriction slot is taken later, when its address
+		 * is validated (lws_tls_quic_admit())
+		 */
+		if (lws_tls_server_new_nonblocking(wsi, LWS_SOCK_INVALID)) {
+			lwsl_wsi_err(wsi, "no tls session");
+			return -1;
+		}
+#else
+		return -1;
+#endif
+	}
+
+	if (lws_tls_quic_init(wsi, cb)) {
+		lwsl_wsi_err(wsi, "quic tls init failed");
+		return -1;
+	}
+
+	return 0;
+}
+
+#if defined(LWS_WITH_SERVER)
+/*
+ * A server quic connection's client address is validated: it holds a tls
+ * restriction slot from now on, as a tcp connection does from its accept
+ * (lws_server_socket_service_ssl()), its handshake part until
+ * lws_tls_quic_confirm_peer(), the rest until it closes.
+ *
+ * Not before: the Initial's source is hearsay, and a slot taken for it would
+ * let a spoofer fill the restriction from anywhere and so pause every tls
+ * vhost's tcp accepts.  Until now the connection is bounded by the half-open
+ * caps and the unproven peer budget instead.
+ *
+ * At the limit, the connection is refused.  The ones already up carry on: the
+ * quic listener that brings their datagrams is never paused
+ * (lws_accept_listener_open()).  0 admitted, or it already was; nonzero
+ * refused.
+ */
+int
+lws_tls_quic_admit(struct lws *wsi)
+{
+	if (wsi->io->tls_borrowed)
+		return 0;
+
+	return lws_tls_restrict_borrow(wsi);
+}
+#endif
+
+/*
+ * A quic connection's handshake completed: is the peer acceptable, as tls
+ * over tcp would decide it?  On a client, the server's certificate under the
+ * connection's LCCSCF_ flags; on a server, the client's certificate under the
+ * client-certificate policy of the vhost it ends up bound to.  0 if so, else
+ * nonzero with the reason in ebuf.
+ */
+int
+lws_tls_quic_handshake(struct lws *wsi, int level, const uint8_t *in,
+		       size_t in_len, uint8_t *out, size_t *out_len)
+{
+#if defined(LWS_WITH_SYS_FAULT_INJECTION) && defined(LWS_WITH_CLIENT)
+	uint64_t ms;
+
+	/*
+	 * The first of the server's Handshake level flight, with its cert
+	 * chain, takes the service thread tls_quic_cert_slow_ms to process, as
+	 * verifying the chain does on a slow cpu.  Level 2 is the Handshake
+	 * level (RFC 9001 4.1.4), as the quic role numbers them
+	 */
+	if (in_len && level == 2 && lwsi_role_client(wsi) &&
+	    lws_fi(&wsi->fic, "tls_quic_cert_slow") &&
+	    !lws_fi_range(&wsi->fic, "tls_quic_cert_slow_ms", &ms))
+		lws_msleep((unsigned int)ms);
+#endif
+
+	return lws_tls_quic_advance_handshake(wsi, level, in, in_len, out,
+					      out_len);
+}
+
+int
+lws_tls_quic_confirm_peer(struct lws *wsi, char *ebuf, size_t ebuf_len)
+{
+	/*
+	 * The handshake is over either way: its part of the tls restriction
+	 * goes back, as tcp's does in lws_ssl_client_connect2()
+	 */
+	lws_tls_restrict_return_handshake(wsi);
+
+#if defined(LWS_WITH_CLIENT)
+	if (lwsi_role_client(wsi)) {
+		if (!lws_tls_client_confirm_peer_cert(wsi, ebuf, ebuf_len))
+			return 0;
+#if defined(LWS_WITH_TLS_JIT_TRUST)
+		lws_tls_jit_trust_peer_rejected(wsi);
+#endif
+		/* what happens next is decided outside the packet processing */
+		lws_client_quic_peer_rejected(wsi);
+
+		return 1;
+	}
+#endif
+
+#if defined(LWS_WITH_SERVER)
+	return lws_tls_quic_server_confirm_peer(wsi, ebuf, ebuf_len);
+#else
+	lws_snprintf(ebuf, ebuf_len, "no server support");
+
+	return 1;
+#endif
+}
+#endif
+
+#if (!defined(LWS_WITH_MBEDTLS) && !defined(LWS_WITH_BEARSSL) && \
+	!defined(LWS_WITH_SCHANNEL) && !defined(LWS_WITH_OPENHITLS) && \
+	defined(OPENSSL_VERSION_NUMBER) && \
 				  OPENSSL_VERSION_NUMBER >= 0x10002000L)
 static int
 alpn_cb(SSL *s, const unsigned char **out, unsigned char *outlen,
 	const unsigned char *in, unsigned int inlen, void *arg)
 {
-#if !defined(LWS_WITH_MBEDTLS)
+#if !defined(LWS_WITH_MBEDTLS) && !defined(LWS_WITH_BEARSSL)
 	struct alpn_ctx *alpn_ctx = (struct alpn_ctx *)arg;
 
-	if (SSL_select_next_proto((unsigned char **)out, outlen, alpn_ctx->data,
-				  alpn_ctx->len, in, inlen) !=
-	    OPENSSL_NPN_NEGOTIATED)
+	/*
+	 * Each transport selects from the part of the vhost's list it can
+	 * carry, see lws_alpn_for_transport().  If that leaves no overlap with
+	 * what the client offers, NOACK: the client fails the connection for
+	 * lack of a usable alpn and tries something else (eg, the tcp fallback
+	 * of the alt-svc race)
+	 */
+	struct lws *wsi = SSL_get_ex_data(s, openssl_websocket_private_data_index);
+	int quic = wsi && wsi->role_ops && !strcmp(wsi->role_ops->name, "quic");
+
+	if (SSL_select_next_proto((unsigned char **)out, outlen,
+				  quic ? alpn_ctx->data_quic : alpn_ctx->data,
+				  quic ? alpn_ctx->len_quic : alpn_ctx->len,
+				  in, inlen) != OPENSSL_NPN_NEGOTIATED)
 		return SSL_TLSEXT_ERR_NOACK;
 #endif
 
 	return SSL_TLSEXT_ERR_OK;
 }
 #endif
+
+#if defined(LWS_WITH_OPENHITLS)
+static int32_t
+alpn_cb_openhitls(HITLS_Ctx *ctx, uint8_t **selectedProto,
+		  uint8_t *selectedProtoLen, uint8_t *clientAlpnList,
+		  uint32_t clientAlpnListSize, void *arg)
+{
+	const struct alpn_ctx *alpn_ctx = (const struct alpn_ctx *)arg;
+	int32_t ret;
+
+	(void)ctx;
+
+	if (!selectedProto || !selectedProtoLen || !alpn_ctx ||
+	    !alpn_ctx->len)
+		return HITLS_ALPN_ERR_ALERT_FATAL;
+
+	if (!clientAlpnList || !clientAlpnListSize)
+		return HITLS_ALPN_ERR_NOACK;
+
+	*selectedProto = NULL;
+	*selectedProtoLen = 0;
+
+	ret = HITLS_SelectAlpnProtocol(selectedProto, selectedProtoLen,
+				       alpn_ctx->data, alpn_ctx->len,
+				       clientAlpnList, clientAlpnListSize);
+	if (ret == HITLS_SUCCESS)
+		return (*selectedProto && *selectedProtoLen) ?
+				HITLS_ALPN_ERR_OK : HITLS_ALPN_ERR_NOACK;
+
+	if (ret == HITLS_NULL_INPUT || ret == HITLS_CONFIG_INVALID_LENGTH) {
+		lwsl_err("%s: openHiTLS ALPN select failed: 0x%x\n",
+			 __func__, (unsigned int)ret);
+		return HITLS_ALPN_ERR_ALERT_FATAL;
+	}
+
+	lwsl_info("%s: openHiTLS ALPN had no protocol match: 0x%x\n",
+		  __func__, (unsigned int)ret);
+
+	return HITLS_ALPN_ERR_NOACK;
+}
+#endif
+
+/*
+ * Is either tls restriction, of sessions or of handshakes in progress, at its
+ * limit?  Then nothing more may borrow (lws_tls_restrict_borrow()), and new
+ * connections are refused: stream listeners are paused (lws_gate_accepts()),
+ * validated new quic connections refused (lws_tls_quic_admit()).
+ */
+int
+lws_tls_restrict_reached(struct lws_context *cx)
+{
+	return (cx->simultaneous_ssl_restriction &&
+		cx->simultaneous_ssl >= cx->simultaneous_ssl_restriction) ||
+	       (cx->simultaneous_ssl_handshake_restriction &&
+		cx->simultaneous_ssl_handshake >=
+				cx->simultaneous_ssl_handshake_restriction);
+}
 
 int
 lws_tls_restrict_borrow(struct lws *wsi)
@@ -61,14 +418,14 @@ lws_tls_restrict_borrow(struct lws *wsi)
 	    cx->simultaneous_ssl_handshake >=
 			    cx->simultaneous_ssl_handshake_restriction) {
 		lwsl_notice("%s: tls handshake limit %d\n", __func__,
-			    cx->simultaneous_ssl);
+			    cx->simultaneous_ssl_handshake);
 		return 1;
 	}
 
 	cx->simultaneous_ssl++;
 	cx->simultaneous_ssl_handshake++;
-	wsi->tls_borrowed_hs = 1;
-	wsi->tls_borrowed = 1;
+	wsi->io->tls_borrowed_hs = 1;
+	wsi->io->tls_borrowed = 1;
 
 	lwsl_info("%s: %d -> %d\n", __func__,
 		  cx->simultaneous_ssl - 1,
@@ -82,11 +439,7 @@ lws_tls_restrict_borrow(struct lws *wsi)
 				cx->simultaneous_ssl_handshake_restriction);
 
 #if defined(LWS_WITH_SERVER)
-	lws_gate_accepts(cx,
-			(cx->simultaneous_ssl_restriction &&
-			 cx->simultaneous_ssl == cx->simultaneous_ssl_restriction) ||
-			(cx->simultaneous_ssl_handshake_restriction &&
-			 cx->simultaneous_ssl_handshake == cx->simultaneous_ssl_handshake_restriction));
+	lws_gate_accepts(cx, lws_tls_restrict_reached(cx));
 #endif
 
 	return 0;
@@ -101,11 +454,7 @@ _lws_tls_restrict_return(struct lws *wsi)
 	assert(cx->simultaneous_ssl_handshake >= 0);
 	assert(cx->simultaneous_ssl >= 0);
 
-	lws_gate_accepts(cx,
-			(cx->simultaneous_ssl_restriction &&
-			 cx->simultaneous_ssl == cx->simultaneous_ssl_restriction) ||
-			(cx->simultaneous_ssl_handshake_restriction &&
-			 cx->simultaneous_ssl_handshake == cx->simultaneous_ssl_handshake_restriction));
+	lws_gate_accepts(cx, lws_tls_restrict_reached(cx));
 #endif
 }
 
@@ -116,10 +465,10 @@ lws_tls_restrict_return_handshake(struct lws *wsi)
 
 	/* we're just returning the hs part */
 
-	if (!wsi->tls_borrowed_hs)
+	if (!wsi->io->tls_borrowed_hs)
 		return;
 
-	wsi->tls_borrowed_hs = 0; /* return it one time per wsi */
+	wsi->io->tls_borrowed_hs = 0; /* return it one time per wsi */
 	cx->simultaneous_ssl_handshake--;
 
 	lwsl_info("%s:  %d -> %d\n", __func__,
@@ -134,10 +483,10 @@ lws_tls_restrict_return(struct lws *wsi)
 {
 	struct lws_context *cx = wsi->a.context;
 
-	if (!wsi->tls_borrowed)
+	if (!wsi->io->tls_borrowed)
 		return;
 
-	wsi->tls_borrowed = 0;
+	wsi->io->tls_borrowed = 0;
 	cx->simultaneous_ssl--;
 
 	lwsl_info("%s: %d -> %d\n", __func__,
@@ -146,7 +495,7 @@ lws_tls_restrict_return(struct lws *wsi)
 
 	/* We're returning everything, even if hs didn't complete */
 
-	if (wsi->tls_borrowed_hs)
+	if (wsi->io->tls_borrowed_hs)
 		lws_tls_restrict_return_handshake(wsi);
 	else
 		_lws_tls_restrict_return(wsi);
@@ -155,46 +504,114 @@ lws_tls_restrict_return(struct lws *wsi)
 void
 lws_context_init_alpn(struct lws_vhost *vhost)
 {
-#if defined(LWS_WITH_MBEDTLS) || (defined(OPENSSL_VERSION_NUMBER) && \
-				  OPENSSL_VERSION_NUMBER >= 0x10002000L)
+#if defined(LWS_WITH_MBEDTLS) || defined(LWS_WITH_BEARSSL) || (defined(OPENSSL_VERSION_NUMBER) && \
+				  OPENSSL_VERSION_NUMBER >= 0x10002000L) || \
+				  defined(LWS_WITH_GNUTLS) || defined(LWS_WITH_OPENHITLS)
 	const char *alpn_comma = vhost->context->tls.alpn_default;
+	char alpn_tcp[64], alpn_quic[64];
 
 	if (vhost->tls.alpn)
 		alpn_comma = vhost->tls.alpn;
 
+	lwsl_info("%s: alpn_comma = '%s'\n", __func__, alpn_comma ? alpn_comma : "NULL");
+
 	lwsl_info(" Server '%s' advertising ALPN: %s\n",
 		    vhost->name, alpn_comma);
 
-	vhost->tls.alpn_ctx.len = (uint8_t)lws_alpn_comma_to_openssl(alpn_comma,
+	/*
+	 * What a tcp connection may select from, and what a quic one may:
+	 * neither may negotiate an alpn whose role the other carries
+	 */
+	lws_alpn_for_transport(alpn_comma, alpn_tcp, sizeof(alpn_tcp), 0);
+	vhost->tls.alpn_ctx.len = (uint8_t)lws_alpn_comma_to_openssl(alpn_tcp,
 					vhost->tls.alpn_ctx.data,
 					sizeof(vhost->tls.alpn_ctx.data) - 1);
+	lws_alpn_for_transport(alpn_comma, alpn_quic, sizeof(alpn_quic), 1);
+	vhost->tls.alpn_ctx.len_quic = (uint8_t)lws_alpn_comma_to_openssl(
+					alpn_quic, vhost->tls.alpn_ctx.data_quic,
+					sizeof(vhost->tls.alpn_ctx.data_quic) - 1);
 
+	/*
+	 * The rest goes on the vhost's ctx, which it may not have yet, eg,
+	 * with LWS_SERVER_OPTION_IGNORE_MISSING_CERT and no cert so far: the
+	 * ctx made when the cert arrives gets it then (lws_tls_cert_updated())
+	 */
+	if (!vhost->tls.ssl_ctx)
+		return;
+
+#if defined(LWS_WITH_GNUTLS)
+	/* GnuTLS ALPN is set per-session, nothing to do here for CTX */
+#elif defined(LWS_WITH_BEARSSL)
+	/* BearSSL ALPN is set per-session, nothing to do here for CTX */
+#elif defined(LWS_WITH_MBEDTLS)
+	/*
+	 * mbedTLS ALPN is configured per-vhost, for tcp: a quic connection
+	 * sets its own list on its own copy of the config
+	 */
+	lws_mbedtls_set_alpn(vhost->tls.ssl_ctx, alpn_tcp);
+#elif defined(LWS_WITH_OPENHITLS)
+	HITLS_CFG_SetAlpnProtosSelectCb(vhost->tls.ssl_ctx, alpn_cb_openhitls,
+					&vhost->tls.alpn_ctx);
+#else
 	SSL_CTX_set_alpn_select_cb(vhost->tls.ssl_ctx, alpn_cb,
 				   &vhost->tls.alpn_ctx);
+#endif
 #else
+#if !defined(LWS_WITH_SCHANNEL) && !defined(LWS_WITH_GNUTLS)
 	lwsl_err(" HTTP2 / ALPN configured "
 		 "but not supported by OpenSSL 0x%lx\n",
 		 OPENSSL_VERSION_NUMBER);
+#endif
 #endif // OPENSSL_VERSION_NUMBER >= 0x10002000L
 }
 
 int
 lws_tls_server_conn_alpn(struct lws *wsi)
 {
-#if defined(LWS_WITH_MBEDTLS) || (defined(OPENSSL_VERSION_NUMBER) && \
-				  OPENSSL_VERSION_NUMBER >= 0x10002000L)
+#if defined(LWS_WITH_MBEDTLS) || defined(LWS_WITH_BEARSSL) || (defined(OPENSSL_VERSION_NUMBER) && \
+				  OPENSSL_VERSION_NUMBER >= 0x10002000L) || \
+				  defined(LWS_WITH_GNUTLS) || defined(LWS_WITH_OPENHITLS)
 	const unsigned char *name = NULL;
 	char cstr[10];
-	unsigned len;
+	unsigned int len = 0;
 
 	lwsl_info("%s\n", __func__);
 
-	if (!wsi->tls.ssl) {
+	if (!wsi->io->tls.ssl) {
 		lwsl_err("%s: non-ssl\n", __func__);
 		return 0;
 	}
 
-	SSL_get0_alpn_selected(wsi->tls.ssl, &name, &len);
+#if defined(LWS_WITH_GNUTLS)
+	{
+		gnutls_datum_t selected;
+		if (gnutls_alpn_get_selected_protocol((gnutls_session_t)wsi->io->tls.ssl, &selected) == 0) {
+			name = selected.data;
+			len = selected.size;
+		}
+	}
+#elif defined(LWS_WITH_OPENHITLS)
+	{
+		uint8_t *proto;
+		uint32_t protoLen;
+		if (HITLS_GetSelectedAlpnProto((HITLS_Ctx *)wsi->io->tls.ssl,
+						       &proto, &protoLen) == HITLS_SUCCESS) {
+			name = proto;
+			len = protoLen;
+		}
+	}
+#elif defined(LWS_WITH_BEARSSL)
+	{
+		struct lws_tls_conn *conn = (struct lws_tls_conn *)wsi->io->tls.ssl;
+		name = (const unsigned char *)br_ssl_engine_get_selected_protocol(&conn->u.engine);
+		len = name ? (unsigned int)strlen((const char *)name) : 0;
+	}
+#elif defined(LWS_WITH_MBEDTLS)
+	name = (const unsigned char *)mbedtls_ssl_get_alpn_protocol(&wsi->io->tls.ssl->ssl);
+	len = name ? (unsigned int)strlen((const char *)name) : 0;
+#else
+	SSL_get0_alpn_selected(wsi->io->tls.ssl, &name, &len);
+#endif
 	if (!len) {
 		lwsl_info("no ALPN upgrade\n");
 		return 0;
@@ -207,12 +624,41 @@ lws_tls_server_conn_alpn(struct lws *wsi)
 	cstr[len] = '\0';
 
 	lwsl_info("%s: negotiated '%s' using ALPN\n", __func__, cstr);
-	wsi->tls.use_ssl |= LCCSCF_USE_SSL;
+
+	/*
+	 * This is a tcp connection: neither we nor the peer offered or
+	 * selected an alpn only quic can carry, unless the peer isn't lws and
+	 * selected one we didn't offer, or offered one we don't select on tcp.
+	 * There is no role it could become on tcp, nor anything to remember
+	 * about the origin from it
+	 */
+	if (lws_alpn_wrong_transport(cstr, len, 0)) {
+		lwsl_wsi_err(wsi, "'%s' negotiated on tcp", cstr);
+		return 1;
+	}
+
+	wsi->use_ssl |= LCCSCF_USE_SSL;
+
+#if defined(LWS_WITH_CLIENT)
+	/* record the successful ALPN in the cache */
+	if (wsi->cli_hostname_copy && wsi->a.context->alpn_cache && wsi->c_port) {
+		char key[256];
+		void *p;
+		lws_snprintf(key, sizeof(key), "alpn_%s_%u", wsi->cli_hostname_copy, wsi->c_port);
+		/* cache it with a TTL, e.g. 1 hour (3600 seconds) */
+		lws_cache_write_through(wsi->a.context->alpn_cache, key, (const uint8_t *)cstr, len + 1,
+					lws_now_usecs() + (lws_usec_t)(3600ULL * 1000000ULL), &p);
+		lwsl_wsi_notice(wsi, "wrote ALPN %s to cache for %s", cstr, key);
+	}
+#endif
 
 	return lws_role_call_alpn_negotiated(wsi, (const char *)cstr);
+
+#elif defined(LWS_WITH_SCHANNEL)
+       return lws_tls_schannel_server_conn_alpn(wsi);
 #else
-	lwsl_err("%s: openssl too old\n", __func__);
-#endif // OPENSSL_VERSION_NUMBER >= 0x10002000L
+	lwsl_err("%s: openssl/gnutls too old\n", __func__);
+#endif
 
 	return 0;
 }
@@ -298,6 +744,12 @@ int alloc_file(struct lws_context *context, const char *filename, uint8_t **buf,
 	}
 
 	*amount = s;
+	/*
+	 * The allocation is s + 1... keep the spare byte NUL so that parsers
+	 * that do fixed-length compares (eg, strncmp() for "-----") or use
+	 * strstr() on the result cannot read past the end of the file data.
+	 */
+	(*buf)[s] = '\0';
 
 bail:
 	if (f)
@@ -319,13 +771,13 @@ bail:
  * set to the DER length.
  */
 
-int
+LWS_VISIBLE int
 lws_tls_alloc_pem_to_der_file(struct lws_context *context, const char *filename,
 			      const char *inbuf, lws_filepos_t inlen,
 			      uint8_t **buf, lws_filepos_t *amount)
 {
-	uint8_t *pem = NULL, *p, *end, *opem;
-	lws_filepos_t len;
+	lws_filepos_t len, flen = 0, olen;
+	uint8_t *pem = NULL, *p, *end;
 	uint8_t *q;
 	int n;
 
@@ -333,17 +785,38 @@ lws_tls_alloc_pem_to_der_file(struct lws_context *context, const char *filename,
 		n = alloc_file(context, filename, (uint8_t **)&pem, &len);
 		if (n)
 			return n;
+		flen = len;
 	} else {
 		pem = (uint8_t *)inbuf;
 		len = inlen;
 	}
 
-	opem = p = pem;
+	if (len && pem[len - 1] == '\0')
+		len--;
+
+	p = pem;
 	end = p + len;
 
-	if (strncmp((char *)p, "-----", 5)) {
+	/* the compare below reads 5 bytes, so we must have at least that */
+
+	if (len < 5 || strncmp((char *)p, "-----", 5)) {
 
 		/* take it as being already DER */
+
+		if (filename) {
+			/*
+			 * It came from a file, so the DER is the file buffer we
+			 * already allocated... hand that over.  Using the
+			 * inbuf / inlen memory args here instead would both
+			 * leak the file buffer and produce a zero-length DER,
+			 * since callers that pass a filename pass NULL / 0 for
+			 * those.
+			 */
+			*buf = pem;
+			*amount = flen;
+
+			return 0;
+		}
 
 		pem = lws_malloc((size_t)inlen, "alloc_der");
 		if (!pem)
@@ -361,14 +834,15 @@ lws_tls_alloc_pem_to_der_file(struct lws_context *context, const char *filename,
 
 	if (!filename) {
 		/* we don't know if it's in const memory... alloc the output */
-		pem = lws_malloc(((size_t)(inlen + 3) * 3) / 4, "alloc_der");
+		olen = ((inlen + 3) * 3) / 4;
+		pem = lws_malloc((size_t)olen, "alloc_der");
 		if (!pem) {
-			lwsl_err("a\n");
+			lwsl_err("%s: OOM\n", __func__);
 			return 1;
 		}
-
-
-	} /* else overwrite the allocated, b64 input with decoded DER */
+	} else
+		/* overwrite the allocated, b64 input with decoded DER */
+		olen = flen;
 
 	/* trim the first line */
 
@@ -376,7 +850,14 @@ lws_tls_alloc_pem_to_der_file(struct lws_context *context, const char *filename,
 	while (p < end && *p != '\n' && *p != '-')
 		p++;
 
-	if (*p != '-') {
+	/*
+	 * The loop above can exit with p == end, and for the in-memory path
+	 * end is one past the caller's last byte (the jit-trust blob is sized
+	 * exactly and is not NUL-terminated)... so the bound has to be
+	 * retested before the dereference
+	 */
+
+	if (p >= end || *p != '-') {
 		goto bail;
 	}
 
@@ -389,14 +870,20 @@ lws_tls_alloc_pem_to_der_file(struct lws_context *context, const char *filename,
 
 	p++;
 
-	/* trim the last line */
+	/* find the end of the base64 block */
 
-	q = (uint8_t *)end - 2;
+	/*
+	 * The compare consumes 8 bytes, so the last position we may test at
+	 * is end - 8... testing up to end - 1 would read up to 7 bytes past
+	 * the buffer for input whose tail happens to be a prefix of the
+	 * pattern.
+	 */
 
-	while (q > opem && *q != '\n')
-		q--;
+	q = p;
+	while (q + 8 <= end && strncmp((const char *)q, "-----END", 8))
+		q++;
 
-	if (*q != '\n')
+	if (q + 8 > end)
 		goto bail;
 
 	/* we can't write into the input buffer for mem, since it may be in RO
@@ -409,12 +896,25 @@ lws_tls_alloc_pem_to_der_file(struct lws_context *context, const char *filename,
 	if (n == -1) /* coverity */
 		goto bail;
 
+	/*
+	 * The payload may be a private key: never log its content
+	 */
+	lwsl_info("%s: PEM payload len %d\n", __func__, n);
+
 	n = lws_b64_decode_string_len((char *)p, n,
-				      (char *)pem, (int)(long long)len);
+				      (char *)pem, (int)(long long)olen);
 	if (n < 0) {
 		lwsl_err("%s: base64 pem decode failed\n", __func__);
 		goto bail;
 	}
+
+	/*
+	 * In the file case the buffer still holds the rest of the PEM after
+	 * the DER we decoded over its start.  Callers scrub only the DER
+	 * length of a private key before freeing it, so clear the tail here.
+	 */
+	if ((lws_filepos_t)n < olen)
+		lws_explicit_bzero(pem + n, (size_t)(olen - (lws_filepos_t)n));
 
 	*amount = (unsigned int)n;
 	*buf = (uint8_t *)pem;
@@ -422,11 +922,98 @@ lws_tls_alloc_pem_to_der_file(struct lws_context *context, const char *filename,
 	return 0;
 
 bail:
+	/* pem is the file or the output buffer by now, never NULL */
+	lws_explicit_bzero(pem, (size_t)olen);
 	lws_free((uint8_t *)pem);
 
 	return 4;
 }
 
+#if defined(LWS_WITH_NETWORK) && defined(LWS_WITH_CLIENT)
+
+/*
+ * strstr() confined to [p, end)... ca_mem is described only by a pointer and a
+ * length and is not required to be NUL-terminated (the JIT Trust path hands us
+ * an exact-sized heap DER), so we must not scan for a NUL to find the end.
+ */
+
+static const char *
+lws_tls_strnstr(const char *p, const char *end, const char *needle)
+{
+	size_t nl = strlen(needle);
+
+	while (p + nl <= end) {
+		if (!memcmp(p, needle, nl))
+			return p;
+		p++;
+	}
+
+	return NULL;
+}
+
+int
+lws_tls_client_vhost_ca_mem_parse(struct lws_vhost *vh, const void *ca_mem,
+				  unsigned int ca_mem_len)
+{
+	const char *p = (const char *)ca_mem;
+	const char *end = p + ca_mem_len;
+	const char *b, *e;
+	uint8_t *der;
+	lws_filepos_t der_len;
+	int count = 0;
+
+	if (!ca_mem || !ca_mem_len)
+		return 0;
+
+	/* If it doesn't start with or contain PEM header, assume raw DER */
+	b = lws_tls_strnstr(p, end, "-----BEGIN");
+	if (!b) {
+		return lws_tls_client_vhost_extra_cert_mem(vh, (const uint8_t *)ca_mem,
+							   (size_t)ca_mem_len);
+	}
+
+	/* It's PEM - loop over all certificate blocks in the buffer */
+	while (p < end) {
+		b = lws_tls_strnstr(p, end, "-----BEGIN");
+		if (!b)
+			break;
+
+		e = lws_tls_strnstr(b, end, "-----END");
+		if (!e)
+			break;
+
+		/* Advance past "-----END ... -----\n" line */
+		e += 8;
+		while (e < end && *e != '\n' && *e != '\0')
+			e++;
+		if (e < end && *e == '\n')
+			e++;
+
+		der = NULL;
+		der_len = 0;
+		if (!lws_tls_alloc_pem_to_der_file(vh->context, NULL, b,
+						   (lws_filepos_t)lws_ptr_diff_size_t(e, b),
+						   &der, &der_len)) {
+			if (der && der_len) {
+				if (!lws_tls_client_vhost_extra_cert_mem(vh, der,
+									(size_t)der_len))
+					count++;
+				lws_free(der);
+			}
+		}
+
+		p = e;
+	}
+
+	if (!count) {
+		lwsl_err("%s: Unable to parse any CA certs from ca_mem\n", __func__);
+		return 1;
+	}
+
+	lwsl_info("%s: loaded %d CA cert(s) from ca_mem\n", __func__, count);
+	return 0;
+}
+#endif
 
 #endif
 
@@ -537,3 +1124,256 @@ lws_tls_use_any_upgrade_check_extant(const char *name)
 #endif
 	return LWS_TLS_EXTANT_YES;
 }
+
+LWS_VISIBLE int
+lws_tls_cert_get_x509_remaining(struct lws_context *context, const char *filepath, int *days_left, int *total_days)
+{
+	struct lws_x509_cert *x = NULL;
+	union lws_tls_cert_info_results cri, cri1;
+	uint8_t *p;
+	lws_filepos_t amount;
+	int res = -1;
+
+	*days_left = 0;
+	*total_days = 0;
+
+	if (alloc_file(context, filepath, &p, &amount))
+		return 1;
+
+	p[amount] = '\0';
+
+	if (lws_x509_create(&x))
+		goto bail;
+
+	/* mbedtls needs the terminating NUL counted in the PEM's length */
+	if (lws_x509_parse_from_pem(x, p, (size_t)amount + 1))
+		goto bail_destroy;
+
+	if (!lws_x509_info(x, LWS_TLS_CERT_INFO_VALIDITY_FROM, &cri, 0) &&
+	    !lws_x509_info(x, LWS_TLS_CERT_INFO_VALIDITY_TO, &cri1, 0)) {
+		time_t now = time(NULL);
+
+		*days_left = (int)((cri1.time - now) / (24 * 3600));
+		*total_days = (int)((cri1.time - cri.time) / (24 * 3600));
+		res = 0;
+	}
+
+bail_destroy:
+	lws_x509_destroy(&x);
+bail:
+	lws_free(p);
+
+	return res;
+}
+
+int
+lws_x509_cert_fingerprint(struct lws_x509_cert *x509, int type,
+			  uint8_t *buf, size_t len)
+{
+	union lws_tls_cert_info_results *res;
+	struct lws_genhash_ctx hctx;
+	size_t hash_len;
+	uint8_t *der;
+	int ret = -1;
+
+	hash_len = lws_genhash_size((enum lws_genhash_types)type);
+	if (!hash_len || len < hash_len)
+		return -1;
+
+	/*
+	 * The len we give lws_x509_info() is the space for ns.name[] alone,
+	 * so the allocation must also cover the rest of the union that
+	 * precedes it (see the comment on union lws_tls_cert_info_results)
+	 */
+
+	der = lws_malloc(sizeof(*res) + 4096, "cert_fingerprint_der");
+	if (!der)
+		return -1;
+
+	res = (union lws_tls_cert_info_results *)der;
+
+	if (lws_x509_info(x509, LWS_TLS_CERT_INFO_DER_RAW, res, 4096))
+		goto bail;
+
+	if (lws_genhash_init(&hctx, (enum lws_genhash_types)type))
+		goto bail;
+
+	if (lws_genhash_update(&hctx, res->ns.name, (size_t)res->ns.len)) {
+		lws_genhash_destroy(&hctx, NULL);
+		goto bail;
+	}
+
+	if (lws_genhash_destroy(&hctx, buf))
+		goto bail;
+
+	ret = (int)hash_len;
+
+bail:
+	lws_free(der);
+	return ret;
+}
+
+/* p is NUL-terminated after its len */
+
+static int
+lws_tls_cert_x509_validity(const uint8_t *p, size_t len, time_t *not_before,
+			   time_t *not_after)
+{
+	union lws_tls_cert_info_results cri, cri1;
+	struct lws_x509_cert *x = NULL;
+	int res = -1;
+
+	if (lws_x509_create(&x))
+		return -1;
+
+	/* mbedtls needs the terminating NUL counted in the PEM's length */
+	if (lws_x509_parse_from_pem(x, p, len + 1))
+		goto bail;
+
+	if (!lws_x509_info(x, LWS_TLS_CERT_INFO_VALIDITY_FROM, &cri, 0) &&
+	    !lws_x509_info(x, LWS_TLS_CERT_INFO_VALIDITY_TO, &cri1, 0)) {
+		if (not_before)
+			*not_before = cri.time;
+		if (not_after)
+			*not_after = cri1.time;
+		res = 0;
+	}
+
+bail:
+	lws_x509_destroy(&x);
+
+	return res;
+}
+
+int
+lws_tls_cert_get_x509_validity(struct lws_context *context, const char *filepath,
+			       time_t *not_before, time_t *not_after)
+{
+	lws_filepos_t amount;
+	uint8_t *p;
+	int res;
+
+	if (alloc_file(context, filepath, &p, &amount))
+		return 1;
+
+	p[amount] = '\0';
+	res = lws_tls_cert_x509_validity(p, (size_t)amount, not_before,
+					 not_after);
+	lws_free(p);
+
+	return res;
+}
+
+int
+lws_tls_cert_get_x509_validity_mem(const char *pem, size_t len,
+				   time_t *not_before, time_t *not_after)
+{
+	uint8_t *p = lws_malloc(len + 1, __func__);
+	int res;
+
+	if (!p)
+		return 1;
+
+	memcpy(p, pem, len);
+	p[len] = '\0';
+	res = lws_tls_cert_x509_validity(p, len, not_before, not_after);
+	lws_free(p);
+
+	return res;
+}
+
+#if defined(LWS_WITH_NETWORK)
+/*
+ * What sansIO may ask of the tls session (README.sans-io-split.md "The
+ * object"): the session is IO's, these are the questions.
+ */
+void *
+lws_tls_session_ptr(struct lws *wsi)
+{
+	return (void *)wsi->io->tls.ssl;
+}
+
+const uint8_t *
+lws_tls_wsi_hs_ca_id(struct lws *wsi)
+{
+	if (!wsi->io->tls.hs_ca_id_valid)
+		return NULL;
+
+	return wsi->io->tls.hs_ca_id;
+}
+
+#if defined(LWS_ROLE_QUIC)
+int
+lws_tls_quic_aead_type(struct lws *wsi)
+{
+	return (int)wsi->io->tls.quic_aead;
+}
+
+/* the alert the library raised for the handshake failure, or 0 */
+int
+lws_tls_quic_alert(struct lws *wsi)
+{
+#if defined(LWS_WITH_GNUTLS)
+	if (!wsi->io->tls.ssl)
+		return 0;
+
+	return (int)gnutls_alert_get((gnutls_session_t)wsi->io->tls.ssl);
+#else
+	return wsi->io->tls.quic_alert;
+#endif
+}
+
+/* the alpn the handshake selected: 1 with it copied into buf, else 0 */
+int
+lws_tls_quic_alpn(struct lws *wsi, char *buf, size_t len)
+{
+	const unsigned char *prot = NULL;
+	unsigned int plen = 0;
+
+	if (!wsi->io->tls.ssl)
+		return 0;
+
+#if defined(USE_WOLFSSL)
+	wolfSSL_get0_alpn_selected(wsi->io->tls.ssl, &prot, &plen);
+#elif defined(LWS_WITH_MBEDTLS)
+#if defined(LWS_HAVE_mbedtls_ssl_get_alpn_protocol)
+	{
+		const char *alpn = mbedtls_ssl_get_alpn_protocol(&wsi->io->tls.ssl->ssl);
+
+		if (alpn) {
+			prot = (const unsigned char *)alpn;
+			plen = (unsigned int)strlen(alpn);
+		}
+	}
+#endif
+#elif defined(LWS_WITH_GNUTLS)
+	{
+		gnutls_datum_t dt;
+
+		if (gnutls_alpn_get_selected_protocol(wsi->io->tls.ssl, &dt) >= 0) {
+			prot = dt.data;
+			plen = dt.size;
+		}
+	}
+#elif defined(LWS_HAVE_SSL_get0_alpn_selected) || defined(OPENSSL_IS_AWSLC)
+	SSL_get0_alpn_selected(wsi->io->tls.ssl, &prot, &plen);
+#endif
+	if (!plen || !prot)
+		return 0;
+
+	if (plen + 1 > len)
+		plen = (unsigned int)len - 1;
+	lws_strncpy(buf, (const char *)prot, plen + 1);
+
+	return 1;
+}
+#endif
+
+#if defined(LWS_WITH_TLS) && !defined(LWS_WITH_MBEDTLS) && !defined(LWS_WITH_BEARSSL)
+SSL *
+lws_get_ssl(struct lws *wsi)
+{
+	return wsi->io->tls.ssl;
+}
+#endif
+#endif /* LWS_WITH_NETWORK */

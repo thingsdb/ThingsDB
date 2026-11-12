@@ -36,13 +36,13 @@ typedef struct lws_retry_bo {
 /**
  * lws_retry_get_delay_ms() - get next delay from backoff table
  *
- * \param lws_context: the lws context (used for getting random)
+ * \param context: the lws context (used for getting random)
  * \param retry: the retry backoff table we are using, or NULL for default
  * \param ctry: pointer to the try counter
  * \param conceal: pointer to flag set to nonzero if the try should be concealed
  *			in terms of creating an error
  *
- * Increments *\p try and retruns the number of ms that should elapse before the
+ * Increments *\p ctry and returns the number of ms that should elapse before the
  * next connection retry, according to the backoff table \p retry. *\p conceal is
  * set if the number of tries is less than the backoff table conceal_count, or
  * is zero if it exceeded it.  This lets you conceal a certain number of retries
@@ -59,7 +59,7 @@ lws_retry_get_delay_ms(struct lws_context *context, const lws_retry_bo_t *retry,
 /**
  * lws_retry_sul_schedule() - schedule a sul according to the backoff table
  *
- * \param lws_context: the lws context (used for getting random)
+ * \param context: the lws context (used for getting random)
  * \param sul: pointer to the sul to schedule
  * \param retry: the retry backoff table we are using, or NULL for default
  * \param cb: the callback for when the sul schedule time arrives

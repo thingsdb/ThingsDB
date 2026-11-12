@@ -24,6 +24,10 @@
 
 #include <private-lib-core.h>
 
+int
+secstream_h1(struct lws *wsi, enum lws_callback_reasons reason, void *user,
+	     void *in, size_t len);
+
 static int
 secstream_ws(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 	     void *in, size_t len)
@@ -33,8 +37,9 @@ secstream_ws(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 #endif
 	lws_ss_handle_t *h = (lws_ss_handle_t *)lws_get_opaque_user_data(wsi);
 	uint8_t buf[LWS_PRE + 1400];
+	enum lws_write_protocol f1;
 	lws_ss_state_return_t r;
-	int f = 0, f1, n;
+	int f = 0, n;
 	size_t buflen;
 
 	switch (reason) {
@@ -54,7 +59,11 @@ secstream_ws(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 		if (r == LWSSSSRET_DESTROY_ME)
 			return _lws_ss_handle_state_ret_CAN_DESTROY_HANDLE(r, wsi, &h);
 
-		h->wsi = NULL;
+		if (h->wsi == wsi) /* not a newer wsi the app just started */
+			h->wsi = NULL;
+		if (h->wsi)
+			/* the app connected again from inside the callback */
+			break;
 		r = lws_ss_backoff(h);
 		if (r != LWSSSSRET_OK)
 			return _lws_ss_handle_state_ret_CAN_DESTROY_HANDLE(r, wsi, &h);
@@ -74,9 +83,17 @@ secstream_ws(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 		if (r == LWSSSSRET_DESTROY_ME)
 			return _lws_ss_handle_state_ret_CAN_DESTROY_HANDLE(r, wsi, &h);
 
-		if (h->wsi)
-			lws_set_opaque_user_data(h->wsi, NULL);
-		h->wsi = NULL;
+		/*
+		 * The DISCONNECTED helper above already cleared h->wsi before
+		 * calling the app's state callback... if it's set now, the app
+		 * started a new connection from inside that callback and we
+		 * must detach only the wsi that is actually closing, not the
+		 * live one that has taken its place
+		 */
+		if (h->wsi == wsi) {
+			lws_set_opaque_user_data(wsi, NULL);
+			h->wsi = NULL;
+		}
 
 #if defined(LWS_WITH_SERVER)
 		lws_pt_lock(pt, __func__);
@@ -85,7 +102,8 @@ secstream_ws(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 #endif
 
 		if (reason == LWS_CALLBACK_CLIENT_CLOSED) {
-			if (h->policy &&
+			if (!h->wsi && /* not if one is already live */
+			    h->policy &&
 			    !(h->policy->flags & LWSSSPOLF_OPPORTUNISTIC) &&
 #if defined(LWS_WITH_SERVER)
 			    !(h->info.flags & LWSSSINFLAGS_ACCEPTED) && /* not server */
@@ -113,8 +131,13 @@ secstream_ws(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 
 	case LWS_CALLBACK_ESTABLISHED:
 	case LWS_CALLBACK_CLIENT_ESTABLISHED:
-		h->retry = 0;
-		h->seqstate = SSSEQ_CONNECTED;
+		if (!h) {
+			return LWSSSSRET_DISCONNECT_ME;
+		}
+		h->retry		= 0;
+		h->seqstate		= SSSEQ_CONNECTED;
+		wsi->ws->last_valid	= 0;
+		wsi->ws->last_fin	= 0;
 		lws_sul_cancel(&h->sul);
 #if defined(LWS_WITH_SYS_METRICS)
 		/*
@@ -158,6 +181,21 @@ secstream_ws(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 		}
 
 		buflen = sizeof(buf) - LWS_PRE;
+
+		/*
+		 * Let's prepare *flags with information about the channel ws message state
+		 * which the callback can simply overwrite.  But if you are tracing problems
+		 * with your own flags state blowing assert()s below, you can use this for
+		 * debugging the illegal state while still in your ss tx callback; otherwise
+		 * it can be harder to understand what you're doing wrong after we returned
+		 * from the callback and blow chunks here.
+		 *
+		 * b1 of flags is set if we know the last fin state.  If b1 is set, b0 is
+		 * the last FIN state.  You can use this info to see if your flags will
+		 * cause us to assert when you return.
+		 */
+
+		f = (!!wsi->ws->last_valid << 1) | (!!wsi->ws->last_fin);
 		r = h->info.tx(ss_to_userobj(h),  h->txord++, buf + LWS_PRE,
 				  &buflen, &f);
 		if (r == LWSSSSRET_TX_DONT_SEND)
@@ -165,12 +203,31 @@ secstream_ws(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 		if (r != LWSSSSRET_OK)
 			return _lws_ss_handle_state_ret_CAN_DESTROY_HANDLE(r, wsi, &h);
 
+		if ((f & LWSSS_FLAG_SOM) && wsi->ws->last_valid && !wsi->ws->last_fin) {
+			lwsl_ss_err(h, "%s TX: Illegal LWSSS_FLAG_SOM after previous frame without LWSSS_FLAG_EOM", h->policy ? h->policy->streamtype : "unknown");
+			lwsl_err("Dumping cutting-in payload: %.*s\n", (int)buflen, buf + LWS_PRE);
+			lwsl_hexdump_err(buf + LWS_PRE, buflen);
+			assert(0);
+		}
+		if (!(f & LWSSS_FLAG_SOM) && wsi->ws->last_valid && wsi->ws->last_fin) {
+			lwsl_ss_err(h, "%s TX: Missing LWSSS_FLAG_SOM after previous frame with LWSSS_FLAG_EOM", h->policy ? h->policy->streamtype : "unknown");
+			lwsl_err("Dumping payload: %.*s\n", (int)buflen, buf + LWS_PRE);
+			lwsl_hexdump_err(buf + LWS_PRE, buflen);
+			assert(0);
+		}
+		if (!(f & LWSSS_FLAG_SOM) && !wsi->ws->last_valid) {
+			lwsl_ss_err(h, "%s TX: Missing LWSSS_FLAG_SOM on first frame", h->policy ? h->policy->streamtype : "unknown");
+			lwsl_err("Dumping payload: %.*s\n", (int)buflen, buf + LWS_PRE);
+			lwsl_hexdump_err(buf + LWS_PRE, buflen);
+			assert(0);
+		}
+
 		f1 = lws_write_ws_flags(h->policy->u.http.u.ws.binary ?
 					   LWS_WRITE_BINARY : LWS_WRITE_TEXT,
 					!!(f & LWSSS_FLAG_SOM),
 					!!(f & LWSSS_FLAG_EOM));
 
-		n = lws_write(wsi, buf + LWS_PRE, buflen, (enum lws_write_protocol)f1);
+		n = lws_write(wsi, buf + LWS_PRE, buflen, f1);
 		if (n < (int)buflen) {
 			lwsl_info("%s: write failed %d %d\n", __func__,
 					n, (int)buflen);
@@ -179,6 +236,13 @@ secstream_ws(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 		}
 
 		return 0;
+
+#if defined(LWS_WITH_SERVER)
+	case LWS_CALLBACK_HTTP_WRITEABLE:
+	case LWS_CALLBACK_HTTP:
+	case LWS_CALLBACK_CLOSED_HTTP: /* server */
+		return secstream_h1(wsi, reason, user, in, len);
+#endif
 
 	default:
 		break;
@@ -239,11 +303,22 @@ secstream_connect_munge_ws(lws_ss_handle_t *h, char *buf, size_t len,
 
 	i->protocol = h->policy->u.http.u.ws.subprotocol;
 
-	lwsl_ss_info(h, "url %s, ws subprotocol %s", buf, i->protocol);
+	{
+		char lp[64];
+
+		/*
+		 * The tag is in every log line about the stream: show the
+		 * path without the query string, which may carry tokens
+		 */
+		__lws_lc_tag_append(&h->lc, lws_http_log_path(lp, sizeof(lp),
+							      buf));
+		lwsl_ss_info(h, "url %s, ws subprotocol %s", lp, i->protocol);
+	}
 
 	return 0;
 }
 
 const struct ss_pcols ss_pcol_ws = {
-	"ws",  "http/1.1",  &protocol_secstream_ws, secstream_connect_munge_ws, 0, 0
+	"ws",  "http/1.1",  &protocol_secstream_ws, secstream_connect_munge_ws, 0, 0,
+	NULL
 };

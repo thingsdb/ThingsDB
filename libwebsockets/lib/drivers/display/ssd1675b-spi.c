@@ -177,8 +177,8 @@ typedef struct lws_display_ssd1675b_spi_state {
 /* MSB plane is in first half of priv linebuf */
 
 #define pack_native_pixel(_line, _x, _c) \
-		{ *_line = (*_line & ~(1 << (((_x ^ 7) & 31)))) | \
-				(_c << (((_x ^ 7) & 31))); \
+		{ *_line = (*_line & ~(1u << (((_x ^ 7) & 31)))) | \
+				((uint32_t)(_c) << (((_x ^ 7) & 31))); \
 		  if ((_x & 31) == 31) \
 			  _line++; }
 
@@ -350,7 +350,7 @@ lws_display_ssd1675b_spi_brightness(const struct lws_display *disp, uint8_t b)
 
 int
 lws_display_ssd1675b_spi_blit(struct lws_display_state *lds, const uint8_t *src,
-			     lws_box_t *box)
+			     lws_box_t *box, lws_dll2_owner_t *ids)
 {
 	const lws_display_ssd1675b_spi_t *ea = lds_to_disp(lds);
 	lws_display_ssd1675b_spi_state_t *priv = lds_to_priv(lds);
@@ -375,9 +375,9 @@ lws_display_ssd1675b_spi_blit(struct lws_display_state *lds, const uint8_t *src,
 		 * buffers
 		 */
 		if (ea->spi->alloc_dma)
-			priv->line[0] = ea->spi->alloc_dma(ea->spi, (plane_line_bytes + 4) * 2);
+			priv->line[0] = ea->spi->alloc_dma(ea->spi, (size_t)(plane_line_bytes + 4) * 2);
 		else
-			priv->line[0] = lws_zalloc((plane_line_bytes + 4) * 2, __func__);
+			priv->line[0] = lws_zalloc((size_t)(plane_line_bytes + 4) * 2, __func__);
 
 		if (!priv->line[0]) {
 			lwsl_err("%s: OOM\n", __func__);
@@ -420,14 +420,14 @@ lws_display_ssd1675b_spi_blit(struct lws_display_state *lds, const uint8_t *src,
 		if (!pc) {
 			for (n = 0; n < ic->wh_px[0].whole; n++)
 				pack_native_pixel(lo, n, 1 /* white */);
-			goto go;
+			goto go_l;
 		}
 
 		if (ic->greyscale) {
 			gedl_next[ic->wh_px[0].whole - 1].rgb[0] = 0;
 
-			for (n = 0; n < plane_line_bytes * 8; n++) {
-				c = (pc[0] << 16) | (pc[0] << 8) | pc[0];
+			for (n = 0; n < ic->wh_px[0].whole; n++) {
+				c = (lws_display_colour_t)((pc[0] << 16) | (pc[0] << 8) | pc[0]);
 
 				m = lws_display_palettize_grey(ic, ic->palette,
 						   ic->palette_depth, c, &gedl_this[n]);
@@ -435,15 +435,23 @@ lws_display_ssd1675b_spi_blit(struct lws_display_state *lds, const uint8_t *src,
 
 				dist_err_floyd_steinberg_grey(n, ic->wh_px[0].whole,
 							      gedl_this, gedl_next);
-				if (n < ic->wh_px[0].whole)
-					pc++;
+				pc++;
 			}
+
+			/*
+			 * The packed line is a whole number of bytes, pad any
+			 * bits past the panel width with white rather than
+			 * reading past the end of the source line
+			 */
+
+			for (; n < plane_line_bytes * 8; n++)
+				pack_native_pixel(lo, n, 1 /* white */);
 		} else {
 			edl_next[ic->wh_px[0].whole - 1].rgb[0] = 0;
 			edl_next[ic->wh_px[0].whole - 1].rgb[1] = 0;
 			edl_next[ic->wh_px[0].whole - 1].rgb[2] = 0;
 
-			for (n = 0; n < plane_line_bytes * 8; n++) {
+			for (n = 0; n < ic->wh_px[0].whole; n++) {
 				c = (pc[2] << 16) | (pc[1] << 8) | pc[0];
 
 				m = lws_display_palettize_col(ic, ic->palette,
@@ -453,11 +461,15 @@ lws_display_ssd1675b_spi_blit(struct lws_display_state *lds, const uint8_t *src,
 				dist_err_floyd_steinberg_col(n, ic->wh_px[0].whole,
 							     edl_this, edl_next);
 
-				if (n < ic->wh_px[0].whole)
-					pc += 3;
+				pc += 3;
 			}
+
+			/* pad the rest of the packed line with white */
+
+			for (; n < plane_line_bytes * 8; n++)
+				pack_native_pixel(lo, n, 1 /* white */);
 		}
-go:
+go_l:
 		memset(&desc, 0, sizeof(desc));
 		if (!box->y.whole)
 			spi_issue_table(priv->lds, ssd1675b_wp1,
@@ -465,7 +477,7 @@ go:
 
 		desc.data = (uint8_t *)priv->line[box->y.whole & 1];
 		desc.flags = LWS_SPI_FLAG_DMA_BOUNCE_NOT_NEEDED;
-		desc.count_write = plane_line_bytes;
+		desc.count_write = (uint16_t)plane_line_bytes;
 		ea->spi->queue(ea->spi, &desc);
 
 		return 0;

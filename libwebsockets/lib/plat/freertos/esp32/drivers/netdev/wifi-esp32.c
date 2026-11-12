@@ -42,10 +42,29 @@
 #include "private-lib-core.h"
 
 #include "esp_system.h"
-#include "esp_spi_flash.h"
+#include "spi_flash_mmap.h"
 #include "esp_wifi.h"
 #include <nvs_flash.h>
 #include <esp_netif.h>
+#include <esp_mac.h>
+#include "lwip/stats.h"
+
+/*
+ * IPv6 has to be enabled in lwIP as well as lws, by CONFIG_LWIP_IPV6.  For us
+ * to get global addresses, lwIP also needs CONFIG_LWIP_IPV6_AUTOCONFIG so it
+ * does SLAAC, see READMEs/README.esp32.md
+ */
+#if defined(LWS_WITH_IPV6) && LWIP_IPV6 && defined(LWS_WITH_ROUTING)
+#define LWS_ESP32_IPV6
+#endif
+
+/*
+ * While associated, how often we log the link's health at NOTICE: rssi and
+ * channel, and the lwIP counters if CONFIG_LWIP_STATS is enabled.  Gaps and
+ * stalls in tcp traffic over wifi are usually loss and retransmit backoff,
+ * these give something to correlate them with.
+ */
+#define LWS_ESP32_LINK_STATS_INTERVAL_US	(15 * LWS_US_PER_SEC)
 
 /*
  * lws_netdev_instance_t:
@@ -57,7 +76,12 @@ typedef struct lws_netdev_instance_wifi_esp32 {
 	lws_netdev_instance_wifi_t		wnd;
 	esp_event_handler_instance_t		instance_any_id;
 	esp_event_handler_instance_t		instance_got_ip;
+#if defined(LWS_ESP32_IPV6)
+	esp_event_handler_instance_t		instance_got_ip6;
+#endif
+	esp_netif_t				*netif;
 	wifi_config_t				sta_config;
+	lws_sorted_usec_list_t			sul_link_stats;
 } lws_netdev_instance_wifi_esp32_t;
 
 /*
@@ -84,6 +108,7 @@ lws_netdev_wifi_connect_plat(lws_netdev_instance_t *nd, const char *ssid,
 
 	wnde32->wnd.flags |= LNDIW_MODE_STA;
 	esp_wifi_set_mode(WIFI_MODE_STA);
+	esp_wifi_set_ps(WIFI_PS_NONE);
 
 #if 0
 	/* we will do our own dhcp */
@@ -95,10 +120,38 @@ lws_netdev_wifi_connect_plat(lws_netdev_instance_t *nd, const char *ssid,
 	lws_strncpy((char *)wnde32->sta_config.sta.password, passphrase,
 		    sizeof(wnde32->sta_config.sta.password));
 
+	if (bssid) {
+		wnde32->sta_config.sta.bssid_set = 1;
+		memcpy(wnde32->sta_config.sta.bssid, bssid, 6);
+	} else {
+		wnde32->sta_config.sta.bssid_set = 0;
+	}
+
 	esp_wifi_set_config(WIFI_IF_STA, &wnde32->sta_config);
 	esp_wifi_connect();
 
 	return 0;
+}
+
+/*
+ * How the AP authenticates, generically.  Only the names every supported
+ * esp-idf version has are used, the others are LWS_WIFI_AUTH_OTHER
+ */
+
+static lws_wifi_auth_t
+lws_esp32_auth(wifi_auth_mode_t a)
+{
+	switch (a) {
+	case WIFI_AUTH_OPEN:		return LWS_WIFI_AUTH_OPEN;
+	case WIFI_AUTH_WEP:		return LWS_WIFI_AUTH_WEP;
+	case WIFI_AUTH_WPA_PSK:		return LWS_WIFI_AUTH_WPA;
+	case WIFI_AUTH_WPA2_PSK:	return LWS_WIFI_AUTH_WPA2;
+	case WIFI_AUTH_WPA_WPA2_PSK:	return LWS_WIFI_AUTH_WPA_WPA2;
+	case WIFI_AUTH_WPA2_ENTERPRISE:	return LWS_WIFI_AUTH_ENTERPRISE;
+	case WIFI_AUTH_WPA3_PSK:	return LWS_WIFI_AUTH_WPA3;
+	case WIFI_AUTH_WPA2_WPA3_PSK:	return LWS_WIFI_AUTH_WPA2_WPA3;
+	default:			return LWS_WIFI_AUTH_OTHER;
+	}
 }
 
 /*
@@ -159,9 +212,9 @@ lws_esp32_scan_update(lws_netdev_instance_wifi_t *wnd)
 			w->ssid_len = m;
 
 			memcpy(w->bssid, ar->bssid, 6);
-
-			lws_dll2_add_sorted(&w->list, &wnd->scan,
-					    lws_netdev_wifi_rssi_sort_compare);
+		} else {
+			/* we will update the rssi and re-insert it */
+			lws_dll2_remove(&w->list);
 		}
 
 		if (w->rssi_count == LWS_ARRAY_SIZE(w->rssi))
@@ -172,8 +225,11 @@ lws_esp32_scan_update(lws_netdev_instance_wifi_t *wnd)
 		w->rssi_avg += w->rssi[w->rssi_next++];
 		w->rssi_next = w->rssi_next & (LWS_ARRAY_SIZE(w->rssi) - 1);
 
+		lws_dll2_add_sorted(&w->list, &wnd->scan,
+				    lws_netdev_wifi_rssi_sort_compare);
+
 		w->ch = ar->primary;
-		w->authmode = ar->authmode;
+		w->authmode = (uint8_t)lws_esp32_auth(ar->authmode);
 		w->last_seen = now;
 
 next:
@@ -204,6 +260,389 @@ lws_netdev_wifi_scan_plat(lws_netdev_instance_t *nd)
 }
 
 /*
+ * Names for the commoner wifi_err_reason_t disconnect reasons, by number since
+ * the esp-idf symbol names for them change between versions.  1 - 66 are the
+ * 802.11 reason codes, 200+ are esp-idf's own.
+ */
+
+/*
+ * The disconnect reasons that mean the AP didn't accept us, which with a
+ * passphrase usually means it's wrong: the 4-way handshake fails or times out
+ */
+
+static int
+lws_esp32_reason_is_auth(unsigned int r)
+{
+	switch (r) {
+	case 2:		/* auth expired */
+	case 15:	/* 4-way handshake timeout */
+	case 202:	/* auth fail */
+	case 204:	/* handshake timeout */
+		return 1;
+	default:
+		return 0;
+	}
+}
+
+static const char *
+lws_esp32_disconnect_reason(unsigned int r)
+{
+	switch (r) {
+	case 1:		return "unspecified";
+	case 2:		return "auth expired";
+	case 3:		return "deauth, AP leaving";
+	case 4:		return "disassoc, inactivity";
+	case 5:		return "AP too busy";
+	case 6:		return "class 2 frame from unauth sta";
+	case 7:		return "class 3 frame from unassoc sta";
+	case 8:		return "disassoc, sta leaving";
+	case 15:	return "4-way handshake timeout";
+	case 16:	return "group key update timeout";
+	case 34:	return "too many unacked frames";
+	case 200:	return "beacon timeout";
+	case 201:	return "no AP found";
+	case 202:	return "auth fail";
+	case 203:	return "assoc fail";
+	case 204:	return "handshake timeout";
+	case 205:	return "connection fail";
+	default:	return "?";
+	}
+}
+
+#if defined(LWS_WITH_ROUTING)
+/*
+ * Reflect an address the IP stack has on our interface, if_idx 0, in the lws
+ * routing table, as the source of a route to dest / dest_len.  For a default
+ * route, dest is the unspecified address of src's family and dest_len 0.
+ *
+ * If we already have exactly that route, it's left alone, since replacing it
+ * closes everything that was using it.  Otherwise any route it supersedes is
+ * removed first: for IPv4, whatever default route we had before, since the
+ * interface has only one IPv4 address, but for IPv6 only one with the same
+ * source, since SLAAC can give us several global addresses at once.
+ *
+ * Returns 1 if the route was added, 0 if we already had it, or -1 if OOM.
+ */
+
+static int
+lws_esp32_route_set(struct lws_context *ctx, const lws_sockaddr46 *dest,
+		    uint8_t dest_len, const lws_sockaddr46 *src,
+		    const lws_sockaddr46 *gw)
+{
+	struct lws_context_per_thread *pt = &ctx->pt[0];
+	int flags = LRR_MATCH_DST | LRR_IGNORE_PRI;
+	lws_route_t robj, *rou;
+
+	lws_pt_lock(pt, __func__);
+
+	lws_start_foreach_dll(struct lws_dll2 *, d,
+			      lws_dll2_get_head(&ctx->routing_table)) {
+		rou = lws_container_of(d, lws_route_t, list);
+
+		if (!rou->if_idx && rou->dest_len == dest_len &&
+		    !lws_sa46_compare_ads(&rou->dest, dest) &&
+		    !lws_sa46_compare_ads(&rou->src, src) &&
+		    (gw->sa4.sin_family ?
+			!lws_sa46_compare_ads(&rou->gateway, gw) :
+			!rou->gateway.sa4.sin_family)) {
+			lws_pt_unlock(pt);
+
+			return 0;
+		}
+	} lws_end_foreach_dll(d);
+
+	memset(&robj, 0, sizeof(robj));
+	robj.dest = *dest;
+	robj.dest_len = dest_len;
+	if (src->sa4.sin_family != AF_INET) {
+		robj.src = *src;
+		flags |= LRR_MATCH_SRC;
+	}
+	_lws_route_remove(pt, &robj, flags);
+
+	rou = lws_zalloc(sizeof(*rou), __func__);
+	if (!rou) {
+		lws_pt_unlock(pt);
+
+		return -1;
+	}
+
+	rou->dest = *dest;
+	rou->dest_len = dest_len;
+	rou->src = *src;
+	rou->src_len = src->sa4.sin_family == AF_INET ? 32 : 128;
+	rou->gateway = *gw;
+	rou->uidx = _lws_route_get_uidx(ctx);
+
+	lws_dll2_add_tail(&rou->list, &ctx->routing_table);
+	lws_pt_unlock(pt);
+
+	_lws_route_pt_close_unroutable(pt);
+
+	return 1;
+}
+#endif
+
+/*
+ * The IP stack acquired an IPv4 address on the interface, update the routing
+ * table to match and tell everyone about it
+ */
+
+static void
+lws_esp32_got_ip4(lws_netdev_instance_wifi_esp32_t *wnde32)
+{
+	struct lws_context *ctx = netdev_instance_to_ctx(&wnde32->wnd.inst);
+	esp_netif_ip_info_t ipi;
+	char ip[16];
+
+	if (!wnde32->netif || esp_netif_get_ip_info(wnde32->netif, &ipi) ||
+	    !ipi.ip.addr)
+		return;
+
+#if defined(LWS_WITH_ROUTING)
+	{
+		lws_sockaddr46 dest, src, gw;
+
+		/* the default route, dest is the unspecified address /0 */
+
+		memset(&dest, 0, sizeof(dest));
+		dest.sa4.sin_family = AF_INET;
+
+		memset(&src, 0, sizeof(src));
+		src.sa4.sin_family = AF_INET;
+		memcpy(&src.sa4.sin_addr, &ipi.ip.addr, 4);
+
+		memset(&gw, 0, sizeof(gw));
+		gw.sa4.sin_family = AF_INET;
+		memcpy(&gw.sa4.sin_addr, &ipi.gw.addr, 4);
+
+		if (lws_esp32_route_set(ctx, &dest, 0, &src, &gw) < 0)
+			return;
+	}
+#endif
+
+	lws_write_numeric_address((void *)&ipi.ip.addr, 4, ip, sizeof(ip));
+#if defined(LWS_WITH_SYS_SMD)
+	lws_smd_msg_printf(ctx, LWSSMDCL_NETWORK,
+			   "{\"type\":\"ipacq\",\"if\":\"%s\","
+			   "\"ipv4\":\"%s\"}", wnde32->wnd.inst.name, ip);
+#endif
+}
+
+#if defined(LWS_ESP32_IPV6)
+static int
+lws_esp32_ip6_listed(const lws_sockaddr46 *list, int count,
+		     const lws_sockaddr46 *sa46)
+{
+	int n;
+
+	for (n = 0; n < count; n++)
+		if (!lws_sa46_compare_ads(&list[n], sa46))
+			return 1;
+
+	return 0;
+}
+
+/*
+ * Make our IPv6 routes match the global addresses the IP stack has on the
+ * interface now.  SLAAC can give us several at once, and they come and go
+ * with the prefixes the router advertises.  esp-idf tells us when one has
+ * been acquired, but not when one has gone, so this is also polled while we
+ * are associated.
+ *
+ * Link-local and ULA addresses can't reach the internet, they don't get a
+ * default route.  lwIP picks which router to use from the advertisements, so
+ * our routes have no gateway, just say IPv6 can get out via the interface.
+ *
+ * Each address also gets a local route to itself, /128, the way the kernel
+ * reports addresses in its local table on Linux: lws_sort_dns() chooses the
+ * source for an IPv6 destination from those, and without one would drop
+ * every IPv6 result from DNS for having no source address to go out with.
+ */
+
+static void
+lws_esp32_sync_ip6(lws_netdev_instance_wifi_esp32_t *wnde32)
+{
+	struct lws_context *ctx = netdev_instance_to_ctx(&wnde32->wnd.inst);
+	struct lws_context_per_thread *pt = &ctx->pt[0];
+	lws_sockaddr46 glob[LWIP_IPV6_NUM_ADDRESSES], unspec, gw;
+	esp_ip6_addr_t a[LWIP_IPV6_NUM_ADDRESSES];
+	int n, m, r1, r2, count = 0;
+	lws_route_t robj;
+	char ip[48];
+
+	if (!wnde32->netif)
+		return;
+
+	n = esp_netif_get_all_ip6(wnde32->netif, a);
+	for (m = 0; m < n && m < (int)LWS_ARRAY_SIZE(a); m++) {
+		if (esp_netif_ip6_get_addr_type(&a[m]) !=
+						ESP_IP6_ADDR_IS_GLOBAL)
+			continue;
+
+		memset(&glob[count], 0, sizeof(glob[count]));
+		glob[count].sa6.sin6_family = AF_INET6;
+		memcpy(&glob[count].sa6.sin6_addr, a[m].addr, 16);
+		count++;
+	}
+
+	/* remove the routes for any addresses that went away */
+
+	lws_pt_lock(pt, __func__);
+	do {
+		lws_route_t *stale = NULL;
+
+		lws_start_foreach_dll(struct lws_dll2 *, d,
+				      lws_dll2_get_head(&ctx->routing_table)) {
+			lws_route_t *rou = lws_container_of(d, lws_route_t,
+							    list);
+
+			if (!rou->if_idx &&
+			    rou->src.sa4.sin_family == AF_INET6 &&
+			    !lws_esp32_ip6_listed(glob, count, &rou->src)) {
+				stale = rou;
+				break;
+			}
+		} lws_end_foreach_dll(d);
+
+		if (!stale)
+			break;
+
+		lwsl_notice("%s: %s: lost an IPv6 address\n", __func__,
+			    wnde32->wnd.inst.name);
+
+		memset(&robj, 0, sizeof(robj));
+		robj.src = stale->src;
+		_lws_route_remove(pt, &robj, LRR_MATCH_SRC | LRR_IGNORE_PRI);
+	} while (1);
+	lws_pt_unlock(pt);
+
+	/* add routes for any new ones and tell everyone about them */
+
+	memset(&gw, 0, sizeof(gw));
+	memset(&unspec, 0, sizeof(unspec));
+	unspec.sa6.sin6_family = AF_INET6;
+
+	for (m = 0; m < count; m++) {
+		r1 = lws_esp32_route_set(ctx, &glob[m], 128, &glob[m], &gw);
+		r2 = lws_esp32_route_set(ctx, &unspec, 0, &glob[m], &gw);
+		if (r1 < 0 || r2 < 0 || (!r1 && !r2))
+			continue;
+
+		lws_sa46_write_numeric_address(&glob[m], ip, sizeof(ip));
+		lwsl_notice("%s: %s: IPv6 %s\n", __func__,
+			    wnde32->wnd.inst.name, ip);
+#if defined(LWS_WITH_SYS_SMD)
+		lws_smd_msg_printf(ctx, LWSSMDCL_NETWORK,
+				   "{\"type\":\"ipacq\",\"if\":\"%s\","
+				   "\"ipv6\":\"%s\"}", wnde32->wnd.inst.name, ip);
+#endif
+	}
+}
+#endif
+
+static void
+lws_esp32_link_stats(lws_netdev_instance_wifi_esp32_t *wnde32)
+{
+	wifi_ap_record_t ap;
+	char s[192];
+	size_t n;
+
+	if (esp_wifi_sta_get_ap_info(&ap)) {
+		lwsl_notice("%s: %s: not associated\n", __func__,
+			    wnde32->wnd.inst.name);
+		return;
+	}
+
+	/* "+" / "-" is the HT40 secondary channel above / below primary */
+
+	n = (size_t)lws_snprintf(s, sizeof(s), "rssi %d, ch %u%s",
+				 (int)ap.rssi, (unsigned int)ap.primary,
+				 ap.second == WIFI_SECOND_CHAN_ABOVE ? "+" :
+				 (ap.second == WIFI_SECOND_CHAN_BELOW ? "-" : ""));
+#if LWIP_STATS && TCP_STATS
+	n += (size_t)lws_snprintf(s + n, sizeof(s) - n,
+				  ", tcp: tx %u, rx %u, drop %u, err %u, "
+				  "memerr %u",
+				  (unsigned int)lwip_stats.tcp.xmit,
+				  (unsigned int)lwip_stats.tcp.recv,
+				  (unsigned int)lwip_stats.tcp.drop,
+				  (unsigned int)lwip_stats.tcp.err,
+				  (unsigned int)lwip_stats.tcp.memerr);
+#endif
+#if LWIP_STATS && LINK_STATS
+	n += (size_t)lws_snprintf(s + n, sizeof(s) - n,
+				  ", link: tx %u, rx %u, drop %u, memerr %u",
+				  (unsigned int)lwip_stats.link.xmit,
+				  (unsigned int)lwip_stats.link.recv,
+				  (unsigned int)lwip_stats.link.drop,
+				  (unsigned int)lwip_stats.link.memerr);
+#endif
+	(void)n;
+
+	lwsl_notice("%s: %s: %s\n", __func__, wnde32->wnd.inst.name, s);
+}
+
+static void
+lws_esp32_link_stats_cb(lws_sorted_usec_list_t *sul)
+{
+	lws_netdev_instance_wifi_esp32_t *wnde32 = lws_container_of(sul,
+			lws_netdev_instance_wifi_esp32_t, sul_link_stats);
+	struct lws_context *ctx = netdev_instance_to_ctx(&wnde32->wnd.inst);
+
+	lws_esp32_link_stats(wnde32);
+#if defined(LWS_ESP32_IPV6)
+	lws_esp32_sync_ip6(wnde32);
+#endif
+
+	lws_sul_schedule(ctx, 0, &wnde32->sul_link_stats,
+			 lws_esp32_link_stats_cb,
+			 LWS_ESP32_LINK_STATS_INTERVAL_US);
+}
+
+/*
+ * We lost the association: say why, and take down our route, so nothing
+ * believes it can still send via the address we had on it
+ */
+
+static void
+lws_esp32_link_lost(lws_netdev_instance_wifi_esp32_t *wnde32, void *buf,
+		    size_t len)
+{
+#if defined(LWS_WITH_ROUTING)
+	struct lws_context *ctx = netdev_instance_to_ctx(&wnde32->wnd.inst);
+	struct lws_context_per_thread *pt = &ctx->pt[0];
+#endif
+	const char *p;
+	unsigned int reason = 0;
+	int rssi = 0;
+	size_t al;
+
+	p = lws_json_simple_find(buf, len, "\"reason\":", &al);
+	if (p)
+		reason = (unsigned int)atoi(p);
+	p = lws_json_simple_find(buf, len, "\"rssi\":", &al);
+	if (p)
+		rssi = atoi(p);
+
+	lwsl_notice("%s: %s: disconnected, reason %u (%s), rssi %d\n",
+		    __func__, wnde32->wnd.inst.name, reason,
+		    lws_esp32_disconnect_reason(reason), rssi);
+
+	/* recorded against the AP's credentials if it refused us */
+	lws_netdev_wifi_link_lost(&wnde32->wnd,
+				  lws_esp32_reason_is_auth(reason));
+
+	lws_sul_cancel(&wnde32->sul_link_stats);
+
+#if defined(LWS_WITH_ROUTING)
+	lws_pt_lock(pt, __func__);
+	_lws_route_table_ifdown(pt, 0);
+	lws_pt_unlock(pt);
+#endif
+}
+
+/*
  * Platform-private interface events turn up here after going through SMD and
  * passed down by matching network interface name via generic lws_netdev.  All
  * that messing around gets us from an OS-specific thread with an event to back
@@ -220,8 +659,33 @@ lws_netdev_wifi_event_plat(struct lws_netdev_instance *nd, lws_usec_t timestamp,
 	size_t al;
 
 	/*
-	 * netdev-private sync messages?
+	 * netdev-private sync messages?  IP_EVENT ids overlap WIFI_EVENT ones,
+	 * so they come with a type of their own
 	 */
+
+	if (!lws_json_simple_strcmp(buf, len, "\"type\":", "privip")) {
+		const char *ev = lws_json_simple_find(buf, len, "\"ev\":", &al);
+
+		if (!ev)
+			return 0;
+
+		switch (atoi(ev)) {
+		case IP_EVENT_STA_GOT_IP:
+			lws_esp32_got_ip4(
+				(lws_netdev_instance_wifi_esp32_t *)wnd);
+			break;
+#if defined(LWS_ESP32_IPV6)
+		case IP_EVENT_GOT_IP6:
+			lws_esp32_sync_ip6(
+				(lws_netdev_instance_wifi_esp32_t *)wnd);
+			break;
+#endif
+		default:
+			break;
+		}
+
+		return 0;
+	}
 
 	if (!lws_json_simple_strcmp(buf, len, "\"type\":", "priv")) {
 		const char *ev = lws_json_simple_find(buf, len, "\"ev\":", &al);
@@ -234,18 +698,18 @@ lws_netdev_wifi_event_plat(struct lws_netdev_instance *nd, lws_usec_t timestamp,
 		switch (atoi(ev)) {
 		case WIFI_EVENT_STA_START:
 			wnd->state = LWSNDVWIFI_STATE_INITIAL;
-			if (!lws_netdev_wifi_redo_last(wnd))
-				break;
-
-			/*
-			 * if the "try last successful" one fails, start the
-			 * scan by falling through
-			 */
+			goto scan;
 
 		case WIFI_EVENT_STA_DISCONNECTED:
+			lws_esp32_link_lost(
+				(lws_netdev_instance_wifi_esp32_t *)wnd,
+				buf, len);
+scan:
+#if defined(LWS_WITH_SYS_SMD)
 			lws_smd_msg_printf(ctx, LWSSMDCL_NETWORK,
 					   "{\"type\":\"linkdown\","
 					   "\"if\":\"%s\"}", wnd->inst.name);
+#endif
 			wnd->state = LWSNDVWIFI_STATE_SCAN;
 			/*
 			 * We do it via the sul so we don't get timed scans
@@ -256,9 +720,30 @@ lws_netdev_wifi_event_plat(struct lws_netdev_instance *nd, lws_usec_t timestamp,
 			break;
 
 		case WIFI_EVENT_STA_CONNECTED:
+#if defined(LWS_ESP32_IPV6)
+			/*
+			 * esp-idf leaves it to us to start IPv6 on the link
+			 * each time we associate.  Once the link-local address
+			 * is up, lwIP can listen to router advertisements and
+			 * use SLAAC to get global addresses, which come to us
+			 * as IP_EVENT_GOT_IP6.
+			 */
+			if (((lws_netdev_instance_wifi_esp32_t *)wnd)->netif &&
+			    esp_netif_create_ip6_linklocal(
+				((lws_netdev_instance_wifi_esp32_t *)wnd)->netif))
+				lwsl_warn("%s: %s: unable to start IPv6\n",
+					  __func__, wnd->inst.name);
+#endif
+#if defined(LWS_WITH_SYS_SMD)
 			lws_smd_msg_printf(ctx, LWSSMDCL_NETWORK,
 					   "{\"type\":\"linkup\","
 					   "\"if\":\"%s\"}", wnd->inst.name);
+#endif
+			lws_sul_schedule(ctx, 0,
+				&((lws_netdev_instance_wifi_esp32_t *)wnd)->
+							sul_link_stats,
+				lws_esp32_link_stats_cb,
+				LWS_ESP32_LINK_STATS_INTERVAL_US);
 			break;
 
 		case WIFI_EVENT_SCAN_DONE:
@@ -288,8 +773,26 @@ _event_handler_wifi(void *arg, esp_event_base_t event_base, int32_t event_id,
 	struct lws_context *ctx = netdev_instance_to_ctx(&wnd->inst);
 
 	switch (event_id) {
-	case WIFI_EVENT_STA_START:
 	case WIFI_EVENT_STA_DISCONNECTED:
+		/*
+		 * Why we lost the association is only available here, so it
+		 * must travel with the event
+		 */
+#if defined(LWS_WITH_SYS_SMD)
+		{
+			wifi_event_sta_disconnected_t *e =
+				(wifi_event_sta_disconnected_t *)event_data;
+
+			lws_smd_msg_printf(ctx, LWSSMDCL_NETWORK,
+				   "{\"type\":\"priv\",\"if\":\"%s\",\"ev\":%d,"
+				   "\"reason\":%u,\"rssi\":%d}",
+				   wnd->inst.name, (int)event_id,
+				   (unsigned int)e->reason, (int)e->rssi);
+		}
+#endif
+		break;
+
+	case WIFI_EVENT_STA_START:
 	case WIFI_EVENT_SCAN_DONE:
 	case WIFI_EVENT_STA_CONNECTED:
 		/*
@@ -307,33 +810,22 @@ _event_handler_wifi(void *arg, esp_event_base_t event_base, int32_t event_id,
 		 * for other things to consume.
 		 */
 
+#if defined(LWS_WITH_SYS_SMD)
 		lws_smd_msg_printf(ctx, LWSSMDCL_NETWORK,
 				   "{\"type\":\"priv\",\"if\":\"%s\",\"ev\":%d}",
 				   wnd->inst.name, (int)event_id);
+#endif
 		break;
 	default:
 		return;
 	}
 }
 
-#if 0
-static int
-espip_to_sa46(lws_sockaddr46 *sa46, esp_ip_addr_t *eip)
-{
-	memset(sa46, 0, sizeof(sa46));
-
-	switch (eip->type) {
-	case ESP_IPADDR_TYPE_V4:
-		sa46->sa4.sin_family = AF_INET;
-		memcpy(sa46->sa4.sin_addr, &eip->u_addr.ip4.addr, );
-		return;
-	case ESP_IPADDR_TYPE_V6:
-	}
-}
-#endif
-
 /*
- * This is coming from a thread context unrelated to lws
+ * This is coming from a thread context unrelated to lws, it must not touch lws
+ * state like the routing table.  So like the wifi events, we requeue it to be
+ * dealt with in the lws event thread context, where the addresses are read
+ * back from the netif.
  */
 
 static void
@@ -341,37 +833,21 @@ _event_handler_ip(void *arg, esp_event_base_t event_base, int32_t event_id,
 	      void *event_data)
 {
 	lws_netdev_instance_wifi_t *wnd = (lws_netdev_instance_wifi_t *)arg;
-	lws_netdevs_t *netdevs = lws_netdevs_from_ndi(&wnd->inst);
-	struct lws_context *ctx = lws_context_from_netdevs(netdevs);
+	struct lws_context *ctx = netdev_instance_to_ctx(&wnd->inst);
 
-	if (event_id == IP_EVENT_STA_GOT_IP) {
-		ip_event_got_ip_t *e = (ip_event_got_ip_t *)event_data;
-		char ip[16];
-#if 0
-		tcpip_adapter_dns_info_t e32ip;
-
-		/*
-		 * Since atm we get this via DHCP, presumably we can get ahold
-		 * of related info set by the router
-		 */
-
-		if (tcpip_adapter_get_dns_info(TCPIP_ADAPTER_IF_STA,
-					   TCPIP_ADAPTER_DNS_MAIN,
-					   /* also _BACKUP, _FALLBACK */
-					   &e32ip)) {
-			lwsl_err("%s: there's no dns server set\n", __func__);
-			e32ip.ip.u_addr.ipv4 = 0x08080808;
-			e32ip.ip.type = ESP_IPADDR_TYPE_V4;
-		}
-
-		netdevs->sa46_dns_resolver.
+	switch (event_id) {
+	case IP_EVENT_STA_GOT_IP:
+#if defined(LWS_ESP32_IPV6)
+	case IP_EVENT_GOT_IP6:
 #endif
-
-		lws_write_numeric_address((void *)&e->ip_info.ip, 4, ip,
-				sizeof(ip));
+#if defined(LWS_WITH_SYS_SMD)
 		lws_smd_msg_printf(ctx, LWSSMDCL_NETWORK,
-				   "{\"type\":\"ipacq\",\"if\":\"%s\","
-				   "\"ipv4\":\"%s\"}", wnd->inst.name, ip);
+				   "{\"type\":\"privip\",\"if\":\"%s\","
+				   "\"ev\":%d}", wnd->inst.name, (int)event_id);
+#endif
+		break;
+	default:
+		break;
 	}
 }
 
@@ -407,6 +883,7 @@ lws_netdev_plat_wifi_init(void)
 	}
 
 	 ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+	esp_wifi_set_ps(WIFI_PS_NONE);
 
 	return 0;
 }
@@ -424,6 +901,9 @@ lws_netdev_wifi_create_plat(struct lws_context *ctx,
 		return NULL;
 
 	wnde32->wnd.inst.type = LWSNDTYP_WIFI;
+	/* eg, for the default hostname */
+	if (esp_read_mac(wnde32->wnd.inst.mac, ESP_MAC_WIFI_STA))
+		lwsl_warn("%s: unable to read MAC\n", __func__);
 	lws_netdev_instance_create(&wnde32->wnd.inst, ctx, ops, name, platinfo);
 
 	return &wnde32->wnd.inst;
@@ -446,20 +926,82 @@ lws_netdev_wifi_up_plat(struct lws_netdev_instance *nd)
 	if (wnde32->wnd.flags & LNDIW_UP)
 		return 0;
 
+	/* created by esp_netif_create_default_wifi_sta() at wifi init */
+	wnde32->netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+
+	/* DHCP gives it, eg, so the server can resolve it in its local DNS */
+	{
+		char hn[LWS_NETDEV_HOSTNAME_MAX + 1];
+
+		if (lws_netdev_hostname_get(lws_netdevs_from_ctx(ctx), hn,
+					    sizeof(hn)) >= 0)
+			lws_netdev_wifi_hostname_plat(nd, hn);
+	}
+
 	ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT,
 			  IP_EVENT_STA_GOT_IP, _event_handler_ip, nd,
 			  &wnde32->instance_got_ip));
+#if defined(LWS_ESP32_IPV6)
+	ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT,
+			  IP_EVENT_GOT_IP6, _event_handler_ip, nd,
+			  &wnde32->instance_got_ip6));
+#endif
 
 	ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT,
 			  ESP_EVENT_ANY_ID, _event_handler_wifi, nd,
 			  &wnde32->instance_any_id));
 
 	esp_wifi_start();
+	esp_wifi_set_ps(WIFI_PS_NONE);
 	wnde32->wnd.flags |= LNDIW_UP;
 
+#if defined(LWS_WITH_SYS_SMD)
 	lws_smd_msg_printf(ctx, LWSSMDCL_NETWORK,
 			   "{\"type\":\"up\",\"if\":\"%s\"}",
 			   wnde32->wnd.inst.name);
+#endif
+
+	return 0;
+}
+
+int
+lws_netdev_wifi_rssi_plat(lws_netdev_instance_t *nd, int *rssi)
+{
+	wifi_ap_record_t ap;
+
+	if (!(((lws_netdev_instance_wifi_t *)nd)->flags & LNDIW_UP) ||
+	    esp_wifi_sta_get_ap_info(&ap))
+		return 1;
+
+	*rssi = ap.rssi;
+
+	return 0;
+}
+
+/*
+ * lwIP gives the netif's hostname in each DHCP request, renewals too, so a
+ * change is told to the DHCP server the next time the lease is renewed
+ */
+
+int
+lws_netdev_wifi_hostname_plat(lws_netdev_instance_t *nd, const char *name)
+{
+	lws_netdev_instance_wifi_esp32_t *wnde32 =
+					(lws_netdev_instance_wifi_esp32_t *)nd;
+	esp_err_t e;
+
+	if (!wnde32->netif)
+		/* lws_netdev_wifi_up_plat() sets it when there is one */
+		return 0;
+
+	e = esp_netif_set_hostname(wnde32->netif, name);
+	if (e) {
+		lwsl_warn("%s: %s: unable to set hostname: %d\n", __func__,
+			  nd->name, (int)e);
+		return 1;
+	}
+
+	lwsl_notice("%s: %s: hostname %s\n", __func__, nd->name, name);
 
 	return 0;
 }
@@ -474,16 +1016,23 @@ lws_netdev_wifi_down_plat(struct lws_netdev_instance *nd)
 	if (!(wnde32->wnd.flags & LNDIW_UP))
 		return 0;
 
+#if defined(LWS_WITH_SYS_SMD)
 	lws_smd_msg_printf(ctx, LWSSMDCL_NETWORK,
 			   "{\"type\":\"down\",\"if\":\"%s\"}",
 			   wnde32->wnd.inst.name);
+#endif
 
+	lws_sul_cancel(&wnde32->sul_link_stats);
 	esp_wifi_stop();
 
 	esp_event_handler_instance_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP,
-						&wnde32->instance_got_ip);
+						wnde32->instance_got_ip);
+#if defined(LWS_ESP32_IPV6)
+	esp_event_handler_instance_unregister(IP_EVENT, IP_EVENT_GOT_IP6,
+						wnde32->instance_got_ip6);
+#endif
 	esp_event_handler_instance_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID,
-						&wnde32->instance_any_id);
+						wnde32->instance_any_id);
 
 	wnde32->wnd.flags &= ~LNDIW_UP;
 
@@ -493,6 +1042,22 @@ lws_netdev_wifi_down_plat(struct lws_netdev_instance *nd)
 void
 lws_netdev_wifi_destroy_plat(struct lws_netdev_instance **pnd)
 {
-	lws_free(*pnd);
+	lws_netdev_instance_wifi_esp32_t *wnde32 =
+					(lws_netdev_instance_wifi_esp32_t *)*pnd;
+
+	if (!wnde32)
+		return;
+
+	/*
+	 * It should be down already, which unhooks the esp-idf events.  What
+	 * the generic netdev parts hold goes with it: the scan results, the
+	 * scheduled scan and its place on the context's list of netdevs.
+	 */
+
+	lws_netdev_wifi_down_plat(*pnd);
+	lws_sul_cancel(&wnde32->sul_link_stats);
+	lws_sul_cancel(&wnde32->wnd.sul_scan);
+	lws_netdev_wifi_scan_empty(&wnde32->wnd);
+	lws_netdev_instance_remove_destroy(*pnd);
 	*pnd = NULL;
 }

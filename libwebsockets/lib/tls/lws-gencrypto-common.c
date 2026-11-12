@@ -195,6 +195,13 @@ static const struct lws_jose_jwe_alg lws_gencrypto_jws_alg_map[] = {
 		LWS_JOSE_ENCTYPE_NONE,
 		"ES512", "P-521", 521, 521, 0
 	},
+	{	/* Recommended+: EdDSA using Ed25519 and Ed448 */
+		LWS_GENHASH_TYPE_UNKNOWN,
+		LWS_GENHMAC_TYPE_UNKNOWN,
+		LWS_JOSE_ENCTYPE_EDDSA,
+		LWS_JOSE_ENCTYPE_NONE,
+		"EdDSA", NULL, 0, 0, 0
+	},
 #if 0
 	Not yet supported
 
@@ -254,20 +261,11 @@ static const struct lws_jose_jwe_alg lws_gencrypto_jws_alg_map[] = {
 static const struct lws_jose_jwe_alg lws_gencrypto_jwe_alg_map[] = {
 
 	/*
-	 * This section defines the specifics of encrypting a JWE CEK with
-	 * RSAES-PKCS1-v1_5 [RFC3447].  The "alg" (algorithm) Header Parameter
-	 * value "RSA1_5" is used for this algorithm.
-	 *
-	 * A key of size 2048 bits or larger MUST be used with this algorithm.
+	 * RSAES-PKCS1-v1_5 ("RSA1_5") is deliberately absent: its padding is
+	 * open to Bleichenbacher-style padding oracles (RFC 8725 3.2), so
+	 * leaving it out of this map makes JWEs using it fail to parse.
 	 */
 
-	{	/* recommended-: RSAES-PKCS1-v1_5 */
-		LWS_GENHASH_TYPE_SHA256,
-		LWS_GENHMAC_TYPE_UNKNOWN,
-		LWS_JOSE_ENCTYPE_RSASSA_PKCS1_1_5,
-		LWS_JOSE_ENCTYPE_NONE,
-		"RSA1_5", NULL, 2048, 4096, 0
-	},
 	{	/* recommended+: RSAES OAEP using default parameters */
 		LWS_GENHASH_TYPE_SHA1,
 		LWS_GENHMAC_TYPE_UNKNOWN,
@@ -434,11 +432,17 @@ static const struct lws_jose_jwe_alg lws_gencrypto_jwe_alg_map[] = {
 	 * value resulting from the key encryption operation.  This Header
 	 * Parameter MUST be present and MUST be understood and processed by
 	 * implementations when these algorithms are used.
+	 *
+	 * lws does not implement GCM key wrapping.  These are typed as GCM,
+	 * which nothing in the JWE dispatch handles, so they are refused as an
+	 * unsupported alg... typing them as AES_ECB like A*KW would process
+	 * them silently as RFC3394 key wrap, a different algorithm to the one
+	 * the header declares.
 	 */
 	{	/* optional: Key wrapping with AES GCM using 128-bit key  */
 		LWS_GENHASH_TYPE_UNKNOWN,
 		LWS_GENHMAC_TYPE_UNKNOWN,
-		LWS_JOSE_ENCTYPE_AES_ECB,
+		LWS_JOSE_ENCTYPE_AES_GCM,
 		LWS_JOSE_ENCTYPE_NONE,
 		"A128GCMKW", NULL, 128, 128, 96
 	},
@@ -446,7 +450,7 @@ static const struct lws_jose_jwe_alg lws_gencrypto_jwe_alg_map[] = {
 	{	/* optional: Key wrapping with AES GCM using 192-bit key */
 		LWS_GENHASH_TYPE_UNKNOWN,
 		LWS_GENHMAC_TYPE_UNKNOWN,
-		LWS_JOSE_ENCTYPE_AES_ECB,
+		LWS_JOSE_ENCTYPE_AES_GCM,
 		LWS_JOSE_ENCTYPE_NONE,
 		"A192GCMKW", NULL, 192, 192, 96
 	},
@@ -454,7 +458,7 @@ static const struct lws_jose_jwe_alg lws_gencrypto_jwe_alg_map[] = {
 	{	/* optional: Key wrapping with AES GCM using 256-bit key */
 		LWS_GENHASH_TYPE_UNKNOWN,
 		LWS_GENHMAC_TYPE_UNKNOWN,
-		LWS_JOSE_ENCTYPE_AES_ECB,
+		LWS_JOSE_ENCTYPE_AES_GCM,
 		LWS_JOSE_ENCTYPE_NONE,
 		"A256GCMKW", NULL, 256, 256, 96
 	},
@@ -653,6 +657,8 @@ lws_genhmac_size(enum lws_genhmac_types type)
 	switch(type) {
 	case LWS_GENHMAC_TYPE_UNKNOWN:
 		return 0;
+	case LWS_GENHMAC_TYPE_SHA1:
+		return 20;
 	case LWS_GENHMAC_TYPE_SHA256:
 		return 32;
 	case LWS_GENHMAC_TYPE_SHA384:
@@ -685,11 +691,201 @@ lws_gencrypto_destroy_elements(struct lws_gencrypto_keyelem *el, int m)
 	int n;
 
 	for (n = 0; n < m; n++)
-		if (el[n].buf)
+		if (el[n].buf) {
+			/* wipe all key material when it goes out of scope */
+			lws_explicit_bzero(el[n].buf, el[n].len);
 			lws_free_set_NULL(el[n].buf);
+			el[n].len = 0;
+		}
+}
+
+void
+lws_genrsa_destroy_elements(struct lws_gencrypto_keyelem *el)
+{
+	lws_gencrypto_destroy_elements(el, LWS_GENCRYPTO_RSA_KEYEL_COUNT);
 }
 
 size_t lws_gencrypto_padded_length(size_t pad_block_size, size_t len)
 {
 	return (len / pad_block_size + 1) * pad_block_size;
+}
+
+int
+lws_genhash_render(enum lws_genhash_types type, const uint8_t *hash, char *out, size_t out_len)
+{
+	size_t hs = lws_genhash_size(type);
+	size_t i;
+
+	if (!hs) {
+		if (out_len)
+			out[0] = '\0';
+		return -1;
+	}
+
+	if (out_len < (hs * 2) + 1) {
+		/* Needs truncation with ellipsis? */
+		if (out_len > 4) {
+			for (i = 0; i < (out_len - 4) / 2; i++)
+				lws_snprintf(out + (i * 2), 3, "%02x", hash[i]);
+			lws_strncpy(out + (i * 2), "...", out_len - (i * 2));
+			return 0;
+		}
+		if (out_len)
+			out[0] = '\0';
+		return -1;
+	}
+
+	for (i = 0; i < hs; i++)
+		lws_snprintf(out + (i * 2), 3, "%02x", hash[i]);
+
+	out[i * 2] = '\0';
+
+	return 0;
+}
+
+int
+lws_genhash_render_prefixed(enum lws_genhash_types type, const uint8_t *hash, char *out, size_t out_len)
+{
+	const char *t;
+	int n;
+
+	switch (type) {
+	case LWS_GENHASH_TYPE_MD5:	t = "MD5"; break;
+	case LWS_GENHASH_TYPE_SHA1:	t = "SHA1"; break;
+	case LWS_GENHASH_TYPE_SHA256:	t = "SHA256"; break;
+	case LWS_GENHASH_TYPE_SHA384:	t = "SHA384"; break;
+	case LWS_GENHASH_TYPE_SHA512:	t = "SHA512"; break;
+	default: return -1;
+	}
+
+	n = lws_snprintf(out, out_len, "%s:", t);
+	if (n < 0 || (size_t)n >= out_len)
+		return -1;
+
+	return lws_genhash_render(type, hash, out + n, out_len - (size_t)n);
+}
+
+int
+lws_genhkdf_extract(enum lws_genhmac_types type, const uint8_t *salt,
+                    size_t salt_len, const uint8_t *ikm, size_t ikm_len,
+                    uint8_t *prk)
+{
+	struct lws_genhmac_ctx ctx;
+	int ret = -1;
+	size_t hs;
+	uint8_t z[LWS_GENHASH_LARGEST];
+
+	hs = lws_genhmac_size(type);
+	if (!hs)
+		return -1;
+
+	if (!salt || !salt_len) {
+		memset(z, 0, hs);
+		salt = z;
+		salt_len = hs;
+	}
+
+	if (lws_genhmac_init(&ctx, type, salt, salt_len))
+		return -1;
+
+	if (ikm_len && lws_genhmac_update(&ctx, ikm, ikm_len))
+		goto bail;
+
+	if (lws_genhmac_destroy(&ctx, prk))
+		return -1;
+
+	return 0;
+
+bail:
+	lws_genhmac_destroy(&ctx, NULL);
+	return ret;
+}
+
+int
+lws_genhkdf_expand(enum lws_genhmac_types type, const uint8_t *prk,
+                   size_t prk_len, const uint8_t *info, size_t info_len,
+                   uint8_t *okm, size_t okm_len)
+{
+	struct lws_genhmac_ctx ctx;
+	uint8_t t[LWS_GENHASH_LARGEST];
+	size_t hs = lws_genhmac_size(type);
+	size_t t_len = 0, remain = okm_len, copy_len;
+	uint8_t count = 1;
+	int ret = -1;
+
+	if (!hs || !okm_len || !prk || !okm)
+		return -1;
+
+	while (remain) {
+		if (lws_genhmac_init(&ctx, type, prk, prk_len))
+			return -1;
+
+		if (t_len && lws_genhmac_update(&ctx, t, t_len))
+			goto bail;
+
+		if (info && info_len && lws_genhmac_update(&ctx, info, info_len))
+			goto bail;
+
+		if (lws_genhmac_update(&ctx, &count, 1))
+			goto bail;
+
+		if (lws_genhmac_destroy(&ctx, t))
+			return -1;
+
+		t_len = hs;
+		copy_len = remain > hs ? hs : remain;
+		memcpy(okm, t, copy_len);
+		okm += copy_len;
+		remain -= copy_len;
+		count++;
+	}
+
+	lws_explicit_bzero(t, sizeof(t));
+
+	return 0;
+
+bail:
+	lws_genhmac_destroy(&ctx, NULL);
+	lws_explicit_bzero(t, sizeof(t));
+
+	return ret;
+}
+
+int
+lws_genhkdf_expand_label(enum lws_genhmac_types type, const uint8_t *prk,
+                         size_t prk_len, const char *label,
+                         const uint8_t *context, size_t context_len,
+                         uint8_t *okm, size_t okm_len)
+{
+	uint8_t info[256 + 256 + 4];
+	size_t info_len = 0;
+	size_t label_len;
+
+	if (!label)
+		return -1;
+
+	label_len = strlen(label);
+	/* "tls13 " length is 6, so label_len + 6 must be <= 255 */
+	if (label_len + 6 > 255 || context_len > 255)
+		return -1;
+
+	/* Length (uint16) */
+	info[info_len++] = (okm_len >> 8) & 0xff;
+	info[info_len++] = okm_len & 0xff;
+
+	/* Label length (uint8) */
+	info[info_len++] = (uint8_t)(label_len + 6);
+	memcpy(&info[info_len], "tls13 ", 6);
+	info_len += 6;
+	memcpy(&info[info_len], label, label_len);
+	info_len += label_len;
+
+	/* Context length (uint8) */
+	info[info_len++] = (uint8_t)context_len;
+	if (context_len && context) {
+		memcpy(&info[info_len], context, context_len);
+		info_len += context_len;
+	}
+
+	return lws_genhkdf_expand(type, prk, prk_len, info, info_len, okm, okm_len);
 }

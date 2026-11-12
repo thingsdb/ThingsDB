@@ -108,13 +108,13 @@ lws_b64_decode_state_init(struct lws_b64state *state)
 
 int
 lws_b64_decode_stateful(struct lws_b64state *s, const char *in, size_t *in_len,
-			uint8_t *out, size_t *out_size, int final)
+			uint8_t *out, size_t *out_size, int is_final)
 {
 	const char *orig_in = in, *end_in = in + *in_len;
 	uint8_t *orig_out = out, *end_out = out + *out_size;
 	int equals = 0;
 
-	while (in < end_in && *in && out + 3 <= end_out) {
+	while ((in < end_in && *in && out + 3 <= end_out) || (is_final && s->i && out + 3 <= end_out)) {
 
 		for (; s->i < 4 && in < end_in && *in; s->i++) {
 			uint8_t v;
@@ -122,9 +122,9 @@ lws_b64_decode_stateful(struct lws_b64state *s, const char *in, size_t *in_len,
 			v = 0;
 			s->c = 0;
 			while (in < end_in && *in && !v) {
-				s->c = v = (unsigned char)*in++;
+				v = (unsigned char)*in++;
 
-				if (v == '\x0a') {
+				if (v == '\x0a' || v == '\x0d' || v == ' ' || v == '\t') {
 					v = 0;
 					continue;
 				}
@@ -134,6 +134,8 @@ lws_b64_decode_stateful(struct lws_b64state *s, const char *in, size_t *in_len,
 					v = 0;
 					continue;
 				}
+
+				s->c = v;
 
 				/* Sanity check this is part of the charset */
 
@@ -167,26 +169,36 @@ lws_b64_decode_stateful(struct lws_b64state *s, const char *in, size_t *in_len,
 				s->quad[s->i] = 0;
 		}
 
-		if (s->i != 4 && !final)
+		if (s->i != 4 && !is_final)
 			continue;
 
 		s->i = 0;
 
 		/*
-		 * "The '==' sequence indicates that the last group contained
-		 * only one byte, and '=' indicates that it contained two
+		 * Normally we convert a group of 4 incoming symbols into 3 bytes.
+		 *
+		 * "The 'XX==' sequence indicates that the last group contained
+		 * only one byte, and 'XXX=' indicates that it contained two
 		 * bytes." (wikipedia)
+		 *
 		 */
 
-		if (s->len >= 2 || equals > 1)
+		if (s->len >= 2)
 			*out++ = (uint8_t)(s->quad[0] << 2 | s->quad[1] >> 4);
-		if (s->len >= 3 || equals)
+
+		if (s->len >= 3 && equals != 2)
 			*out++ = (uint8_t)(s->quad[1] << 4 | s->quad[2] >> 2);
-		if (s->len >= 4 && !equals)
+
+		if (s->len >= 4 && equals != 1)
 			*out++ = (uint8_t)(((s->quad[2] << 6) & 0xc0) | s->quad[3]);
 
 		s->done += s->len - 1;
 		s->len = 0;
+
+		if (equals) {
+			while (in < end_in && (*in == '\x0a' || *in == '\x0d' || *in == ' ' || *in == '\t'))
+				in++;
+		}
 	}
 
 	if (out < end_out)
@@ -213,8 +225,10 @@ _lws_b64_decode_string(const char *in, int in_len, char *out, size_t out_size)
 	struct lws_b64state state;
 	size_t il = (size_t)in_len, ol = out_size;
 
-	if (in_len == -1)
+	if (in_len == -1) {
 		il = strlen(in);
+		in_len = (int)il;
+	}
 
 	lws_b64_decode_state_init(&state);
 	if (lws_b64_decode_stateful(&state, in, &il, (uint8_t *)out, &ol, 1) < 0)
@@ -229,18 +243,176 @@ _lws_b64_decode_string(const char *in, int in_len, char *out, size_t out_size)
 	return ol;
 }
 
+/*
+ * out_size and in_len are widened to size_t inside; a negative one would
+ * become a huge size_t and make the decoder's "out + 3 <= end_out" bound
+ * vacuous, ie, the output would be unbounded.  Callers commonly compute
+ * out_size by subtraction from a running offset, so refuse it here rather
+ * than trust every caller's arithmetic.  in_len == -1 means "until NUL".
+ */
+
 int
 lws_b64_decode_string(const char *in, char *out, int out_size)
 {
+	if (out_size <= 0)
+		return -1;
+
 	return (int)_lws_b64_decode_string(in, -1, out, (unsigned int)out_size);
 }
 
 int
 lws_b64_decode_string_len(const char *in, int in_len, char *out, int out_size)
 {
-	size_t s = _lws_b64_decode_string(in, in_len, out, (unsigned int)out_size);
+	size_t s;
+
+	if (out_size <= 0 || in_len < -1)
+		return -1;
+
+	s = _lws_b64_decode_string(in, in_len, out, (unsigned int)out_size);
 
 	return !s ? -1 : (int)s;
+}
+
+static const char encode_b32[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+
+int
+lws_b32_encode_string(const char *in, int in_len, char *out, int out_size)
+{
+	unsigned char buf[5];
+	int i, done = 0;
+
+	while (in_len) {
+		int len = 0;
+		for (i = 0; i < 5; i++) {
+			if (in_len) {
+				buf[i] = (unsigned char)*in++;
+				len++;
+				in_len--;
+			} else
+				buf[i] = 0;
+		}
+
+		if (done + 8 >= out_size)
+			return -1;
+
+		out[0] = encode_b32[buf[0] >> 3];
+		out[1] = encode_b32[((buf[0] & 0x07) << 2) | (buf[1] >> 6)];
+		out[2] = len > 1 ? encode_b32[((buf[1] & 0x3e) >> 1)] : '=';
+		out[3] = len > 1 ? encode_b32[((buf[1] & 0x01) << 4) | (buf[2] >> 4)] : '=';
+		out[4] = len > 2 ? encode_b32[((buf[2] & 0x0f) << 1) | (buf[3] >> 7)] : '=';
+		out[5] = len > 3 ? encode_b32[((buf[3] & 0x7c) >> 2)] : '=';
+		out[6] = len > 3 ? encode_b32[((buf[3] & 0x03) << 3) | (buf[4] >> 5)] : '=';
+		out[7] = len > 4 ? encode_b32[(buf[4] & 0x1f)] : '=';
+
+		out += 8;
+		done += 8;
+	}
+
+	if (done + 1 >= out_size)
+		return -1;
+
+	*out++ = '\0';
+
+	return done;
+}
+
+static const int8_t decode_b32[256] = {
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1,-1,26,27,28,29,30,31,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,
+	15,16,17,18,19,20,21,22,23,24,25,-1,-1,-1,-1,-1,
+	-1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,
+	15,16,17,18,19,20,21,22,23,24,25,-1,-1,-1,-1,-1,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+};
+
+int
+lws_b32_decode_string_len(const char *in, int in_len, char *out, int out_size)
+{
+	int done = 0, nb;
+	int buf[8] = {0};
+	char tmp[5];
+	int i;
+
+	if (out_size <= 0 || in_len < -1)
+		return -1;
+
+	if (in_len == -1)
+		in_len = (int)strlen(in);
+
+	while (in_len > 0) {
+		int len = 0;
+		for (i = 0; i < 8; i++) {
+			while (in_len > 0 && (*in == ' ' || *in == '\t' || *in == '\n' || *in == '\r')) {
+				in++;
+				in_len--;
+			}
+			if (in_len > 0) {
+				char c = *in++;
+				in_len--;
+				if (c == '=') {
+					buf[i] = 0;
+				} else {
+					int8_t v = decode_b32[(unsigned char)c];
+					if (v < 0) return -1;
+					buf[i] = v;
+					len++;
+				}
+			} else {
+				buf[i] = 0;
+			}
+		}
+
+		if (len == 0) break;
+
+		/*
+		 * How many bytes does this group actually yield?  A padded
+		 * group ("AA======") yields 1 byte, not 5.  We must bound and
+		 * advance by that, since writing / stepping 5 while only
+		 * counting 1 against out_size let a run of padded groups walk
+		 * the write pointer 5x past the end of the caller's buffer.
+		 */
+
+		if (len == 2) nb = 1;
+		else if (len == 4) nb = 2;
+		else if (len == 5) nb = 3;
+		else if (len == 7) nb = 4;
+		else if (len == 8) nb = 5;
+		else return -1; /* invalid base32 chunk */
+
+		if (done + nb > out_size) return -1;
+
+		tmp[0] = (char)((buf[0] << 3) | (buf[1] >> 2));
+		tmp[1] = (char)(((buf[1] & 0x03) << 6) | (buf[2] << 1) | (buf[3] >> 4));
+		tmp[2] = (char)(((buf[3] & 0x0f) << 4) | (buf[4] >> 1));
+		tmp[3] = (char)(((buf[4] & 0x01) << 7) | (buf[5] << 2) | (buf[6] >> 3));
+		tmp[4] = (char)(((buf[6] & 0x07) << 5) | buf[7]);
+
+		memcpy(out, tmp, (size_t)nb);
+
+		out += nb;
+		done += nb;
+	}
+
+	if (done < out_size)
+		*out = '\0';
+
+	return done;
+}
+
+int
+lws_b32_decode_string(const char *in, char *out, int out_size)
+{
+	return lws_b32_decode_string_len(in, -1, out, out_size);
 }
 
 #if 0

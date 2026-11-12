@@ -63,13 +63,13 @@ lws_jwe_encrypt_gcm(struct lws_jwe *jwe,
 	/* MUST be 128-bit for all sizes */
 	if (jwe->jws.map.len[LJWE_ATAG] != LWS_AESGCM_TAG) {
 		lwsl_notice("%s: AESGCM tag size must be 128b, got %d\n",
-				__func__, jwe->jws.map.len[LJWE_ATAG]);
+				__func__, (int)jwe->jws.map.len[LJWE_ATAG]);
 		return -1;
 	}
 
 	if (jwe->jws.map.len[LJWE_IV] != LWS_AESGCM_IV) { /* MUST be 96-bit */
 		lwsl_notice("%s: AESGCM IV must be 128b, got %d\n", __func__,
-				jwe->jws.map.len[LJWE_IV]);
+				(int)jwe->jws.map.len[LJWE_IV]);
 		return -1;
 	}
 
@@ -92,6 +92,7 @@ lws_jwe_encrypt_gcm(struct lws_jwe *jwe,
 			     LWS_AESGCM_TAG);
 	if (n) {
 		lwsl_err("%s: lws_genaes_crypt aad failed\n", __func__);
+		lws_genaes_destroy(&aesctx, NULL, 0);
 		return -1;
 	}
 
@@ -128,13 +129,13 @@ lws_jwe_auth_and_decrypt_gcm(struct lws_jwe *jwe,
 	/* Tag MUST be 128-bit for all sizes */
 	if (jwe->jws.map.len[LJWE_ATAG] != LWS_AESGCM_TAG) {
 		lwsl_notice("%s: AESGCM tag size must be 128b, got %d\n",
-				__func__, jwe->jws.map.len[LJWE_ATAG]);
+				__func__, (int)jwe->jws.map.len[LJWE_ATAG]);
 		return -1;
 	}
 
 	if (jwe->jws.map.len[LJWE_IV] != LWS_AESGCM_IV) { /* MUST be 96-bit */
 		lwsl_notice("%s: AESGCM IV must be 128b, got %d\n", __func__,
-				jwe->jws.map.len[LJWE_IV]);
+				(int)jwe->jws.map.len[LJWE_IV]);
 		return -1;
 	}
 
@@ -155,6 +156,7 @@ lws_jwe_auth_and_decrypt_gcm(struct lws_jwe *jwe,
 			     (uint8_t *)jwe->jws.map.buf[LJWE_ATAG], &ivs, 16);
 	if (n) {
 		lwsl_err("%s: lws_genaes_crypt aad failed\n", __func__);
+		lws_genaes_destroy(&aesctx, NULL, 0);
 		return -1;
 	}
 	n = lws_genaes_crypt(&aesctx, (uint8_t *)jwe->jws.map.buf[LJWE_CTXT],
@@ -164,8 +166,18 @@ lws_jwe_auth_and_decrypt_gcm(struct lws_jwe *jwe,
 			     (uint8_t *)jwe->jws.map.buf[LJWE_ATAG], &ivs, 16);
 
 	n |= lws_genaes_destroy(&aesctx, tag, sizeof(tag));
+	/* on a mismatch, some backends leave the tag they computed here */
+	lws_explicit_bzero(tag, sizeof(tag));
 	if (n) {
+		/*
+		 * GCM decrypts in place before the tag is checked at destroy,
+		 * so on failure the buffer holds plaintext for a ciphertext
+		 * that did not authenticate... don't leave it for the caller
+		 */
 		lwsl_err("%s: lws_genaes_crypt failed\n", __func__);
+		if (jwe->jws.map.buf[LJWE_CTXT])
+			lws_explicit_bzero((uint8_t *)jwe->jws.map.buf[LJWE_CTXT],
+					   jwe->jws.map.len[LJWE_CTXT]);
 		return -1;
 	}
 

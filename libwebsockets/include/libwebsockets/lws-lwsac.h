@@ -258,6 +258,11 @@ lwsac_get_tail_pos(struct lwsac *lac);
 LWS_VISIBLE LWS_EXTERN struct lwsac *
 lwsac_get_next(struct lwsac *lac);
 
+/*
+ * Rounds \p length up to the platform's generic struct alignment.  Returns 0
+ * if a nonzero \p length is so large that rounding it up would wrap, ie, it
+ * can never be satisfied.
+ */
 LWS_VISIBLE LWS_EXTERN size_t
 lwsac_align(size_t length);
 
@@ -286,5 +291,26 @@ lwsac_total_overhead(struct lwsac *head);
  */
 LWS_VISIBLE LWS_EXTERN uint8_t *
 lwsac_scan_extant(struct lwsac *head, uint8_t *find, size_t len, int nul);
+
+/**
+ * lwsac_assert_valid() - checks if check..check + len is a valid pointer into memory owned by ac
+ *
+ * \param ac: the lwsac to confirm with
+ * \param check: the pointer to check
+ * \param len: length in bytes of check area
+ *
+ * Returns 0 if the pointer is in the lwsac, or nonzero if the pointer is
+ * not in a valid region of the lwsac
+ */
+
+LWS_VISIBLE LWS_EXTERN int
+_lwsac_assert_valid(struct lwsac *aco, void *check, size_t len, const char *name_ac, const char *name_blob, const char *filename, int line);
+
+#define __lws_sify(_s) _lws_sify(_s)
+#define _lws_sify(_s) #_s
+
+/* use the below macro to invoke the above function */
+
+#define lwsac_assert_valid(_ac, _check, _len) _lwsac_assert_valid(_ac, _check, _len, __lws_sify(_ac), __lws_sify(_check), __FILE__, __LINE__)
 
 ///@}

@@ -47,30 +47,24 @@ lws_plat_pipe_signal(struct lws *wsi)
 void
 lws_plat_pipe_close(struct lws *wsi)
 {
+	/* optee has no socketpair pipe implementation */
 }
 
 int
-lws_send_pipe_choked(struct lws *wsi)
+lws_plat_pipe_is_fd_assocated(struct lws_context *cx, int tsi, lws_sockfd_type fd)
 {
-	struct lws *wsi_eff;
+	return 0;
+}
 
-#if defined(LWS_WITH_HTTP2)
-	wsi_eff = lws_get_network_wsi(wsi);
-#else
-	wsi_eff = wsi;
-#endif
-
-	/* the fact we checked implies we avoided back-to-back writes */
-	wsi_eff->could_have_pending = 0;
-
-	/* treat the fact we got a truncated send pending as if we're choked */
-	if (lws_has_buffered_out(wsi_eff)
-#if defined(LWS_WITH_HTTP_STREAM_COMPRESSION)
-	    || wsi->http.comp_ctx.buflist_comp ||
-	       wsi->http.comp_ctx.may_have_more
-#endif
-	)
-		return 1;
+/*
+ * would the socket under wsi, the connection owning it, block a write now.
+ * Asked by IO's lws_io_tx_choked_pollfd() only for a valid socket that is
+ * not under a transport.
+ */
+int
+lws_plat_tx_choked(struct lws *wsi)
+{
+	(void)wsi;
 
 	/* okay to send another packet without blocking */
 
@@ -106,13 +100,13 @@ _lws_plat_service_tsi(struct lws_context *context, int timeout_ms, int tsi)
 	else
 		timeout_ms = 2000000000;
 
-	if (!pt->service_tid_detected && context->vhost_list) {
+	if (!pt->service_tid_detected && lws_dll2_get_head(&context->vhost_list_owner)) {
 		struct lws _lws;
 
 		memset(&_lws, 0, sizeof(_lws));
 		_lws.context = context;
 
-		pt->service_tid = context->vhost_list->protocols[0].callback(
+		pt->service_tid = lws_vhost_first(context)->protocols[0].callback(
 			&_lws, LWS_CALLBACK_GET_THREAD_ID, NULL, NULL, 0);
 		pt->service_tid_detected = 1;
 	}
@@ -120,70 +114,73 @@ _lws_plat_service_tsi(struct lws_context *context, int timeout_ms, int tsi)
 	/*
 	 * is there anybody with pending stuff that needs service forcing?
 	 */
-	if (lws_service_adjust_timeout(context, 1, tsi)) {
-again:
-		a = 0;
-		if (timeout_us) {
-			lws_usec_t us;
+	do {
+		if (lws_service_adjust_timeout(context, 1, tsi)) {
+			a = 0;
+			if (timeout_us) {
+				lws_usec_t us;
 
-			lws_pt_lock(pt, __func__);
-			/* don't stay in poll wait longer than next hr timeout */
-			us = __lws_sul_service_ripe(pt->pt_sul_owner,
-						    LWS_COUNT_PT_SUL_OWNERS,
-						    lws_now_usecs());
-			if (us && us < timeout_us)
-				timeout_us = us;
+				lws_context_lock(pt->context, __func__); /* cx then pt */
+				lws_pt_lock(pt, __func__);
+				/* don't stay in poll wait longer than next hr timeout */
+				us = __lws_sul_service_ripe(&pt->pt_sul_owner[0].owner,
+							    LWS_COUNT_PT_SUL_OWNERS,
+							    lws_now_usecs());
+				if (us && us < timeout_us)
+					timeout_us = us;
 
-			lws_pt_unlock(pt);
-		}
+				lws_pt_unlock(pt);
+				lws_context_unlock(pt->context);
+			}
 
-		n = poll(pt->fds, pt->fds_count, timeout_us / LWS_US_PER_MS);
+			/* in ms, rounded up: sleep until a timer is due */
+			n = poll(pt->fds, pt->fds_count,
+				 (int)lws_us_to_ms_ceil(timeout_us));
 
-		m = 0;
+			m = 0;
 
-		if (pt->context->tls_ops &&
-		    pt->context->tls_ops->fake_POLLIN_for_buffered)
-			m = pt->context->tls_ops->fake_POLLIN_for_buffered(pt);
+			if (pt->context->tls_ops &&
+			    pt->context->tls_ops->fake_POLLIN_for_buffered)
+				m = pt->context->tls_ops->fake_POLLIN_for_buffered(pt);
 
-		if (/*!pt->ws.rx_draining_ext_list && */!m && !n) /* nothing to do */
-			return 0;
-	} else
-		a = 1;
-
-	m = lws_service_flag_pending(context, tsi);
-	if (m)
-		c = -1; /* unknown limit */
-	else
-		if (n < 0) {
-			if (LWS_ERRNO != LWS_EINTR)
-				return -1;
-			return 0;
+			if (/*!pt->ws.rx_draining_ext_list && */!m && !n) /* nothing to do */
+				return 0;
 		} else
-			c = n;
+			a = 1;
 
-	/* any socket with events to service? */
-	for (n = 0; n < (int)pt->fds_count && c; n++) {
-		if (!pt->fds[n].revents)
-			continue;
-
-		c--;
-#if 0
-		if (pt->fds[n].fd == pt->dummy_pipe_fds[0]) {
-			if (read(pt->fds[n].fd, &buf, 1) != 1)
-				lwsl_err("Cannot read from dummy pipe.");
-			continue;
-		}
-#endif
-		m = lws_service_fd_tsi(context, &pt->fds[n], tsi);
-		if (m < 0)
-			return -1;
-		/* if something closed, retry this slot */
+		m = lws_service_flag_pending(context, tsi);
 		if (m)
-			n--;
-	}
+			c = -1; /* unknown limit */
+		else
+			if (n < 0) {
+				if (LWS_ERRNO != LWS_EINTR)
+					return -1;
+				return 0;
+			} else
+				c = n;
 
-	if (a)
-		goto again;
+		/* any socket with events to service? */
+		for (n = 0; n < (int)pt->fds_count && c; n++) {
+			if (!pt->fds[n].revents)
+				continue;
+
+			c--;
+#if 0
+			if (pt->fds[n].fd == pt->dummy_pipe_fds[0]) {
+				if (read(pt->fds[n].fd, &buf, 1) != 1)
+					lwsl_err("Cannot read from dummy pipe.");
+				continue;
+			}
+#endif
+			m = lws_service_fd_tsi(context, &pt->fds[n], tsi);
+			if (m < 0)
+				return -1;
+			/* if something closed, retry this slot */
+			if (m)
+				n--;
+		}
+
+	} while (a);
 
 	return 0;
 }
@@ -254,6 +251,16 @@ lws_plat_inet_pton(int af, const char *src, void *dst)
 {
 	//return inet_pton(af, src, dst);
 	return 1;
+}
+
+int
+lws_plat_set_socket_dontfrag(lws_sockfd_type fd, int af)
+{
+	/* nothing to ask for it with */
+	(void)fd;
+	(void)af;
+
+	return 0;
 }
 
 int

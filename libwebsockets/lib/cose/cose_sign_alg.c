@@ -41,6 +41,8 @@ lws_cose_sign_alg_create(struct lws_context *cx, const lws_cose_key_t *ck,
 	alg->cose_alg = cose_alg;
 	alg->cose_key = ck;
 
+	int type = 0;
+
 	switch (cose_alg) {
 
 	/* ECDSA algs */
@@ -49,18 +51,74 @@ lws_cose_sign_alg_create(struct lws_context *cx, const lws_cose_key_t *ck,
 		crv = "P-256";
 		gh = LWS_GENHASH_TYPE_SHA256;
 		alg->keybits = 256;
-		goto ecdsa;
+		type = 1;
+		break;
 	case LWSCOSE_WKAECDSA_ALG_ES384: /* ECDSA w/ SHA-384 */
 		crv = "P-384";
 		gh = LWS_GENHASH_TYPE_SHA384;
 		alg->keybits = 384;
-		goto ecdsa;
+		type = 1;
+		break;
 	case LWSCOSE_WKAECDSA_ALG_ES512: /* ECDSA w/ SHA-512 */
 		crv = "P-521";
 		gh = LWS_GENHASH_TYPE_SHA512;
 		alg->keybits = 521;
-ecdsa:
+		type = 1;
+		break;
 
+	case LWSCOSE_WKAEDDSA_ALG_EDDSA:
+		type = 2;
+		break;
+
+
+	/* HMAC algs */
+
+	case LWSCOSE_WKAHMAC_256_64:
+		ghm = LWS_GENHMAC_TYPE_SHA256;
+		alg->keybits = 64;
+		type = 3;
+		break;
+	case LWSCOSE_WKAHMAC_256_256:
+		ghm = LWS_GENHMAC_TYPE_SHA256;
+		alg->keybits = 256;
+		type = 3;
+		break;
+	case LWSCOSE_WKAHMAC_384_384:
+		ghm = LWS_GENHMAC_TYPE_SHA384;
+		alg->keybits = 384;
+		type = 3;
+		break;
+	case LWSCOSE_WKAHMAC_512_512:
+		ghm = LWS_GENHMAC_TYPE_SHA512;
+		alg->keybits = 512;
+		type = 3;
+		break;
+
+	/* RSASSA algs */
+
+	case LWSCOSE_WKARSA_ALG_RS256:
+		gh = LWS_GENHASH_TYPE_SHA256;
+		type = 4;
+		break;
+
+	case LWSCOSE_WKARSA_ALG_RS384:
+		gh = LWS_GENHASH_TYPE_SHA384;
+		type = 4;
+		break;
+
+	case LWSCOSE_WKARSA_ALG_RS512:
+		gh = LWS_GENHASH_TYPE_SHA512;
+		type = 4;
+		break;
+
+	default:
+		lwsl_warn("%s: unsupported alg %lld\n", __func__,
+				(long long)cose_alg);
+		goto bail_hmac;
+	}
+
+	switch (type) {
+	case 1: /* ECDSA */
 		/* the key is good for this? */
 
 		if (lws_cose_key_checks(ck, LWSCOSE_WKKTV_EC2, cose_alg,
@@ -80,55 +138,56 @@ ecdsa:
 			lwsl_notice("%s: ec key import fail\n", __func__);
 			goto bail_ecdsa2;
 		}
-
 		break;
 
-	/* HMAC algs */
+	case 2: /* EDDSA */
+		if (lws_cose_key_checks(ck, LWSCOSE_WKKTV_OKP, cose_alg, op, NULL))
+			goto bail_ecdsa;
 
-	case LWSCOSE_WKAHMAC_256_64:
-		ghm = LWS_GENHMAC_TYPE_SHA256;
-		alg->keybits = 64;
-		goto hmac;
-	case LWSCOSE_WKAHMAC_256_256:
-		ghm = LWS_GENHMAC_TYPE_SHA256;
-		alg->keybits = 256;
-		goto hmac;
-	case LWSCOSE_WKAHMAC_384_384:
-		ghm = LWS_GENHMAC_TYPE_SHA384;
-		alg->keybits = 384;
-		goto hmac;
-	case LWSCOSE_WKAHMAC_512_512:
-		ghm = LWS_GENHMAC_TYPE_SHA512;
-		alg->keybits = 512;
+		if (lws_geneddsa_create(&alg->u.ecdsactx, cx, lws_ec_curves))
+			goto bail_ecdsa1;
 
-hmac:
-		if (lws_cose_key_checks(ck, LWSCOSE_WKKTV_SYMMETRIC,
-					cose_alg, op, NULL))
+		if (lws_geneddsa_set_key(&alg->u.ecdsactx, ck->e))
+			goto bail_ecdsa2;
+		break;
+
+	case 3: /* HMAC */
+		/*
+		 * RFC9052 7: an HMAC uses the MAC key ops, not the signature
+		 * ones our caller asked about
+		 */
+		if (lws_cose_key_checks(ck, LWSCOSE_WKKTV_SYMMETRIC, cose_alg,
+					op == LWSCOSE_WKKO_SIGN ?
+						LWSCOSE_WKKO_MAC_CREATE :
+						LWSCOSE_WKKO_MAC_VERIFY, NULL))
 			goto bail_hmac;
 
 		ke = &ck->e[LWS_GENCRYPTO_OCT_KEYEL_K];
+		if (!ke->buf || !ke->len) {
+			lwsl_notice("%s: symmetric key has no k\n", __func__);
+			goto bail_hmac;
+		}
 		if (lws_genhmac_init(&alg->u.hmacctx, ghm, ke->buf, ke->len))
 			goto bail_hmac;
-
 		break;
 
-	/* RSASSA algs */
-
-	case LWSCOSE_WKARSA_ALG_RS256:
-		gh = LWS_GENHASH_TYPE_SHA256;
-		goto rsassa;
-
-	case LWSCOSE_WKARSA_ALG_RS384:
-		gh = LWS_GENHASH_TYPE_SHA384;
-		goto rsassa;
-
-	case LWSCOSE_WKARSA_ALG_RS512:
-		gh = LWS_GENHASH_TYPE_SHA512;
-
-rsassa:
+	case 4: /* RSASSA */
 		if (lws_cose_key_checks(ck, LWSCOSE_WKKTV_RSA, cose_alg,
 					op, NULL))
 			goto bail_hmac;
+
+		/*
+		 * We will be asked to produce a modulus-sized signature into
+		 * alg->rhash, and the crypto layer only knows the modulus
+		 * size... refuse a key whose signature would not fit
+		 */
+
+		if (!ck->e[LWS_GENCRYPTO_RSA_KEYEL_N].len ||
+		    ck->e[LWS_GENCRYPTO_RSA_KEYEL_N].len > sizeof(alg->rhash)) {
+			lwsl_warn("%s: bad RSA modulus size %u\n", __func__,
+				  ck->e[LWS_GENCRYPTO_RSA_KEYEL_N].len);
+			goto bail_hmac;
+		}
 
 		alg->keybits = (int)ck->e[LWS_GENCRYPTO_RSA_KEYEL_N].len * 8;
 
@@ -138,14 +197,9 @@ rsassa:
 		if (lws_genrsa_create(&alg->u.rsactx, ck->e, cx,
 				      LGRSAM_PKCS1_1_5, gh)) {
 			lwsl_notice("%s: lws_genrsa_create fail\n", __func__);
-			goto bail_hmac;
+			goto bail_ecdsa1; /* the hash ctx exists */
 		}
 		break;
-
-	default:
-		lwsl_warn("%s: unsupported alg %lld\n", __func__,
-				(long long)cose_alg);
-		goto bail_hmac;
 	}
 
 	return alg;
@@ -169,7 +223,7 @@ int
 lws_cose_sign_alg_hash(lws_cose_sig_alg_t *alg, const uint8_t *in, size_t in_len)
 {
 #if defined(VERBOSE)
-	lwsl_hexdump_warn(in, in_len);
+	lwsl_hexdump_debug(in, in_len);
 #endif
 
 	switch (alg->cose_alg) {
@@ -179,6 +233,18 @@ lws_cose_sign_alg_hash(lws_cose_sig_alg_t *alg, const uint8_t *in, size_t in_len
 	case LWSCOSE_WKAHMAC_384_384:
 	case LWSCOSE_WKAHMAC_512_512:
 		return lws_genhmac_update(&alg->u.hmacctx, in, in_len);
+
+	case LWSCOSE_WKAEDDSA_ALG_EDDSA:
+	{
+		uint8_t *n;
+		n = lws_realloc(alg->eddsa_in, alg->eddsa_in_len + in_len, "eddsa sigin");
+		if (!n)
+			return -1;
+		alg->eddsa_in = n;
+		memcpy(alg->eddsa_in + alg->eddsa_in_len, in, in_len);
+		alg->eddsa_in_len += in_len;
+		return 0;
+	}
 	}
 
 	/* EC, rsa are just making the hash before signing */
@@ -190,6 +256,10 @@ lws_cose_sign_alg_hash(lws_cose_sig_alg_t *alg, const uint8_t *in, size_t in_len
  * We fill up alg-> rhash and rhash_len with the results, and destroy the
  * crypto pieces cleanly.  Call lws_cose_sign_alg_destroy() afterwards to
  * clean up the alg itself.
+ *
+ * Every way the signature or MAC cannot be produced must set alg->failed,
+ * which is the only thing the emitter checks: otherwise it emits whatever is
+ * in rhash / rhash_len (nothing, or a zero tag) as a good one.
  */
 
 void
@@ -198,7 +268,6 @@ lws_cose_sign_alg_complete(lws_cose_sig_alg_t *alg)
 	uint8_t digest[LWS_GENHASH_LARGEST];
 	unsigned int bytes;
 	uint8_t htype;
-	size_t hs;
 
 	if (alg->completed)
 		return;
@@ -207,11 +276,12 @@ lws_cose_sign_alg_complete(lws_cose_sig_alg_t *alg)
 	case LWSCOSE_WKAECDSA_ALG_ES256: /* ECDSA w/ SHA-256 */
 	case LWSCOSE_WKAECDSA_ALG_ES384: /* ECDSA w/ SHA-384 */
 	case LWSCOSE_WKAECDSA_ALG_ES512: /* ECDSA w/ SHA-512 */
-		hs = lws_genhash_size(alg->hash_ctx.type);
 		bytes = (unsigned int)lws_gencrypto_bits_to_bytes(alg->keybits);
-		lws_genhash_destroy(&alg->hash_ctx, digest);
+		if (lws_genhash_destroy(&alg->hash_ctx, digest))
+			alg->failed = 1;
 		alg->rhash_len = 0;
-		lwsl_notice("alg keybits %d hs %d\n", (int)alg->keybits, (int)hs);
+		lwsl_notice("alg keybits %d hs %d\n", (int)alg->keybits,
+			    (int)lws_genhash_size(alg->hash_ctx.type));
 		if (!alg->failed &&
 		    lws_genecdsa_hash_sign_jws(&alg->u.ecdsactx, digest,
 						alg->hash_ctx.type,
@@ -224,6 +294,26 @@ lws_cose_sign_alg_complete(lws_cose_sig_alg_t *alg)
 		lws_genec_destroy(&alg->u.ecdsactx);
 		break;
 
+	case LWSCOSE_WKAEDDSA_ALG_EDDSA:
+	{
+		int len;
+		if (!alg->failed) {
+			len = lws_geneddsa_hash_sign_jws(&alg->u.ecdsactx, alg->eddsa_in,
+						alg->eddsa_in_len, alg->rhash,
+						sizeof(alg->rhash));
+			if (len >= 0)
+				alg->rhash_len = len;
+			else
+				alg->failed = 1;
+		} else {
+			alg->failed = 1;
+		}
+
+		lws_genec_destroy(&alg->u.ecdsactx);
+		lws_free_set_NULL(alg->eddsa_in);
+		break;
+	}
+
 	case LWSCOSE_WKAHMAC_256_64:
 	case LWSCOSE_WKAHMAC_256_256:
 	case LWSCOSE_WKAHMAC_384_384:
@@ -234,7 +324,9 @@ lws_cose_sign_alg_complete(lws_cose_sig_alg_t *alg)
 
 		if (lws_genhmac_destroy(&alg->u.hmacctx, alg->rhash)) {
 			lwsl_err("%s: destroy failed\n", __func__);
-			break;
+			memset(alg->rhash, 0, sizeof(alg->rhash));
+			alg->rhash_len = 0;
+			alg->failed = 1;
 		}
 		break;
 
@@ -249,8 +341,10 @@ lws_cose_sign_alg_complete(lws_cose_sig_alg_t *alg)
 		    lws_genrsa_hash_sign(&alg->u.rsactx, digest, htype,
 					 alg->rhash, bytes) >= 0)
 			alg->rhash_len = (int)bytes;
-		else
+		else {
 			lwsl_err("%s: lws_genrsa_hash_sign\n", __func__);
+			alg->failed = 1;
+		}
 
 		lws_genrsa_destroy(&alg->u.rsactx);
 		break;
@@ -267,5 +361,7 @@ lws_cose_sign_alg_destroy(lws_cose_sig_alg_t **_alg)
 {
 	lws_dll2_remove(&(*_alg)->list);
 	lws_cose_sign_alg_complete(*_alg);
+	if ((*_alg)->eddsa_in)
+		lws_free_set_NULL((*_alg)->eddsa_in);
 	lws_free_set_NULL(*_alg);
 }

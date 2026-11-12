@@ -27,7 +27,7 @@
 
 #define pt_to_priv_ev(_pt) ((struct lws_pt_eventlibs_libev *)(_pt)->evlib_pt)
 #define vh_to_priv_ev(_vh) ((struct lws_vh_eventlibs_libev *)(_vh)->evlib_vh)
-#define wsi_to_priv_ev(_w) ((struct lws_wsi_eventlibs_libev *)(_w)->evlib_wsi)
+#define wsi_to_priv_ev(_w) ((struct lws_wsi_eventlibs_libev *)(_w)->io->evlib_wsi)
 
 static void
 lws_ev_hrtimer_cb(struct ev_loop *loop, struct ev_timer *watcher, int revents)
@@ -37,14 +37,22 @@ lws_ev_hrtimer_cb(struct ev_loop *loop, struct ev_timer *watcher, int revents)
 	struct lws_context_per_thread *pt = ptpr->pt;
 	lws_usec_t us;
 
+	lws_context_lock(pt->context, __func__); /* cx then pt */
 	lws_pt_lock(pt, __func__);
-	us = __lws_sul_service_ripe(pt->pt_sul_owner, LWS_COUNT_PT_SUL_OWNERS,
-				    lws_now_usecs());
+	us = __lws_sul_service_ripe(&pt->pt_sul_owner[0].owner,
+				    LWS_COUNT_PT_SUL_OWNERS, lws_now_usecs());
 	if (us) {
-		ev_timer_set(&ptpr->hrtimer, ((float)us) / 1000000.0, 0);
+		/*
+		 * libev requires the watcher to be stopped before ev_timer_set,
+		 * its ordering key is cached in the timer heap while it is
+		 * active, and ev_timer_start() no-ops on an active watcher
+		 */
+		ev_timer_stop(ptpr->io_loop, &ptpr->hrtimer);
+		ev_timer_set(&ptpr->hrtimer, ((double)us) / 1000000.0, 0);
 		ev_timer_start(ptpr->io_loop, &ptpr->hrtimer);
 	}
 	lws_pt_unlock(pt);
+	lws_context_unlock(pt->context);
 }
 
 static void
@@ -67,14 +75,18 @@ lws_ev_idle_cb(struct ev_loop *loop, struct ev_idle *handle, int revents)
 
 	/* account for hrtimer */
 
+	lws_context_lock(pt->context, __func__); /* cx then pt */
 	lws_pt_lock(pt, __func__);
-	us = __lws_sul_service_ripe(pt->pt_sul_owner, LWS_COUNT_PT_SUL_OWNERS,
-				    lws_now_usecs());
+	us = __lws_sul_service_ripe(&pt->pt_sul_owner[0].owner,
+				    LWS_COUNT_PT_SUL_OWNERS, lws_now_usecs());
 	if (us) {
-		ev_timer_set(&ptpr->hrtimer, ((float)us) / 1000000.0, 0);
+		/* the hrtimer may still be armed from a previous round */
+		ev_timer_stop(ptpr->io_loop, &ptpr->hrtimer);
+		ev_timer_set(&ptpr->hrtimer, ((double)us) / 1000000.0, 0);
 		ev_timer_start(ptpr->io_loop, &ptpr->hrtimer);
 	}
 	lws_pt_unlock(pt);
+	lws_context_unlock(pt->context);
 
 	/* there is nobody who needs service forcing, shut down idle */
 	if (!reschedule)
@@ -139,6 +151,7 @@ lws_ev_sigint_cb(struct ev_loop *loop, struct ev_signal *watcher, int revents)
 static int
 elops_listen_init_ev(struct lws_dll2 *d, void *user)
 {
+#if defined(LWS_WITH_SERVER)
 	struct lws *wsi = lws_container_of(d, struct lws, listen_list);
 	struct lws_context *context = (struct lws_context *)user;
 	struct lws_context_per_thread *pt = &context->pt[(int)wsi->tsi];
@@ -151,8 +164,9 @@ elops_listen_init_ev(struct lws_dll2 *d, void *user)
 	vh_to_priv_ev(vh)->w_accept.context = context;
 
 	ev_io_init(&vh_to_priv_ev(vh)->w_accept.watcher,
-		   lws_accept_cb, wsi->desc.sockfd, EV_READ);
+		   lws_accept_cb, wsi->io->desc.sockfd, EV_READ);
 	ev_io_start(ptpr->io_loop, &vh_to_priv_ev(vh)->w_accept.watcher);
+#endif
 
 	return 0;
 }
@@ -243,6 +257,7 @@ elops_init_pt_ev(struct lws_context *context, void *_loop, int tsi)
 static int
 elops_listen_destroy_ev(struct lws_dll2 *d, void *user)
 {
+#if defined(LWS_WITH_SERVER)
 	struct lws *wsi = lws_container_of(d, struct lws, listen_list);
 	struct lws_context *context = (struct lws_context *)user;
 	struct lws_context_per_thread *pt = &context->pt[(int)wsi->tsi];
@@ -250,7 +265,7 @@ elops_listen_destroy_ev(struct lws_dll2 *d, void *user)
 	struct lws_vhost *vh = wsi->a.vhost;
 
 	ev_io_stop(ptpr->io_loop, &vh_to_priv_ev(vh)->w_accept.watcher);
-
+#endif
 	return 0;
 }
 
@@ -292,9 +307,9 @@ elops_accept_ev(struct lws *wsi)
 	int fd;
 
 	if (wsi->role_ops->file_handle)
-		fd = wsi->desc.filefd;
+		fd = wsi->io->desc.filefd;
 	else
-		fd = wsi->desc.sockfd;
+		fd = wsi->io->desc.sockfd;
 
 	w->w_read.context = wsi->a.context;
 	w->w_write.context = wsi->a.context;
@@ -312,9 +327,10 @@ elops_io_ev(struct lws *wsi, unsigned int flags)
 	struct lws_pt_eventlibs_libev *ptpr = pt_to_priv_ev(pt);
 	struct lws_wsi_eventlibs_libev *w = wsi_to_priv_ev(wsi);
 
-	lwsl_wsi_debug(wsi, "%s flags 0x%x %p %d", wsi->role_ops->name, flags,
-						   ptpr->io_loop,
-						   pt->is_destroyed);
+	/* a wsi being migrated has its fd inserted before it has a role */
+	lwsl_wsi_debug(wsi, "%s flags 0x%x %p %d",
+		       wsi->role_ops ? wsi->role_ops->name : "(no role)", flags,
+		       ptpr->io_loop, pt->is_destroyed);
 
 	if (!ptpr->io_loop || pt->is_destroyed)
 		return;
@@ -342,7 +358,7 @@ static void
 elops_run_pt_ev(struct lws_context *context, int tsi)
 {
 	if (pt_to_priv_ev(&context->pt[tsi])->io_loop)
-		ev_run(pt_to_priv_ev(&context->pt[tsi])->io_loop, 0);
+		ev_run(pt_to_priv_ev(&context->pt[tsi])->io_loop, EVRUN_ONCE);
 }
 
 static int
@@ -368,7 +384,7 @@ elops_destroy_context2_ev(struct lws_context *context)
 			continue;
 		}
 		while (budget-- &&
-		       (m = ev_run(ptpr->io_loop, 0)))
+		       (m = ev_run(ptpr->io_loop, EVRUN_NOWAIT)))
 			;
 
 		ev_loop_destroy(ptpr->io_loop);
@@ -393,9 +409,9 @@ elops_init_vhost_listen_wsi_ev(struct lws *wsi)
 	w->w_write.context = wsi->a.context;
 
 	if (wsi->role_ops->file_handle)
-		fd = wsi->desc.filefd;
+		fd = wsi->io->desc.filefd;
 	else
-		fd = wsi->desc.sockfd;
+		fd = wsi->io->desc.sockfd;
 
 	ev_io_init(&w->w_read.watcher, lws_accept_cb, fd, EV_READ);
 	//ev_io_init(&w->w_write.watcher, lws_accept_cb, fd, EV_WRITE);
@@ -424,6 +440,152 @@ elops_wsi_logical_close_ev(struct lws *wsi)
         return 0;
 }
 
+#if defined(LWS_WITH_CLIENT)
+static int
+elops_sock_accept_parallel_ev(struct lws *wsi, lws_sockfd_type fd, int pidx)
+{
+	struct lws_wsi_eventlibs_libev *w = wsi_to_priv_ev(wsi);
+
+	w->racing[pidx].w_read.context = wsi->a.context;
+	w->racing[pidx].w_write.context = wsi->a.context;
+
+	ev_io_init(&w->racing[pidx].w_read.watcher, lws_accept_cb, fd, EV_READ);
+	ev_io_init(&w->racing[pidx].w_write.watcher, lws_accept_cb, fd, EV_WRITE);
+
+	return 0;
+}
+
+static void
+elops_io_parallel_ev(struct lws *wsi, int pidx, unsigned int flags)
+{
+	struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
+	struct lws_pt_eventlibs_libev *ptpr = pt_to_priv_ev(pt);
+	struct lws_wsi_eventlibs_libev *w = wsi_to_priv_ev(wsi);
+
+	if (!ptpr->io_loop || pt->is_destroyed)
+		return;
+
+	if (flags & LWS_EV_START) {
+		if (flags & LWS_EV_WRITE)
+			ev_io_start(ptpr->io_loop, &w->racing[pidx].w_write.watcher);
+		if (flags & LWS_EV_READ)
+			ev_io_start(ptpr->io_loop, &w->racing[pidx].w_read.watcher);
+	} else {
+		if (flags & LWS_EV_WRITE)
+			ev_io_stop(ptpr->io_loop, &w->racing[pidx].w_write.watcher);
+		if (flags & LWS_EV_READ)
+			ev_io_stop(ptpr->io_loop, &w->racing[pidx].w_read.watcher);
+	}
+}
+
+static void
+elops_close_handle_manually_parallel_ev(struct lws *wsi, int pidx)
+{
+	struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
+	struct lws_pt_eventlibs_libev *ptpr = pt_to_priv_ev(pt);
+	struct lws_wsi_eventlibs_libev *w = wsi_to_priv_ev(wsi);
+
+	ev_io_stop(ptpr->io_loop, &w->racing[pidx].w_read.watcher);
+	ev_io_stop(ptpr->io_loop, &w->racing[pidx].w_write.watcher);
+
+	compatible_close(wsi->io->parallel_conns[pidx].desc.sockfd);
+}
+
+static int
+elops_promote_parallel_ev(struct lws *wsi, int pidx)
+{
+	struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
+	struct lws_pt_eventlibs_libev *ptpr = pt_to_priv_ev(pt);
+	struct lws_wsi_eventlibs_libev *w = wsi_to_priv_ev(wsi);
+	int fd = (int)wsi->io->parallel_conns[pidx].desc.sockfd, ar, aw;
+
+	/*
+	 * An ev_io is an intrusive list node: once started, libev holds the
+	 * address of the watcher itself in its per-fd list.  So the racer's
+	 * watchers cannot be moved into the primary slot by copying them, that
+	 * would leave libev's list pointing into the racing[] slot we are about
+	 * to clear (and, since the copies come over already "active",
+	 * ev_io_start() on the primary would silently no-op forever after).
+	 *
+	 * Instead stop both sides and re-init + restart the primary watchers
+	 * on the winner's fd.
+	 */
+
+	ar = ev_is_active(&w->racing[pidx].w_read.watcher);
+	aw = ev_is_active(&w->racing[pidx].w_write.watcher);
+
+	ev_io_stop(ptpr->io_loop, &w->racing[pidx].w_read.watcher);
+	ev_io_stop(ptpr->io_loop, &w->racing[pidx].w_write.watcher);
+
+	/* stop primary */
+	ev_io_stop(ptpr->io_loop, &w->w_read.watcher);
+	ev_io_stop(ptpr->io_loop, &w->w_write.watcher);
+
+	w->w_read.context = wsi->a.context;
+	w->w_write.context = wsi->a.context;
+
+	ev_io_init(&w->w_read.watcher, lws_accept_cb, fd, EV_READ);
+	ev_io_init(&w->w_write.watcher, lws_accept_cb, fd, EV_WRITE);
+
+	if (ar)
+		ev_io_start(ptpr->io_loop, &w->w_read.watcher);
+	if (aw)
+		ev_io_start(ptpr->io_loop, &w->w_write.watcher);
+
+	memset(&w->racing[pidx], 0, sizeof(w->racing[pidx]));
+
+	return 0;
+}
+#endif
+
+/*
+ * QUIC ALPN migration: the ev_io watchers live inside the per-wsi block and
+ * the loop keeps their addresses, so they cannot simply be copied: stop the
+ * old ones, set up new ones in the new block on the same fd, restart what was
+ * running.  Racers are torn down before the migration; stop any left anyway.
+ */
+static int
+elops_migrate_wsi_ev(struct lws *from, struct lws *to)
+{
+	struct lws_context_per_thread *pt = &to->a.context->pt[(int)to->tsi];
+	struct lws_pt_eventlibs_libev *ptpr = pt_to_priv_ev(pt);
+	struct lws_wsi_eventlibs_libev *f = wsi_to_priv_ev(from),
+				       *t = wsi_to_priv_ev(to);
+	int fd = f->w_read.watcher.fd, ra = 0, wa = 0;
+	size_t n;
+
+	if (ptpr->io_loop) {
+		ra = ev_is_active(&f->w_read.watcher);
+		wa = ev_is_active(&f->w_write.watcher);
+		ev_io_stop(ptpr->io_loop, &f->w_read.watcher);
+		ev_io_stop(ptpr->io_loop, &f->w_write.watcher);
+#if defined(LWS_WITH_CLIENT)
+		for (n = 0; n < LWS_ARRAY_SIZE(f->racing); n++) {
+			ev_io_stop(ptpr->io_loop, &f->racing[n].w_read.watcher);
+			ev_io_stop(ptpr->io_loop, &f->racing[n].w_write.watcher);
+		}
+#endif
+	}
+	(void)n;
+
+	memset(f, 0, sizeof(*f));
+	memset(t, 0, sizeof(*t));
+
+	t->w_read.context = to->a.context;
+	t->w_write.context = to->a.context;
+	ev_io_init(&t->w_read.watcher, lws_accept_cb, fd, EV_READ);
+	ev_io_init(&t->w_write.watcher, lws_accept_cb, fd, EV_WRITE);
+
+	if (ptpr->io_loop) {
+		if (ra)
+			ev_io_start(ptpr->io_loop, &t->w_read.watcher);
+		if (wa)
+			ev_io_start(ptpr->io_loop, &t->w_write.watcher);
+	}
+
+	return 0;
+}
+
 static const struct lws_event_loop_ops event_loop_ops_ev = {
 	/* name */			"libev",
 	/* init_context */		elops_init_context_ev,
@@ -440,6 +602,16 @@ static const struct lws_event_loop_ops event_loop_ops_ev = {
 	/* destroy_pt */		elops_destroy_pt_ev,
 	/* destroy wsi */		elops_destroy_wsi_ev,
 	/* foreign_thread */		NULL,
+	/* fake_POLLIN */		NULL,
+
+#if defined(LWS_WITH_CLIENT)
+	/* sock_accept_parallel */	elops_sock_accept_parallel_ev,
+	/* io_parallel */		elops_io_parallel_ev,
+	/* close_handle_manually_parallel */ elops_close_handle_manually_parallel_ev,
+	/* promote_parallel */		elops_promote_parallel_ev,
+#else
+	NULL, NULL, NULL, NULL,
+#endif
 
 	/* flags */			0,
 
@@ -447,6 +619,7 @@ static const struct lws_event_loop_ops event_loop_ops_ev = {
 	/* evlib_size_pt */	sizeof(struct lws_pt_eventlibs_libev),
 	/* evlib_size_vh */	sizeof(struct lws_vh_eventlibs_libev),
 	/* evlib_size_wsi */	sizeof(struct lws_wsi_eventlibs_libev),
+	/* migrate_wsi */	elops_migrate_wsi_ev,
 };
 
 #if defined(LWS_WITH_EVLIB_PLUGINS)
@@ -454,10 +627,10 @@ LWS_VISIBLE
 #endif
 const lws_plugin_evlib_t evlib_ev = {
 	.hdr = {
-		"libev event loop",
-		"lws_evlib_plugin",
-		LWS_BUILD_HASH,
-		LWS_PLUGIN_API_MAGIC
+		.name = "libev event loop",
+		._class = "lws_evlib_plugin",
+		.lws_build_hash = LWS_BUILD_HASH,
+		.api_magic = LWS_PLUGIN_API_MAGIC
 	},
 
 	.ops	= &event_loop_ops_ev

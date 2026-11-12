@@ -111,6 +111,24 @@ enum lws_client_connect_ssl_connection_flags {
 	LCCSCF_CACHE_COOKIES			= (1 << 30),
 	/**< If built with -DLWS_WITH_CACHE_NSCOOKIEJAR, store and reapply
 	 * http cookies in a Netscape Cookie Jar on this connection */
+	LCCSCF_ALLOW_EARLY_DATA			= (int)(1u << 31),
+	/**< Allow 0-RTT early data for QUIC/TLS 1.3 connections */
+};
+
+/*
+ * All lws_tls...() functions must return this type, converting the
+ * native backend result and doing the extra work to determine which one
+ * as needed.
+ *
+ * Native TLS backend return codes are NOT ALLOWED outside the backend.
+ *
+ * Non-SSL mode also uses these types.
+ */
+enum lws_ssl_capable_status {
+	LWS_SSL_CAPABLE_ERROR			= -1, /* it failed */
+	LWS_SSL_CAPABLE_DONE			= 0,  /* it succeeded */
+	LWS_SSL_CAPABLE_MORE_SERVICE_READ	= -2, /* retry WANT_READ */
+	LWS_SSL_CAPABLE_MORE_SERVICE_WRITE	= -3, /* retry WANT_WRITE */
 };
 
 /** struct lws_client_connect_info - parameters to connect with when using
@@ -200,8 +218,12 @@ struct lws_client_connect_info {
 	 */
 
 	int		manual_initial_tx_credit;
-	/**< if LCCSCF_H2_MANUAL_REFLOW is set, this becomes the initial tx
-	 * credit for the stream.
+	/**< if LCCSCF_H2_MANUAL_RXFLOW is set, this becomes the initial tx
+	 * credit for the stream, what the peer may send us on it before we
+	 * give it more with lws_wsi_tx_credit(wsi, LWSTXCR_PEER_TO_US, n).
+	 * It applies to h2 and h3 streams.  On h3, a peer may always send the
+	 * first 1024 bytes of a stream, so a
+	 * smaller credit is taken as that.
 	 */
 
 	uint8_t		sys_tls_client_cert;
@@ -236,7 +258,11 @@ struct lws_client_connect_info {
 	uint16_t				keep_warm_secs;
 	/**< 0 means 5s.  If the client connection to the endpoint becomes idle,
 	 * defer closing it for this many seconds in case another outgoing
-	 * connection to the same endpoint turns up.
+	 * connection to the same endpoint turns up.  For h1 that is the
+	 * connection after its transaction completed; for h2 and h3 it is the
+	 * shared connection after its last stream closed.  A connection that
+	 * serves several requests in turn keeps warm for the time asked by the
+	 * request that last used it.
 	 */
 
 	lws_log_cx_t				*log_cx;
@@ -259,6 +285,26 @@ struct lws_client_connect_info {
 	 */
 #endif
 
+	uint8_t         disable_h3_fallback;
+	/**< non-zero to disable the Happy Eyeballs QUIC fallback timer.
+	 * When set, QUIC connections will wait for the full connect timeout
+	 * instead of falling back to TCP after the H3 grace period.
+	 */
+
+	const struct lws_transport_ops *transport;
+	/**< NULL, or a transport under IO in place of a socket
+	 * (lws_set_transport()): no dns lookup or connect is made, the
+	 * connection starts on the transport as if connected, and
+	 * transport_fd is its place in the poll set.  The fd is the
+	 * connection's from this call on, and is closed with it.  Such a
+	 * connection can't use LCCSCF_USE_SSL (the tls backends would read
+	 * and write the fd directly), and can't be restarted by a redirect
+	 * or a digest auth retry. */
+	void		*transport_opaque;
+	/**< handed to every op of transport */
+	lws_sockfd_type	transport_fd;
+	/**< with transport: the fd the event loop watches for the connection */
+
 	/* Add new things just above here ---^
 	 * This is part of the ABI, don't needlessly break compatibility
 	 *
@@ -267,7 +313,7 @@ struct lws_client_connect_info {
 	 * was not built against the newer headers.
 	 */
 
-	void *_unused[4]; /**< dummy */
+	void *_unused[3]; /**< dummy */
 };
 
 /**
@@ -347,6 +393,56 @@ LWS_VISIBLE LWS_EXTERN unsigned int
 lws_http_client_http_response(struct lws *wsi);
 
 /**
+ * lws_client_redirect_info_t - where a redirected client request goes
+ */
+typedef struct lws_client_redirect_info {
+	const char	*address;	/**< what it connects to */
+	const char	*host;		/**< its Host: header, the authority */
+	const char	*path;		/**< from the '/', with any query */
+	int		port;		/**< the port it connects to */
+	uint8_t		tls;		/**< 1: over tls, ie, https */
+	uint8_t		credentials_ok;
+	/**< 1: credentials set for the request before it was redirected may
+	 * go there too: it is https with strict tls verification (none of
+	 * LCCSCF_ALLOW_SELFSIGNED, LCCSCF_SKIP_SERVER_CERT_HOSTNAME_CHECK,
+	 * LCCSCF_ALLOW_EXPIRED or LCCSCF_ALLOW_INSECURE), to the host the
+	 * request started with or a subdomain of it (Go net/http's rule).
+	 * 0: they must not go there */
+} lws_client_redirect_info_t;
+
+/**
+ * lws_client_redirect_info() - where a client request is being redirected
+ *
+ * \param wsi: client connection
+ * \param info: filled with where the request goes, if it is redirected
+ *
+ * Headers added in LWS_CALLBACK_CLIENT_APPEND_HANDSHAKE_HEADER are added
+ * again to the request a redirect makes, to wherever the server's Location
+ * takes it.  So user code adding credentials there (an Authorization, an api
+ * key...) must judge where they would go.
+ *
+ * In LWS_CALLBACK_CLIENT_HTTP_REDIRECT, this tells where the redirect would
+ * take the request, as lws resolved the Location; returning nonzero from the
+ * callback refuses the redirect, and the connection fails.  In
+ * LWS_CALLBACK_CLIENT_APPEND_HANDSHAKE_HEADER, it tells where a request that
+ * was redirected is going now.  In either, \p info->credentials_ok says
+ * whether credentials set for the request before its first redirect may go
+ * there; refuse the redirect rather than strip them and follow it, so the
+ * failure is visible.
+ *
+ * Cookies from the lws cookie jar (LCCSCF_CACHE_COOKIES) and digest auth
+ * credentials are sent by lws for the user code: lws itself refuses a
+ * redirect that would take them where \p info->credentials_ok is 0.
+ *
+ * The strings in \p info are valid only during the callback.
+ *
+ * Returns 0 with \p info filled, or nonzero if the request is not being, or
+ * was not, redirected.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_client_redirect_info(struct lws *wsi, lws_client_redirect_info_t *info);
+
+/**
  * lws_tls_client_vhost_extra_cert_mem() - add more certs to vh client tls ctx
  *
  * \param vh: the vhost to give more client certs to
@@ -356,6 +452,15 @@ lws_http_client_http_response(struct lws *wsi);
  * After the vhost is created with one cert for client verification, you
  * can add additional, eg, intermediate, certs to the client tls context
  * of the vhost, for use with validating the incoming server cert(s).
+ *
+ * The cert is trusted by this vhost only.  Some tls backends (OpenSSL,
+ * OpenHiTLS) share one client tls ctx between vhosts created with identical
+ * client tls configuration; adding trust to a ctx that another vhost shares
+ * would make that vhost trust the cert too, so this fails instead.  Create
+ * vhosts you will add trust to with \p info.client_ssl_ctx_unshared set.
+ * Once trust was added, no vhost created later shares the vhost's ctx.
+ *
+ * Returns 0 if the cert was added, else nonzero.
  */
 LWS_VISIBLE LWS_EXTERN int
 lws_tls_client_vhost_extra_cert_mem(struct lws_vhost *vh,
@@ -379,6 +484,16 @@ lws_tls_client_vhost_extra_cert_mem(struct lws_vhost *vh,
  * next part of the http body payload, calling lws_callback_on_writable(wsi);
  * if there is more to come, or lws_client_http_body_pending(wsi, 0); to
  * let lws know the last part is sent and the connection can move on.
+ *
+ * The body must be framed for the server to know where it ends.  If you
+ * know its length, add a Content-Length header in the
+ * LWS_CALLBACK_CLIENT_APPEND_HANDSHAKE_HEADER callback and lws sends what
+ * you write as it is.  If you add neither that nor a Transfer-Encoding, lws
+ * adds "Transfer-Encoding: chunked" to the head (with a NOTICE saying so)
+ * and frames each lws_write() as one chunk, the one written with
+ * LWS_WRITE_HTTP_FINAL followed by the last-chunk; a write of length zero
+ * that is not final sends nothing.  Over h2 the stream frames the body and
+ * neither header is needed.
  */
 LWS_VISIBLE LWS_EXTERN void
 lws_client_http_body_pending(struct lws *wsi, int something_left_to_send);
@@ -395,12 +510,103 @@ lws_client_http_body_pending(struct lws *wsi, int something_left_to_send);
  *
  * This issues a multipart mime boundary, or terminator if name = NULL.
  *
- * Returns 0 if OK or nonzero if couldn't fit in buffer
+ * \p name and \p filename go in quoted-strings in the part's
+ * Content-Disposition, so they must not contain '"', '\\' or control
+ * characters, and \p content_type must not contain control characters other
+ * than tab: such a part is refused rather than escaped.  \p filename should
+ * be only the name of the file, without any local path.
+ *
+ * Returns 0 if OK or nonzero if couldn't fit in buffer, or the name,
+ * filename or content type can't be used.  When they can't be used, nothing
+ * is written at \p p.
+ *
+ * This is deprecated in favour of the below lws_http_mp apis
  */
 LWS_VISIBLE LWS_EXTERN int
 lws_client_http_multipart(struct lws *wsi, const char *name,
 			  const char *filename, const char *content_type,
 			  char **p, char *end);
+
+struct lws_http_mp_sm;
+/**
+ * lws_http_mp_sm_cb_t() - gets the next form element for lws_http_mp_sm
+ *
+ * \p cx: the lws_context
+ * \p ft: buffer to copy the next form element into, as a NUL-terminated string
+ * \p ft_len: size of \p ft
+ * \p last: the app's iterator: NULL when the form starts from its first
+ *	     element, and otherwise whatever the cb set it to last time
+ *
+ * The element is "name=value" for a form field, or "name=@path" to send the
+ * contents of the file at path.  The file part's filename is only the last
+ * component of path.  Neither the name nor that filename may contain '"',
+ * '\\' or control characters, since they go in quoted-strings in the part
+ * headers: a form with such an element is refused.
+ *
+ * The callback returns 0 with the element in \p ft, 1 when there are no more
+ * elements, or -1 on error.
+ *
+ * It's called to go through the whole form twice: first at
+ * lws_http_mp_sm_init() to compute the Content-Length, and then again from
+ * the start to send it from lws_http_mp_sm_fill().  It must give the same
+ * elements both times.  An element must be shorter than \p ft_len - 1: the
+ * callback should return -1 for one that does not fit rather than truncate
+ * it, and one that fills \p ft completely is refused as possibly truncated.
+ */
+typedef int (*lws_http_mp_sm_cb_t)(struct lws_context *cx, char *ft, size_t ft_len, const char **last);
+
+/**
+ * lws_http_mp_sm_init() - allocate and init an http post multipart state machine
+ *
+ * \p wsi: the wsi this will be used on
+ * \p cb: the http_mp callback for getting next form item
+ * \p p: pointer to pointer to next header byte
+ * \p end: pointer to last possible header byte
+ *
+ * Goes through the form with \p cb, adding the Content-Type and the exact
+ * Content-Length of the multipart body to the request headers.
+ *
+ * Returns a new and initialized multipart post state machine object,
+ * or NULL if OOM, a form element is unusable (too long, no '=', a file that
+ * can't be stat()ed) or other problems.
+ */
+LWS_VISIBLE LWS_EXTERN struct lws_http_mp_sm *
+lws_http_mp_sm_init(struct lws *wsi, lws_http_mp_sm_cb_t cb, uint8_t **p, uint8_t *end);
+
+/**
+ * lws_http_mp_sm_destroy() - deallocates an http post multipart state machine
+ *
+ * \p pphms: pointer to http_mp_sm pointer
+ *
+ * Frees and sets the pointed-to pointer to NULL.
+ */
+LWS_VISIBLE LWS_EXTERN void
+lws_http_mp_sm_destroy(struct lws_http_mp_sm **pphms);
+
+/**
+ * lws_http_mp_sm_fill() - fills a buffer with the next fragment of form data
+ *
+ * \p phms: pointer to http_mp_sm
+ * \p p: cursor into buffer - moved on by call
+ * \p end: one past the last byte that may be written
+ *
+ * Fills \p *p potentially to \p end with form data, and moves
+ * *p on by the amount used.
+ *
+ * The body never exceeds the Content-Length lws_http_mp_sm_init() declared.
+ * If the form no longer matches it, eg, a cb element changed or a file was
+ * truncated or grew since, the fill fails rather than send a body of a
+ * different length.
+ *
+ * Returns 1 if there is more to send (call again on the next WRITEABLE),
+ * 0 if this was the end of the body, or -1 for failure, in which case
+ * nothing from this call should be sent and the connection should be
+ * closed, since the body can't be completed.  *p has been moved on to show
+ * the extent of the written amount for 0 and 1.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_http_mp_sm_fill(struct lws_http_mp_sm *phms, uint8_t **p, uint8_t *end);
+
 
 /**
  * lws_http_basic_auth_gen() - helper to encode client basic auth string
@@ -453,5 +659,90 @@ lws_http_basic_auth_gen2(const char *user, const void *pw, size_t pwd_len,
  */
 LWS_VISIBLE LWS_EXTERN int
 lws_tls_session_is_reused(struct lws *wsi);
+
+/**
+ * lws_tls_client_connect() - perform/progress TLS handshake on client connection
+ *
+ * \param wsi: client connection
+ * \param errbuf: buffer for error string
+ * \param len: length of errbuf
+ *
+ * This is usually handled automatically by lws if LCCSCF_USE_SSL was set on
+ * the connection. However for STARTTLS type protocols, the connection
+ * starts in cleartext and this can be called manually later to perform the
+ * TLS handshake.
+ */
+LWS_VISIBLE LWS_EXTERN enum lws_ssl_capable_status
+lws_tls_client_connect(struct lws *wsi, char *errbuf, size_t len);
+
+/**
+ * lws_tls_client_upgrade() - upgrade a non-TLS client connection to TLS
+ *
+ * \param wsi: established raw client connection with no tls yet
+ * \param ssl_flags: LCCSCF_ flags to apply, including LCCSCF_USE_SSL
+ *
+ * For STARTTLS type protocols, this can be called to transition a RAW
+ * connection to TLS, eg, from LWS_CALLBACK_RAW_RX once the peer has agreed
+ * to it.  The peer certificate is checked against the connection's vhost
+ * client tls context and the host the connection was made to, according to
+ * \p ssl_flags, as for a connection that used tls from the start.
+ *
+ * The first step of the handshake is taken inside this call, and lws carries
+ * on with the rest.  When it has completed, the connection's protocol
+ * receives LWS_CALLBACK_RAW_CONNECTED again, and from then on its rx and tx
+ * are over the tls.  A handshake that fails or times out closes the
+ * connection with LWS_CALLBACK_RAW_CLOSE, since it was already connected.
+ *
+ * Any plaintext the peer sent after agreeing to start tls must be discarded,
+ * not acted on: it was not protected by the tls.  What the caller was given
+ * in the same RAW_RX, after the peer's agreement, is the caller's to refuse;
+ * lws refuses the connection if any more of it is buffered, rather than
+ * deliver it after the tls is up.
+ *
+ * Returns 0 if the handshake is under way, 1 if it completed already inside
+ * this call (no LWS_CALLBACK_RAW_CONNECTED will follow), or -1 if tls could
+ * not be started, in which case the caller should close the connection.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_tls_client_upgrade(struct lws *wsi, int ssl_flags);
+
+/**
+ * struct lws_alt_svc - result of parsing an Alt-Svc alternative (RFC 7838)
+ *
+ * \warning this is a fixed-size struct matched against sizeof in the api test,
+ * changing it is an ABI change
+ */
+struct lws_alt_svc {
+	char		host[64];
+	/**< alternative authority host, empty string means "same host as the
+	 * origin" */
+	uint32_t	ma_secs;
+	/**< max-age for the alternative in seconds, already capped at
+	 * 24h; 0 means "delete any existing alternative" */
+	uint16_t	port;
+	/**< the port the alternative is available on */
+};
+
+/**
+ * lws_client_alt_svc_parse() - parse an Alt-Svc header value for an h3
+ *				alternative
+ *
+ * \param val: the Alt-Svc header value
+ * \param len: length of \p val
+ * \param alt: lws_alt_svc struct to receive the result
+ *
+ * Parses header values like `h3=":443"; ma=86400`, looking for the first
+ * well-formed `h3` alternative.  This is a pure function of its inputs,
+ * suitable for unit testing.  The header value is untrusted input and
+ * anything malformed is ignored rather than partially trusted.
+ *
+ * Returns 1 if a well-formed h3 alternative was found and \p alt filled in
+ * (with \p host left empty for the same-host `":port"` form), or 0 if there
+ * is nothing usable for h3 in \p val.  The \p ma_secs field defaults to 24h
+ * capped when no explicit max-age was given.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_client_alt_svc_parse(const char *val, size_t len,
+			 struct lws_alt_svc *alt);
 
 ///@}

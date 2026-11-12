@@ -24,41 +24,33 @@
 
 #include "private-lib-core.h"
 #include <errno.h>
+#include <lwip/netif.h>
 #if defined(LWS_WITH_MBEDTLS)
-#if defined(LWS_HAVE_MBEDTLS_NET_SOCKETS)
+#if defined(LWS_HAVE_MBEDTLS_NET_SOCKETS) || defined(LWS_HAVE_MBEDTLS_V4)
+/* net_sockets.h carries mbedtls_net_context + MBEDTLS_ERR_NET_* even when
+ * MBEDTLS_NET_C is off; the legacy mbedtls/net.h was removed in mbedTLS 4 */
 #include "mbedtls/net_sockets.h"
 #else
 #include "mbedtls/net.h"
 #endif
 #endif
 
+/*
+ * would the socket under wsi, the connection owning it, block a write now.
+ * Asked by IO's lws_io_tx_choked_pollfd() only for a valid socket that is
+ * not under a transport.
+ */
 int
-lws_send_pipe_choked(struct lws *wsi)
+lws_plat_tx_choked(struct lws *wsi)
 {
-	struct lws *wsi_eff = wsi;
-	fd_set writefds;
 	struct timeval tv = { 0, 0 };
+	fd_set writefds;
 	int n;
-#if defined(LWS_WITH_HTTP2)
-	wsi_eff = lws_get_network_wsi(wsi);
-#endif
-
-	/* the fact we checked implies we avoided back-to-back writes */
-	wsi_eff->could_have_pending = 0;
-
-	/* treat the fact we got a truncated send pending as if we're choked */
-	if (lws_has_buffered_out(wsi)
-#if defined(LWS_WITH_HTTP_STREAM_COMPRESSION)
-	    || wsi->http.comp_ctx.buflist_comp ||
-	       wsi->http.comp_ctx.may_have_more
-#endif
-	)
-		return 1;
 
 	FD_ZERO(&writefds);
-	FD_SET(wsi_eff->desc.sockfd, &writefds);
+	FD_SET(wsi->io->desc.sockfd, &writefds);
 
-	n = select(wsi_eff->desc.sockfd + 1, NULL, &writefds, NULL, &tv);
+	n = select(wsi->io->desc.sockfd + 1, NULL, &writefds, NULL, &tv);
 	if (n < 0)
 		return 1; /* choked */
 
@@ -84,6 +76,25 @@ lws_plat_set_nonblocking(lws_sockfd_type fd)
 }
 
 int
+lws_plat_set_udp_bufs(lws_sockfd_type fd)
+{
+	/* lwip has no SO_SNDBUF, and an MCU has nowhere near 4MiB to give */
+	(void)fd;
+
+	return 0;
+}
+
+int
+lws_plat_rx_pending(lws_sockfd_type fd, size_t *pending)
+{
+	/* lwip only answers FIONREAD in some configurations: say we can't */
+	(void)fd;
+	(void)pending;
+
+	return -1;
+}
+
+int
 lws_plat_set_socket_options(struct lws_vhost *vhost, int fd, int unix_skt)
 {
 	int optval = 1;
@@ -99,7 +110,7 @@ lws_plat_set_socket_options(struct lws_vhost *vhost, int fd, int unix_skt)
 	if (vhost->ka_time) {
 		/* enable keepalive on this socket */
 		optval = 1;
-		if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE,
+		if (lwip_setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE,
 			       (const void *)&optval, optlen) < 0)
 			return 1;
 
@@ -115,17 +126,17 @@ lws_plat_set_socket_options(struct lws_vhost *vhost, int fd, int unix_skt)
 #else
 		/* set the keepalive conditions we want on it too */
 		optval = vhost->ka_time;
-		if (setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE,
+		if (lwip_setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE,
 			       (const void *)&optval, optlen) < 0)
 			return 1;
 
 		optval = vhost->ka_interval;
-		if (setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL,
+		if (lwip_setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL,
 			       (const void *)&optval, optlen) < 0)
 			return 1;
 
 		optval = vhost->ka_probes;
-		if (setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT,
+		if (lwip_setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT,
 			       (const void *)&optval, optlen) < 0)
 			return 1;
 #endif
@@ -133,7 +144,7 @@ lws_plat_set_socket_options(struct lws_vhost *vhost, int fd, int unix_skt)
 
 	/* Disable Nagle */
 	optval = 1;
-	if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &optval, optlen) < 0)
+	if (lwip_setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &optval, optlen) < 0)
 		return 1;
 
 	return lws_plat_set_nonblocking(fd);
@@ -152,6 +163,16 @@ static const char *ip_opt_names[] = {
 #endif
 
 int
+lws_plat_set_socket_dontfrag(lws_sockfd_type fd, int af)
+{
+	/* lwIP has no way to ask for it */
+	(void)fd;
+	(void)af;
+
+	return 0;
+}
+
+int
 lws_plat_set_socket_options_ip(lws_sockfd_type fd, uint8_t pri, int lws_flags)
 {
 	int optval = (int)pri, ret = 0, n;
@@ -162,7 +183,7 @@ lws_plat_set_socket_options_ip(lws_sockfd_type fd, uint8_t pri, int lws_flags)
 
 #if defined(SO_PRIORITY)
 	if (pri) { /* 0 is the default already */
-		if (setsockopt(fd, SOL_SOCKET, SO_PRIORITY,
+		if (lwip_setsockopt(fd, SOL_SOCKET, SO_PRIORITY,
 				(const void *)&optval, optlen) < 0) {
 #if !defined(LWS_WITH_NO_LOGS)
 			en = errno;
@@ -177,7 +198,7 @@ lws_plat_set_socket_options_ip(lws_sockfd_type fd, uint8_t pri, int lws_flags)
 
 	if (lws_flags & LCCSCF_ALLOW_REUSE_ADDR) {
 		optval = 1;
-		if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR,
+		if (lwip_setsockopt(fd, SOL_SOCKET, SO_REUSEADDR,
 					(const void *)&optval, optlen) < 0) { 
 #if !defined(LWS_WITH_NO_LOGS)
 			en = errno;
@@ -194,7 +215,7 @@ lws_plat_set_socket_options_ip(lws_sockfd_type fd, uint8_t pri, int lws_flags)
 			continue;
 
 		optval = (int)ip_opt_val[n];
-		if (setsockopt(fd, IPPROTO_IP, IP_TOS, (const void *)&optval,
+		if (lwip_setsockopt(fd, IPPROTO_IP, IP_TOS, (const void *)&optval,
 			       optlen) < 0) {
 #if !defined(LWS_WITH_NO_LOGS)
 			en = errno;
@@ -210,85 +231,129 @@ lws_plat_set_socket_options_ip(lws_sockfd_type fd, uint8_t pri, int lws_flags)
 	return ret;
 }
 
-/* cast a struct sockaddr_in6 * into addr for ipv6 */
+/*
+ * cast a struct sockaddr_in6 * into addr for ipv6
+ *
+ * ifname is an lwIP interface name like "st1" or "ap2" (two letters and the
+ * netif number), or a numeric address.  We only write addr and return
+ * LWS_ITOSA_USABLE when we found an address to write: callers prefill addr
+ * with the wildcard, and a vhost restricted to an iface must never listen
+ * on every interface because we couldn't resolve it.
+ */
 
 int
 lws_interface_to_sa(int ipv6, const char *ifname, struct sockaddr_in *addr,
 		    size_t addrlen)
 {
-#if 0
 	int rc = LWS_ITOSA_NOT_EXIST;
+	lws_sockaddr46 sa46;
+	struct netif *nif;
+	size_t n;
 
-	struct ifaddrs *ifr;
-	struct ifaddrs *ifc;
-#ifdef LWS_WITH_IPV6
-	struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)addr;
+	/*
+	 * Like freertos-sysinfo.c and lws_get_addr_scope(), we read lwIP's
+	 * interface list from outside the tcpip thread; an interface coming
+	 * or going during the walk is a race of lwIP's own design here
+	 */
+
+	nif = netif_find(ifname);
+	if (nif) {
+		/* the interface exists, but may have no address we can use */
+		rc = LWS_ITOSA_NOT_USABLE;
+
+#if defined(LWS_WITH_IPV6) && LWIP_IPV6
+		if (ipv6 && addrlen >= sizeof(struct sockaddr_in6)) {
+			struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)addr;
+			int i;
+
+			/* as on unix, its first IPv6 address is preferred */
+
+			for (i = 0; i < LWIP_IPV6_NUM_ADDRESSES; i++)
+				if (ip6_addr_isvalid(netif_ip6_addr_state(nif, i))) {
+					memcpy(&addr6->sin6_addr,
+					       netif_ip6_addr(nif, i)->addr, 16);
+
+					return LWS_ITOSA_USABLE;
+				}
+		}
 #endif
+#if defined(LWS_WITH_IPV4)
+		if (!ip4_addr_isany(netif_ip4_addr(nif))) {
+			uint32_t a4 = ip4_addr_get_u32(netif_ip4_addr(nif));
 
-	getifaddrs(&ifr);
-	for (ifc = ifr; ifc != NULL && rc; ifc = ifc->ifa_next) {
-		if (!ifc->ifa_addr)
-			continue;
-
-		lwsl_info(" interface %s vs %s\n", ifc->ifa_name, ifname);
-
-		if (strcmp(ifc->ifa_name, ifname))
-			continue;
-
-		switch (ifc->ifa_addr->sa_family) {
-		case AF_INET:
-#ifdef LWS_WITH_IPV6
+#if defined(LWS_WITH_IPV6)
 			if (ipv6) {
+				struct sockaddr_in6 *addr6 =
+						(struct sockaddr_in6 *)addr;
+
+				if (addrlen < sizeof(struct sockaddr_in6))
+					return rc;
+
 				/* map IPv4 to IPv6 */
-				memset((char *)&addr6->sin6_addr, 0,
-						sizeof(struct in6_addr));
+				memset(&addr6->sin6_addr, 0,
+				       sizeof(addr6->sin6_addr));
 				addr6->sin6_addr.s6_addr[10] = 0xff;
 				addr6->sin6_addr.s6_addr[11] = 0xff;
-				memcpy(&addr6->sin6_addr.s6_addr[12],
-					&((struct sockaddr_in *)ifc->ifa_addr)->sin_addr,
-							sizeof(struct in_addr));
-			} else
+				memcpy(&addr6->sin6_addr.s6_addr[12], &a4, 4);
+
+				return LWS_ITOSA_USABLE;
+			}
 #endif
-				memcpy(addr,
-					(struct sockaddr_in *)ifc->ifa_addr,
-						    sizeof(struct sockaddr_in));
-			break;
-#ifdef LWS_WITH_IPV6
-		case AF_INET6:
-			memcpy(&addr6->sin6_addr,
-			  &((struct sockaddr_in6 *)ifc->ifa_addr)->sin6_addr,
-						       sizeof(struct in6_addr));
-			break;
-#endif
-		default:
-			continue;
+			if (addrlen < sizeof(struct sockaddr_in))
+				return rc;
+
+			addr->sin_family = AF_INET;
+			addr->sin_addr.s_addr = a4;
+
+			return LWS_ITOSA_USABLE;
 		}
-		rc = LWS_ITOSA_USABLE;
-	}
-
-	freeifaddrs(ifr);
-
-	if (rc == LWS_ITOSA_NOT_EXIST) {
-		/* check if bind to IP address */
-#ifdef LWS_WITH_IPV6
-		if (inet_pton(AF_INET6, ifname, &addr6->sin6_addr) == 1)
-			rc = LWS_ITOSA_USABLE;
-		else
-#endif
-		if (inet_pton(AF_INET, ifname, &addr->sin_addr) == 1)
-			rc = LWS_ITOSA_USABLE;
-	}
-
-	return rc;
 #endif
 
-	return LWS_ITOSA_NOT_EXIST;
+		return rc;
+	}
+
+	/*
+	 * Not an interface name, it may be a numeric address
+	 */
+
+	if (lws_sa46_parse_numeric_address(ifname, &sa46))
+		return LWS_ITOSA_NOT_EXIST;
+
+#if defined(LWS_WITH_IPV6) && defined(LWS_WITH_IPV4)
+	if (ipv6 && sa46.sa4.sin_family == AF_INET) {
+		struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)addr;
+
+		if (addrlen < sizeof(struct sockaddr_in6))
+			return LWS_ITOSA_NOT_USABLE;
+
+		/* map IPv4 to IPv6 */
+		memset(&addr6->sin6_addr, 0, sizeof(addr6->sin6_addr));
+		addr6->sin6_addr.s6_addr[10] = 0xff;
+		addr6->sin6_addr.s6_addr[11] = 0xff;
+		memcpy(&addr6->sin6_addr.s6_addr[12], &sa46.sa4.sin_addr, 4);
+
+		return LWS_ITOSA_USABLE;
+	}
+#endif
+
+	/*
+	 * The caller's buffer may be a 16-byte struct sockaddr_in, and an IPv6
+	 * address can't be bound by the IPv4 listener
+	 */
+
+	n = (size_t)sa46_socklen(&sa46);
+	if (n > addrlen || (!ipv6 && sa46.sa4.sin_family != AF_INET))
+		return LWS_ITOSA_NOT_USABLE;
+
+	memcpy(addr, &sa46, n);
+
+	return LWS_ITOSA_USABLE;
 }
 
 const char *
 lws_plat_inet_ntop(int af, const void *src, char *dst, socklen_t cnt)
 {
-	return inet_ntop(af, src, dst, cnt);
+	return lwip_inet_ntop(af, src, dst, cnt);
 }
 
 int
@@ -325,6 +390,10 @@ lws_plat_if_up(const char *ifname, int fd, int up)
 int
 lws_plat_BINDTODEVICE(lws_sockfd_type fd, const char *ifname)
 {
+	/* if no interface specified, it's a no-op everywhere */
+	if (!ifname || !ifname[0])
+		return 0;
+
 	lwsl_err("%s: UNIMPLEMENTED on this platform\n", __func__);
 
 	return -1;

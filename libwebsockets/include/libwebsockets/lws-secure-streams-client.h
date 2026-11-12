@@ -39,6 +39,12 @@
  */
 
 /*
+ * The longest streamtype string (excluding NUL) that the serialization to
+ * the proxy can carry; lws_sspc_create() refuses longer streamtypes.
+ */
+#define LWS_SS_SER_STREAMTYPE_MAX_LEN 31
+
+/*
  * Helper translation so user code written to lws_ss_ can be built for
  * lws_sspc_ in one step by #define LWS_SS_USE_SSPC before including
  */
@@ -58,6 +64,8 @@ struct lws_sspc_handle;
 #define lws_ss_get_context		lws_sspc_get_context
 #define lws_ss_rideshare		lws_sspc_rideshare
 #define lws_ss_set_metadata		lws_sspc_set_metadata
+/* sspc always takes a copy of the metadata value */
+#define lws_ss_alloc_set_metadata	lws_sspc_set_metadata
 #define lws_ss_get_metadata		lws_sspc_get_metadata
 #define lws_ss_add_peer_tx_credit	lws_sspc_add_peer_tx_credit
 #define lws_ss_get_est_peer_tx_credit	lws_sspc_get_est_peer_tx_credit
@@ -279,7 +287,7 @@ LWS_VISIBLE LWS_EXTERN struct lws_context *
 lws_sspc_get_context(struct lws_sspc_handle *h);
 
 #if defined(LWS_WITH_NETWORK)
-extern const struct lws_protocols lws_sspc_protocols[2];
+LWS_VISIBLE LWS_EXTERN_FOR_DATA const struct lws_protocols lws_sspc_protocols[2];
 #endif
 
 LWS_VISIBLE LWS_EXTERN const char *

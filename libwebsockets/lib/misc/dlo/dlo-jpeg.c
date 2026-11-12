@@ -35,10 +35,97 @@ lws_display_dlo_jpeg_destroy(struct lws_dlo *dlo)
 #if defined(LWS_WITH_CLIENT) && defined(LWS_WITH_SECURE_STREAMS)
 	lws_ss_destroy(&dlo_jpeg->flow.h);
 #endif
+	lws_reclaimable_remove(&dlo_jpeg->rc);
 	lws_buflist_destroy_all_segments(&dlo_jpeg->flow.bl);
+	lws_free_set_NULL(dlo_jpeg->row);
+	lws_dll2_remove(&dlo_jpeg->rf.released);
+	lws_free_set_NULL(dlo_jpeg->rf.url);
 
 	if (dlo_jpeg->j)
 		lws_jpeg_free(&dlo_jpeg->j);
+}
+
+/* as the png: give back all but the dlo, if it can be fetched again */
+
+void
+lws_display_dlo_jpeg_release(lws_dlo_jpeg_t *dlo_jpeg)
+{
+	if (!dlo_jpeg->rf.url)
+		return;
+
+#if defined(LWS_WITH_CLIENT) && defined(LWS_WITH_SECURE_STREAMS)
+	if (dlo_jpeg->flow.h)
+		lws_ss_destroy(&dlo_jpeg->flow.h);
+#endif
+	lws_reclaimable_remove(&dlo_jpeg->rc);
+	lws_buflist_destroy_all_segments(&dlo_jpeg->flow.bl);
+	dlo_jpeg->flow.data = NULL;
+	dlo_jpeg->flow.len = 0;
+	dlo_jpeg->flow.blseglen = 0;
+	dlo_jpeg->flow.state = LWSDLOFLOW_STATE_READ;
+	lws_free_set_NULL(dlo_jpeg->row);
+	if (dlo_jpeg->j)
+		lws_jpeg_free(&dlo_jpeg->j);
+	dlo_jpeg->emitted = 0;
+	dlo_jpeg->failed = 0;
+	dlo_jpeg->evicted = 1;
+}
+
+/* as the png: give the payload and decoder back, renew before rendering */
+
+static size_t
+lws_display_dlo_jpeg_evict(lws_reclaimable_t *r)
+{
+	lws_dlo_jpeg_t *dlo_jpeg = lws_container_of(r, lws_dlo_jpeg_t, rc);
+	size_t freed = r->resident;
+
+	lwsl_info("%s: %s: %u\n", __func__, dlo_jpeg->name, (unsigned int)freed);
+	lws_buflist_destroy_all_segments(&dlo_jpeg->flow.bl);
+	dlo_jpeg->flow.data = NULL;
+	dlo_jpeg->flow.len = 0;
+	dlo_jpeg->flow.blseglen = 0;
+	lws_free_set_NULL(dlo_jpeg->row);
+	if (dlo_jpeg->j)
+		lws_jpeg_free(&dlo_jpeg->j);
+	dlo_jpeg->evicted = 1;
+	r->resident = 0;
+
+	return freed;
+}
+
+void
+lws_display_dlo_jpeg_reclaimable(lws_dlo_jpeg_t *dlo_jpeg)
+{
+	if (!lws_dll2_is_detached(&dlo_jpeg->rc.list))
+		return;
+
+	dlo_jpeg->rc.evict = lws_display_dlo_jpeg_evict;
+	/* the payload, and the decoder's MCU band buffer */
+	dlo_jpeg->rc.resident = lws_buflist_total_len(&dlo_jpeg->flow.bl) +
+				(16 * 1024);
+	lws_reclaimable_add(&dlo_jpeg->rc);
+}
+
+static lws_stateful_ret_t
+lws_display_render_jpeg_pinned(struct lws_display_render_state *rs);
+
+/* the image row raster line wl of the dlo's box wants, as the png's */
+
+static uint32_t
+jpeg_row_wanted(const lws_dlo_t *dlo, lws_dlo_jpeg_t *dlo_jpeg, int wl)
+{
+	int ih = (int)lws_jpeg_get_height(dlo_jpeg->j),
+	    bh = dlo->box.h.whole > 0 ? dlo->box.h.whole : ih;
+	uint32_t wanted;
+
+	if (ih <= 0 || bh <= 0)
+		return 0;
+
+	wanted = wl > 0 ? (uint32_t)(((int64_t)wl * ih) / bh) : 0;
+	if (wanted >= (uint32_t)ih)
+		wanted = (uint32_t)ih - 1;
+
+	return wanted;
 }
 
 lws_stateful_ret_t
@@ -46,11 +133,87 @@ lws_display_render_jpeg(struct lws_display_render_state *rs)
 {
 	lws_dlo_t *dlo = rs->st[rs->sp].dlo;
 	lws_dlo_jpeg_t *dlo_jpeg = lws_container_of(dlo, lws_dlo_jpeg_t, dlo);
+	lws_stateful_ret_t r;
+	lws_fx_t ay;
+	int wl;
+
+	/* as the png: the raster leaving it gives back what it holds */
+
+	lws_fx_add(&ay, &rs->st[rs->sp].co.y, &dlo->box.y);
+	wl = rs->curr - lws_fx_roundup(&ay);
+
+	if (dlo->box.h.whole > 0 && wl >= dlo->box.h.whole) {
+		lws_display_dlo_jpeg_release(dlo_jpeg);
+
+		return LWS_SRET_OK;
+	}
+
+	/*
+	 * A decoder that failed is never asked for anything again: there is
+	 * no row coming from it, and nothing it was in the middle of can be
+	 * resumed.  Fetched again, the dlo gets a fresh decoder.
+	 */
+
+	if (dlo_jpeg->failed)
+		return LWS_SRET_OK;
+
+#if defined(LWS_WITH_CLIENT) && defined(LWS_WITH_SECURE_STREAMS) && \
+    defined(LWS_WITH_LHP)
+	if (dlo_jpeg->emitted && !dlo_jpeg->evicted && dlo_jpeg->j &&
+	    jpeg_row_wanted(dlo, dlo_jpeg, wl) + 1 < dlo_jpeg->emitted &&
+	    (!rs->cx || lws_dlo_ss_renew_image(rs->cx, dlo)))
+		/* as the png: the raster went back up it, start it again */
+		lws_display_dlo_jpeg_release(dlo_jpeg);
+#endif
+
+	if (dlo_jpeg->evicted) {
+		/* given back: bring it back first, as the png does */
+#if defined(LWS_WITH_CLIENT) && defined(LWS_WITH_SECURE_STREAMS) && \
+    defined(LWS_WITH_LHP)
+		int n;
+
+		if (!dlo_jpeg->rf.url)
+			return LWS_SRET_OK;
+
+		lws_display_dlo_jpeg_release(dlo_jpeg);
+		dlo_jpeg->j = lws_jpeg_new();
+		if (!dlo_jpeg->j)
+			return LWS_SRET_OK;
+
+		n = lws_dlo_ss_refetch(dlo, &dlo_jpeg->rf,
+				       dlo_jpeg->flow.window,
+				       LWSDLOSS_TYPE_JPEG);
+		if (n < 0)
+			dlo_jpeg->failed = 1;
+		if (n)
+			return LWS_SRET_OK;
+
+		dlo_jpeg->evicted = 0;
+#else
+		return LWS_SRET_OK;
+#endif
+	}
+
+	lws_reclaimable_pin(&dlo_jpeg->rc);
+	lws_reclaimable_touch(&dlo_jpeg->rc);
+	r = lws_display_render_jpeg_pinned(rs);
+	lws_reclaimable_unpin(&dlo_jpeg->rc);
+
+	return r;
+}
+
+static lws_stateful_ret_t
+lws_display_render_jpeg_pinned(struct lws_display_render_state *rs)
+{
+	lws_dlo_t *dlo = rs->st[rs->sp].dlo;
+	lws_dlo_jpeg_t *dlo_jpeg = lws_container_of(dlo, lws_dlo_jpeg_t, dlo);
 	lws_display_colour_t pc;
 	lws_fx_t ax, ay, t, t1;
 	lws_stateful_ret_t r;
 	const uint8_t *pix;
-	int s, e;
+	uint32_t wanted;
+	unsigned int bypp;
+	int s, e, iw, ih, bw, bh, wl;
 
 	lws_fx_add(&ax, &rs->st[rs->sp].co.x, &dlo->box.x);
 	lws_fx_add(&t, &ax, &dlo->box.w);
@@ -58,8 +221,12 @@ lws_display_render_jpeg(struct lws_display_render_state *rs)
 	lws_fx_add(&t1, &ay, &dlo->box.h);
 
 	if (!lws_jpeg_get_height(dlo_jpeg->j)) {
-		lwsl_info("%s: jpeg does not have dimensions yet\n", __func__);
-		return LWS_SRET_WANT_INPUT;
+		/* as the png: wait for the header if it is coming */
+		if (dlo_jpeg->flow.h &&
+		    dlo_jpeg->flow.state != LWSDLOFLOW_STATE_READ_COMPLETED)
+			return LWS_SRET_WANT_INPUT;
+
+		return LWS_SRET_OK;
 	}
 
 	s = ax.whole;
@@ -68,8 +235,16 @@ lws_display_render_jpeg(struct lws_display_render_state *rs)
 	if (rs->curr > lws_fx_roundup(&t1))
 		return LWS_SRET_OK;
 
-	if (rs->curr - lws_fx_roundup(&ay) >
-			(int)lws_jpeg_get_height(dlo_jpeg->j))
+	/* drawn scaled to its box (nearest neighbour), as the png is */
+
+	iw = (int)lws_jpeg_get_width(dlo_jpeg->j);
+	ih = (int)lws_jpeg_get_height(dlo_jpeg->j);
+	bw = dlo->box.w.whole > 0 ? dlo->box.w.whole : iw;
+	bh = dlo->box.h.whole > 0 ? dlo->box.h.whole : ih;
+	bypp = lws_jpeg_get_pixelsize(dlo_jpeg->j) / 8;
+
+	wl = rs->curr - lws_fx_roundup(&ay);
+	if (wl >= bh)
 		return LWS_SRET_OK;
 
 	if (s < 0)
@@ -81,10 +256,30 @@ lws_display_render_jpeg(struct lws_display_render_state *rs)
 	if (e <= 0)
 		return LWS_SRET_OK; /* off to the left */
 
+	/*
+	 * The image row this sweep line wants, through the vertical scale:
+	 * a re-scanned viewport can start partway down an image, so discard
+	 * decoded rows until we reach it, exactly as the gif renderer
+	 * retargets.  The walk enters renderers from a line above a
+	 * fractional dlo top: a negative wl means "not reached the top row
+	 * yet", and must clamp to 0 rather than wrap
+	 */
+
+	wanted = jpeg_row_wanted(dlo, dlo_jpeg, wl);
+
+	if (dlo_jpeg->emitted && wanted < dlo_jpeg->emitted && dlo_jpeg->row) {
+		pix = dlo_jpeg->row;
+		goto draw;
+	}
+
 	do {
-		if (lws_flow_feed(&dlo_jpeg->flow))
-			/* if he says WANT_INPUT, we have nothing in the buflist */
-			return LWS_SRET_WANT_INPUT;
+		/*
+		 * Move on to the next buflist segment if the decoder used up
+		 * the current one.  We still call the decoder with no input:
+		 * it may have rows already decoded in its output ring
+		 */
+
+		lws_flow_feed(&dlo_jpeg->flow);
 
 		pix = NULL;
 		r = lws_jpeg_emit_next_line(dlo_jpeg->j, &pix, &dlo_jpeg->flow.data,
@@ -93,35 +288,103 @@ lws_display_render_jpeg(struct lws_display_render_state *rs)
 		if (r & LWS_SRET_NO_FURTHER_IN)
 			dlo_jpeg->flow.state = LWSDLOFLOW_STATE_READ_COMPLETED;
 
-		if (r & LWS_SRET_FATAL || r == LWS_SRET_OK)
+		if (r & LWS_SRET_FATAL) {
+			/*
+			 * The decode has failed, eg, the payload was cut
+			 * short... no line is ever coming from this image.
+			 * Give up on the rest of it rather than take the
+			 * whole render hostage
+			 */
+			dlo_jpeg->flow.state = LWSDLOFLOW_STATE_READ_COMPLETED;
+			dlo_jpeg->failed = 1;
+			lwsl_notice("%s: %s: decode failed\n", __func__,
+				    dlo_jpeg->name);
+			return LWS_SRET_OK;
+		}
+
+		if (r & LWS_SRET_YIELD)
 			return r;
 
-		r = lws_flow_req(&dlo_jpeg->flow);
-		if (r & LWS_SRET_WANT_INPUT)
-			return r;
+		if (pix) {
+			/* a row was issued: count it */
+			dlo_jpeg->emitted++;
 
-	} while (!pix);
+			if (dlo_jpeg->emitted > wanted)
+				break;
 
+			/*
+			 * Not the row this sweep line wants yet: discard it.
+			 * Keep the flow control credit topped up while we
+			 * churn through the rows above the viewport
+			 */
+
+			lws_flow_req(&dlo_jpeg->flow);
+			continue;
+		}
+
+		if (r & LWS_SRET_WANT_INPUT) {
+			/*
+			 * The decoder drained this segment without completing
+			 * a row.  Advance to the next segment if there is one
+			 * (and ask the peer for more), else we have to wait...
+			 * unless the payload is over, in which case what we
+			 * have is all there will be: don't wait for more that
+			 * is never coming
+			 */
+
+			lws_flow_req(&dlo_jpeg->flow);
+			if (dlo_jpeg->flow.len)
+				continue;
+
+			if (dlo_jpeg->flow.state == LWSDLOFLOW_STATE_READ_COMPLETED)
+				return LWS_SRET_OK;
+
+			return LWS_SRET_WANT_INPUT;
+		}
+
+		if (r == LWS_SRET_OK)
+			/*
+			 * No row and nothing pending: the decoder is past the
+			 * last row.  Nothing more is coming from this image
+			 */
+			return LWS_SRET_OK;
+
+		/* the decoder made progress (eg, WANT_OUTPUT) but has no
+		 * complete row yet: go around */
+
+	} while (1);
+
+	/* keep the row, in case the next line wants it again */
+
+	if (!dlo_jpeg->row || dlo_jpeg->row_len != (uint32_t)iw * bypp) {
+		lws_free(dlo_jpeg->row);
+		dlo_jpeg->row_len = (uint32_t)iw * bypp;
+		dlo_jpeg->row = lws_malloc(dlo_jpeg->row_len, __func__);
+	}
+	if (dlo_jpeg->row)
+		memcpy(dlo_jpeg->row, pix, dlo_jpeg->row_len);
+
+draw:
 	/*
 	 * What's in pix is either 24-bit RGB 3 bytes/px, or 8-bit grayscale
 	 * 1 byte/px, we have to map it on to either 32-bit RGBA or 16-bit YA
 	 * composition buf
 	 */
 
-	pix = pix + (( (unsigned int)(s - ax.whole) *
-			(lws_jpeg_get_pixelsize(dlo_jpeg->j) / 8)));
+	if (s < ax.whole)
+		s = ax.whole;
 
-	while (s < e && s >= ax.whole && s < lws_fx_roundup(&t) &&
-	       (s - ax.whole) < (int)lws_jpeg_get_width(dlo_jpeg->j)) {
+	while (s < e && s < ax.whole + bw) {
+		const uint8_t *px = pix + ((uint32_t)(((int64_t)(s - ax.whole) *
+						      iw) / bw)) * bypp;
 
-		if (lws_jpeg_get_pixelsize(dlo_jpeg->j) == 8)
-			pc = LWSDC_RGBA(pix[0], pix[0], pix[0], 255);
+		if (bypp == 1)
+			pc = LWSDC_RGBA(px[0], px[0], px[0], 255);
 		else
-			pc = LWSDC_RGBA(pix[0], pix[1], pix[2], 255);
+			pc = LWSDC_RGBA(px[0], px[1], px[2], 255);
 
-		lws_surface_set_px(rs->ic, rs->line, s, &pc);
+		lws_display_render_set_px(rs, s, &pc);
 		s++;
-		pix += lws_jpeg_get_pixelsize(dlo_jpeg->j) / 8;
 	}
 
 	return LWS_SRET_OK;
@@ -140,18 +403,29 @@ lws_display_dlo_jpeg_metadata_scan(lws_dlo_jpeg_t *dlo_jpeg)
 	 * we can't produce any decoded pixels too early.
 	 */
 
-	while (!lws_jpeg_get_height(dlo_jpeg->j) && dlo_jpeg->flow.len) {
+	/*
+	 * SOF carries the height before the width: a 128 byte chunk ending
+	 * between them left the height known and the width still unread,
+	 * which looked like "have the metadata" here, and nothing came back
+	 * to read the width on the asset cache path (a single feed of the
+	 * whole payload): the image was laid out 0 wide forever
+	 */
+
+	while ((!lws_jpeg_get_height(dlo_jpeg->j) ||
+		!lws_jpeg_get_width(dlo_jpeg->j)) && dlo_jpeg->flow.len) {
 		l1 = l = dlo_jpeg->flow.len > 128 ? 128 : dlo_jpeg->flow.len;
 
 		r = lws_jpeg_emit_next_line(dlo_jpeg->j, &pix, &dlo_jpeg->flow.data, &l, 1);
-		if (r >= LWS_SRET_FATAL) {
+		/* LWS_SRET_FATAL is a flag bit: >= also matched RETRY / YIELD */
+		if (r & LWS_SRET_FATAL) {
 			lwsl_err("%s: hdr parse failed %d\n", __func__, r);
 			return r;
 		}
 
 		dlo_jpeg->flow.len -= l1 - l;
 
-		if (lws_jpeg_get_height(dlo_jpeg->j)) {
+		if (lws_jpeg_get_height(dlo_jpeg->j) &&
+		    lws_jpeg_get_width(dlo_jpeg->j)) {
 			lwsl_info("jpeg: w %d, h %d\n",
 					lws_jpeg_get_width(dlo_jpeg->j),
 					lws_jpeg_get_height(dlo_jpeg->j));
@@ -163,9 +437,22 @@ lws_display_dlo_jpeg_metadata_scan(lws_dlo_jpeg_t *dlo_jpeg)
 	return LWS_SRET_WANT_INPUT;
 }
 
+#if defined(LWS_WITH_FOOTPRINT)
+static size_t
+lws_display_dlo_jpeg_heap(struct lws_dlo *dlo)
+{
+	lws_dlo_jpeg_t *dlo_jpeg = lws_container_of(dlo, lws_dlo_jpeg_t, dlo);
+
+	/* the decoder is one allocation */
+	return lws_buflist_total_len(&dlo_jpeg->flow.bl) +
+	       lws_fp_heap(dlo_jpeg->j, 0) +
+	       lws_fp_heap(dlo_jpeg->row, dlo_jpeg->row_len);
+}
+#endif
+
 lws_dlo_jpeg_t *
 lws_display_dlo_jpeg_new(lws_displaylist_t *dl, lws_dlo_t *dlo_parent,
-			 lws_box_t *box)
+			 lws_box_t *box, const char *name, size_t len)
 {
 	lws_dlo_jpeg_t *dlo_jpeg = lws_zalloc(sizeof(*dlo_jpeg), __func__);
 
@@ -176,9 +463,14 @@ lws_display_dlo_jpeg_new(lws_displaylist_t *dl, lws_dlo_t *dlo_parent,
 	if (!dlo_jpeg->j)
 		goto bail;
 
+	lws_strnncpy(dlo_jpeg->name, name, len, sizeof(dlo_jpeg->name)); 
 	dlo_jpeg->dlo.box = *box;
 	dlo_jpeg->dlo.render = lws_display_render_jpeg;
 	dlo_jpeg->dlo._destroy = lws_display_dlo_jpeg_destroy;
+#if defined(LWS_WITH_FOOTPRINT)
+	dlo_jpeg->dlo._heap = lws_display_dlo_jpeg_heap;
+	dlo_jpeg->dlo.fp_name = dlo_jpeg->name;
+#endif
 
 	lws_display_dlo_add(dl, dlo_parent, &dlo_jpeg->dlo);
 

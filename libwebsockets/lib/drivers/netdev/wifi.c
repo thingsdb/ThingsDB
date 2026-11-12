@@ -31,7 +31,15 @@ lws_netdev_wifi_rssi_sort_compare(const lws_dll2_t *d, const lws_dll2_t *i)
 {
 	const lws_wifi_sta_t *wsd = (const lws_wifi_sta_t *)d,
 			     *wsi = (const lws_wifi_sta_t *)i;
-	return rssi_averaged(wsd) > rssi_averaged(wsi);
+	int a = rssi_averaged(wsd);
+	int b = rssi_averaged(wsi);
+
+	if (a < b)
+		return 1;
+	if (a > b)
+		return -1;
+
+	return 0;
 }
 
 void
@@ -87,7 +95,7 @@ lws_netdev_wifi_scan_select(lws_netdev_instance_wifi_t *wnd)
 	 * limit we are allowed to keep track of...
 	 */
 
-	while (wnd->scan.count > LWS_WIFI_MAX_SCAN_TRACK) {
+	while (lws_dll2_count(&wnd->scan) > LWS_WIFI_MAX_SCAN_TRACK) {
 		struct lws_dll2 *p = lws_dll2_get_tail(&wnd->scan);
 		lws_wifi_sta_t *w = lws_container_of(p, lws_wifi_sta_t, list);
 
@@ -99,6 +107,7 @@ lws_netdev_wifi_scan_select(lws_netdev_instance_wifi_t *wnd)
 	 * ... let's dump what's left
 	 */
 
+#if (_LWS_ENABLED_LOGS & LLL_NOTICE)
 	lws_start_foreach_dll(struct lws_dll2 *, p, lws_dll2_get_head(
 	                                                       &wnd->scan)) {
 		lws_wifi_sta_t *w = lws_container_of(p, lws_wifi_sta_t, list);
@@ -109,26 +118,24 @@ lws_netdev_wifi_scan_select(lws_netdev_instance_wifi_t *wnd)
 			    w->bssid[5], w->ch, rssi_averaged(w));
 
 	} lws_end_foreach_dll(p);
+#endif
 
 	/*
 	 * make sure we have our device's connection credentials at hand
 	 */
 
-	if (!netdevs->ac_creds &&
-	    lws_netdev_credentials_settings_get(netdevs))
-		return 0;
-	netdevs->refcount_creds++;
+	lws_netdev_credentials_hold(netdevs);
 
 	/*
 	 * Let's go through each starting from the best RSSI seeing if we
 	 * have credentials... if we do, pick the one we least-recently tried
 	 */
 
-	lws_start_foreach_dll(struct lws_dll2 *, p1, wnd->scan.head) {
+	lws_start_foreach_dll(struct lws_dll2 *, p1, lws_dll2_get_head(&wnd->scan)) {
 		lws_wifi_sta_t *w = lws_container_of(p1, lws_wifi_sta_t, list);
 
 		lws_start_foreach_dll(struct lws_dll2 *, q,
-				      netdevs->owner_creds.head) {
+				      lws_dll2_get_head(&netdevs->owner_creds)) {
 			lws_wifi_creds_t *c = lws_container_of(q,
 							       lws_wifi_creds_t,
 							       list);
@@ -157,6 +164,7 @@ lws_netdev_wifi_scan_select(lws_netdev_instance_wifi_t *wnd)
 		lws_strncpy(wnd->current_attempt_ssid, (const char *)&pw[1],
 			    sizeof(wnd->current_attempt_ssid));
 		memcpy(wnd->current_attempt_bssid, pw->bssid, LWS_ETH_ALEN);
+		wnd->joined = 0;
 		wnd->inst.ops->connect(&wnd->inst, pc->ssid, pc->passphrase,
 					pw->bssid);
 	} else {
@@ -165,15 +173,17 @@ lws_netdev_wifi_scan_select(lws_netdev_instance_wifi_t *wnd)
 		 * rescan in a bit
 		 */
 
+		/*
+		 * Including when none are stored yet: keep scanning, so what
+		 * is around stays known, eg, for the user to pick one to store
+		 */
+
 		lwsl_notice("%s: nothing usable in scan, redoing in 3s\n", __func__);
 		lws_sul_schedule(cx, 0, &wnd->sul_scan, lws_netdev_wifi_scan,
 				 3 * LWS_US_PER_SEC);
 	}
 
-	if (!--netdevs->refcount_creds) {
-		lws_dll2_owner_clear(&netdevs->owner_creds);
-		lwsac_free(&netdevs->ac_creds);
-	}
+	lws_netdev_credentials_release(netdevs);
 
 	return 0;
 }
@@ -188,7 +198,7 @@ lws_netdev_wifi_redo_last(lws_netdev_instance_wifi_t *wnd)
 {
 	lws_netdevs_t *netdevs = lws_netdevs_from_ndi(&wnd->inst);
 	uint8_t buf[256], bssid[LWS_ETH_ALEN];
-	const char *ssid, *pp = "", *pb;
+	const char *ssid, *pp, *pb;
 	char setname[16], ssid_copy[33];
 	size_t l = sizeof(buf), al;
 	lws_wifi_creds_t *cred;
@@ -199,45 +209,54 @@ lws_netdev_wifi_redo_last(lws_netdev_instance_wifi_t *wnd)
 	 */
 
 	lws_snprintf(setname, sizeof(setname), "netdev.last.%s", wnd->inst.name);
-	if (lws_settings_plat_get(netdevs->si, setname, buf, &l))
+	if (!netdevs->si ||
+	    netdevs->si->so->get(netdevs->si, setname, buf, &l))
 		return 1;
 
-	lwsl_notice("%s: last successful %s\n", __func__, buf);
+	lwsl_notice("%s: last successful %.*s\n", __func__, (int)l, buf);
 
 	ssid = lws_json_simple_find((const char *)buf, l, "\"ssid\":", &al);
 	if (!ssid || al > 32)
 		return 1;
 
 	memcpy(ssid_copy, ssid, al);
-	ssid_copy[al + 1] = '\0';
+	ssid_copy[al] = '\0';
 
 	pb = lws_json_simple_find((const char *)buf, l, "\"bssid\":", &al);
 	if (!pb)
 		return 1;
-	lws_hex_to_byte_array(pb, bssid, sizeof(bssid));
+
+	/*
+	 * buf came from the settings backend and is not NUL-terminated, so the
+	 * hex must be bounded by the length lws_json_simple_find() gave us and
+	 * not by strlen()
+	 */
+
+	if (lws_hex_len_to_byte_array(pb, al, bssid, (int)sizeof(bssid)) !=
+					(int)sizeof(bssid))
+		return 1;
 
 	/*
 	 * make sure we have our device's connection credentials at hand
 	 */
 
-	if (!netdevs->ac_creds &&
-	    lws_netdev_credentials_settings_get(netdevs))
-		return 1;
-	netdevs->refcount_creds++;
+	lws_netdev_credentials_hold(netdevs);
 
 	cred = lws_netdev_credentials_find(netdevs, ssid_copy, bssid);
-	if (cred)
-		pp = cred->passphrase;
+	if (!cred) {
+		/* we have nothing to join it with any more */
+		lws_netdev_credentials_release(netdevs);
+		return 1;
+	}
+	pp = cred->passphrase;
 
 	lws_strncpy(wnd->current_attempt_ssid, ssid_copy,
 		    sizeof(wnd->current_attempt_ssid));
 	memcpy(wnd->current_attempt_bssid, bssid, LWS_ETH_ALEN);
+	wnd->joined = 0;
 	wnd->inst.ops->connect(&wnd->inst, ssid_copy, pp, bssid);
 
-	if (!--netdevs->refcount_creds) {
-		lws_dll2_owner_clear(&netdevs->owner_creds);
-		lwsac_free(&netdevs->ac_creds);
-	}
+	lws_netdev_credentials_release(netdevs);
 
 	return 0;
 }

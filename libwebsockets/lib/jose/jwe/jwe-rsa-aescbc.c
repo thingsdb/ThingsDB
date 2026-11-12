@@ -51,6 +51,8 @@ lws_jwe_encrypt_rsa_aes_cbc_hs(struct lws_jwe *jwe,
 	char ekey[LWS_GENHASH_LARGEST];
 	struct lws_genrsa_ctx rsactx;
 
+	memset(&rsactx, 0, sizeof(rsactx));
+
 	if (jwe->jws.jwk->kty != LWS_GENCRYPTO_KTY_RSA) {
 		lwsl_err("%s: unexpected kty %d\n", __func__, jwe->jws.jwk->kty);
 
@@ -97,13 +99,23 @@ lws_jwe_encrypt_rsa_aes_cbc_hs(struct lws_jwe *jwe,
 		return -1;
 	}
 
-	if (lws_genrsa_create(&rsactx, jwe->jws.jwk->e, jwe->jws.context,
-			!strcmp(jwe->jose.alg->alg,   "RSA-OAEP") ?
-					LGRSAM_PKCS1_OAEP_PSS : LGRSAM_PKCS1_1_5,
-					LWS_GENHASH_TYPE_UNKNOWN)) {
+	if (strncmp(jwe->jose.alg->alg, "RSA-OAEP", 8)) {
+		lwsl_err("%s: only RSA-OAEP is supported for RSA key wrap\n", __func__);
+		return -1;
+	}
+
+	/*
+	 * The alg table entry knows the OAEP hash for the specific alg,
+	 * SHA1 for "RSA-OAEP" and SHA256 for "RSA-OAEP-256" (RFC7518 s4.3)
+	 */
+
+	int res = lws_genrsa_create(&rsactx, jwe->jws.jwk->e, jwe->jws.context,
+					LGRSAM_PKCS1_OAEP_PSS,
+					jwe->jose.alg->hash_type);
+	if (res) {
 		lwsl_notice("%s: lws_genrsa_create\n",
 			    __func__);
-		return -1;
+		return res < -1 ? res : -1;
 	}
 
 	/* encrypt the CEK using RSA, mbedtls can't handle both in and out are
@@ -117,7 +129,7 @@ lws_jwe_encrypt_rsa_aes_cbc_hs(struct lws_jwe *jwe,
 	lws_explicit_bzero(ekey, (unsigned int)hlen); /* cleanse the temp CEK copy */
 	if (n < 0) {
 		lwsl_err("%s: encrypt cek fail\n", __func__);
-		return -1;
+		return n < -1 ? n : -1;
 	}
 	jwe->jws.map.len[LJWE_EKEY] = (unsigned int)n; /* update to encrypted EKEY size */
 
@@ -134,6 +146,8 @@ lws_jwe_auth_and_decrypt_rsa_aes_cbc_hs(struct lws_jwe *jwe)
 {
 	int n;
 	struct lws_genrsa_ctx rsactx;
+
+	memset(&rsactx, 0, sizeof(rsactx));
 	uint8_t enc_cek[512];
 
 	if (jwe->jws.jwk->kty != LWS_GENCRYPTO_KTY_RSA) {
@@ -144,20 +158,25 @@ lws_jwe_auth_and_decrypt_rsa_aes_cbc_hs(struct lws_jwe *jwe)
 
 	if (jwe->jws.map.len[LJWE_EKEY] < 40) {
 		lwsl_err("%s: EKEY length too short %d\n", __func__,
-				jwe->jws.map.len[LJWE_EKEY]);
+				(int)jwe->jws.map.len[LJWE_EKEY]);
 
 		return -1;
 	}
 
 	/* Decrypt the JWE Encrypted Key to get the raw MAC || CEK */
 
-	if (lws_genrsa_create(&rsactx, jwe->jws.jwk->e, jwe->jws.context,
-			!strcmp(jwe->jose.alg->alg,   "RSA-OAEP") ?
-				LGRSAM_PKCS1_OAEP_PSS : LGRSAM_PKCS1_1_5,
-				LWS_GENHASH_TYPE_UNKNOWN)) {
+	if (strncmp(jwe->jose.alg->alg, "RSA-OAEP", 8)) {
+		lwsl_err("%s: only RSA-OAEP is supported for RSA key unwrap\n", __func__);
+		return -1;
+	}
+
+	int res = lws_genrsa_create(&rsactx, jwe->jws.jwk->e, jwe->jws.context,
+				LGRSAM_PKCS1_OAEP_PSS,
+				jwe->jose.alg->hash_type);
+	if (res) {
 		lwsl_notice("%s: lws_genrsa_public_decrypt_create\n",
 			    __func__);
-		return -1;
+		return res < -1 ? res : -1;
 	}
 
 	n = lws_genrsa_private_decrypt(&rsactx,
@@ -167,30 +186,48 @@ lws_jwe_auth_and_decrypt_rsa_aes_cbc_hs(struct lws_jwe *jwe)
 	lws_genrsa_destroy(&rsactx);
 	if (n < 0) {
 		lwsl_err("%s: decrypt cek fail: \n", __func__);
-		return -1;
+		n = n < -1 ? n : -1;
+		goto bail;
+	}
+
+	/*
+	 * The attacker picks the OAEP plaintext, so he picks its length too...
+	 * lws_jwe_auth_and_decrypt_cbc_hs() consumes hlen bytes of enc_cek[]
+	 * as MAC_KEY || ENC_KEY, so a short CEK would make key material out of
+	 * uninitialised stack.  The CEK must be exactly the enc alg's hash len
+	 */
+
+	if (n != (int)lws_genhmac_size(jwe->jose.enc_alg->hmac_type)) {
+		lwsl_err("%s: unexpected CEK len %d\n", __func__, n);
+		n = -1;
+		goto bail;
 	}
 
 	n = lws_jwe_auth_and_decrypt_cbc_hs(jwe, enc_cek,
 			     (uint8_t *)jwe->jws.map_b64.buf[LJWE_JOSE],
 			     (int)jwe->jws.map_b64.len[LJWE_JOSE]);
+	/* the recovered CEK must not outlive us on any path (cf. C-093) */
+	lws_explicit_bzero(enc_cek, sizeof(enc_cek));
 	if (n < 0) {
 		lwsl_err("%s: lws_jwe_auth_and_decrypt_cbc_hs failed\n",
 			 __func__);
 		return -1;
 	}
 
-#if defined(LWS_WITH_MBEDTLS) && defined(LWS_PLAT_OPTEE)
-
-	/* strip padding */
-
-	n = jwe->jws.map.buf[LJWE_CTXT][jwe->jws.map.len[LJWE_CTXT] - 1];
-	if (n > 16) {
-		lwsl_err("%s: n == %d, plen %d\n", __func__, n,
-				(int)jwe->jws.map.len[LJWE_CTXT]);
-		return -1;
-	}
-	jwe->jws.map.len[LJWE_CTXT] -= n;
-#endif
+	/*
+	 * There used to be a second, OPTEE-only PKCS#7 strip here.
+	 * lws_jwe_auth_and_decrypt_cbc_hs() has already stripped the padding
+	 * by now, so it stripped twice; and it read the pad byte through a
+	 * char, so a pad >= 0x80 was negative and *grew* map.len[LJWE_CTXT],
+	 * while a pad larger than the (already unpadded) plaintext wrapped
+	 * the uint32_t length to ~4GB.  Both are attacker-chosen, since for
+	 * RSA-OAEP the public key lets him author a JWE that authenticates.
+	 */
 
 	return (int)jwe->jws.map.len[LJWE_CTXT];
+
+bail:
+	lws_explicit_bzero(enc_cek, sizeof(enc_cek));
+
+	return n;
 }

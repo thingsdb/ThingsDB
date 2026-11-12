@@ -62,23 +62,44 @@
  #include <semphr.h>
 #else
  #include "freertos/timers.h"
+ #include "freertos/semphr.h"
 #if defined(LWS_ESP_PLATFORM)
  #include <esp_attr.h>
+#if !defined(ETHER_ADDR_LEN)
+#define ETHER_ADDR_LEN 6
+#endif
 #endif
  #include <esp_system.h>
  #include <esp_task_wdt.h>
+#endif
+
+#if defined(LWS_ESP_PLATFORM)
+#include <esp_heap_caps.h>
+/* how much heap an allocation really holds, so lws can account for it */
+#define LWS_PLAT_ALLOC_SIZE
+#define lws_plat_alloc_size(_p) heap_caps_get_allocated_size(_p)
+#if defined(__XTENSA__)
+/* lws_plat_callers() can say who called, by walking the register windows */
+#define LWS_PLAT_CALLERS
+#endif
+/*
+ * With PSRAM, the free heap is internal RAM and PSRAM together, but some
+ * things can only have internal RAM, eg, the wifi driver, lwip and DMA: it's
+ * running out of that which fails, however much PSRAM is free
+ */
+#define LWS_PLAT_HEAP_INTERNAL
+#define lws_plat_heap_free_internal() \
+		heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)
+/* the bulk arena (lws_alloc_arena_set()) is PSRAM, if there is any */
+#define LWS_PLAT_REALLOC_ARENA
+void *
+lws_plat_realloc_arena(void *ptr, size_t size, int arena);
 #endif
 
 #if defined(LWS_WITH_ESP32)
 #include "lwip/apps/sntp.h"
 #include <errno.h>
 #endif
-
-typedef SemaphoreHandle_t lws_mutex_t;
-#define lws_mutex_init(x)	x = xSemaphoreCreateMutex()
-#define lws_mutex_destroy(x)	vSemaphoreDelete(x)
-#define lws_mutex_lock(x)	(!xSemaphoreTake(x, portMAX_DELAY)) /*0 = OK */
-#define lws_mutex_unlock(x)	xSemaphoreGive(x)
 
 #include <lwip/sockets.h>
 
@@ -111,16 +132,33 @@ typedef SemaphoreHandle_t lws_mutex_t;
 
 #define compatible_close(x) close(x)
 #define lws_plat_socket_offset() LWIP_SOCKET_OFFSET
-#define wsi_from_fd(A,B)  A->lws_lookup[B - lws_plat_socket_offset()]
 
 struct lws_context;
 struct lws;
 
+/*
+ * context->lws_lookup[] is indexed by the lwip socket slot number, ie, by
+ * (sockfd - LWIP_SOCKET_OFFSET).  Those slots are handed out globally by lwip
+ * to everything in the image (dhcp, sntp, mdns, the app...) and have nothing
+ * to do with how many fds lws itself was configured for; context->max_fds is
+ * routinely tuned down on an MCU with info.fd_limit_per_thread, and the core's
+ * "fd too high" guard in __insert_wsi_socket_into_fds() is skipped exactly
+ * when that was done.
+ *
+ * So the table is sized to cover the whole possible socket index space, and
+ * the three accessors below range-check the index anyway.
+ */
+
+#define lws_plat_lookup_entries() ((unsigned int)getdtablesize())
+
 int
 insert_wsi(const struct lws_context *context, struct lws *wsi);
 
-#define delete_from_fd(A,B) assert((int)A->max_fds > B - lws_plat_socket_offset()); \
-    A->lws_lookup[B - lws_plat_socket_offset()] = 0
+struct lws *
+wsi_from_fd(const struct lws_context *context, int fd);
+
+int
+delete_from_fd(const struct lws_context *context, int fd);
 
 #define LWS_PLAT_TIMER_TYPE		TimerHandle_t
 #define LWS_PLAT_TIMER_CB(name, var)	void name(TimerHandle_t var)
@@ -128,8 +166,21 @@ insert_wsi(const struct lws_context *context, struct lws *wsi);
 #define LWS_PLAT_TIMER_CREATE(name, interval, repeat, opaque, cb) \
 	xTimerCreate(name, pdMS_TO_TICKS(interval) ? pdMS_TO_TICKS(interval) : 1, \
 			repeat ? pdTRUE : 0, opaque, cb)
-#define LWS_PLAT_TIMER_DELETE(ptr)	xTimerDelete(ptr, 0)
+/*
+ * Deleting a timer is only queued to the timer task, where its callbacks
+ * run: this waits until it has been deleted, so its callback can't run
+ * afterwards, eg, on what it was given, which may be freed next
+ */
+#define LWS_PLAT_TIMER_DELETE(ptr)	lws_plat_timer_delete_sync(ptr)
+
+void
+lws_plat_timer_delete_sync(TimerHandle_t t);
 #define LWS_PLAT_TIMER_START(ptr)	xTimerStart(ptr, 0)
+/*
+ * The only way to start a timer from interrupt context, eg, a gpio ISR.  The
+ * timer task gets to run at the next tick, we don't yield to it immediately.
+ */
+#define LWS_PLAT_TIMER_START_FROM_ISR(ptr) xTimerStartFromISR(ptr, NULL)
 #define LWS_PLAT_TIMER_STOP(ptr)	xTimerStop(ptr, 0)
 
 

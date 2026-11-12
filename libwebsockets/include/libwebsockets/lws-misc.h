@@ -44,6 +44,99 @@
 
 struct lws_buflist;
 
+/*
+ * lws_fragbuf: a large buffer that does not insist on being contiguous
+ *
+ * A decoder that wants tens of KB in one piece fails on a heap that has the
+ * space but not in one run - and on a small target, mixed in with the
+ * connections and parsers that are still live, that is the normal state of
+ * affairs rather than the exception.
+ *
+ * Where the consumer can work with the buffer in pieces, this takes the
+ * failure of the monolithic allocation as an invitation to try again in
+ * smaller ones.  It still asks for the whole thing first, so when the heap
+ * can do it nothing is lost: the unit table is then simply a contiguous walk
+ * and lws_fragbuf_at() hands back the whole remainder at once.
+ *
+ * unit_size is the granularity the consumer needs contiguous, eg, a row pitch
+ * for image data: a unit is never split across allocations, so
+ * lws_fragbuf_unit() always hands back unit_size contiguous bytes.
+ *
+ * Every unit starts zeroed, whether it came in one piece or many.
+ */
+
+typedef struct lws_fragbuf lws_fragbuf_t;
+
+/**
+ * lws_fragbuf_create() - allocate units x unit_size, in pieces if it must
+ *
+ * \param units: how many units
+ * \param unit_size: bytes per unit, the granularity kept contiguous
+ *
+ * Asking for more than one unit at a time is speculative: it takes what the
+ * heap has without evicting reclaimable occupants (see lws_reclaim()), and
+ * without the footprint reporting the heap ran out.  Only when not even one
+ * unit can be had are they asked to give some back.
+ *
+ * Returns NULL if even the fragmented allocation could not be satisfied.
+ */
+LWS_VISIBLE LWS_EXTERN lws_fragbuf_t *
+lws_fragbuf_create(size_t units, size_t unit_size);
+
+/**
+ * lws_fragbuf_destroy() - free it and everything it allocated
+ *
+ * \param fb: pointer to the fragbuf pointer, cleared on return
+ */
+/**
+ * lws_fragbuf_create_cap() - as above, but never ask for more than cap units
+ *
+ * \param units: how many units
+ * \param unit_size: bytes per unit, the granularity kept contiguous
+ * \param cap: largest number of units to ask for in one piece, 0 = no cap
+ *
+ * The same thing the allocation failure path arrives at by halving, but
+ * asked for directly... which is how the fragmented path gets exercised on a
+ * host with plenty of memory.
+ */
+LWS_VISIBLE LWS_EXTERN lws_fragbuf_t *
+lws_fragbuf_create_cap(size_t units, size_t unit_size, size_t cap);
+
+LWS_VISIBLE LWS_EXTERN void
+lws_fragbuf_destroy(lws_fragbuf_t **fb);
+
+/**
+ * lws_fragbuf_unit() - the unit_size contiguous bytes of a unit
+ *
+ * \param fb: the fragbuf
+ * \param unit: which unit
+ *
+ * One indexed load, whether the buffer ended up in one piece or many.
+ */
+LWS_VISIBLE LWS_EXTERN uint8_t *
+lws_fragbuf_unit(const lws_fragbuf_t *fb, size_t unit);
+
+/**
+ * lws_fragbuf_at() - the byte at an offset, and how much follows it in one run
+ *
+ * \param fb: the fragbuf
+ * \param ofs: byte offset from the start
+ * \param avail: set to the contiguous bytes available from the result
+ *
+ * For consumers that walk by byte offset rather than by unit.  For an
+ * unfragmented buffer avail is all the rest of it, so the walk is one pass.
+ */
+LWS_VISIBLE LWS_EXTERN uint8_t *
+lws_fragbuf_at(const lws_fragbuf_t *fb, size_t ofs, size_t *avail);
+
+/**
+ * lws_fragbuf_pieces() - how many allocations it took (1 = contiguous)
+ *
+ * \param fb: the fragbuf
+ */
+LWS_VISIBLE LWS_EXTERN unsigned int
+lws_fragbuf_pieces(const lws_fragbuf_t *fb);
+
 /**
  * lws_buflist_append_segment(): add buffer to buflist at head
  *
@@ -54,9 +147,27 @@ struct lws_buflist;
  * Returns -1 on OOM, 1 if this was the first segment on the list, and 0 if
  * it was a subsequent segment.
  */
+
+#define LWS_BUFLIST_OOM_LIMIT (2 * 1024 * 1024)
+
 LWS_VISIBLE LWS_EXTERN int LWS_WARN_UNUSED_RESULT
 lws_buflist_append_segment(struct lws_buflist **head, const uint8_t *buf,
 			   size_t len);
+
+/**
+ * lws_buflist_append_segment_take_ownership(): add buffer to buflist at head
+ *
+ * \param head: list head
+ * \param buf: buffer to stash, must be allocated by lws_malloc
+ * \param len: length of buffer to stash
+ *
+ * Returns -1 on OOM, 1 if this was the first segment on the list, and 0 if
+ * it was a subsequent segment. The buflist takes ownership of \p buf and
+ * will free it using lws_free() when it is exhausted.
+ */
+LWS_VISIBLE LWS_EXTERN int LWS_WARN_UNUSED_RESULT
+lws_buflist_append_segment_take_ownership(struct lws_buflist **head, uint8_t *buf, size_t len);
+
 /**
  * lws_buflist_next_segment_len(): number of bytes left in current segment
  *
@@ -114,6 +225,24 @@ lws_buflist_linear_copy(struct lws_buflist **head, size_t ofs, uint8_t *buf,
 			size_t len);
 
 /**
+ * lws_buflist_at(): the byte at an offset, and how much follows it in one run
+ *
+ * \param head: list head
+ * \param ofs: offset into the buflist content in bytes, from the head's
+ *	       current position
+ * \param avail: set to how many contiguous bytes there are from the result
+ *		 in the segment it is in
+ *
+ * For consumers that keep data in the buflist and read it in place by offset,
+ * rather than copying it out: nothing is consumed.  The pointer stays valid
+ * until the segment it points into is used up or the buflist is destroyed.
+ *
+ * Returns NULL, with *avail 0, if ofs is at or past the end of the content.
+ */
+LWS_VISIBLE LWS_EXTERN const uint8_t *
+lws_buflist_at(struct lws_buflist **head, size_t ofs, size_t *avail);
+
+/**
  * lws_buflist_linear_use(): copy and consume from buflist head
  *
  * \param head: list head
@@ -136,7 +265,7 @@ lws_buflist_linear_use(struct lws_buflist **head, uint8_t *buf, size_t len);
  * lws_buflist_fragment_use(): copy and consume <= 1 frag from buflist head
  *
  * \param head: list head
- * \param buf: buffer to copy linearly into
+ * \param buf: NULL, buffer to copy linearly into
  * \param len: length of buffer available
  * \param frag_first: pointer to char written on exit to if this is start of frag
  * \param frag_fin: pointer to char written on exit to if this is end of frag
@@ -147,6 +276,10 @@ lws_buflist_linear_use(struct lws_buflist **head, uint8_t *buf, size_t len);
  *
  * Since it was consumed, calling again will resume copying out and consuming
  * from as far as it got the first time.
+ *
+ * It's legal for buf to be NULL and / or len = 0.  In this case nothing is
+ * "used" and the effect is to set `frag_first` according to if we are at the
+ * start of the fragment and 0 is returned.
  *
  * Returns the number of bytes written into \p buf.
  */
@@ -177,6 +310,231 @@ lws_buflist_destroy_all_segments(struct lws_buflist **head);
  */
 LWS_VISIBLE LWS_EXTERN void
 lws_buflist_describe(struct lws_buflist **head, void *id, const char *reason);
+
+/**
+ * lws_buflist_get_frag_start_or_NULL(): get pointer to start of fragment
+ *
+ * \param head: list head
+ *
+ * This gets you a pointer to the start of the fragment payload, no matter
+ * how much of it you may have 'used' already.  This is useful for schemes
+ * where you prepend something to the payload and need to reference it no
+ * matter how much of it you have consumed or the fragmentation details.
+ *
+ * If the buflist is empty, it will return NULL.
+ */
+LWS_VISIBLE LWS_EXTERN void *
+lws_buflist_get_frag_start_or_NULL(struct lws_buflist **head);
+
+
+/* --- lws_buflist2 (doubly-linked) --- */
+
+struct lws_buflist2_owner {
+	struct lws_dll2_owner	owner;
+	size_t			total_len;
+	size_t			limit;
+};
+
+struct lws_buflist2;
+
+/**
+ * lws_buflist2_append_segment(): add buffer to buflist2 at tail
+ *
+ * \param owner: list owner
+ * \param buf: buffer to stash
+ * \param len: length of buffer to stash
+ *
+ * Returns -1 on OOM, 1 if this was the first segment on the list, and 0 if
+ * it was a subsequent segment.
+ */
+LWS_VISIBLE LWS_EXTERN int LWS_WARN_UNUSED_RESULT
+lws_buflist2_append_segment(struct lws_buflist2_owner *owner, const uint8_t *buf,
+			    size_t len);
+
+/**
+ * lws_buflist2_append_segment_take_ownership(): add buffer to buflist2 at tail
+ *
+ * \param owner: list owner
+ * \param buf: buffer to stash, must be allocated by lws_malloc
+ * \param len: length of buffer to stash
+ *
+ * Returns -1 on OOM, 1 if this was the first segment on the list, and 0 if
+ * it was a subsequent segment. The buflist takes ownership of \p buf and
+ * will free it using lws_free() when it is exhausted.
+ */
+LWS_VISIBLE LWS_EXTERN int LWS_WARN_UNUSED_RESULT
+lws_buflist2_append_segment_take_ownership(struct lws_buflist2_owner *owner, uint8_t *buf, size_t len);
+
+/**
+ * lws_buflist2_next_segment_len(): number of bytes left in current segment
+ *
+ * \param owner: list owner
+ * \param buf: if non-NULL, *buf is written with the address of the start of
+ *		the remaining data in the segment
+ *
+ * Returns the number of bytes left in the current segment.  0 indicates
+ * that the buflist is empty (there are no segments on the buflist).
+ */
+LWS_VISIBLE LWS_EXTERN size_t
+lws_buflist2_next_segment_len(struct lws_buflist2_owner *owner, uint8_t **buf);
+
+/**
+ * lws_buflist2_use_segment(): remove len bytes from the current segment
+ *
+ * \param owner: list owner
+ * \param len: number of bytes to mark as used
+ *
+ * If len is less than the remaining length of the current segment, the position
+ * in the current segment is simply advanced and it returns.
+ *
+ * If len uses up the remaining length of the current segment, then the segment
+ * is deleted and the list head moves to the next segment if any.
+ *
+ * Returns the number of bytes left in the current segment.  0 indicates
+ * that the buflist is empty (there are no segments on the buflist).
+ */
+LWS_VISIBLE LWS_EXTERN size_t
+lws_buflist2_use_segment(struct lws_buflist2_owner *owner, size_t len);
+
+/**
+ * lws_buflist2_total_len(): Get the total size of the buflist
+ *
+ * \param owner: list owner
+ *
+ * Returns the total number of bytes held on all segments of the buflist
+ */
+static LWS_INLINE size_t
+lws_buflist2_total_len(struct lws_buflist2_owner *owner) { return owner->total_len; }
+
+/**
+ * lws_buflist2_fragment_use(): copy and consume <= 1 frag from buflist head
+ *
+ * \param owner: list owner
+ * \param buf: NULL, buffer to copy linearly into
+ * \param len: length of buffer available
+ * \param frag_first: pointer to char written on exit to if this is start of frag
+ * \param frag_fin: pointer to char written on exit to if this is end of frag
+ *
+ * Copies all or part of the fragment at the start of a buflist from the head
+ * into the output buffer \p buf for up to length \p len, and consumes the
+ * buflist content that was copied out.
+ *
+ * Since it was consumed, calling again will resume copying out and consuming
+ * from as far as it got the first time.
+ *
+ * It's legal for buf to be NULL and / or len = 0.  In this case nothing is
+ * "used" and the effect is to set `frag_first` according to if we are at the
+ * start of the fragment and 0 is returned.
+ *
+ * Returns the number of bytes written into \p buf.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_buflist2_fragment_use(struct lws_buflist2_owner *owner, uint8_t *buf,
+			  size_t len, char *frag_first, char *frag_fin);
+
+/**
+ * lws_buflist2_destroy_all_segments(): free all segments on the list
+ *
+ * \param owner: list owner
+ *
+ * This frees everything on the list unconditionally.  The owner is reset.
+ */
+LWS_VISIBLE LWS_EXTERN void
+lws_buflist2_destroy_all_segments(struct lws_buflist2_owner *owner);
+
+/**
+ * lws_buflist2_get_frag_start_or_NULL(): get pointer to start of fragment
+ *
+ * \param owner: list owner
+ *
+ * This gets you a pointer to the start of the fragment payload, no matter
+ * how much of it you may have 'used' already.  This is useful for schemes
+ * where you prepend something to the payload and need to reference it no
+ * matter how much of it you have consumed or the fragmentation details.
+ *
+ * If the buflist is empty, it will return NULL.
+ */
+LWS_VISIBLE LWS_EXTERN void *
+lws_buflist2_get_frag_start_or_NULL(struct lws_buflist2_owner *owner);
+
+
+
+/**
+ * lws_crc32(): calculate CRC32 of a buffer
+ *
+ * \param crc: seed CRC
+ * \param buf: the data to handle
+ * \param len: the length of the data to handle
+ */
+LWS_VISIBLE LWS_EXTERN uint32_t
+lws_crc32(uint32_t crc, const void *buf, size_t len);
+
+
+
+struct lws_wsmsg_info;
+
+typedef void (*lws_wsmsg_transfer_cb)(struct lws_wsmsg_info *info);
+
+typedef struct lws_wsmsg_info {
+	struct lws_buflist2_owner *upstream;		/* the upstream buflist */
+	struct lws_buflist2_owner *private_owners;	/* array of private reassembly buflists */
+	int			private_source_idx;	/* which index to use in private_owners */
+	lws_wsmsg_transfer_cb	optional_cb;		/* optional transfer callback */
+	void			*opaque;		/* optional opaque pointer */
+	const uint8_t		*buf;			/* array to add */
+	size_t			len;			/* length of bytes in array */
+	unsigned int		ss_flags;		/* SS flags for SOM / EOM */
+} lws_wsmsg_info_t;
+
+/**
+ * lws_wsmsg_append() - append to buflist via private buflists
+ *
+ * \param info: the info struct, filled in before calling
+ *
+ * This api allows you to pass incoming fragments through a private buflist
+ * until the message it contains is reassembled and complete.  At that point, if
+ * the upstream buflist is not blocked by being in the middle of a message itself,
+ * the fragments are added to the end of an upstream buflist and the private
+ * buflist left empty.
+ *
+ * As an optimization, if the upstream buflist is not blocked waiting for an EOM,
+ * the private buflist is empty, and the incoming data represents a complete
+ * message, then the incoming message is added directly to the upstream buflist.
+ *
+ * This method allows potentially many async connections with fragmented messages
+ * to contribute to a single buflist containing only complete messages.  It's
+ * not possible to add a partial message (without the EOM flag) to the upstream
+ * buflist; when all parts of it have arrived it will be added.
+ *
+ * An array of private buflists is supported so that messages from many different
+ * connections can be reassembled before moving to the upstream buflist.
+ *
+ * Optionally, instead of transfer to another buflist when the message is complete,
+ * if the optional_cb is provided, this is called instead with the info struct, so
+ * arbitrary operations can be performed by the user.
+ *
+ * The info->opaque pointer is not used by lws, it's there to facilitate passing
+ * related user parameters in the callback case.
+ *
+ * The buflists are lws_buflist2s, so the upstream's length is available in O(1)
+ * from lws_buflist2_total_len(), and appending costs the same however much is
+ * already queued on it.  The upstream's own limit, if set, bounds what may be
+ * appended to it directly; a reassembled message is moved on to it whole, its
+ * bytes having been bounded by the private buflist's limit as they arrived.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_wsmsg_append(lws_wsmsg_info_t *info);
+
+/*
+ * lws_wsmsg_destroy() - free all allocations in private buflists
+ *
+ * \param private_owners: the array of private buflists
+ * \param count_private_owners: the number of private buflists
+ */
+LWS_VISIBLE LWS_EXTERN void
+lws_wsmsg_destroy(struct lws_buflist2_owner *private_owners,
+		  size_t count_private_owners);
+
 
 
 /*
@@ -250,6 +608,23 @@ lws_flow_req(lws_flow_t *flow);
 #define lws_ptr_diff(head, tail) \
 			((int)((char *)(head) - (char *)(tail)))
 
+/**
+ * lws_ptr_diff_size_t(): distance between pointers as a size_t
+ *
+ * \param head: the pointer with the larger address
+ * \param tail: the pointer with the smaller address
+ *
+ * As lws_ptr_diff(), but the result is a size_t suitable for passing directly
+ * as a buffer size.
+ *
+ * \p head MUST be >= \p tail: if it is not, the result is close to SIZE_MAX
+ * and any bounded API you hand it to (lws_snprintf(), lws_strncpy(),
+ * lws_strnncpy(), the base64 encoders) becomes unbounded.
+ *
+ * When \p head is an "end" pointer and \p tail is a cursor that a previous
+ * lws_snprintf() may have advanced (it returns size on truncation, so the
+ * cursor can land exactly on end), check tail >= head before using this.
+ */
 #define lws_ptr_diff_size_t(head, tail) \
 			((size_t)(ssize_t)((char *)(head) - (char *)(tail)))
 
@@ -261,8 +636,14 @@ lws_flow_req(lws_flow_t *flow);
  * \param format: format string
  * \param ...: args for format
  *
- * This lets you correctly truncate buffers by concatenating lengths, if you
- * reach the limit the reported length doesn't exceed the limit.
+ * This lets you correctly truncate buffers by concatenating lengths.  On
+ * truncation the return is exactly \p size (never more), so the idiom
+ * p += lws_snprintf(p, lws_ptr_diff_size_t(end, p), ...) can leave p sitting
+ * exactly on end: check for that before writing another byte yourself, and
+ * never use the return as an index into a buffer of \p size bytes.
+ *
+ * Returns 0 without writing anything if \p str is NULL or \p size is 0.  The
+ * output is always NUL-terminated when size is nonzero.
  */
 LWS_VISIBLE LWS_EXTERN int
 lws_snprintf(char *str, size_t size, const char *format, ...) LWS_FORMAT(3);
@@ -272,21 +653,85 @@ lws_snprintf(char *str, size_t size, const char *format, ...) LWS_FORMAT(3);
  *
  * \param dest: destination buffer
  * \param src: source buffer
- * \param size: bytes left in destination buffer
+ * \param size: total bytes available in the destination buffer
  *
- * This lets you correctly truncate buffers by concatenating lengths, if you
- * reach the limit the reported length doesn't exceed the limit.
+ * Copies at most size - 1 bytes and always writes a terminating NUL at
+ * dest[size - 1], so the result is NUL-terminated even when truncated.
+ *
+ * As a special case, size == 0 writes nothing at all and returns dest
+ * unmodified, since there is nowhere to put the NUL.  So a caller that derived
+ * size from a remaining-space calculation must check for 0 itself before
+ * treating dest as a string.
+ *
+ * Returns dest.
  */
 LWS_VISIBLE LWS_EXTERN char *
 lws_strncpy(char *dest, const char *src, size_t size);
 
+/**
+ * lws_strnncpy_size(): destination size lws_strnncpy() should use
+ *
+ * \param size1: length of the source string, which need not be NUL-terminated
+ * \param destsize: total bytes available in the destination buffer
+ *
+ * Returns the smaller of \p size1 + 1 and \p destsize, computed in size_t and
+ * without wrapping when \p size1 is SIZE_MAX.  Exists so lws_strnncpy()
+ * evaluates each of its length arguments exactly once.
+ */
+static LWS_INLINE size_t
+lws_strnncpy_size(size_t size1, size_t destsize)
+{
+	if (size1 == (size_t)-1)
+		/* size1 + 1 would wrap to 0, leaving dest unterminated */
+		return destsize;
+
+	return size1 + 1u < destsize ? size1 + 1u : destsize;
+}
+
 /*
  * Variation where we want to use the smaller of two lengths, useful when the
- * source string is not NUL terminated
+ * source string is not NUL terminated.  \p size1 is the source length, ie, one
+ * less than the destination size it implies.
  */
 #define lws_strnncpy(dest, src, size1, destsize) \
-	lws_strncpy(dest, src, (size_t)(size1 + 1) < (size_t)(destsize) ? \
-				(size_t)(size1 + 1) : (size_t)(destsize))
+	lws_strncpy(dest, src, lws_strnncpy_size((size_t)(size1), \
+						 (size_t)(destsize)))
+
+/**
+ * lws_check_utf8(): validate a chunk of a UTF-8 byte stream
+ *
+ * \param state: decode state, start it at 0 and keep it between chunks
+ * \param buf: the chunk of bytes to check
+ * \param len: the number of bytes in \p buf
+ *
+ * Checks \p buf is valid UTF-8 (RFC 3629: no overlong forms, surrogates or
+ * code points past U+10FFFF), carrying a sequence split across chunks in
+ * \p state.  Returns 0 if everything seen so far is valid, or nonzero at the
+ * first invalid byte.
+ *
+ * A complete string is valid only if this returns 0 *and* \p state is 0
+ * afterwards: a nonzero state means it ended partway through a sequence.
+ */
+LWS_VISIBLE LWS_EXTERN int LWS_WARN_UNUSED_RESULT
+lws_check_utf8(unsigned char *state, const unsigned char *buf, size_t len);
+
+/**
+ * lws_utf8_trim_partial(): drop an incomplete UTF-8 sequence from the end
+ *
+ * \param s: the string, which may be shortened in place
+ * \param len: the length of \p s
+ *
+ * Bounded copies and formatters like lws_strncpy() and lws_snprintf()
+ * truncate on a byte boundary, which can leave just the start of a multibyte
+ * UTF-8 sequence at the end of a valid UTF-8 string.  That is invalid UTF-8,
+ * and, eg, a browser fails a websocket TEXT frame containing it.  If \p s
+ * ends with an incomplete sequence, this removes it and NUL-terminates \p s
+ * at the new length.  It does not otherwise validate \p s.
+ *
+ * Returns the new length of \p s, which is \p len if nothing was removed.
+ */
+LWS_VISIBLE LWS_EXTERN size_t
+lws_utf8_trim_partial(char *s, size_t len);
 
 /**
  * lws_nstrstr(): like strstr for length-based strings without terminating NUL
@@ -394,23 +839,28 @@ lws_hex_to_byte_array(const char *h, uint8_t *dest, int max);
  * \param src: incoming binary source array
  * \param slen: length of src in bytes
  * \param dest: array to fill with hex chars representing src
- * \param len: max extent of dest
+ * \param len: max extent of dest, in bytes; must be at least 1
  *
  * This converts binary data of length slen at src, into a hex string at dest
- * of maximum length len.  Even if truncated, the result will be NUL-terminated.
+ * of maximum length len, including the terminating NUL.  Even if truncated,
+ * the result will be NUL-terminated.  If len is 0 nothing is written at all,
+ * so dest is left as it was and is not NUL-terminated.
  */
 LWS_VISIBLE LWS_EXTERN void
 lws_hex_from_byte_array(const uint8_t *src, size_t slen, char *dest, size_t len);
 
 /**
- * lws_hex_random(): generate len - 1 or - 2 characters of random ascii hex
+ * lws_hex_random(): generate len - 1 characters of random ascii hex
  *
  * \param context: the lws_context used to get the random
  * \param dest: destination for hex ascii chars
- * \param len: the number of bytes the buffer dest points to can hold
+ * \param len: the number of bytes the buffer dest points to can hold; must
+ *	       be at least 1
  *
- * This creates random ascii-hex strings up to a given length, with a
- * terminating NUL.
+ * This writes exactly len - 1 random ascii-hex characters followed by a
+ * terminating NUL, ie, it always fills the buffer.  Returns 0 on success, or
+ * nonzero if len was 0 or the platform random was unavailable, in which case
+ * dest is not modified.
  *
  * There will not be any characters produced that are not 0-9, a-f, so it's
  * safe to go straight into, eg, JSON.
@@ -473,6 +923,15 @@ LWS_VISIBLE LWS_EXTERN void *
 lws_wsi_user(struct lws *wsi);
 
 /**
+ * lws_ensure_user_space() - allocate user space for wsi if not already allocated
+ * \param wsi: lws connection
+ *
+ * returns 0 if user space exists or was allocated, else non-zero.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_ensure_user_space(struct lws *wsi);
+
+/**
  * lws_wsi_tsi() - get the service thread index the wsi is bound to
  * \param wsi: lws connection
  *
@@ -515,10 +974,60 @@ lws_set_wsi_user(struct lws *wsi, void *user);
  * If the first character after the + is '@', it's interpreted by lws client
  * processing as meaning to use linux abstract namespace sockets, the @ is
  * replaced with a '\0' before use.
+ *
+ * \deprecated Use lws_parse_uri_create() instead.
  */
 LWS_VISIBLE LWS_EXTERN int LWS_WARN_UNUSED_RESULT
 lws_parse_uri(char *p, const char **prot, const char **ads, int *port,
-	      const char **path);
+	      const char **path) LWS_WARN_DEPRECATED;
+
+typedef struct lws_parse_uri {
+	const char	*scheme;
+	const char	*host;
+	const char	*path;
+	uint16_t	port;
+	char		unix_skt;
+} lws_parse_uri_t;
+
+/**
+ * lws_parse_uri_create() - non-destructively parse a URI
+ *
+ * \param uri: the URI string to parse
+ *
+ * Returns a dynamically allocated struct containing the parsed scheme, host,
+ * path, and port. The strings (scheme, host, path) point to memory allocated
+ * sequentially right after the struct.
+ *
+ * Note: many lws apis like the client create api expect the strings to stick
+ * around indefinitely. For that reason you might want to destroy() the results
+ * of the parse after any users of the results that might be pointing to it
+ * have been destroyed.
+ *
+ * Returns NULL on parsing failure or OOM.
+ */
+LWS_VISIBLE LWS_EXTERN lws_parse_uri_t * LWS_WARN_UNUSED_RESULT
+lws_parse_uri_create(const char *uri);
+
+/**
+ * lws_parse_uri_destroy() - free a parsed URI struct
+ *
+ * \param pcuri: pointer to a pointer to the lws_parse_uri_t to free
+ *
+ * Frees the allocation made by lws_parse_uri_create() and sets the
+ * pointer to NULL.
+ */
+LWS_VISIBLE LWS_EXTERN void
+lws_parse_uri_destroy(lws_parse_uri_t **pcuri);
+
+struct lws_switches {
+	const char *sw;
+	const char *doc;
+};
+
+LWS_VISIBLE LWS_EXTERN void
+lws_switches_print_help(const char *prog, const struct lws_switches *switches, size_t count);
+
+
 /**
  * lws_cmdline_option():	simple commandline parser
  *
@@ -528,6 +1037,8 @@ lws_parse_uri(char *p, const char **prot, const char **ads, int *port,
  *
  * Returns NULL if the string \p val is not found in the arguments.
  *
+ * This only returns the first hit for \p val.
+ *
  * If it is found, then it returns a pointer to the next character after \p val.
  * So if \p val is "-d", then for the commandlines "myapp -d15" and
  * "myapp -d 15", in both cases the return will point to the "15".
@@ -535,9 +1046,135 @@ lws_parse_uri(char *p, const char **prot, const char **ads, int *port,
  * In the case there is no argument, like "myapp -d", the return will
  * either point to the '\\0' at the end of -d, or to the start of the
  * next argument, ie, will be non-NULL.
+ *
+ * A single-letter switch like "-d" may have its value glued on, as in
+ * "-d15".  Any longer switch only matches an argument that is exactly \p val,
+ * or \p val followed by "=value" (or, if \p val itself ends in '=', by the
+ * value), never an argument that merely begins with \p val: "--port" does not
+ * match "--port-s", nor "--h2" match "--h2-port".
+ *
+ * This original api variant does not handle stdin-passed commandline content,
+ * only that present in the passed argc / argv.
  */
 LWS_VISIBLE LWS_EXTERN const char *
 lws_cmdline_option(int argc, const char **argv, const char *val);
+
+/**
+ * lws_cmdline_options():	simple commandline parser
+ *
+ * \param argc:		count of argument strings
+ * \param argv:		argument strings
+ * \param val:		string to find
+ * \param last:		last successful return from previous call
+ *
+ * Returns NULL if the string \p val is not found in the arguments.
+ *
+ * Before checking, the api aligns itself to the place of the \p last
+ * hit (or the beginning of the commandline if NULL), and starts checking
+ * from just beyond that.  In this way you can get the first, or
+ * incrementally get multiple results, for every hit.
+ *
+ * If a match is found, then it returns a pointer to the next character after \p val.
+ * So if \p val is "-d", then for the commandlines "myapp -d15" and
+ * "myapp -d 15", in both cases the return will point to the "15".
+ *
+ * In the case there is no argument, like "myapp -d", the return will
+ * either point to the '\\0' at the end of -d, or to the start of the
+ * next argument, ie, will be non-NULL indicating success.
+ *
+ * A single-letter switch like "-d" may have its value glued on, as in
+ * "-d15".  Any longer switch only matches an argument that is exactly \p val,
+ * or \p val followed by "=value" (or, if \p val itself ends in '=', by the
+ * value), never an argument that merely begins with \p val: "--port" does not
+ * match "--port-s", nor "--h2" match "--h2-port".
+ *
+ * This original api variant does not handle stdin-passed commandline content,
+ * only that present in the passed argc / argv.
+ */
+LWS_VISIBLE LWS_EXTERN const char *
+lws_cmdline_options(int argc, const char * const *argv, const char *val, const char *last);
+
+/**
+ * lws_cmdline_options_cx():	simple commandline parser
+ *
+ * \param cx:		the lws_context
+ * \param val:		string to find
+ * \param last:		last successful return from previous call
+ *
+ * Returns NULL if the string \p val is not found in the arguments.
+ *
+ * Before checking, the api aligns itself to the place of the \p last
+ * hit (or the beginning of the commandline if NULL), and starts checking
+ * from just beyond that.  In this way you can get the first, or
+ * incrementally get multiple results, for every hit.
+ * 
+ * If a match is found, then it returns a pointer to the next character after \p val.
+ * So if \p val is "-d", then for the commandlines "myapp -d15" and
+ * "myapp -d 15", in both cases the return will point to the "15".
+ *
+ * In the case there is no argument, like "myapp -d", the return will
+ * either point to the '\\0' at the end of -d, or to the start of the
+ * next argument, ie, will be non-NULL indicating success.
+ *
+ * A single-letter switch like "-d" may have its value glued on, as in
+ * "-d15".  Any longer switch only matches an argument that is exactly \p val,
+ * or \p val followed by "=value" (or, if \p val itself ends in '=', by the
+ * value), never an argument that merely begins with \p val: "--port" does not
+ * match "--port-s", nor "--h2" match "--h2-port".
+ *
+ * This api variant handles stdin-passed commandline content, placing it
+ * after the argc / argv content.  You must ensure the context creation
+ * info .argc and .argv were set to the application's main argc and argv,
+ * either manually or it is handled for you as a side-effect of calling
+ * lws_cmdline_option_handle_builtin().
+ */
+
+LWS_VISIBLE LWS_EXTERN const char *
+lws_cmdline_options_cx(const struct lws_context *cx, const char *val, const char *last);
+
+/**
+ * lws_cmdline_option_cx():	simple commandline parser
+ *
+ * \param cx:		the lws_context
+ * \param val:		string to find
+ *
+ * Returns NULL if the string \p val is not found in the arguments.
+ *
+ * This only returns the first hit for \p val.
+ *
+ * If a match is found, then it returns a pointer to the next character after \p val.
+ * So if \p val is "-d", then for the commandlines "myapp -d15" and
+ * "myapp -d 15", in both cases the return will point to the "15".
+ *
+ * In the case there is no argument, like "myapp -d", the return will
+ * either point to the '\\0' at the end of -d, or to the start of the
+ * next argument, ie, will be non-NULL indicating success.
+ *
+ * A single-letter switch like "-d" may have its value glued on, as in
+ * "-d15".  Any longer switch only matches an argument that is exactly \p val,
+ * or \p val followed by "=value" (or, if \p val itself ends in '=', by the
+ * value), never an argument that merely begins with \p val: "--port" does not
+ * match "--port-s", nor "--h2" match "--h2-port".
+ *
+ * This api variant handles stdin-passed commandline content, placing it
+ * after the argc / argv content.  You must ensure the context creation
+ * info .argc and .argv were set to the application's main argc and argv,
+ * either manually or it is handled for you as a side-effect of calling
+ * lws_cmdline_option_handle_builtin().
+ */
+LWS_VISIBLE LWS_EXTERN const char *
+lws_cmdline_option_cx(const struct lws_context *cx, const char *val);
+
+/**
+ * lws_cmdline_option_cx_argv0(): return argv[0] from the context creation
+ *
+ * \param cx:		the lws_context
+ *
+ * Returns the original process executable path (argv[0]) provided during
+ * context creation, or NULL if unavailable.
+ */
+LWS_VISIBLE LWS_EXTERN const char *
+lws_cmdline_option_cx_argv0(const struct lws_context *cx);
 
 /**
  * lws_cmdline_option_handle_builtin(): apply standard cmdline options
@@ -550,10 +1187,76 @@ lws_cmdline_option(int argc, const char **argv, const char *val);
  * to be (unevenly) copied into the minimal examples.
  *
  * Applies default log levels that can be overriden by -d
+ *
+ * -h and --help print the builtin switches and exit(0), so an application
+ * calling this must not give -h a meaning of its own.  Builtins match the same
+ * way as lws_cmdline_option(), so an application switch that only begins with
+ * a builtin's name, like --h2-port, does not trigger the builtin.
+ *
+ * --log-spew-tail <lines> sets how many lines of a log spew are retained and
+ * replayed when it eases, see lws_log_spew_tail_lines()
+ *
+ * -4 forces IPv4-only and -6 IPv6-only operation, by disabling the other
+ * address family at context level, so DNS results for it are filtered out
+ * and no listeners are created for it.  If both are given, -6 wins.
+ *
+ * Also takes the event loop switches --uv, --event, --ev, --glib, --sd and
+ * --uloop (the same ones the eventlib-foreign example takes), or the
+ * LWS_EVLIB environment variable with the switch name without the dashes,
+ * so any example, and so any ctest, can be run on a built-in event library.
+ * LWS_EVLIB is applied at context creation only if the app did not choose an
+ * event lib itself (an evlib option, info->event_lib_custom or
+ * info->foreign_loops), and is ignored in set-uid / set-gid processes.
+ *
+ * Built with LWS_WITH_CRASH_BACKTRACE, it also calls
+ * lws_crash_backtrace_install(), so an example or test that crashes prints
+ * where.
  */
 LWS_VISIBLE LWS_EXTERN void
 lws_cmdline_option_handle_builtin(int argc, const char **argv,
 				  struct lws_context_creation_info *info);
+
+#if defined(LWS_WITH_CRASH_BACKTRACE)
+/**
+ * lws_crash_backtrace_install() - print a backtrace if the process crashes
+ *
+ * On SIGSEGV, SIGBUS, SIGILL, SIGFPE or SIGABRT, eg, a failed assert(), write
+ * the call stack to stderr with backtrace_symbols_fd(), then die of the signal
+ * as the process would have anyway, so whatever waits for it, and the
+ * platform's core files or crash reports, see it the same.
+ *
+ * A signal the process already handles or ignores is left alone.  The
+ * handler runs on an alternate signal stack, if the calling thread doesn't
+ * have one already, so a stack overflow in that thread is reported too.
+ * Other threads' crashes are reported on their own stack.
+ *
+ * On windows, a fault is a structured exception, so it is caught by an
+ * unhandled exception filter, unless the application set one, and SIGABRT by
+ * a CRT signal handler.  DbgHelp names the frames, with source lines where it
+ * finds the .pdb.  The exception then goes on to Windows Error Reporting, and
+ * abort() exits with code 3, as they would have.
+ *
+ * Returns 0 if installed, or nonzero if it couldn't be.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_crash_backtrace_install(void);
+#endif
+
+/**
+ * lws_parse_iso8601() - strictly parse an ISO8601 / RFC3339-style date string
+ *
+ * \param ads: the date string to parse
+ *
+ * Returns the unixtime represented by the string, or 0 if parsing failed.
+ *
+ * Accepts YYYY-MM-DD alone, or followed by 'T', 't' or ' ' and a complete
+ * HH:MM:SS time part.  Fields must be zero-padded to their full width and
+ * within range; any fraction or timezone indicator trailing the seconds is
+ * validated for shape but otherwise ignored, the time is always taken as
+ * UTC.
+ */
+LWS_VISIBLE LWS_EXTERN lws_usec_t
+lws_parse_iso8601(const char *ads);
 
 /**
  * lws_now_secs(): return seconds since 1970-1-1
@@ -638,14 +1341,26 @@ LWS_VISIBLE LWS_EXTERN void
 lws_get_effective_uid_gid(struct lws_context *context, uid_t *uid, gid_t *gid);
 
 /**
- * lws_get_udp() - get wsi's udp struct
+ * lws_plat_user_to_uid() - Find uid from username
+ * \param username: string username, or string containing numeric uid
+ * \param puid: pointer to uid_t to receive result
  *
- * \param wsi: lws connection
- *
- * Returns NULL or pointer to the wsi's UDP-specific information
+ * Returns 0 if found and *puid is set, else nonzero.
+ * If the string contains a number, it is parsed directly.
  */
-LWS_VISIBLE LWS_EXTERN const struct lws_udp * LWS_WARN_UNUSED_RESULT
-lws_get_udp(const struct lws *wsi);
+LWS_VISIBLE LWS_EXTERN int
+lws_plat_user_to_uid(const char *username, uid_t *puid);
+
+/**
+ * lws_plat_group_to_gid() - Find gid from groupname
+ * \param groupname: string groupname, or string containing numeric gid
+ * \param pgid: pointer to gid_t to receive result
+ *
+ * Returns 0 if found and *pgid is set, else nonzero.
+ * If the string contains a number, it is parsed directly.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_plat_group_to_gid(const char *groupname, gid_t *pgid);
 
 LWS_VISIBLE LWS_EXTERN void *
 lws_get_opaque_parent_data(const struct lws *wsi);
@@ -659,17 +1374,63 @@ lws_get_opaque_user_data(const struct lws *wsi);
 LWS_VISIBLE LWS_EXTERN void
 lws_set_opaque_user_data(struct lws *wsi, void *data);
 
+/**
+ * lws_get_child_pending_on_writable() - deprecated, always 0
+ *
+ * \param wsi: ignored
+ *
+ * \deprecated A child whose io its parent carried marked the parent as
+ * having a writeable pending for it; nothing has done that since the parent
+ * stopped carrying children's io, so this always returns 0.
+ */
 LWS_VISIBLE LWS_EXTERN int
-lws_get_child_pending_on_writable(const struct lws *wsi);
+lws_get_child_pending_on_writable(const struct lws *wsi) LWS_WARN_DEPRECATED;
 
+/**
+ * lws_clear_child_pending_on_writable() - deprecated, does nothing
+ *
+ * \param wsi: ignored
+ *
+ * \deprecated See lws_get_child_pending_on_writable()
+ */
 LWS_VISIBLE LWS_EXTERN void
-lws_clear_child_pending_on_writable(struct lws *wsi);
+lws_clear_child_pending_on_writable(struct lws *wsi) LWS_WARN_DEPRECATED;
 
 LWS_VISIBLE LWS_EXTERN int
 lws_get_close_length(struct lws *wsi);
 
 LWS_VISIBLE LWS_EXTERN unsigned char *
 lws_get_close_payload(struct lws *wsi);
+
+/**
+ * lws_wsi_close_cause() - say why a connection is closing
+ *
+ * \param wsi: the connection, or a stream on one
+ * \param buf: where to render the cause
+ * \param len: size of buf
+ *
+ * When a connection goes down, the reason is usually only seen deep inside
+ * lws: the peer closed or reset it, a read or a write on it failed, one of
+ * its timeouts, or its validity check, expired.  lws keeps the first such
+ * cause it sees on the wsi, so code dealing with the close, eg, in
+ * LWS_CALLBACK_CLOSED, LWS_CALLBACK_CLIENT_CONNECTION_ERROR or
+ * LWS_CALLBACK_WSI_DESTROY, can say why it happened.
+ *
+ * Renders, eg, "peer closed", "peer hung up", "rx failed, errno 104",
+ * "tx failed, errno 32", "peer closed without tls close_notify",
+ * "timed out, pending timeout 3", "no reply to validity ping", "peer sent ws
+ * close, status 1001", or "closing with ws status 1002", when lws, or the
+ * protocol with lws_close_reason(), closed it giving a ws status.  A stream
+ * takes its connection's cause when the connection closes under it.  When
+ * none of those caused it, it's the internal name of what closed it, eg,
+ * "close_and_handled" when the protocol callback asked for the close, which
+ * the code that asked will know more about.
+ *
+ * Returns the length of what was rendered, 0 with buf set to "" when the
+ * wsi has not started closing.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_wsi_close_cause(struct lws *wsi, char *buf, size_t len);
 
 /**
  * lws_get_network_wsi() - Returns wsi that has the tcp connection for this wsi
@@ -680,6 +1441,8 @@ lws_get_close_payload(struct lws *wsi);
  *
  * HTTP/1 connections will always return the incoming wsi
  * HTTP/2 connections may return a different wsi that has the tcp connection
+ * HTTP/3 streams return the wsi that has the quic connection: on a server
+ * that is the connection, never the udp listener it receives its packets by
  */
 LWS_VISIBLE LWS_EXTERN
 struct lws *lws_get_network_wsi(struct lws *wsi);
@@ -694,14 +1457,100 @@ struct lws *lws_get_network_wsi(struct lws *wsi);
 LWS_VISIBLE LWS_EXTERN void
 lws_set_allocator(void *(*realloc)(void *ptr, size_t size, const char *reason));
 
+/*
+ * Reclaimable heap occupants
+ *
+ * Something that keeps bytes on the heap it could recreate from storage
+ * later (a font's dictionary, an image's payload and decoder state) can
+ * register as reclaimable.  When an allocation fails, the allocator asks the
+ * least recently used unpinned occupants to evict what they hold, and then
+ * retries: the code that wanted the memory, however deep in the stack, sees
+ * only a successful allocation.  The occupant notices it is no longer
+ * resident the next time it is touched and reloads then.
+ *
+ * evict() is called from inside the failed allocation, so it may only free
+ * things, unlink list nodes and set flags: it must not allocate, and must
+ * not destroy anything another part of the stack holds a pointer to.  An
+ * occupant that is in use right now (a decoder mid-row, glyphs attached to
+ * text being rendered) pins itself for the duration so it is skipped.
+ */
+
+typedef struct lws_reclaimable {
+	lws_dll2_t		list;	/* LRU: oldest at the head */
+
+	/**
+	 * evict() - free what can be recreated later; returns bytes freed
+	 */
+	size_t			(*evict)(struct lws_reclaimable *r);
+
+	size_t			resident; /* bytes evict() could free now */
+	uint16_t		pins;	  /* nonzero: in use, not evictable */
+} lws_reclaimable_t;
+
+/**
+ * lws_reclaimable_add() - register a heap occupant (as the most recently used)
+ */
+LWS_VISIBLE LWS_EXTERN void
+lws_reclaimable_add(lws_reclaimable_t *r);
+
+/**
+ * lws_reclaimable_remove() - unregister; the occupant is being destroyed
+ */
+LWS_VISIBLE LWS_EXTERN void
+lws_reclaimable_remove(lws_reclaimable_t *r);
+
+/**
+ * lws_reclaimable_touch() - the occupant was used: it is the most recently used now
+ */
+LWS_VISIBLE LWS_EXTERN void
+lws_reclaimable_touch(lws_reclaimable_t *r);
+
+/**
+ * lws_reclaimable_pin() - the occupant is in use: not evictable until unpinned
+ */
+LWS_VISIBLE LWS_EXTERN void
+lws_reclaimable_pin(lws_reclaimable_t *r);
+
+LWS_VISIBLE LWS_EXTERN void
+lws_reclaimable_unpin(lws_reclaimable_t *r);
+
+/**
+ * lws_reclaim() - ask unpinned occupants, least recently used first, to evict
+ *
+ * \param want: bytes to try to free
+ *
+ * Returns the bytes freed, which may be short of want.  The allocator calls
+ * this itself when an allocation fails; it can also be called ahead of
+ * something known to need a lot of heap at once.
+ */
+LWS_VISIBLE LWS_EXTERN size_t
+lws_reclaim(size_t want);
+
+/**
+ * lws_heap_limit_set() - simulate a small heap
+ *
+ * \param bytes: the most lws allocations may hold at once, 0 for no limit
+ *
+ * On platforms where lws accounts its allocations (glibc), an allocation
+ * that would take the total past the limit fails as if the platform had run
+ * out, triggering reclaim and, if that can't help, returning NULL.  For
+ * driving the out-of-memory paths on a development box with the heap a
+ * constrained target has.  No effect elsewhere.
+ */
+LWS_VISIBLE LWS_EXTERN void
+lws_heap_limit_set(size_t bytes);
+
 enum {
 	/*
 	 * Flags for enable and disable rxflow with reason bitmap and with
-	 * backwards-compatible single bool
+	 * backwards-compatible single bool.  b5..b0 are the user's, the
+	 * reasons above them are the library's own.
 	 */
 	LWS_RXFLOW_REASON_USER_BOOL		= (1 << 0),
 	LWS_RXFLOW_REASON_HTTP_RXBUFFER		= (1 << 6),
 	LWS_RXFLOW_REASON_H2_PPS_PENDING	= (1 << 7),
+	LWS_RXFLOW_REASON_MQTT_ACK_TX		= (1 << 8),
+	/* b11..b9 are free for more library reasons */
 
 	LWS_RXFLOW_REASON_APPLIES		= (1 << 14),
 	LWS_RXFLOW_REASON_APPLIES_ENABLE_BIT	= (1 << 13),
@@ -793,6 +1642,13 @@ typedef int
 lws_dir_callback_function(const char *dirpath, void *user,
 			  struct lws_dir_entry *lde);
 
+struct lws_dir_info {
+	const char 			*dirpath;
+	void 				*user;
+	lws_dir_callback_function	*cb;
+	unsigned char			do_toplevel_cb:1;
+};
+
 /**
  * lws_dir() - get a callback for everything in a directory
  *
@@ -802,11 +1658,48 @@ lws_dir_callback_function(const char *dirpath, void *user,
  *
  * Calls \p cb (with \p user) for every object in dirpath.
  *
+ * This form does not call the callback for the toplevel, dirpath dir
+ * itself.  If you want to do that, use lws_dir_via_info(), with
+ * .do_toplevel_cb nonzero.
+ *
  * This wraps whether it's using POSIX apis, or libuv (as needed for windows,
  * since it refuses to support POSIX apis for this).
+ *
+ * Returns 1 if completed normally or 0 if the recursion ended early.  A
+ * dirpath that can't be listed at all, eg, it doesn't exist or we may not
+ * read it, also returns 1, like an empty one: see lws_dir_via_info() for how
+ * to tell them apart.
+ *
+ * This is here for historical reasons, use the below lws_dir_via_info() for
+ * new code, it's the same function but using an info struct type args.
  */
 LWS_VISIBLE LWS_EXTERN int
 lws_dir(const char *dirpath, void *user, lws_dir_callback_function cb);
+
+/**
+ * lws_dir_via_info() - get a callback for everything in a directory
+ *
+ * \param info: details of what to scan and how
+ *
+ * All of the members of \p info should be set on entry.
+ *
+ * Calls \p info.cb (with \p info.user) for every object in info.dirpath.
+ *
+ * Set \p info.do_toplevel_cb to nonzero if you also want the callback to
+ * be called for the toplevel dir, ie, dirpath itself.
+ *
+ * This wraps whether it's using POSIX apis, or libuv (as needed for windows,
+ * since it refuses to support POSIX apis for this).
+ *
+ * Returns 1 if completed normally or 0 if the recursion ended early.  A
+ * dirpath that can't be listed at all, eg, it doesn't exist or we may not
+ * read it, also returns 1, like an empty one.  The toplevel callback only
+ * comes if dirpath was listed, so a caller that must not take an unreadable
+ * dir to be empty can set \p info.do_toplevel_cb and note that it came.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_dir_via_info(struct lws_dir_info *info);
+
 
 /**
  * lws_dir_rm_rf_cb() - callback for lws_dir that performs recursive rm -rf
@@ -816,11 +1709,81 @@ lws_dir(const char *dirpath, void *user, lws_dir_callback_function cb);
  * \param lde: lws_dir info on the file or directory we are at
  *
  * This is a readymade rm -rf callback for use with lws_dir.  It recursively
- * removes everything below the starting dir and then the starting dir itself.
- * Works on linux, OSX and Windows at least.
+ * removes everything below the starting dir; the caller rmdir()s the starting
+ * dir itself afterwards if it wants it gone.  Symlinks are removed, never
+ * followed, and a subtree nested more than 64 directories below the starting
+ * dir is left in place (and logged) rather than recursed into without bound.
+ *
+ * Where the platform has openat() and friends (Linux, the BSDs, OSX, ...)
+ * the walk is made relative to directory fds opened with O_NOFOLLOW, so a
+ * directory swapped for a symlink while it is being removed is refused, not
+ * followed out of the tree.  There the starting dir must itself be a real
+ * directory, not a symlink to one, or nothing is removed.  On Windows
+ * junctions and directory symlinks are removed without being walked into,
+ * but the walk is by path, so one swapped in mid-walk can't be ruled out;
+ * the same goes for platforms with neither.
  */
 LWS_VISIBLE LWS_EXTERN int
 lws_dir_rm_rf_cb(const char *dirpath, void *user, struct lws_dir_entry *lde);
+
+/**
+ * lws_dir_symlink_rotate() - repoint a "current" symlink, keeping the old one
+ *
+ * \param cur: path of the symlink to repoint, containing \p cur_tag in its
+ *		name, eg "/certs/crt/example.com-latest.crt"
+ * \param target: what \p cur should point at now, exactly as it should be
+ *		stored in the link (eg, a basename in the same directory)
+ * \param cur_tag: the part of \p cur naming it as current, eg "-latest"
+ * \param prev_tag: what replaces the last \p cur_tag in \p cur to name the
+ *		link to the outgoing target, eg "-previous"
+ *
+ * If \p cur was already a symlink to something other than \p target, the
+ * "previous" link (eg, "/certs/crt/example.com-previous.crt") is made to
+ * point at what \p cur pointed at, replacing any older previous link.
+ * Then \p cur is made to point at \p target.  Re-pointing \p cur at what it
+ * already points at leaves the previous link alone.
+ *
+ * Each link is replaced atomically, via a temporary "<link>.tmp" renamed
+ * over it, so something opening \p cur during the rotation sees either the
+ * old or the new target, never a missing file.
+ *
+ * Returns 0 if \p cur now points at \p target.  Otherwise returns -1 with
+ * errno saying why: EINVAL if \p cur doesn't contain \p cur_tag,
+ * ENAMETOOLONG if a link path won't fit, or the errno of the symlink() or
+ * rename() that failed.  Platforms without symlinks (Windows) return -1 with
+ * ENOSYS, without touching anything.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_dir_symlink_rotate(const char *cur, const char *target,
+		       const char *cur_tag, const char *prev_tag);
+
+
+/**
+ * lws_dir_du_t: context for lws_dir_du_cb()
+ *
+ * It's zeroed before starting the lws_dir() walk.
+ */
+
+typedef struct lws_dir_du {
+	uint64_t			size_in_bytes;
+	uint32_t			count_files;
+} lws_dir_du_t;
+
+/**
+ * lws_dir_du_cb() - callback for lws_dir that performs recursive du
+ *
+ * \param dirpath: directory we are at in lws_dir
+ * \param user: pointer to a lws_dir_du_t to collate the results in
+ * \param lde: lws_dir info on the file or directory we are at
+ *
+ * This is a readymade du -b callback for use with lws_dir.  It recursively
+ * sums the sizes of all files it finds and the count of files.  The user
+ an
+ * lws_dir_du_t struct should be zeroed before starting the walk.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_dir_du_cb(const char *dirpath, void *user, struct lws_dir_entry *lde);
+
 
 /*
  * We pass every file in the base dir through a filter, and call back on the
@@ -846,8 +1809,9 @@ typedef struct lws_dir_glob {
  *
  * \p user is prepared with an `lws_dir_glob_t` containing a callback for paths
  * that pass the filtering, a user pointer to pass to that callback, and a
- * glob string like "*.txt".  It may not contain directories, the lws_dir musr
- * be started at the correct dir.
+ * glob string like "*.txt", "crash-*", "sai-*.deb" or a plain filename, with
+ * at most one '*'.  It may not contain directories, the lws_dir must be started
+ * at the correct dir.
  *
  * Only the base path passed to lws_dir is scanned, it does not look in subdirs.
  */
@@ -871,7 +1835,8 @@ lws_dir_glob_cb(const char *dirpath, void *user, struct lws_dir_entry *lde);
  *
  * On other platforms, it always returns 0.
  */
-size_t lws_get_allocated_heap(void);
+LWS_VISIBLE LWS_EXTERN size_t
+lws_get_allocated_heap(void);
 
 /**
  * lws_get_tsi() - Get thread service index wsi belong to
@@ -910,7 +1875,7 @@ lws_is_cgi(struct lws *wsi);
  *
  * Helper to scan a JIT Trust blob in memory for a trusted CA cert matching
  * a given SKID.  Returns 0 if found and *prpder and *prder_len are set, else
- * nonzero.
+ * nonzero and neither is written: check the return, not *prpder.
  */
 LWS_VISIBLE LWS_EXTERN int
 lws_tls_jit_trust_blob_queury_skid(const void *_blob, size_t blen,
@@ -940,17 +1905,6 @@ struct lws_wifi_scan { /* generic wlan scan item */
 	uint8_t authmode;
 };
 
-#if defined(LWS_WITH_TLS) && !defined(LWS_WITH_MBEDTLS)
-/**
- * lws_get_ssl() - Return wsi's SSL context structure
- * \param wsi:	websocket connection
- *
- * Returns pointer to the SSL library's context structure
- */
-LWS_VISIBLE LWS_EXTERN SSL*
-lws_get_ssl(struct lws *wsi);
-#endif
-
 LWS_VISIBLE LWS_EXTERN void
 lws_explicit_bzero(void *p, size_t len);
 
@@ -959,12 +1913,12 @@ typedef struct lws_humanize_unit {
 	uint64_t factor;
 } lws_humanize_unit_t;
 
-LWS_VISIBLE extern const lws_humanize_unit_t humanize_schema_si[7];
-LWS_VISIBLE extern const lws_humanize_unit_t humanize_schema_si_bytes[7];
-LWS_VISIBLE extern const lws_humanize_unit_t humanize_schema_us[8];
+LWS_VISIBLE LWS_EXTERN_FOR_DATA const lws_humanize_unit_t humanize_schema_si[7];
+LWS_VISIBLE LWS_EXTERN_FOR_DATA const lws_humanize_unit_t humanize_schema_si_bytes[7];
+LWS_VISIBLE LWS_EXTERN_FOR_DATA const lws_humanize_unit_t humanize_schema_us[8];
 
 #if defined(_DEBUG)
-void
+LWS_VISIBLE LWS_EXTERN void
 lws_assert_fourcc(uint32_t fourcc, uint32_t expected);
 #else
 #define lws_assert_fourcc(_a, _b) do { } while (0);
@@ -988,12 +1942,19 @@ lws_assert_fourcc(uint32_t fourcc, uint32_t expected);
  * which represents a count of us as a human-readable time like "  14.350min",
  * or "  1.500d".
  *
- * You can produce your own schema.
+ * You can produce your own schema tables.
+ *
+ * lws_humanize_pad() is the same but pads the lhs so that it
+ * always produces the same length.
  */
 
 LWS_VISIBLE LWS_EXTERN int
 lws_humanize(char *buf, size_t len, uint64_t value,
 	     const lws_humanize_unit_t *schema);
+
+LWS_VISIBLE LWS_EXTERN int
+lws_humanize_pad(char *p, size_t len, uint64_t v,
+		 const lws_humanize_unit_t *schema);
 
 LWS_VISIBLE LWS_EXTERN void
 lws_ser_wu16be(uint8_t *b, uint16_t u);
@@ -1033,8 +1994,44 @@ struct _lws_siginfo_t {
 typedef struct _lws_siginfo_t siginfo_t;
 #endif
 
-typedef void (*lsp_cb_t)(void *opaque, lws_usec_t *accounting, siginfo_t *si,
-			 int we_killed_him);
+/**
+ * lws_spawn_resource_us_t - resource usage results from spawned process
+ *
+ * All time values are in uS.
+ * All size values are in bytes, on every platform.
+ *
+ * They're for the spawned process and everything it started, eg, the
+ * compilers under a build tool, not just the process itself.
+ *
+ * The cpu times are exact: what the kernel accounted to the process and the
+ * children it waited for, to its cgroup on Linux when it was given one, or to
+ * its job on Windows.
+ *
+ * peak_mem_rss is the most the tree had resident at once.  On Windows that's
+ * the job's peak committed memory.  Elsewhere, while the process runs, lws
+ * adds up the resident memory of it and its descendants (or of its cgroup's
+ * members on Linux) every 200ms, if lws_spawn_piped_info
+ * .res was given, and keeps the peak.  It errs high, since memory shared
+ * between processes is counted in each, and is never less than the peak of
+ * the biggest single process.
+ *
+ * oom_kills is how many of the tree's processes the OOM killer took while it
+ * ran, on Linux when the spawn was given a cgroup, from the cgroup's
+ * memory.events; 0 elsewhere or when it can't be read.  A build tool that
+ * lost a compiler to it exits nonzero as for any other failure, so this is
+ * how to tell the machine running out from the build being broken.
+ */
+typedef struct lws_spawn_resource_us {
+	uint64_t			us_cpu_user;  /**< user space cpu time */
+	uint64_t			us_cpu_sys;   /**< kernel space cpu time */
+
+	uint64_t			peak_mem_rss; /**< peak resident memory */
+	uint64_t			peak_mem_virt; /**< peak virtual memory */
+	uint64_t			oom_kills;    /**< processes the OOM killer took */
+} lws_spawn_resource_us_t;
+
+typedef void (*lsp_cb_t)(void *opaque, const lws_spawn_resource_us_t *res,
+			 siginfo_t *si, int we_killed_him);
 
 
 /**
@@ -1050,9 +2047,13 @@ typedef void (*lsp_cb_t)(void *opaque, lws_usec_t *accounting, siginfo_t *si,
  * \p wd: working directory to cd to after fork, NULL defaults to /tmp
  * \p plsp: NULL, or pointer to the outer lsp pointer so it can be set NULL when destroyed
  * \p opaque: pointer passed to the reap callback, if any
- * \p timeout: optional us-resolution timeout, or zero
  * \p reap_cb: callback when child process has been reaped and the lsp destroyed
  * \p tsi: tsi to bind stdwsi to... from opt_parent if given
+ * \p cgroup_name_suffix: for Linux, encapsulate spawn into this new cgroup
+ * \p p_cgroup_ret: NULL, or pointer to int to show if cgroups applied OK (0 = OK)
+ * \p res: NULL, or pointer to a lws_spawn_resource_us_t to take the results,
+ *	which also has lws keep track of the memory of the whole process tree
+ *	while it runs, see lws_spawn_resource_us_t
  */
 struct lws_spawn_piped_info {
 	struct lws_dll2_owner		*owner;
@@ -1071,6 +2072,8 @@ struct lws_spawn_piped_info {
 
 	lsp_cb_t			reap_cb;
 
+	lws_spawn_resource_us_t		*res;
+
 	lws_usec_t			timeout_us;
 	int				max_log_lines;
 	int				tsi;
@@ -1078,6 +2081,10 @@ struct lws_spawn_piped_info {
 	const struct lws_role_ops	*ops; /* NULL is raw file */
 
 	uint8_t				disable_ctrlc;
+	uint8_t				pty_mode;
+
+	const char			*cgroup_name_suffix;
+	int				*p_cgroup_ret;
 };
 
 /**
@@ -1115,6 +2122,36 @@ LWS_VISIBLE LWS_EXTERN int
 lws_spawn_piped_kill_child_process(struct lws_spawn_piped *lsp);
 
 /**
+ * lws_spawn_piped_destroy() - let go of a spawn, whatever its child is doing
+ *
+ * \p lsp: pointer to the spawn object pointer, which is set to NULL
+ *
+ * Destroys the spawn object and closes its stdwsi, without the reap
+ * callback: any stdwsi that finishes closing after this call no longer
+ * carries the spawn's \p opaque.  Use it when the owner is going and can no
+ * longer take the callback, eg, in PROTOCOL_DESTROY.
+ *
+ * A child that has not been collected yet is sent SIGTERM if nobody asked
+ * him to go already, and lws keeps collecting him in the background after
+ * the spawn object is gone, sending SIGKILL to his process group if he is
+ * still there a few seconds later, so he cannot linger as a zombie or keep
+ * running untracked.  (On Windows the child's job object is closed, which
+ * ends him and his tree.)
+ */
+LWS_VISIBLE LWS_EXTERN void
+lws_spawn_piped_destroy(struct lws_spawn_piped **lsp);
+
+/**
+ * lws_spawn_get_stdwsi_open_count() - return stdwsi unclosed count
+ *
+ * \p lsp: the spawn object
+ *
+ * Returns number of stdwsi left unclosed on the lsp.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_spawn_get_stdwsi_open_count(struct lws_spawn_piped *lsp);
+
+/**
  * lws_spawn_stdwsi_closed() - inform the spawn one of its stdxxx pipes closed
  *
  * \p lsp: the spawn object
@@ -1126,9 +2163,21 @@ lws_spawn_piped_kill_child_process(struct lws_spawn_piped *lsp);
  *
  * This is the mechanism whereby the spawn object can understand its child
  * has closed.
+ *
+ * Returns non-zero if there are no more stdwsi to wait for.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_spawn_stdwsi_closed(struct lws_spawn_piped *lsp, struct lws *wsi);
+
+/*
+ * lws_spawn_closedown_stdwsis() - forcibly close the spawner side of stdwsi pipes
+ *
+ * \p lsp: the spawn object
+ *
+ * Closes the spawner side of all the stdwsi for an lsp that are still open.
  */
 LWS_VISIBLE LWS_EXTERN void
-lws_spawn_stdwsi_closed(struct lws_spawn_piped *lsp, struct lws *wsi);
+lws_spawn_closedown_stdwsis(struct lws_spawn_piped *lsp);
 
 /**
  * lws_spawn_get_stdfd() - return std channel index for stdwsi
@@ -1142,6 +2191,79 @@ lws_spawn_stdwsi_closed(struct lws_spawn_piped *lsp, struct lws *wsi);
  */
 LWS_VISIBLE LWS_EXTERN int
 lws_spawn_get_stdfd(struct lws *wsi);
+
+/**
+ * lws_spawn_get_fd_stdxxx() - return fd belonging to lws side of spawn stdxxx
+ *
+ * \p lsp: the opaque pointer returned from lws_spawn()
+ * \p std_idx: 0 (stdin write side), 1 (stdout read side), 2 (stderr read side)
+ *
+ * Lets you get the fd for writing to the spawned process stdin, or reading from
+ * the spawned process stdout and stderr.
+ */
+LWS_VISIBLE LWS_EXTERN lws_filefd_type
+lws_spawn_get_fd_stdxxx(struct lws_spawn_piped *lsp, int std_idx);
+
+/**
+ * lws_spawn_get_cgroup_path() - return the dir of the child's cgroup
+ *
+ * \p lsp: the opaque pointer returned from lws_spawn()
+ *
+ * Returns the path of the cgroup dir the spawn was given, eg
+ * "/sys/fs/cgroup/system.slice/sai-builder.service/inst-xyz", or NULL if it
+ * has none: it wasn't spawned with a cgroup_name_suffix, the cgroup couldn't
+ * be made, or the platform isn't Linux.
+ *
+ * It lets the caller read the cgroup's own accounting while the child runs,
+ * eg, its cpu.stat, memory.current, io.stat and the cpu, io and memory
+ * .pressure files, rather than wait for the totals in lws_spawn_resource_us_t
+ * when it's reaped.  The string belongs to the lsp and the dir goes away when
+ * the child is reaped, so it's only good until then.
+ */
+LWS_VISIBLE LWS_EXTERN const char *
+lws_spawn_get_cgroup_path(struct lws_spawn_piped *lsp);
+
+/**
+ * lws_spawn_prepare_self_cgroup() - Create lws parent cgroup
+ *
+ * \p user: NULL, or the user name that will use the toplevel cgroup
+ * \p group: NULL, or the group name that will use the toplevel cgroup
+ *
+ * This helper should be called once at startup by a process that has root
+ * privileges.  It moves the process down into an "lws" leaf of its own
+ * cgroup, so the cgroup has no processes of its own and can hand the cpu,
+ * memory, pids and io controllers it has to the cgroups children are made
+ * in beside the leaf.  Each child is then a domain cgroup of its own: its
+ * memory is accounted and its OOM kills counted, see lws_spawn_resource_us_t,
+ * and its processes can be listed.
+ *
+ * After this has been called successfully, the process can drop privileges
+ * to a non-root user, and subsequent calls to lws_spawn_piped() with a
+ * cgroup_name_suffix will succeed as long as that user has write permission
+ * in the master cgroup directory (which is arranged via chown).
+ *
+ * If the process can't move, it stays where it is and children get threaded
+ * cgroups under it, which share out cpu but can't account memory: their
+ * memory is measured by walking the process tree instead.
+ *
+ * Returns 0 on success. On non-Linux platforms, it's a no-op that returns 1.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_spawn_prepare_self_cgroup(const char *user, const char *group);
+
+/**
+ * lws_spawn_get_self_cgroup() - Return current process cgroup name
+ *
+ * \p cgroup: buffer to take cgroup name
+ * \p max: max size of cgroup buffer
+ *
+ * Helper stores cgroup name of current process into the buffer.
+ * Returns 0 on success or 1 if failed.
+ *
+ * Returned name is a fragment like "system.slice/sai-builder.service"
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_spawn_get_self_cgroup(char *cgroup, size_t max);
 
 #endif
 
@@ -1188,6 +2310,11 @@ struct lws_fsmount {
  * fsm.overlay_path/overlays/fsm.ovname/session
  *
  * Returns 0 if mounted OK, nonzero if errors.
+ *
+ * fsm.ovname, fsm.distro and the fsm.layers[] entries are pasted both into the
+ * overlayfs mount option string and into a path that is recursively deleted,
+ * so they must consist only of [A-Za-z0-9._-] and may not be "." or "..";
+ * anything else is rejected with a nonzero return.
  *
  * Retain fsm for use with unmounting.
  */

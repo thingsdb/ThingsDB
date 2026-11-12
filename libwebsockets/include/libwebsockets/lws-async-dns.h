@@ -27,8 +27,28 @@
 typedef enum dns_query_type {
 	LWS_ADNS_RECORD_A					= 0x01,
 	LWS_ADNS_RECORD_CNAME					= 0x05,
+	LWS_ADNS_RECORD_SOA					= 0x06,
 	LWS_ADNS_RECORD_MX					= 0x0f,
+	LWS_ADNS_RECORD_TXT					= 0x10,
 	LWS_ADNS_RECORD_AAAA					= 0x1c,
+	LWS_ADNS_RECORD_DS					= 0x2b,
+	LWS_ADNS_RECORD_RRSIG					= 0x2e,
+	LWS_ADNS_RECORD_NSEC					= 0x2f,
+	LWS_ADNS_RECORD_DNSKEY					= 0x30,
+	LWS_ADNS_RECORD_NSEC3					= 0x32,
+	LWS_ADNS_RECORD_HTTPS					= 0x41,
+
+	/*
+	 * Query types are combined by OR with the flag bits defined below
+	 * the enum (LWS_ADNS_SYNTHETIC .. LWS_ADNS_IGNORE_HOSTS_FILE; the
+	 * largest possible combination is 0x1f0041).  A C enum can only
+	 * hold values within the range of its listed constants, so this
+	 * sentinel extends the enum's range over the whole flag space...
+	 * without it, any OR'd combination is undefined behaviour, which
+	 * -fsanitize=enum trips on.
+	 */
+
+	LWS_ADNS_RECORD_TYPE_AND_FLAGS_MAX			= 0x1f0041,
 } adns_query_type_t;
 
 typedef enum {
@@ -40,22 +60,59 @@ typedef enum {
 	LADNS_RET_CONTINUING
 } lws_async_dns_retcode_t;
 
+/*
+ * The values are those lws_system_ops_t .async_dns_dnssec_mode documents.
+ * Before 2026-10 REQUIRE and TOLERATE were the other way around (1 was
+ * TOLERATE), so binaries built against older headers that use the enum names
+ * now get the other mode: rebuild them.
+ */
+typedef enum {
+	LWS_ADNS_DNSSEC_OFF		= 0,
+	/**< no DNSSEC: queries don't ask for it and nothing is validated */
+	LWS_ADNS_DNSSEC_REQUIRE		= 1,
+	/**< every query is validated (except one marked
+	 * LWS_ADNS_INDICATE_LACKS_DNSSEC), and one that fails validation
+	 * fails */
+	LWS_ADNS_DNSSEC_TOLERATE	= 2,
+	/**< queries ask for DNSSEC records, but only those made with
+	 * LWS_ADNS_WANT_DNSSEC are validated; the rest are taken unvalidated */
+} lws_async_dns_dnssec_mode_t;
+
+#define LWS_ADNS_DNSSEC_VALID	(1 << 8)
+#define LWS_ADNS_DNSSEC_INVALID	(1 << 9)
+
 #define LWS_ADNS_SYNTHETIC	0x10000	/* don't send, synthetic response will
 					 * be injected for testing */
+#define LWS_ADNS_INDICATE_LACKS_DNSSEC	0x20000 /* tolerate missing DNSSEC on this specific lookup */
+#define LWS_ADNS_NOCACHE		0x40000 /* force network query, bypass cache */
+#define LWS_ADNS_WANT_DNSSEC	0x80000 /* Explicitly set DO bit in EDNS0 OPT record */
+#define LWS_ADNS_IGNORE_HOSTS_FILE 0x100000 /* Bypass checking /etc/hosts and force network DNS lookup */
+#define LADNS_NO_WSI_BUT_OK ((struct lws *)(intptr_t)0x1)
 
 struct addrinfo;
 
+/*
+ * The completion callback: ads is the name the lookup was asked for, whatever
+ * CNAME or search list domain it was resolved through; result is the addrinfo
+ * chain to release with lws_async_dns_freeaddrinfo(), or NULL; n is the
+ * lws_async_dns_retcode_t, or'd with LWS_ADNS_DNSSEC_VALID if validated.
+ *
+ * On failure n is LADNS_RET_NXDOMAIN if the name does not exist,
+ * LADNS_RET_TIMEDOUT if the query used all its retransmits without a usable
+ * answer, so asking again at once is unlikely to help, or LADNS_RET_FAILED.
+ */
 typedef struct lws * (*lws_async_dns_cb_t)(struct lws *wsi, const char *ads,
 		const struct addrinfo *result, int n, void *opaque);
 
 struct lws_adns_q;
 struct lws_async_dns;
+struct lws_async_dns_server;
 
 /**
  * lws_async_dns_query() - perform a dns lookup using async dns
  *
  * \param context: the lws_context
- * \param tsi: thread service index (usually 0)
+ * \param tsi: thread service index (usually 0) the callback is made on
  * \param name: DNS name to look up
  * \param qtype: type of query (A, AAAA etc)
  * \param cb: query completion callback
@@ -64,6 +121,12 @@ struct lws_async_dns;
  *
  * Starts an asynchronous DNS lookup, on completion the \p cb callback will
  * be called.
+ *
+ * With LWS_MAX_SMP > 1 and several service threads, \p cb is called on the
+ * service thread \p tsi, or for a query related to a wsi, on the wsi's own
+ * service thread, whichever thread the answer arrived on.  A result already
+ * in the cache, or a failure to start the lookup, is told from inside this
+ * call, on the calling thread.
  *
  * The reference count on the cached object is incremented for every callback
  * that was called with the cached addrinfo results.
@@ -78,9 +141,34 @@ lws_async_dns_query(struct lws_context *context, int tsi, const char *name,
 		    struct lws *wsi, void *opaque, struct lws_adns_q **pq);
 
 /**
+ * lws_async_dns_cancel_by_opaque() - cancel ongoing standalone queries by opaque
+ *
+ * \param context: the lws_context
+ * \param opaque: the opaque pointer the queries of interest were issued with
+ *
+ * Destroys any ongoing standalone queries (queries issued with a NULL wsi)
+ * that were issued with the given \p opaque as the callback opaque, without
+ * calling their callbacks.
+ *
+ * Use this when the object you passed as \p opaque to lws_async_dns_query()
+ * is going away, eg, on its timeout or destruction.  Without it, a resolver
+ * reply that arrives later will call your callback with a pointer to freed
+ * heap.
+ *
+ * If wsis have piggybacked on a matching query, the query is left for the
+ * last piggybacking wsi to destroy, but the standalone callback and opaque
+ * are detached first so your disappearing object is not dereferenced by the
+ * eventual completion.
+ *
+ * Must be called from the service thread.
+ */
+LWS_VISIBLE LWS_EXTERN void
+lws_async_dns_cancel_by_opaque(struct lws_context *context, void *opaque);
+
+/**
  * lws_async_dns_freeaddrinfo() - decrement refcount on cached addrinfo results
  *
- * \param pai: a pointert to a pointer to first addrinfo returned as result in the callback
+ * \param ai: a pointert to a pointer to first addrinfo returned as result in the callback
  *
  * Decrements the cache object's reference count.  When it reaches zero, the
  * cached object may be reaped subject to LRU rules.
@@ -89,6 +177,122 @@ lws_async_dns_query(struct lws_context *context, int tsi, const char *name,
  */
 LWS_VISIBLE LWS_EXTERN void
 lws_async_dns_freeaddrinfo(const struct addrinfo **ai);
+
+/**
+ * lws_async_dns_get_rr_cache() - get a stashed DNSSEC/raw record from the cache
+ *
+ * \param context: the lws_context
+ * \param name: the DNS name
+ * \param qtype: the query type of the record to find (e.g. LWS_ADNS_RECORD_DS)
+ * \param paylen: set to the payload length if found
+ *
+ * Retrieves a pointer to the payload of a cached DNS record that doesn't
+ * normally result in an addrinfo (like DS, DNSKEY, TXT).  If the record is
+ * cached both from a lookup that DNSSEC-validated it and from one that didn't,
+ * the validated one is returned.
+ * Returns NULL if not found or no cache entry exists.
+ */
+LWS_VISIBLE LWS_EXTERN const uint8_t *
+lws_async_dns_get_rr_cache(struct lws_context *context, const char *name,
+			   adns_query_type_t qtype, uint16_t *paylen);
+
+/**
+ * lws_async_dns_get_alpn() - check if an ALPN protocol is in the cached HTTPS record
+ *
+ * \param context: the lws_context
+ * \param name: the DNS name
+ * \param alpn: the ALPN protocol string to check (e.g. "h3")
+ *
+ * Returns 1 if the ALPN protocol is found in the cached HTTPS record for the name,
+ * or 0 otherwise.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_async_dns_get_alpn(struct lws_context *context, const char *name, const char *alpn);
+
+/**
+ * struct lws_adns_direct_rr - one answer record of a direct query
+ *
+ * \param rdata: the record's RDATA, only valid during the callback
+ * \param ttl: the record's TTL
+ * \param type: the record type, LWS_ADNS_RECORD_...
+ * \param len: bytes of RDATA
+ */
+typedef struct lws_adns_direct_rr {
+	const uint8_t		*rdata;
+	uint32_t		ttl;
+	uint16_t		type;
+	uint16_t		len;
+} lws_adns_direct_rr_t;
+
+#define LWS_ADNS_DIRECT_MAX_RRS		16
+
+/**
+ * struct lws_adns_direct_result - the outcome of a direct query
+ *
+ * \param ret: LADNS_RET_FOUND if the server answered (\p count may be 0 if
+ *		it has no records of the type for the name),
+ *		LADNS_RET_NXDOMAIN if it says the name does not exist,
+ *		LADNS_RET_TIMEDOUT if it never answered, or LADNS_RET_FAILED
+ *		if it answered with an error (see \p rcode), or its port
+ *		refused the question
+ * \param rcode: the DNS RCODE of the answer, if any
+ * \param authoritative: the answer had the AA bit set
+ * \param rrs: the answer records of the asked type for the asked name
+ * \param count: how many of those there are in \p rrs
+ */
+typedef struct lws_adns_direct_result {
+	lws_async_dns_retcode_t		ret;
+	uint8_t				rcode;
+	uint8_t				authoritative;
+	const lws_adns_direct_rr_t	*rrs;
+	int				count;
+} lws_adns_direct_result_t;
+
+typedef void (*lws_async_dns_direct_cb_t)(void *opaque,
+					  const lws_adns_direct_result_t *r);
+
+struct lws_adns_direct;
+
+/**
+ * lws_async_dns_query_direct() - ask one particular DNS server
+ *
+ * \param context: the lws_context
+ * \param server: the server to ask; port 53 if its port is 0
+ * \param name: the name to look up
+ * \param qtype: the record type to ask for, LWS_ADNS_RECORD_...
+ * \param cb: called once with the outcome, unless the query is cancelled
+ * \param opaque: passed to \p cb
+ *
+ * Sends the question to \p server alone, without recursion desired, and
+ * reports what that server says, eg, to see whether an authoritative server
+ * is serving a record yet.  Unlike lws_async_dns_query(), nothing is taken
+ * from or put in the cache, the configured nameservers are not involved,
+ * and no CNAME is followed.  The question is resent if no answer comes,
+ * until the query times out after some seconds.  Only an answer from
+ * \p server to this question is taken: anything else is ignored.
+ *
+ * Must be called from the service thread.  Returns a handle that is valid
+ * until \p cb is called, and must not be used from \p cb or after it; or
+ * NULL if the query could not be started, in which case \p cb is not called.
+ */
+LWS_VISIBLE LWS_EXTERN struct lws_adns_direct *
+lws_async_dns_query_direct(struct lws_context *context,
+			   const lws_sockaddr46 *server, const char *name,
+			   adns_query_type_t qtype,
+			   lws_async_dns_direct_cb_t cb, void *opaque);
+
+/**
+ * lws_async_dns_query_direct_cancel() - drop a direct query in flight
+ *
+ * \param pd: pointer to the handle from lws_async_dns_query_direct(), which
+ *	      is set to NULL
+ *
+ * Its callback will not be called.  Use this when the object you passed as
+ * the opaque is going away before the query completed.  Must be called from
+ * the service thread.
+ */
+LWS_VISIBLE LWS_EXTERN void
+lws_async_dns_query_direct_cancel(struct lws_adns_direct **pd);
 
 /**
  * lws_async_dns_server_add() - add a DNS server to the lws async DNS list
@@ -119,12 +323,113 @@ lws_async_dns_server_remove(struct lws_context *cx, const lws_sockaddr46 *sa46);
 
 /* only needed for testing */
 
+/* the tid of q's A question, or of its only question if not an address */
 LWS_VISIBLE LWS_EXTERN uint16_t
 lws_adns_get_tid(struct lws_adns_q *q);
+/* the tid of an address lookup's AAAA question */
+LWS_VISIBLE LWS_EXTERN uint16_t
+lws_adns_get_tid_aaaa(struct lws_adns_q *q);
 LWS_VISIBLE LWS_EXTERN struct lws_async_dns *
 lws_adns_get_async_dns(struct lws_adns_q *q);
 
+LWS_VISIBLE LWS_EXTERN struct lws_async_dns_server *
+lws_adns_get_server(struct lws_adns_q *q);
+
 LWS_VISIBLE LWS_EXTERN void
-lws_adns_parse_udp(struct lws_async_dns *dns, const uint8_t *pkt, size_t len);
+lws_adns_parse_udp(struct lws_async_dns *dns, const uint8_t *pkt, size_t len,
+		   struct lws_async_dns_server *dsrv);
+
+/**
+ * lws_plat_asyncdns_get_server() - Get system DNS server address
+ *
+ * \param context: the lws_context
+ * \param n: the zero-based index of the server to get
+ * \param sa46: pointer to lws_sockaddr46 to receive the server address
+ *
+ * This platform-specific primitive allows retrieving the system's DNS
+ * configuration. It returns 0 if the `n`th nameserver is written to `sa46`,
+ * or < 0 if there is no `n`th nameserver available.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_plat_asyncdns_get_server(struct lws_context *context, int n,
+			     lws_sockaddr46 *sa46);
+
+/**
+ * lws_plat_asyncdns_get_search() - Get the system DNS search list
+ *
+ * \param context: the lws_context
+ * \param buf: where to write the search domains
+ * \param len: size of buf
+ * \param ndots: receives the resolver's ndots setting, 1 if it has none
+ *
+ * This platform-specific primitive retrieves the system resolver's search
+ * list: the domains a name with fewer than ndots dots is tried under before
+ * it is tried as given, eg, from "search" and "options ndots:" in
+ * /etc/resolv.conf on unix.  The domains are written NUL-terminated one after
+ * another into \p buf, and the count is returned, or 0 if there is no search
+ * list.  It returns < 0 if the system's configuration can't be read.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_plat_asyncdns_get_search(struct lws_context *context, char *buf,
+			     size_t len, int *ndots);
+
+/**
+ * lws_async_dns_server_reload() - reload the OS assigned DNS servers
+ *
+ * \param context: the lws_context
+ *
+ * This forces LWS to re-check the OS for assigned DNS servers.
+ * It is useful when the device has changed networks.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_async_dns_server_reload(struct lws_context *context);
+
+
+/**
+ * lws_async_dns_dnssec_set_mode() - Set the system-wide DNSSEC mode
+ *
+ * \param context: the lws_context
+ * \param mode: the requested DNSSEC mode (off, tolerate, or require)
+ *
+ * Configures how the asynchronous DNS handles DNSSEC validation.  It replaces
+ * the default taken from lws_system_ops_t .async_dns_dnssec_mode at context
+ * creation for the life of the context: reloading the nameservers, eg, when
+ * the platform's DNS configuration changes, doesn't reset it.
+ */
+LWS_VISIBLE LWS_EXTERN void
+lws_async_dns_dnssec_set_mode(struct lws_context *context, lws_async_dns_dnssec_mode_t mode);
+
+/*
+ * A DS record for the root zone's key signing key, ie, a DNSSEC trust anchor
+ */
+typedef struct lws_adns_ds_anchor {
+	const uint8_t		*digest;
+	size_t			digest_len;
+	uint16_t		key_tag;
+	uint8_t			algorithm;	/* eg, 8 = RSASHA256 */
+	uint8_t			digest_type;	/* 2 = SHA-256, 4 = SHA-384 */
+} lws_adns_ds_anchor_t;
+
+/**
+ * lws_async_dns_dnssec_set_root_anchors() - replace the DNSSEC trust anchors
+ *
+ * \param context: the lws_context
+ * \param anchors: array of DS records for the root zone's KSK(s), or NULL
+ * \param count: number of entries in \p anchors, or 0
+ *
+ * DNSSEC validation authenticates every zone's keys by a chain of DS records
+ * leading up to a key of the root zone that matches one of these anchors.
+ * Lws has the ICANN root KSK DS records built in; this replaces them, eg,
+ * for a private DNS hierarchy or a test.  NULL / 0 restores the built-in set.
+ *
+ * Keys already authenticated under the previous anchors are forgotten.
+ *
+ * Returns 0 on success, or nonzero if an anchor is malformed or OOM, in which
+ * case the previous anchors are kept.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_async_dns_dnssec_set_root_anchors(struct lws_context *context,
+				      const lws_adns_ds_anchor_t *anchors,
+				      size_t count);
 
 #endif

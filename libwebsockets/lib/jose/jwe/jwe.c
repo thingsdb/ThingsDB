@@ -61,7 +61,12 @@ lws_jwe_json_cb(struct lejp_ctx *ctx, char reason)
 	struct jwe_cb_args *args = (struct jwe_cb_args *)ctx->user;
 	int n, m;
 
-	if (!(reason & LEJP_FLAG_CB_IS_VALUE) || !ctx->path_match)
+	/*
+	 * LEJPCB_VAL_STR_START is not flagged as a value callback but we need
+	 * it, to know when a new string value begins for one of our elements
+	 */
+	if ((!(reason & LEJP_FLAG_CB_IS_VALUE) &&
+	     reason != LEJPCB_VAL_STR_START) || !ctx->path_match)
 		return 0;
 
 	switch (ctx->path_match - 1) {
@@ -103,6 +108,23 @@ append_string:
 	 * and we can't do it until we see the protected alg.
 	 */
 
+	if (reason == LEJPCB_VAL_STR_START) {
+		/*
+		 * A second value for the same element would have its b64 run
+		 * together with the first one's, which is not contiguous in
+		 * temp any more (the first decode sits in between): refuse
+		 * duplicate elements rather than sign-check a mixture
+		 */
+		if (args->jws->map_b64.buf[m]) {
+			lwsl_err("%s: duplicate element %d\n", __func__, m);
+			return -1;
+		}
+		args->jws->map_b64.buf[m] = args->temp;
+		args->jws->map_b64.len[m] = 0;
+
+		return 0;
+	}
+
 	if (!args->jws->map_b64.buf[m]) {
 		args->jws->map_b64.buf[m] = args->temp;
 		args->jws->map_b64.len[m] = 0;
@@ -114,8 +136,6 @@ append_string:
 	args->jws->map_b64.len[m] += ctx->npos;
 
 	if (reason == LEJPCB_VAL_STR_END) {
-		args->jws->map.buf[m] = args->temp;
-
 		n = lws_b64_decode_string_len(
 			(const char *)args->jws->map_b64.buf[m],
 			(int)args->jws->map_b64.len[m],
@@ -125,9 +145,17 @@ append_string:
 			return -1;
 		}
 
+		/*
+		 * Only point the decoded map at temp once the decode has
+		 * succeeded, so a failed decode can't leave an element with a
+		 * pointer near the end of temp and a stale length from an
+		 * earlier value, which lws_jws_destroy() would then scrub
+		 * past the end of the caller's buffer
+		 */
+		args->jws->map.buf[m] = args->temp;
+		args->jws->map.len[m] = (uint32_t)n;
 		args->temp += n;
 		*args->temp_len -= n;
-		args->jws->map.len[m] = (uint32_t)n;
 	}
 
 	return 0;
@@ -201,8 +229,10 @@ be32(uint32_t i, uint32_t *p32)
  * Key derivation is performed using the Concat KDF, as defined in
  * Section 5.8.1 of [NIST.800-56A], where the Digest Method is SHA-256.
  *
- * out must be prepared to take at least 32 bytes or the encrypted key size,
- * whichever is larger.
+ * The output is produced in whole SHA-256 blocks, so out must be prepared to
+ * take the key size rounded up to a multiple of 32 bytes (64 bytes for the
+ * 48-byte A192CBC-HS384 key).  Any size of shared secret can produce any size
+ * of key.
  */
 
 int
@@ -212,10 +242,16 @@ lws_jwa_concat_kdf(struct lws_jwe *jwe, int direct, uint8_t *out,
 	int hlen = (int)lws_genhash_size(LWS_GENHASH_TYPE_SHA256), aidlen;
 	struct lws_genhash_ctx hash_ctx;
 	uint32_t ctr = 1, t;
+	uint32_t out_bits;
+	uint32_t out_bytes;
 	const char *aid;
 
 	if (!jwe->jose.enc_alg || !jwe->jose.alg)
 		return -1;
+
+	out_bits = direct ? jwe->jose.enc_alg->keybits_fixed :
+			    jwe->jose.alg->keybits_fixed;
+	out_bytes = out_bits / 8;
 
 	/*
 	 * Hash
@@ -268,7 +304,7 @@ lws_jwa_concat_kdf(struct lws_jwe *jwe, int direct, uint8_t *out,
 	 *    one hash output size (256b for SHA-256)
 	 */
 
-	while (ctr <= (uint32_t)((jwe->jose.enc_alg->keybits_fixed + (hlen - 1)) / hlen)) {
+	while (ctr <= (uint32_t)((out_bytes + ((unsigned int)hlen - 1)) / (unsigned int)hlen)) {
 
 		/*
 		 * Key derivation is performed using the Concat KDF, as defined
@@ -295,8 +331,7 @@ lws_jwa_concat_kdf(struct lws_jwe *jwe, int direct, uint8_t *out,
 		    lws_genhash_update(&hash_ctx, jwe->jose.e[LJJHI_APV].buf,
 						  jwe->jose.e[LJJHI_APV].len) ||
 		    lws_genhash_update(&hash_ctx,
-				       be32(jwe->jose.enc_alg->keybits_fixed, &t),
-					    4) ||
+				       be32(out_bits, &t), 4) ||
 		    lws_genhash_destroy(&hash_ctx, out)) {
 			lwsl_err("%s: fail\n", __func__);
 			lws_genhash_destroy(&hash_ctx, NULL);
@@ -322,8 +357,14 @@ lws_jwe_be64(uint64_t c, uint8_t *p8)
 int
 lws_jwe_auth_and_decrypt(struct lws_jwe *jwe, char *temp, int *temp_len)
 {
-	int valid_aescbc_hmac, valid_aesgcm;
+	int valid_aescbc_hmac, valid_aesgcm, ot = *temp_len;
 	char dotstar[96];
+
+	/* a compact serialization that had no JOSE part at all */
+	if (!jwe->jws.map.buf[LJWS_JOSE] || !jwe->jws.map.len[LJWS_JOSE]) {
+		lwsl_err("%s: no JOSE header\n", __func__);
+		return -1;
+	}
 
 	if (lws_jwe_parse_jose(&jwe->jose, jwe->jws.map.buf[LJWS_JOSE],
 			       (int)jwe->jws.map.len[LJWS_JOSE],
@@ -341,6 +382,16 @@ lws_jwe_auth_and_decrypt(struct lws_jwe *jwe, char *temp, int *temp_len)
 
 		return -1;
 	}
+
+	/*
+	 * The JOSE parse consumed from the front of temp: the decoded apu,
+	 * apv, iv and tag elements live there and jose.e[] points into them.
+	 * Advance past what it used, exactly as lws_jwe_encrypt() does, or
+	 * the AAD the ECDH path encodes at temp[0] lands on top of the apu /
+	 * apv the ConcatKDF is about to hash.
+	 */
+
+	temp += ot - *temp_len;
 
 	valid_aescbc_hmac = jwe->jose.enc_alg &&
 		jwe->jose.enc_alg->algtype_crypto == LWS_JOSE_ENCTYPE_AES_CBC &&
@@ -384,6 +435,7 @@ int
 lws_jwe_encrypt(struct lws_jwe *jwe, char *temp, int *temp_len)
 {
 	int valid_aescbc_hmac, valid_aesgcm, ot = *temp_len, ret = -1;
+	char dotstar[96];
 
 	if (jwe->jose.recipients >= (int)LWS_ARRAY_SIZE(jwe->jose.recipient)) {
 		lwsl_err("%s: max recipients reached\n", __func__);
@@ -398,6 +450,14 @@ lws_jwe_encrypt(struct lws_jwe *jwe, char *temp, int *temp_len)
 			       (int)jwe->jws.map.len[LJWS_JOSE], temp, temp_len) < 0) {
 		lwsl_err("%s: JOSE parse failed\n", __func__);
 		goto bail;
+	}
+
+	if (!jwe->jose.alg) {
+		lws_strnncpy(dotstar, jwe->jws.map.buf[LJWS_JOSE],
+			     jwe->jws.map.len[LJWS_JOSE], sizeof(dotstar));
+		lwsl_err("%s: no jose.alg: %s\n", __func__, dotstar);
+
+		return -1;
 	}
 
 	temp += ot - *temp_len;
@@ -443,10 +503,18 @@ lws_jwe_encrypt(struct lws_jwe *jwe, char *temp, int *temp_len)
 					jwe->jose.enc_alg->alg : "NULL");
 
 bail:
-	if (ret)
-		memset(&jwe->jose.recipient[jwe->jose.recipients], 0,
-			sizeof(jwe->jose.recipient[0]));
-	else
+	/*
+	 * ->recipients was re-derived from the protected header by
+	 * lws_jwe_parse_jose() above, ie, it is not the value the entry test
+	 * checked... bounds-check it again before using it as an index
+	 */
+
+	if (ret) {
+		if (jwe->jose.recipients >= 0 && jwe->jose.recipients <
+				(int)LWS_ARRAY_SIZE(jwe->jose.recipient))
+			memset(&jwe->jose.recipient[jwe->jose.recipients], 0,
+			       sizeof(jwe->jose.recipient[0]));
+	} else
 		jwe->jose.recipients++;
 
 	return ret;
@@ -488,9 +556,12 @@ lws_jwe_render_compact(struct lws_jwe *jwe, char *out, size_t out_len)
 		return -1;
 	}
 
+	if (out_len >= 32 * 1024 * 1024) /* cov */
+		return -1;
+
 	n = lws_jws_base64_enc(jwe->jws.map.buf[LJWS_JOSE],
 			       jwe->jws.map.len[LJWS_JOSE], out, out_len);
-	if (n < 0 || (int)out_len == n) {
+	if (n < 0 || n >= (int)out_len) {
 		lwsl_info("%s: unable to encode JOSE\n", __func__);
 		return -1;
 	}
@@ -501,7 +572,7 @@ lws_jwe_render_compact(struct lws_jwe *jwe, char *out, size_t out_len)
 
 	n = lws_jws_base64_enc(jwe->jws.map.buf[LJWE_EKEY],
 			       jwe->jws.map.len[LJWE_EKEY], out, out_len);
-	if (n < 0 || (int)out_len == n) {
+	if (n < 0 || n >= (int)out_len) {
 		lwsl_info("%s: unable to encode EKEY\n", __func__);
 		return -1;
 	}
@@ -511,7 +582,7 @@ lws_jwe_render_compact(struct lws_jwe *jwe, char *out, size_t out_len)
 	out_len -= (unsigned int)n + 1;
 	n = lws_jws_base64_enc(jwe->jws.map.buf[LJWE_IV],
 			       jwe->jws.map.len[LJWE_IV], out, out_len);
-	if (n < 0 || (int)out_len == n) {
+	if (n < 0 || n >= (int)out_len) {
 		lwsl_info("%s: unable to encode IV\n", __func__);
 		return -1;
 	}
@@ -522,7 +593,7 @@ lws_jwe_render_compact(struct lws_jwe *jwe, char *out, size_t out_len)
 
 	n = lws_jws_base64_enc(jwe->jws.map.buf[LJWE_CTXT],
 			       jwe->jws.map.len[LJWE_CTXT], out, out_len);
-	if (n < 0 || (int)out_len == n) {
+	if (n < 0 || n >= (int)out_len) {
 		lwsl_info("%s: unable to encode CTXT\n", __func__);
 		return -1;
 	}
@@ -532,7 +603,7 @@ lws_jwe_render_compact(struct lws_jwe *jwe, char *out, size_t out_len)
 	out_len -= (unsigned int)n + 1;
 	n = lws_jws_base64_enc(jwe->jws.map.buf[LJWE_ATAG],
 			       jwe->jws.map.len[LJWE_ATAG], out, out_len);
-	if (n < 0 || (int)out_len == n) {
+	if (n < 0 || n >= (int)out_len) {
 		lwsl_info("%s: unable to encode ATAG\n", __func__);
 		return -1;
 	}
@@ -540,8 +611,11 @@ lws_jwe_render_compact(struct lws_jwe *jwe, char *out, size_t out_len)
 	out += n;
 	*out++ = '\0';
 	out_len -= (unsigned int)n;
-
+#if defined(__COVERITY__)
+	return 0;
+#else
 	return (int)(orig - out_len);
+#endif
 }
 
 int
@@ -562,7 +636,7 @@ lws_jwe_create_packet(struct lws_jwe *jwe, const char *payload, size_t len,
 	 * here temporarily.
 	 */
 	n = LWS_PRE + 2048;
-	buf = malloc((unsigned int)n);
+	buf = lws_malloc((unsigned int)n, __func__);
 	if (!buf) {
 		lwsl_notice("%s: malloc %d failed\n", __func__, n);
 		return -1;
@@ -645,13 +719,13 @@ lws_jwe_create_packet(struct lws_jwe *jwe, const char *payload, size_t len,
 	p1 += n;
 	p1 += lws_snprintf(p1, lws_ptr_diff_size_t(end1, p1), "\"}");
 
-	free(buf);
+	lws_free(buf);
 
 	return lws_ptr_diff(p1, out);
 
 bail:
 	lws_jws_destroy(&jws);
-	free(buf);
+	lws_free(buf);
 
 	return -1;
 }
@@ -731,6 +805,14 @@ lws_jwe_render_flattened(struct lws_jwe *jwe, char *out, size_t out_len)
 		return -1;
 	}
 
+	/* lws_jose_render only checked jose.alg: JWEs also need an enc */
+
+	if (!jwe->jose.enc_alg) {
+		lwsl_err("%s: no jose.enc_alg\n", __func__);
+
+		return -1;
+	}
+
 	/*
 	 * prepare the JWE JSON with all the parts in
 	 */
@@ -759,7 +841,21 @@ lws_jwe_render_flattened(struct lws_jwe *jwe, char *out, size_t out_len)
 	/* unprotected not supported atm */
 
 	p1 += lws_snprintf(p1, lws_ptr_diff_size_t(end1, p1), "\",\n\"header\":");
-	lws_strnncpy(p1, buf, jlen, end1 - p1);
+
+	/*
+	 * lws_snprintf() returns the size it was given when it truncated, so
+	 * p1 can be sitting exactly on end1 here.  lws_strnncpy() with a zero
+	 * destination size now copies nothing (and cannot terminate), so a
+	 * silently empty header is the failure mode... bail on truncation
+	 * instead, which is what the caller needs to know anyway
+	 */
+
+	if (p1 >= end1) {
+		lwsl_notice("%s: out buffer too small\n", __func__);
+		goto bail;
+	}
+
+	lws_strnncpy(p1, buf, jlen, lws_ptr_diff_size_t(end1, p1));
 	p1 += strlen(p1);
 
 	for (m = 0; m < (int)LWS_ARRAY_SIZE(protected_en); m++)

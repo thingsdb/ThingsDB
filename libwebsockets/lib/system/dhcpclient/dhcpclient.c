@@ -45,8 +45,18 @@ lws_dhcpc_destroy(lws_dhcpc_req_t **pr)
 	lws_sul_cancel(&r->sul_write);
 	lws_sul_cancel(&r->sul_renew);
 
-	if (r->wsi_raw)
+	if (r->wsi_raw) {
+		/*
+		 * The wsi's user_space points to r and is flagged externally
+		 * allocated, so lws will not clean it up... and the kill is
+		 * async, the close callbacks come later.  Detach r from the
+		 * wsi before we free it, or those callbacks act on freed
+		 * memory (and can arm suls that live inside it).
+		 */
+		r->wsi_raw->user_space = NULL;
 		lws_set_timeout(r->wsi_raw, 1, LWS_TO_KILL_ASYNC);
+		r->wsi_raw = NULL;
+	}
 
 	lws_dll2_remove(&r->list);
 
@@ -58,7 +68,7 @@ lws_dhcpc_status(struct lws_context *context, lws_sockaddr46 *sa46)
 {
 	lws_dhcpc_req_t *r;
 
-	lws_start_foreach_dll(struct lws_dll2 *, p, context->dhcpc_owner.head) {
+	lws_start_foreach_dll(struct lws_dll2 *, p, lws_dll2_get_head(&context->dhcpc_owner)) {
 		r = (lws_dhcpc_req_t *)p;
 
 		if (r->state == LDHC_BOUND) {
@@ -81,7 +91,7 @@ lws_dhcpc_find(struct lws_context *context, const char *iface, int af)
 
 	/* see if we are already looking after this af / iface combination */
 
-	lws_start_foreach_dll(struct lws_dll2 *, p, context->dhcpc_owner.head) {
+	lws_start_foreach_dll(struct lws_dll2 *, p, lws_dll2_get_head(&context->dhcpc_owner)) {
 		r = (lws_dhcpc_req_t *)p;
 
 		if (!strcmp((const char *)&r[1], iface) && af == r->af)

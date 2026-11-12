@@ -1,7 +1,7 @@
 #
 # libwebsockets - small server side websockets and web server implementation
 #
-# Copyright (C) 2010 - 2020 Andy Green <andy@warmcat.com>
+# Copyright (C) 2010 - 2026 Andy Green <andy@warmcat.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to
@@ -27,10 +27,22 @@ if(IOS)
     set(LWS_DETECTED_PLAT_IOS 1)
 endif()
 
+if (LWS_WITH_SCHANNEL OR LWS_WITH_GNUTLS OR LWS_WITH_MBEDTLS OR LWS_WITH_BEARSSL)
+       set(LWS_WITH_SSL 1)
+endif()
+
 # Workaround for ESP-IDF
 # Detect ESP_PLATFORM environment flag, if exist, set LWS_WITH_ESP32.
 # Otherwise the user may not be able to run configuration ESP-IDF in the first time.
-if (ESP_PLATFORM)
+#
+# espressif-port patch: skip the ESP32 / FreeRTOS path when building
+# for the IDF Linux target. ESP_PLATFORM is set on every IDF build
+# (including --preview set-target linux), but the Linux target is a
+# POSIX/glibc environment and the FreeRTOS plat shims pull in IDF's
+# newlib platform_include — which uses `__assert_func` (newlib-only)
+# and `<sys/features.h>` (newlib path), neither of which exists on
+# glibc. Fall through to the upstream `plat/unix` path instead.
+if (ESP_PLATFORM AND NOT (DEFINED IDF_TARGET AND IDF_TARGET STREQUAL "linux"))
 	message(STATUS "ESP-IDF enabled")
 	set(LWS_WITH_ESP32 ON)
 	set(LWS_WITH_ZLIB OFF)
@@ -45,6 +57,11 @@ endif()
 
 if (LWS_PLAT_OPTEE)
 	set(LWS_WITH_UDP 0)
+endif()
+
+# h3 is based on quic
+if (LWS_WITH_HTTP3)
+	set(LWS_ROLE_QUIC 1)
 endif()
 
 if (LWS_PLAT_FREERTOS OR (${CMAKE_SYSTEM_NAME} MATCHES "QNX"))
@@ -71,6 +88,34 @@ if (LWS_FOR_GITOHASHI)
 	set(LWS_WITH_FSMOUNT 1)
 	set(LWS_WITH_STRUCT_JSON 1)
 	set(LWS_WITH_STRUCT_SQLITE3 1)
+	set(LWS_WITH_HL 1)
+	set(LWS_WITH_HL_LANG_C 1)
+	set(LWS_WITH_HL_LANG_DIFF 1)
+endif()
+
+#
+# Everything sai-server, sai-web, sai-builder, sai-virt, sai-power and the
+# other sai daemons need from lws, see sai's README.md
+#
+if (LWS_FOR_SAI)
+	set(LWS_UNIX_SOCK 1)		# sai-server <-> sai-web, sai-jig
+	set(LWS_WITH_SECURE_STREAMS 1)	# links to sai-server
+	set(LWS_WITH_STRUCT_JSON 1)	# everything sai says on the wire
+	set(LWS_WITH_STRUCT_SQLITE3 1)	# sai-server, sai-web, sai-power dbs
+	set(LWS_WITH_GENCRYPTO 1)	# sai-server, sai-web
+	set(LWS_WITH_JOSE 1)		# sai-server, sai-web
+	set(LWS_WITH_SPAWN 1)		# builds, power and push scripts
+	set(LWS_WITH_STUB 1)		# sai-builder's deletion stub
+	set(LWS_WITH_WOL 1)		# sai-power
+	set(LWS_WITH_EMAIL 1)		# sai-server's mail notifications
+	set(LWS_WITH_SYS_INFO 1)	# the system each daemon's logs came from
+	set(LWS_WITH_SYS_NTPCLIENT 1)	# sai-builder waits for the right time
+	set(LWS_WITH_LOG_SHIP 1)	# every daemon's logs go to sai-server
+	if (NOT WIN32)
+		# sai-server keeps them with lws-log-ingest; builders, the
+		# only part of sai on windows, don't need it
+		set(LWS_WITH_PLUGINS 1)
+	endif()
 endif()
 
 if(LWS_WITH_DISTRO_RECOMMENDED)
@@ -95,6 +140,7 @@ if(LWS_WITH_DISTRO_RECOMMENDED)
 	set(LWS_WITH_THREADPOOL 1)			# pthreads
 	set(LWS_UNIX_SOCK 1)				# selfcontained
 	set(LWS_WITH_HTTP_PROXY 1)			# selfcontained
+	set(LWS_WITH_TLS_PASSTHROUGH 1)			# selfcontained
 	set(LWS_WITH_DISKCACHE 1)			# selfcontained
 	set(LWS_WITH_LWSAC 1)				# selfcontained
 	set(LWS_WITH_LEJP_CONF 1)			# selfcontained
@@ -113,6 +159,27 @@ if(LWS_WITH_DISTRO_RECOMMENDED)
 	set(LWS_WITH_SECURE_STREAMS 1)			# selfcontained
 	set(LWS_WITH_SECURE_STREAMS_PROXY_API 1)	# selfcontained
 	set(LWS_WITH_DIR 1)				# selfcontained
+	set(LWS_WITH_SELFDNS 1)				# selfcontained
+	set(LWS_WITH_LOG_SHIP 1)			# selfcontained
+endif()
+
+if (LWS_WITH_SELFDNS)
+	set(LWS_WITH_DHT 1)
+	set(LWS_WITH_AUTHORITATIVE_DNS 1)
+	set(LWS_WITH_DHT_BACKEND 1)
+	set(LWS_WITH_ACME 1)
+	set(LWS_WITH_DIR 1)
+	set(LWS_WITH_TRANSPORT_SEQUENCER 1)
+	set(LWS_WITH_SYS_ASYNC_DNS 1)
+	set(LWS_WITH_SYS_ASYNC_DNS_DNSSEC 1)
+	set(LWS_WITH_AUTH_SERVER 1)
+	set(LWS_WITH_SYS_WHOIS 1)
+	set(LWS_WITH_PLUGINS 1)
+endif()
+
+if (LWS_WITH_AUTH_SERVER)
+	set(LWS_WITH_QRCODEGEN 1)
+	set(LWS_WITH_EMAIL 1)
 endif()
 
 # LWS_WITH_EVENT_LIBS is set if any event lib selected
@@ -135,6 +202,60 @@ if (LWS_WITH_SECURE_STREAMS_PROXY_API)
 	set(LWS_WITH_SECURE_STREAMS 1)
 endif()
 
+if (LWS_WITH_DHT_BACKEND)
+	set(LWS_WITH_DHT 1)
+endif()
+
+if (LWS_WITH_DHT)
+	set(LWS_WITH_TRANSPORT_SEQUENCER 1)
+	# so the DHT nodes' logs can be looked at together; a node only ships
+	# them if its config says where to
+	set(LWS_WITH_LOG_SHIP 1)
+endif()
+
+if (LWS_WITH_TRANSPORT_SEQUENCER)
+	set(LWS_WITH_LWS_DSH 1)
+endif()
+
+if (LWS_WITH_WEBRTC_MIXER)
+	set(LWS_WITH_WEBRTC 1)
+	if (NOT DEFINED LWS_WITH_ALSA)
+		set(LWS_WITH_ALSA 1 CACHE BOOL "Enable alsa audio example" FORCE)
+	endif()
+	if (NOT DEFINED LWS_WITH_OPUS)
+		set(LWS_WITH_OPUS 1 CACHE BOOL "Enable opus audio codec" FORCE)
+	endif()
+	if (NOT DEFINED LWS_WITH_GSTREAMER)
+		set(LWS_WITH_GSTREAMER 1 CACHE BOOL "Enable gstreamer" FORCE)
+	endif()
+endif()
+
+if (LWS_WITH_WEBRTC)
+	set(LWS_WITH_UDP 1)
+	set(LWS_WITH_DTLS 1)
+	set(LWS_WITH_PLUGINS 1 CACHE BOOL "Enable plugins" FORCE)
+	if (NOT DEFINED LWS_WITH_V4L2)
+		set(LWS_WITH_V4L2 1)
+	endif()
+	if (NOT DEFINED LWS_WITH_LIBV4L2)
+		set(LWS_WITH_LIBV4L2 1)
+	endif()
+	if (NOT DEFINED LWS_WITH_DRM)
+		set(LWS_WITH_DRM 1)
+	endif()
+	set(LWS_WITH_GENCRYPTO 1)
+	set(LWS_WITH_JOSE 1)
+	set(LWS_WITH_NETWORK 1)
+	set(LWS_WITH_CLIENT 1)
+	if (NOT DEFINED LWS_WITH_ALSA)
+		set(LWS_WITH_ALSA 1)
+	endif()
+	if (NOT DEFINED LWS_WITH_OPUS)
+		set(LWS_WITH_OPUS 1)
+	endif()
+endif()
+
+
 if (NOT LWS_WITH_NETWORK)
 	set(LWS_ROLE_MQTT 0)
 	set(LWS_ROLE_H1 0)
@@ -147,6 +268,7 @@ if (NOT LWS_WITH_NETWORK)
 	set(LWS_WITH_SOCKS5 0)
 	set(LWS_UNIX_SOCK 0)
 	set(LWS_WITH_HTTP_PROXY 0)
+	set(LWS_WITH_TLS_PASSTHROUGH 0)
 	set(LWS_WITH_PLUGINS 0)
 	set(LWS_WITH_LWSWS 0)
 	set(LWS_WITH_CGI 0)
@@ -160,9 +282,15 @@ if (NOT LWS_WITH_NETWORK)
 	set(LWS_WITH_THREADPOOL 0)
 	set(LWS_WITH_SYS_SMD 0)
 	set(LWS_WITH_LHP 0)
+	set(LWS_WITH_SPAWN 0)
+	set(LWS_WITH_STUB 0)
 endif()
 
 if (LWS_WITH_CGI)
+	set(LWS_WITH_SPAWN 1)
+endif()
+
+if (LWS_WITH_STUB)
 	set(LWS_WITH_SPAWN 1)
 endif()
 
@@ -202,12 +330,23 @@ endif()
 if (LWS_WITH_HTTP2)
 	set(LWS_ROLE_H2 1)
 endif()
+if (LWS_WITH_HTTP3)
+	set(LWS_ROLE_H3 1)
+	set(LWS_ROLE_WT 1)
+endif()
 if (LWS_WITH_CGI)
 	set(LWS_ROLE_CGI 1)
 endif()
 
 if (NOT LWS_ROLE_WS)
 	set(LWS_WITHOUT_EXTENSIONS 1)
+	# the log shipper's link to its ingestor is ws
+	set(LWS_WITH_LOG_SHIP 0)
+endif()
+
+if (LWS_WITH_LOG_SHIP)
+	# the ingestor's control messages
+	set(LWS_WITH_LEJP 1)
 endif()
 
 unset(LWS_WITH_LIBUV_INTERNAL)
@@ -240,6 +379,7 @@ if (LWS_WITH_ACME)
  set (LWS_WITH_CLIENT 1)
  set (LWS_WITH_SERVER 1)
  set (LWS_WITH_JOSE 1)
+ set (LWS_WITH_STRUCT_JSON 1)
 endif()
 
 if (LWS_WITH_JOSE)
@@ -274,6 +414,11 @@ if (LWS_PLAT_FREERTOS)
  set(LWS_HAVE_REALLOC 1)
  set(LWS_HAVE_GETIFADDRS 1)
  set(LWS_WITH_CUSTOM_HEADERS 0)
+ set(LWS_WITH_STUB 0)
+ # FreeRTOS can't fork/exec; STUB defaults ON and implies SPAWN above before
+ # this point disables it, leaving SPAWN (and its siginfo_t typedef) on. Force
+ # it off here - there's no spawn support on FreeRTOS anyway.
+ set(LWS_WITH_SPAWN 0)
 endif()
 
 if (LWS_WITHOUT_TESTAPPS)
@@ -293,6 +438,12 @@ endif()
 
 if (LWS_WITHOUT_SERVER)
 set(LWS_WITH_LWSWS OFF)
+endif()
+
+# the access log is of server transactions, lwsws may have asked for it above
+if (LWS_WITH_ACCESS_LOG AND LWS_WITHOUT_SERVER)
+	message("LWS_WITH_ACCESS_LOG needs a server, disabling it")
+	set(LWS_WITH_ACCESS_LOG 0)
 endif()
 
 if (LWS_WITH_LEJP_CONF)
@@ -336,12 +487,14 @@ if (LWS_WITH_HTTP_PROXY AND (LWS_WITHOUT_CLIENT OR LWS_WITHOUT_SERVER))
 	set(LWS_WITH_HTTP_PROXY 0)
 endif()
 
-if (NOT LWS_WITHOUT_EXTENSIONS OR LWS_WITH_ZIP_FOPS)
-	set(LWS_WITH_ZLIB 1)
+if (LWS_WITH_TLS_PASSTHROUGH AND (LWS_WITHOUT_CLIENT OR LWS_WITHOUT_SERVER OR
+				  NOT LWS_WITH_SSL OR NOT LWS_ROLE_RAW))
+	message("LWS_WITH_TLS_PASSTHROUGH needs client, server, tls and the raw role")
+	set(LWS_WITH_TLS_PASSTHROUGH 0)
 endif()
 
-if (LWS_WITH_SECURE_STREAMS)
-	set(LWS_WITH_SECURE_STREAMS_SYS_AUTH_API_AMAZON_COM 1)
+if (NOT LWS_WITHOUT_EXTENSIONS OR LWS_WITH_ZIP_FOPS)
+	set(LWS_WITH_ZLIB 1)
 endif()
 
 if (NOT (LWS_WITH_STATIC OR LWS_WITH_SHARED))
@@ -352,6 +505,9 @@ if (LWS_WITHOUT_DAEMONIZE OR WIN32)
 	set(LWS_NO_DAEMONIZE 1)
 endif()
 
+if (LWS_IPV4)
+    set(LWS_WITH_IPV4 1)
+endif()
 if (LWS_IPV6)
 	set(LWS_WITH_IPV6 1)
 endif()
@@ -369,18 +525,49 @@ endif()
 
 set(LWS_WITH_CLIENT 1)
 if (LWS_WITHOUT_CLIENT)
-	set(LWS_WITH_CLIENT 0)
+	set(LWS_WITH_CLIENT OFF)
 	set(LWS_WITH_SECURE_STREAMS 0)
 	set(LWS_WITH_SECURE_STREAMS_PROXY_API 0)
 	set(LWS_WITH_LHP 0)
+	# the smtp client connects to its relay
+	set(LWS_WITH_EMAIL 0)
+	# the log shipper connects to its ingestor
+	set(LWS_WITH_LOG_SHIP 0)
+endif()
+if (NOT LWS_WITH_NETWORK)
+	set(LWS_WITH_EMAIL 0)
+	set(LWS_WITH_LOG_SHIP 0)
 endif()
 set(LWS_WITH_SERVER 1)
 if (LWS_WITHOUT_SERVER)
-	set(LWS_WITH_SERVER)
+	set(LWS_WITH_SERVER OFF)
+endif()
+
+if (LWS_WITH_SERVER)
+else()
+	set(LWS_WITH_CGI 0)
+	set(LWS_ROLE_CGI 0)
 endif()
 
 if (LWS_WITH_UPNG)
 	set(LWS_WITH_GZINFLATE 1)
+endif()
+
+# lwsac is used unconditionally by the context, lejp, secure streams and the
+# server config parser, so it cannot actually be turned off
+set(LWS_WITH_LWSAC 1)
+
+# the display list needs the vfs (filesystem fops, font files), and lhp
+# renders into it
+if (NOT LWS_WITH_FILE_OPS)
+	set(LWS_WITH_DLO 0)
+	set(LWS_WITH_LHP 0)
+endif()
+# the language drivers are meaningless without the highlighter core
+
+if (NOT LWS_WITH_HL)
+	set(LWS_WITH_HL_LANG_C 0)
+	set(LWS_WITH_HL_LANG_DIFF 0)
 endif()
 
 if (LWS_WITH_OTA)
@@ -392,13 +579,44 @@ endif()
 if (LWS_WITH_LHP)
 	set(LWS_WITH_CLIENT 1)
 	set(LWS_WITH_SECURE_STREAMS 1)
+	# the font manifest, see lws_fonts_register_manifest()
+	set(LWS_WITH_STRUCT_JSON 1)
+
+	# lhp's document asset cache is over the file-backed blob cache level
+	# where that can build, LWS_WITH_CACHE_BLOB being on by default... but
+	# it can be turned off, eg, to build as a device with no filesystem
+	# does, with the in-memory level alone
 endif()
 
-# using any abstract protocol enables LWS_WITH_ABSTRACT
+# the file-backed blob cache level is built on the diskcache dir machinery
+# and posix apis, and the lws-cache-ttl core only builds with network
 
-#if (LWS_WITH_SMTP)
-#	set(LWS_WITH_ABSTRACT 1)
-#endif()
+if (LWS_WITH_CACHE_BLOB AND NOT (UNIX AND LWS_WITH_DIR AND LWS_WITH_NETWORK))
+	set(LWS_WITH_CACHE_BLOB 0)
+endif()
+
+# lhp's document asset cache is an lws-cache-ttl heap level, optionally over
+# the blob level, for documents fetched by secure streams
+
+if (NOT (LWS_WITH_LHP AND LWS_WITH_NETWORK AND LWS_WITH_SECURE_STREAMS AND
+	 LWS_WITH_CLIENT))
+	set(LWS_WITH_DLO_ASSET_CACHE 0)
+endif()
+
+if (LWS_WITH_AUTHORITATIVE_DNS)
+	set(LWS_WITH_GENCRYPTO 1)
+	set(LWS_WITH_JOSE 1)
+	if (LWS_WITH_DHT)
+		# dht_dnssec_monitor plugin requires these
+		set(LWS_WITH_DIR 1)
+		set(LWS_WITH_SPAWN 1)
+	endif()
+endif()
+
+if (LWS_WITH_SYS_ASYNC_DNS_DNSSEC)
+	set(LWS_WITH_SYS_ASYNC_DNS 1)
+	set(LWS_WITH_GENCRYPTO 1)
+endif()
 
 if (NOT LWS_WITH_EVLIB_PLUGINS AND (LWS_WITH_LIBEV AND LWS_WITH_LIBEVENT))
 	message(FATAL_ERROR "Sorry libev and libevent conflict with each others' namespace, you can only have one or the other")
@@ -409,7 +627,7 @@ if (LWS_SSL_SERVER_WITH_ECDH_CERT)
 endif()
 
 # LWS_OPENSSL_SUPPORT deprecated... use LWS_WITH_TLS
-if (LWS_WITH_SSL OR LWS_WITH_MBEDTLS)
+if (LWS_WITH_SSL OR LWS_WITH_MBEDTLS OR LWS_WITH_BEARSSL)
 	set(LWS_OPENSSL_SUPPORT 1)
 	set(LWS_WITH_TLS 1)
 endif()
@@ -447,3 +665,17 @@ if (WIN32 AND NOT LWS_EXT_PTHREAD_LIBRARIES)
         set(LWS_WITH_SYS_SMD 0)
 endif()
 
+if (LWS_WITH_ASYNC_QUEUE)
+	set(LWS_ROLE_H1 1)
+endif()
+
+#
+# Make sure any final implied 'with' selections reset the corresponding 'without'
+# guards so scripts checking 'NOT LWS_WITHOUT_x' correctly evaluate to true.
+#
+if (LWS_WITH_CLIENT)
+	set(LWS_WITHOUT_CLIENT 0)
+endif()
+if (LWS_WITH_SERVER)
+	set(LWS_WITHOUT_SERVER 0)
+endif()

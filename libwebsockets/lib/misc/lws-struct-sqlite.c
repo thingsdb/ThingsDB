@@ -28,6 +28,34 @@
 #include <sqlite3.h>
 
 /*
+ * Store an integer column's value into a member at the member's real width
+ * (map->aux is sizeof(member)).  The narrowing conversion to the unsigned
+ * type of that width keeps the low bits, which is the value for a signed
+ * member too, and restores an unsigned 64-bit value that sqlite holds as the
+ * negative integer with the same bits.  An unrecognized width is a hard
+ * fail, never a store wider than the member.
+ */
+
+static int
+ls_sq3_store_int(void *memb, size_t width, long long li)
+{
+	if (width == sizeof(unsigned char))
+		*(unsigned char *)memb = (unsigned char)li;
+	else if (width == sizeof(unsigned short))
+		*(unsigned short *)memb = (unsigned short)li;
+	else if (width == sizeof(unsigned int))
+		*(unsigned int *)memb = (unsigned int)li;
+	else if (width == sizeof(unsigned long))
+		*(unsigned long *)memb = (unsigned long)li;
+	else if (width == sizeof(unsigned long long))
+		*(unsigned long long *)memb = (unsigned long long)li;
+	else
+		return 1;
+
+	return 0;
+}
+
+/*
  * we get one of these per matching result from the query
  */
 
@@ -59,88 +87,21 @@ lws_struct_sq3_deser_cb(void *priv, int cols, char **cv, char **cn)
 
 			switch (map->type) {
 			case LSMT_SIGNED:
-				if (map->aux == sizeof(signed char)) {
-					signed char *pc;
-					pc = (signed char *)(u + map->ofs);
-					*pc = (signed char)atoi(cv[n]);
-					break;
-				}
-				if (map->aux == sizeof(short)) {
-					short *ps;
-					ps = (short *)(u + map->ofs);
-					*ps = (short)atoi(cv[n]);
-					break;
-				}
-				if (map->aux == sizeof(int)) {
-					int *pi;
-					pi = (int *)(u + map->ofs);
-					*pi = (int)atoll(cv[n]); /* 32-bit OS */
-					break;
-				}
-				if (map->aux == sizeof(long)) {
-					long *pl;
-					pl = (long *)(u + map->ofs);
-					*pl = (long)atoll(cv[n]); /* 32-bit OS */
-					break;
-				}
-				{
-					long long *pll;
-					pll = (long long *)(u + map->ofs);
-					*pll = atoll(cv[n]);
-				}
-				break;
-
 			case LSMT_UNSIGNED:
-				if (map->aux == sizeof(unsigned char)) {
-					unsigned char *pc;
-					pc = (unsigned char *)(u + map->ofs);
-					*pc = (unsigned char)(unsigned int)atoi(cv[n]);
-					break;
-				}
-				if (map->aux == sizeof(unsigned short)) {
-					unsigned short *ps;
-					ps = (unsigned short *)(u + map->ofs);
-					*ps = (unsigned short)atoi(cv[n]);
-					break;
-				}
-				if (map->aux == sizeof(unsigned int)) {
-					unsigned int *pi;
-					pi = (unsigned int *)(u + map->ofs);
-					*pi = (unsigned int)atoi(cv[n]);
-					break;
-				}
-				if (map->aux == sizeof(unsigned long)) {
-					unsigned long *pl;
-					pl = (unsigned long *)(u + map->ofs);
-					*pl = (unsigned long)atol(cv[n]);
-					break;
-				}
-				{
-					unsigned long long *pll;
-					pll = (unsigned long long *)(u + map->ofs);
-					*pll = (unsigned long long)atoll(cv[n]);
-				}
-				break;
-
 			case LSMT_BOOLEAN:
-				li = 0;
-				if (!strcmp(cv[n], "true") ||
-				    !strcmp(cv[n], "TRUE") || cv[n][0] == '1')
-					li = 1;
-				if (map->aux == sizeof(char)) {
-					char *pc;
-					pc = (char *)(u + map->ofs);
-					*pc = (char)li;
-					break;
-				}
-				if (map->aux == sizeof(int)) {
-					int *pi;
-					pi = (int *)(u + map->ofs);
-					*pi = (int)li;
-				} else {
-					uint64_t *p64;
-					p64 = (uint64_t *)(u + map->ofs);
-					*p64 = (uint64_t)li;
+				if (map->type == LSMT_BOOLEAN)
+					li = !strcmp(cv[n], "true") ||
+					     !strcmp(cv[n], "TRUE") ||
+					     cv[n][0] == '1';
+				else
+					li = atoll(cv[n]);
+
+				if (ls_sq3_store_int(u + map->ofs, map->aux, li)) {
+					lwsl_err("%s: '%s': bad member width %d\n",
+						 __func__, map->colname,
+						 (int)map->aux);
+
+					return 1;
 				}
 				break;
 
@@ -181,13 +142,70 @@ lws_struct_sq3_deserialize(sqlite3 *pdb, const char *filter, const char *order,
 			   const lws_struct_map_t *schema, lws_dll2_owner_t *o,
 			   struct lwsac **ac, int start, int _limit)
 {
-	int limit = _limit < 0 ? -_limit : _limit;
-	char s[768], results[512], where[250];
+	int limit = _limit < 0 ? -_limit : _limit, subsequent = 0;
+	char *s, *p, *end;
 	lws_struct_args_t a;
-	int n, m;
+	size_t n, len;
+
+	lws_dll2_owner_clear(o);
 
 	if (!order)
 		order = "_lws_idx";
+
+	/*
+	 * The statement is as long as the schema's column list and the
+	 * caller's filter make it, eg, a filter matching a long builder name,
+	 * so size it from its parts rather than limit it to a fixed buffer.
+	 * The constant parts and the two ints fit in the 128 bytes headroom.
+	 */
+
+	len = strlen(schema->colname) + strlen(order) + 128;
+	if (filter)
+		len += strlen(filter);
+	for (n = 0; n < schema->child_map_size; n++)
+		len += strlen(schema->child_map[n].colname) + 2;
+
+	s = malloc(len);
+	if (!s)
+		return -1;
+
+	p = s;
+	end = s + len;
+
+	/*
+	 * Explicitly list the columns instead of use *, so we can skip blobs
+	 */
+
+	p += lws_snprintf(p, lws_ptr_diff_size_t(end, p), "select ");
+	for (n = 0; n < schema->child_map_size; n++)
+		if (!schema->child_map[n].json_only) {
+			p += lws_snprintf(p, lws_ptr_diff_size_t(end, p),
+					  "%s%s", subsequent ? ", " : "",
+					  schema->child_map[n].colname);
+			subsequent = 1;
+		}
+
+	p += lws_snprintf(p, lws_ptr_diff_size_t(end, p), " from %s",
+			  schema->colname);
+	if (filter)
+		p += lws_snprintf(p, lws_ptr_diff_size_t(end, p),
+				  " WHERE 1=1 %s", filter);
+	p += lws_snprintf(p, lws_ptr_diff_size_t(end, p),
+			  " order by %s %slimit %d OFFSET %d;", order,
+			  _limit < 0 ? "desc " : "", limit, start);
+
+	/*
+	 * It was sized to fit, but a statement truncated at a clause boundary
+	 * is still valid SQL with the row restriction quietly removed, so
+	 * never run one we could not write in full.
+	 */
+
+	if (p >= end - 1) {
+		lwsl_err("%s: statement too long\n", __func__);
+		free(s);
+
+		return -1;
+	}
 
 	memset(&a, 0, sizeof(a));
 	a.ac = *ac;
@@ -197,42 +215,199 @@ lws_struct_sq3_deserialize(sqlite3 *pdb, const char *filter, const char *order,
 	a.dest_len = schema->aux; /* size of toplevel object to allocate */
 	a.toplevel_dll2_ofs = schema->ofs;
 
-	lws_dll2_owner_clear(o);
-
-	/*
-	 * Explicitly list the columns instead of use *, so we can skip blobs
-	 */
-
-	m = 0;
-	for (n = 0; n < (int)schema->child_map_size; n++)
-		m += lws_snprintf(&results[m], sizeof(results) - (unsigned int)n - 1,
-				  "%s%c", schema->child_map[n].colname,
-				  n + 1 == (int)schema->child_map_size ? ' ' : ',');
-
-	where[0] = '\0';
-	lws_snprintf(where, sizeof(where), " where _lws_idx >= %llu %s",
-			     (unsigned long long)start, filter ? filter : "");
-
-	lws_snprintf(s, sizeof(s) - 1, "select %s "
-		     "from %s %s order by %s %slimit %d;", results,
-		     schema->colname, where, order,
-				     _limit < 0 ? "desc " : "", limit);
-
-
-
 	if (sqlite3_exec(pdb, s, lws_struct_sq3_deser_cb, &a, NULL) != SQLITE_OK) {
 		lwsl_err("%s: %s: fail %s\n", __func__, sqlite3_errmsg(pdb), s);
+		free(s);
+		/*
+		 * The rows already listed on o live in the ac we free, which
+		 * also holds anything the caller's *ac held: leave neither
+		 * pointing at it
+		 */
+		lws_dll2_owner_clear(o);
 		lwsac_free(&a.ac);
+		*ac = NULL;
 		return -1;
 	}
 
+	free(s);
 	*ac = a.ac;
 
 	return 0;
 }
 
 /*
- * This takes a struct and turns it into an sqlite3 UPDATE, using the given
+ * The writers below never splice member values into the SQL text.  The text
+ * holds only the table and column names from the map, which are program
+ * constants, and a ? placeholder for each value; the values are bound to
+ * the prepared statement.  So a value needs no escaping, can't change the
+ * statement and isn't limited in length.
+ *
+ * This is how long the text of a statement naming every column of the map
+ * up to three times can be, plus the table name, the conflict / where column
+ * and the constant parts.  Each writer still checks it fit.
+ */
+
+static size_t
+ls_sq3_sql_len(const char *table, const lws_struct_map_t *map,
+	       size_t map_entries, const char *where_col)
+{
+	size_t n, len = strlen(table) + 128;
+
+	if (where_col)
+		len += strlen(where_col);
+
+	for (n = 0; n < map_entries; n++)
+		len += (3 * strlen(map[n].colname)) + 16;
+
+	return len;
+}
+
+/*
+ * Bind one member as the value of parameter \p col of \p st.  Integer
+ * members are read at their real width (map->aux is sizeof(member)), like
+ * the JSON serializer does, and an unrecognized width is a hard fail.  A NULL
+ * string pointer is bound as SQL NULL, which lws_struct_sq3_deserialize()
+ * gives back as a NULL member.
+ */
+
+static int
+ls_sq3_bind_col(sqlite3 *pdb, sqlite3_stmt *st, int col, const void *memb,
+		const lws_struct_map_t *map)
+{
+	unsigned long long ull;
+	const char *s, *z;
+	long long ll;
+	size_t len;
+	int n;
+
+	switch (map->type) {
+	case LSMT_SIGNED:
+		if (map->aux == sizeof(signed char))
+			ll = *(const signed char *)memb;
+		else if (map->aux == sizeof(short))
+			ll = *(const short *)memb;
+		else if (map->aux == sizeof(int))
+			ll = *(const int *)memb;
+		else if (map->aux == sizeof(long))
+			ll = *(const long *)memb;
+		else if (map->aux == sizeof(long long))
+			ll = *(const long long *)memb;
+		else
+			goto bad_width;
+
+		n = sqlite3_bind_int64(st, col, (sqlite3_int64)ll);
+		break;
+
+	case LSMT_UNSIGNED:
+	case LSMT_BOOLEAN:
+		if (map->aux == sizeof(unsigned char))
+			ull = *(const unsigned char *)memb;
+		else if (map->aux == sizeof(unsigned short))
+			ull = *(const unsigned short *)memb;
+		else if (map->aux == sizeof(unsigned int))
+			ull = *(const unsigned int *)memb;
+		else if (map->aux == sizeof(unsigned long))
+			ull = *(const unsigned long *)memb;
+		else if (map->aux == sizeof(unsigned long long))
+			ull = *(const unsigned long long *)memb;
+		else
+			goto bad_width;
+
+		if (map->type == LSMT_BOOLEAN)
+			ull = !!ull;
+
+		/*
+		 * sqlite integers are signed 64-bit: a value with the top bit
+		 * set is stored as the negative number with the same bits,
+		 * which the deserializer's conversion back to the unsigned
+		 * member restores.  As text it became a lossy REAL.
+		 */
+		n = sqlite3_bind_int64(st, col, (sqlite3_int64)ull);
+		break;
+
+	case LSMT_STRING_CHAR_ARRAY:
+		/* the member may fill its array without a terminating NUL */
+		z = memchr(memb, '\0', map->aux);
+		len = z ? (size_t)((const char *)z - (const char *)memb) :
+			    map->aux;
+		if (len > INT_MAX)
+			goto too_long;
+
+		n = sqlite3_bind_text(st, col, (const char *)memb, (int)len,
+				      SQLITE_STATIC);
+		break;
+
+	case LSMT_STRING_PTR:
+		s = *(const char * const *)memb;
+		if (!s) {
+			n = sqlite3_bind_null(st, col);
+			break;
+		}
+
+		len = strlen(s);
+		if (len > INT_MAX)
+			goto too_long;
+
+		n = sqlite3_bind_text(st, col, s, (int)len, SQLITE_STATIC);
+		break;
+
+	default:
+		lwsl_err("%s: '%s': unsupported type %d\n", __func__,
+			 map->colname, (int)map->type);
+
+		return 1;
+	}
+
+	if (n != SQLITE_OK) {
+		lwsl_err("%s: '%s': %s\n", __func__, map->colname,
+			 sqlite3_errmsg(pdb));
+
+		return 1;
+	}
+
+	return 0;
+
+bad_width:
+	lwsl_err("%s: '%s': bad member width %d\n", __func__, map->colname,
+		 (int)map->aux);
+
+	return 1;
+
+too_long:
+	lwsl_err("%s: '%s': value too long\n", __func__, map->colname);
+
+	return 1;
+}
+
+static int
+ls_sq3_prepare(sqlite3 *pdb, const char *sql, sqlite3_stmt **st)
+{
+	if (sqlite3_prepare_v2(pdb, sql, -1, st, NULL) != SQLITE_OK) {
+		lwsl_err("%s: %s: %s\n", __func__, sqlite3_errmsg(pdb), sql);
+
+		return 1;
+	}
+
+	return 0;
+}
+
+/* run the bound statement to completion and finalize it either way */
+
+static int
+ls_sq3_step_finalize(sqlite3 *pdb, sqlite3_stmt *st, const char *sql)
+{
+	int n = sqlite3_step(st);
+
+	if (n != SQLITE_DONE)
+		lwsl_warn("%s: %s: %s\n", __func__, sqlite3_errmsg(pdb), sql);
+
+	sqlite3_finalize(st);
+
+	return n != SQLITE_DONE;
+}
+
+/*
+ * This takes a struct and turns it into an sqlite3 INSERT, using the given
  * schema... which has one LSM_SCHEMA_DLL2 entry wrapping the actual schema
  */
 
@@ -241,102 +416,33 @@ _lws_struct_sq3_ser_one(sqlite3 *pdb, const lws_struct_map_t *schema,
 			uint32_t idx, void *st)
 {
 	const lws_struct_map_t *map = schema->child_map;
-	int n, m, pk = 0, nentries = (int)(ssize_t)schema->child_map_size, nef = 0, did;
-	size_t sql_est = 46 + strlen(schema->colname) + 1;
-		/* "insert into  (_lws_idx, ) values (00000001,);" ...
-		 * plus the table name */
-	uint8_t *stb = (uint8_t *)st;
-	const char *p;
-	char *sql;
+	size_t n, nentries = schema->child_map_size, len;
+	const uint8_t *stb = (const uint8_t *)st;
+	char *sql, *p, *end;
+	sqlite3_stmt *stmt;
+	int pk, col;
 
 	/*
-	 * Figure out effective number of columns, exluding BLOB.
-	 *
-	 * The first UNSIGNED is a hidden index.  Blobs are not handled by
-	 * lws_struct except to create the column in the schema.
+	 * The first UNSIGNED is the hidden primary key autoincrement, and
+	 * isn't specified.  Blobs are not handled by lws_struct except to
+	 * create the column in the schema.
 	 */
 
-	pk = 0;
-	nef = 0;
-	for (n = 0; n < nentries; n++) {
-		if (!pk && map[n].type == LSMT_UNSIGNED) {
-			pk = 1;
-			continue;
-		}
-		if (map[n].type == LSMT_BLOB_PTR)
-			continue;
-
-		nef++;
-	}
-
-	/*
-	 * Figure out an estimate for the length of the populated sqlite
-	 * command, and then malloc it up
-	 */
-
-	for (n = 0; n < nentries; n++) {
-		sql_est += strlen(map[n].colname) + 2;
-		switch (map[n].type) {
-		case LSMT_SIGNED:
-		case LSMT_UNSIGNED:
-		case LSMT_BOOLEAN:
-
-			switch (map[n].aux) {
-			case 1:
-				sql_est += 3 + 2;
-				break;
-			case 2:
-				sql_est += 5 + 2;
-				break;
-			case 4:
-				sql_est += 10 + 2;
-				break;
-			case 8:
-				sql_est += 20 + 2;
-				break;
-			}
-
-			if (map[n].type == LSMT_SIGNED)
-				sql_est++; /* minus sign */
-
-			break;
-		case LSMT_STRING_CHAR_ARRAY:
-			sql_est += (unsigned int)lws_sql_purify_len((const char *)st +
-							map[n].ofs) + 2;
-			break;
-
-		case LSMT_STRING_PTR:
-			p = *((const char * const *)&stb[map[n].ofs]);
-			sql_est += (unsigned int)((p ? lws_sql_purify_len(p) : 0) + 2);
-			break;
-
-		case LSMT_BLOB_PTR:
-			/* we don't deal with blobs actually */
-			sql_est -= strlen(map[n].colname) + 2;
-			break;
-
-		default:
-			lwsl_err("%s: unsupported type\n", __func__);
-			assert(0);
-			break;
-		}
-	}
-
-	sql = malloc(sql_est);
+	len = ls_sq3_sql_len(schema->colname, map, nentries, NULL);
+	sql = malloc(len);
 	if (!sql)
 		return -1;
 
-	m = lws_snprintf(sql, sql_est, "insert into %s(_lws_idx, ",
-			 schema->colname);
+	p = sql;
+	end = sql + len;
 
-	/*
-	 * First explicit integer type is primary key autoincrement, should
-	 * not be specified
-	 */
+	p += lws_snprintf(p, lws_ptr_diff_size_t(end, p),
+			  "insert into %s(_lws_idx", schema->colname);
 
 	pk = 0;
-	did = 0;
 	for (n = 0; n < nentries; n++) {
+		if (map[n].json_only)
+			continue;
 		if (!pk && map[n].type == LSMT_UNSIGNED) {
 			pk = 1;
 			continue;
@@ -344,90 +450,68 @@ _lws_struct_sq3_ser_one(sqlite3 *pdb, const lws_struct_map_t *schema,
 		if (map[n].type == LSMT_BLOB_PTR)
 			continue;
 
-		did++;
-		m += lws_snprintf(sql + m, sql_est - (unsigned int)m,
-				  did == nef ? "%s" : "%s, ",
+		p += lws_snprintf(p, lws_ptr_diff_size_t(end, p), ", %s",
 				  map[n].colname);
 	}
 
-	m += lws_snprintf(sql + m, sql_est - (unsigned int)m, ") values(%u, ", idx);
+	p += lws_snprintf(p, lws_ptr_diff_size_t(end, p), ") values(?");
 
 	pk = 0;
-	did = 0;
 	for (n = 0; n < nentries; n++) {
-		uint64_t uu64;
-		size_t q;
-
+		if (map[n].json_only)
+			continue;
 		if (!pk && map[n].type == LSMT_UNSIGNED) {
 			pk = 1;
 			continue;
 		}
-
-		switch (map[n].type) {
-		case LSMT_SIGNED:
-		case LSMT_UNSIGNED:
-		case LSMT_BOOLEAN:
-
-			uu64 = 0;
-			for (q = 0; q < map[n].aux; q++)
-				uu64 |= ((uint64_t)stb[map[n].ofs + q] <<
-								(q << 3));
-
-			if (map[n].type == LSMT_SIGNED)
-				m += lws_snprintf(sql + m, sql_est - (unsigned int)m, "%lld",
-						  (long long)(int64_t)uu64);
-			else
-				m += lws_snprintf(sql + m, sql_est - (unsigned int)m, "%llu",
-						  (unsigned long long)uu64);
-			break;
-
-		case LSMT_STRING_CHAR_ARRAY:
-			sql[m++] = '\'';
-			lws_sql_purify(sql + m, (const char *)&stb[map[n].ofs],
-				       sql_est - (size_t)(ssize_t)m - 4);
-			m += (int)(ssize_t)strlen(sql + m);
-			sql[m++] = '\'';
-			break;
-		case LSMT_STRING_PTR:
-			p = *((const char * const *)&stb[map[n].ofs]);
-			sql[m++] = '\'';
-			if (p) {
-				lws_sql_purify(sql + m, p, sql_est - (unsigned int)m - 4);
-				m += (int)(ssize_t)strlen(sql + m);
-			}
-			sql[m++] = '\'';
-			break;
-
-		case LSMT_BLOB_PTR:
+		if (map[n].type == LSMT_BLOB_PTR)
 			continue;
 
-		default:
-			lwsl_err("%s: unsupported type\n", __func__);
-			assert(0);
-			break;
-		}
-
-		did++;
-		if (did != nef) {
-			if (sql_est - (unsigned int)m < 6)
-				return -1;
-			sql[m++] = ',';
-			sql[m++] = ' ';
-		}
+		p += lws_snprintf(p, lws_ptr_diff_size_t(end, p), ", ?");
 	}
 
-	lws_snprintf(sql + m, sql_est - (unsigned int)m, ");");
+	p += lws_snprintf(p, lws_ptr_diff_size_t(end, p), ");");
 
-	n = sqlite3_exec(pdb, sql, NULL, NULL, NULL);
-	if (n != SQLITE_OK) {
-		lwsl_err("%s\n", sql);
-		free(sql);
-		lwsl_err("%s: %s: fail\n", __func__, sqlite3_errmsg(pdb));
-		return -1;
+	if (p >= end - 1) {
+		lwsl_err("%s: statement too long\n", __func__);
+		goto bail;
 	}
+
+	if (ls_sq3_prepare(pdb, sql, &stmt))
+		goto bail;
+
+	col = 1;
+	if (sqlite3_bind_int64(stmt, col++, (sqlite3_int64)idx) != SQLITE_OK)
+		goto bail_stmt;
+
+	pk = 0;
+	for (n = 0; n < nentries; n++) {
+		if (map[n].json_only)
+			continue;
+		if (!pk && map[n].type == LSMT_UNSIGNED) {
+			pk = 1;
+			continue;
+		}
+		if (map[n].type == LSMT_BLOB_PTR)
+			continue;
+
+		if (ls_sq3_bind_col(pdb, stmt, col++, stb + map[n].ofs, &map[n]))
+			goto bail_stmt;
+	}
+
+	if (ls_sq3_step_finalize(pdb, stmt, sql))
+		goto bail;
+
 	free(sql);
 
 	return 0;
+
+bail_stmt:
+	sqlite3_finalize(stmt);
+bail:
+	free(sql);
+
+	return -1;
 }
 
 int
@@ -436,7 +520,7 @@ lws_struct_sq3_serialize(sqlite3 *pdb, const lws_struct_map_t *schema,
 {
 	uint32_t idx = manual_idx;
 
-	lws_start_foreach_dll(struct lws_dll2 *, p, owner->head) {
+	lws_start_foreach_dll(struct lws_dll2 *, p, lws_dll2_get_head(owner)) {
 		void *item = (void *)((uint8_t *)p - schema->ofs_clist);
 		if (_lws_struct_sq3_ser_one(pdb, schema, idx++, item))
 			return 1;
@@ -446,6 +530,224 @@ lws_struct_sq3_serialize(sqlite3 *pdb, const lws_struct_map_t *schema,
 	return 0;
 }
 
+/*
+ * Is map[i] a column update / upsert writes?  Not the primary key, nor a
+ * blob, nor, when where_col is given, the column that selects the row.
+ */
+
+static int
+ls_sq3_writes_col(const lws_struct_map_t *map, size_t i, const char *where_col)
+{
+	if (map[i].json_only || map[i].type == LSMT_BLOB_PTR ||
+	    (i == 0 && map[i].type == LSMT_UNSIGNED))
+		return 0;
+
+	return !where_col || strcmp(map[i].colname, where_col);
+}
+
+/*
+ * UPDATE ... SET ... WHERE
+ */
+
+int
+lws_struct_sq3_update(sqlite3 *pdb, const char *table,
+		      const lws_struct_map_t *map, size_t map_entries, const void *data,
+		      const char *where_col)
+{
+	size_t i, len, wi = map_entries;
+	char *q, *p, *end, subsequent = 0;
+	sqlite3_stmt *st;
+	int col;
+
+	for (i = 0; i < map_entries; i++)
+		if (!map[i].json_only && !strcmp(map[i].colname, where_col)) {
+			wi = i;
+			break;
+		}
+
+	if (wi == map_entries) {
+		lwsl_err("%s: no member for where column %s\n", __func__,
+			 where_col);
+
+		return 1;
+	}
+
+	len = ls_sq3_sql_len(table, map, map_entries, where_col);
+	q = malloc(len);
+	if (!q)
+		return 1;
+
+	p = q;
+	end = q + len;
+
+	p += lws_snprintf(p, lws_ptr_diff_size_t(end, p), "UPDATE %s SET ", table);
+
+	for (i = 0; i < map_entries; i++) {
+		if (!ls_sq3_writes_col(map, i, where_col))
+			continue;
+
+		p += lws_snprintf(p, lws_ptr_diff_size_t(end, p), "%s%s=?",
+				  subsequent ? "," : "", map[i].colname);
+		subsequent = 1;
+	}
+
+	p += lws_snprintf(p, lws_ptr_diff_size_t(end, p), " WHERE %s=?;",
+			  where_col);
+
+	/*
+	 * It was sized to fit, but lws_snprintf() saturates p at end when it
+	 * truncates, and a statement cut short before its WHERE can still be
+	 * valid SQL: an UPDATE that applies to every row in the table.
+	 */
+
+	if (p >= end - 1 || !subsequent) {
+		lwsl_err("%s: statement too long or nothing to set\n", __func__);
+		goto bail;
+	}
+
+	if (ls_sq3_prepare(pdb, q, &st))
+		goto bail;
+
+	col = 1;
+	for (i = 0; i < map_entries; i++) {
+		if (!ls_sq3_writes_col(map, i, where_col))
+			continue;
+
+		if (ls_sq3_bind_col(pdb, st, col++,
+				    (const uint8_t *)data + map[i].ofs, &map[i]))
+			goto bail_st;
+	}
+
+	if (ls_sq3_bind_col(pdb, st, col, (const uint8_t *)data + map[wi].ofs,
+			    &map[wi]))
+		goto bail_st;
+
+	if (ls_sq3_step_finalize(pdb, st, q))
+		goto bail;
+
+	free(q);
+
+	return sqlite3_changes(pdb) == 0;
+
+bail_st:
+	sqlite3_finalize(st);
+bail:
+	free(q);
+
+	return 1;
+}
+
+/*
+ * INSERT ... ON CONFLICT DO UPDATE
+ */
+
+int
+lws_struct_sq3_upsert(sqlite3 *pdb, const char *table,
+		      const lws_struct_map_t *map, size_t map_entries, const void *data,
+		      const char *where_col)
+{
+	char *q, *p, *end, subsequent = 0;
+	sqlite3_stmt *st;
+	size_t i, len;
+	int col;
+
+	len = ls_sq3_sql_len(table, map, map_entries, where_col);
+	q = malloc(len);
+	if (!q)
+		return 1;
+
+	p = q;
+	end = q + len;
+
+	p += lws_snprintf(p, lws_ptr_diff_size_t(end, p), "INSERT INTO %s (", table);
+
+	for (i = 0; i < map_entries; i++) {
+		if (!ls_sq3_writes_col(map, i, NULL))
+			continue;
+
+		p += lws_snprintf(p, lws_ptr_diff_size_t(end, p), "%s%s",
+				  subsequent ? "," : "", map[i].colname);
+		subsequent = 1;
+	}
+
+	if (!subsequent) {
+		lwsl_err("%s: no columns to insert\n", __func__);
+		goto bail;
+	}
+
+	p += lws_snprintf(p, lws_ptr_diff_size_t(end, p), ") VALUES (");
+	subsequent = 0;
+
+	for (i = 0; i < map_entries; i++) {
+		if (!ls_sq3_writes_col(map, i, NULL))
+			continue;
+
+		p += lws_snprintf(p, lws_ptr_diff_size_t(end, p), "%s?",
+				  subsequent ? "," : "");
+		subsequent = 1;
+	}
+
+	p += lws_snprintf(p, lws_ptr_diff_size_t(end, p),
+			  ") ON CONFLICT(%s) DO ", where_col);
+	subsequent = 0;
+
+	/*
+	 * On conflict, the row takes the values we tried to insert, apart
+	 * from the conflict column itself.  "excluded" is the row that was
+	 * refused, so the values are bound only once.
+	 */
+
+	for (i = 0; i < map_entries; i++) {
+		if (!ls_sq3_writes_col(map, i, where_col))
+			continue;
+
+		p += lws_snprintf(p, lws_ptr_diff_size_t(end, p),
+				  "%s%s=excluded.%s",
+				  subsequent ? "," : "UPDATE SET ",
+				  map[i].colname, map[i].colname);
+		subsequent = 1;
+	}
+
+	if (!subsequent)
+		p += lws_snprintf(p, lws_ptr_diff_size_t(end, p), "NOTHING");
+
+	p += lws_snprintf(p, lws_ptr_diff_size_t(end, p), ";");
+
+	/* same truncation hazard as lws_struct_sq3_update() above */
+
+	if (p >= end - 1) {
+		lwsl_err("%s: statement too long for buffer\n", __func__);
+		goto bail;
+	}
+
+	if (ls_sq3_prepare(pdb, q, &st))
+		goto bail;
+
+	col = 1;
+	for (i = 0; i < map_entries; i++) {
+		if (!ls_sq3_writes_col(map, i, NULL))
+			continue;
+
+		if (ls_sq3_bind_col(pdb, st, col++,
+				    (const uint8_t *)data + map[i].ofs, &map[i])) {
+			sqlite3_finalize(st);
+			goto bail;
+		}
+	}
+
+	if (ls_sq3_step_finalize(pdb, st, q))
+		goto bail;
+
+	free(q);
+
+	return 0;
+
+bail:
+	free(q);
+
+	return 1;
+}
+
 int
 lws_struct_sq3_create_table(sqlite3 *pdb, const lws_struct_map_t *schema)
 {
@@ -453,13 +755,16 @@ lws_struct_sq3_create_table(sqlite3 *pdb, const lws_struct_map_t *schema)
 	int map_size = (int)(ssize_t)schema->child_map_size, subsequent = 0;
 	char s[2048], *p = s, *end = &s[sizeof(s) - 1],
 	     *pri = " primary key autoincrement", *use;
+	int pk_done = 0;
 
 	p += lws_snprintf(p, (unsigned int)lws_ptr_diff(end, p),
+			  /* The _lws_idx is for ordering, not a real key */
 			  "create table if not exists %s (_lws_idx integer, ",
 			  schema->colname);
 
 	while (map_size--) {
-		if (map->type > LSMT_STRING_PTR && map->type != LSMT_BLOB_PTR) {
+		if (map->json_only ||
+		    (map->type > LSMT_STRING_PTR && map->type != LSMT_BLOB_PTR)) {
 			map++;
 			continue;
 		}
@@ -474,28 +779,35 @@ lws_struct_sq3_create_table(sqlite3 *pdb, const lws_struct_map_t *schema)
 
 		} else {
 			if (map->type < LSMT_STRING_CHAR_ARRAY) {
+				/* This is an integer-type column */
 				use = "";
-				if (map->colname[0] != '_') /* _lws_idx is not primary key */
+				if (!pk_done) {
 					use = pri;
+					pk_done = 1;
+				}
 				p += lws_snprintf(p, (unsigned int)lws_ptr_diff(end, p), "%s integer%s",
 						map->colname, use);
-				if (map->colname[0] != '_')
-					pri = "";
 			} else
 				p += lws_snprintf(p, (unsigned int)lws_ptr_diff(end, p), "%s varchar",
 						map->colname);
 		}
-
 		map++;
 	}
 
 	p += lws_snprintf(p, (unsigned int)lws_ptr_diff(end, p), ");");
 
 	if (sqlite3_exec(pdb, s, NULL, NULL, NULL) != SQLITE_OK) {
-		lwsl_err("%s: %s: fail\n", __func__, sqlite3_errmsg(pdb));
+		lwsl_err("%s: %s: fail: %s\n", __func__, sqlite3_errmsg(pdb), s);
 
 		return -1;
 	}
+
+	/* Ensure the UNIQUE constraint for upserts exists */
+	p = s;
+	p += lws_snprintf(p, (unsigned int)lws_ptr_diff(end, p),
+		"CREATE UNIQUE INDEX IF NOT EXISTS name_idx ON %s (name)",
+		schema->colname);
+	sqlite3_exec(pdb, s, NULL, NULL, NULL);
 
 	return 0;
 }
@@ -524,7 +836,8 @@ lws_struct_sq3_open(struct lws_context *context, const char *sqlite3_path,
 	if (uid)
 		if (chown(sqlite3_path, uid, gid))
 			lwsl_err("%s: failed to chown %s\n", __func__, sqlite3_path);
-	chmod(sqlite3_path, 0600);
+	if (chmod(sqlite3_path, 0600))
+		lwsl_err("%s: failed to chmod %s\n", __func__, sqlite3_path);
 
 	lwsl_debug("%s: created %s owned by %u:%u mode 0600\n", __func__,
 			sqlite3_path, (unsigned int)uid, (unsigned int)gid);

@@ -47,6 +47,11 @@ enum lws_tls_cert_info {
 	 * -1 is returned and the size will be returned in buf->ns.len.
 	 * If the certificate cannot be found -1 is returned and 0 in
 	 * buf->ns.len. */
+	LWS_TLS_CERT_INFO_DER_SPKI,
+	/**< the certificate's Subject Public Key Info as a DER sequence.
+	 * If it's too big, -1 is returned and the size will be returned
+	 * in buf->ns.len.  If the certificate cannot be found -1 is
+	 * returned and 0 in buf->ns.len. */
 	LWS_TLS_CERT_INFO_AUTHORITY_KEY_ID,
 	/**< If the cert has one, the key ID responsible for the signature */
 	LWS_TLS_CERT_INFO_AUTHORITY_KEY_ID_ISSUER,
@@ -93,6 +98,71 @@ LWS_VISIBLE LWS_EXTERN int
 lws_x509_create(struct lws_x509_cert **x509);
 
 /**
+ * lws_x509_create_self_signed() - Create a self-signed certificate
+ *
+ * \param context: lws_context
+ * \param cert_buf: pointer to pointer to be set to allocated DER cert
+ * \param cert_len: pointer to size_t to be set to length of allocated cert
+ * \param key_buf: pointer to pointer to be set to allocated DER private key
+ * \param key_len: pointer to size_t to be set to length of allocated key
+ * \param san: Subject Alternative Name (e.g. "localhost") or NULL
+ * \param key_bits: Key strength (e.g. 2048 for RSA)
+ *
+ * Creates a self-signed certificate and private key in memory (DER format).
+ * The caller is responsible for freeing *cert_buf and *key_buf using free().
+ * This is lws_x509_create_cert() with a server cert's default settings, and
+ * has the same backend requirements.
+ *
+ * Returns 0 on success.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_x509_create_self_signed(struct lws_context *context,
+			    uint8_t **cert_buf, size_t *cert_len,
+			    uint8_t **key_buf, size_t *key_len,
+			    const char *san, int key_bits);
+
+struct lws_x509_cert_gen_info {
+	const char *san;             /* Subject Alt Name / CN: a single DNS
+				      * name or IP address literal */
+	const char *ca_cert_pem;     /* Optional CA cert to sign with */
+	const char *ca_key_pem;      /* Optional CA key to sign with */
+	const char *curve_name;      /* e.g., "P-521" or "P-384" for ECDSA */
+	int key_bits;                /* If curve_name is NULL, use RSA with these bits */
+	int is_ca;                   /* 1 = CA:TRUE (Basic Constraints) */
+	int is_server;               /* 1 = serverAuth, 0 = clientAuth */
+	int validity_days;           /* If non-zero, sets validity to this many days instead of default (365) */
+};
+
+/**
+ * lws_x509_create_cert() - Create a certificate (self-signed or CA-signed)
+ *
+ * \param context: lws_context
+ * \param cert_buf: pointer to pointer to be set to allocated DER cert
+ * \param cert_len: pointer to size_t to be set to length of allocated cert
+ * \param key_buf: pointer to pointer to be set to allocated DER private key
+ * \param key_len: pointer to size_t to be set to length of allocated key
+ * \param info: struct containing generation parameters
+ *
+ * Creates a certificate and private key in memory (DER format).
+ * The caller is responsible for freeing *cert_buf and *key_buf using free().
+ *
+ * The private key is SEC1 ("EC PRIVATE KEY") DER for EC, or PKCS#1
+ * ("RSA PRIVATE KEY") DER for RSA.  info->ca_key_pem may be any of those, or
+ * PKCS#8 ("PRIVATE KEY"), in PEM.
+ *
+ * With the mbedtls backend, this needs mbedtls built with its x509 writer
+ * (MBEDTLS_X509_CRT_WRITE_C; on ESP-IDF, CONFIG_MBEDTLS_X509_CREATE_C in
+ * menuconfig).  Without it the call fails and logs why.
+ *
+ * Returns 0 on success.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_x509_create_cert(struct lws_context *context,
+		     uint8_t **cert_buf, size_t *cert_len,
+		     uint8_t **key_buf, size_t *key_len,
+		     const struct lws_x509_cert_gen_info *info);
+
+/**
  * lws_x509_parse_from_pem() - Read one or more x509 certs in PEM format from memory
  *
  * \param x509: pointer to lws_x509_cert object
@@ -122,6 +192,9 @@ lws_x509_parse_from_pem(struct lws_x509_cert *x509, const void *pem, size_t len)
  * Returns 0 if the cert or certs in \p x509 represent a complete chain that is
  * ultimately signed by the cert in \p trusted.  Returns nonzero if that's not
  * the case.
+ *
+ * Every signature on the way to \p trusted is checked, and the certs in \p x509
+ * must also be within their validity period at the current time.
  */
 LWS_VISIBLE LWS_EXTERN int
 lws_x509_verify(struct lws_x509_cert *x509, struct lws_x509_cert *trusted,
@@ -180,6 +253,20 @@ lws_x509_destroy(struct lws_x509_cert **x509);
 LWS_VISIBLE LWS_EXTERN int
 lws_x509_info(struct lws_x509_cert *x509, enum lws_tls_cert_info type,
 	      union lws_tls_cert_info_results *buf, size_t len);
+
+/**
+ * lws_x509_cert_fingerprint() - Calculate the fingerprint of a certificate
+ *
+ * \param x509: the certificate to fingerprint
+ * \param type: the hash type (e.g., LWS_GENHASH_TYPE_SHA256)
+ * \param buf: buffer to receive the binary hash
+ * \param len: max length of the buffer
+ *
+ * Returns the hash length on success, or -1 on failure.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_x509_cert_fingerprint(struct lws_x509_cert *x509, int type,
+			  uint8_t *buf, size_t len);
 
 /**
  * lws_tls_peer_cert_info() - get information from the peer's TLS cert
@@ -269,21 +356,58 @@ lws_tls_acme_sni_csr_create(struct lws_context *context, const char *elements[],
 			    size_t *privkey_len);
 
 /**
+ * lws_tls_acme_sni_csr_create_ecdsa() - creates an ECDSA CSR and related private key PEM
+ *
+ * \param context: lws_context used for random
+ * \param elements: array of LWS_TLS_REQ_ELEMENT_COUNT const char *
+ * \param csr: buffer that will get the b64URL(ASN-1 CSR)
+ * \param csr_len: max length of the csr buffer
+ * \param privkey_pem: pointer to pointer allocated to hold the privkey_pem
+ * \param privkey_len: pointer to size_t set to the length of the privkey_pem
+ *
+ * Creates a CSR according to the information in \p elements, and a private
+ * ECDSA key (secp256r1) used to sign the CSR.
+ *
+ * The outputs are the b64URL(ASN-1 CSR) into csr, and the PEM private key into
+ * privkey_pem.
+ *
+ * Notice that \p elements points to an array of const char *s pointing to the
+ * information listed in the enum above.  If an entry is NULL or an empty
+ * string, the element is set to "none" in the CSR.
+ *
+ * Returns 0 on success or nonzero for failure.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_tls_acme_sni_csr_create_ecdsa(struct lws_context *context, const char *elements[],
+				  uint8_t *csr, size_t csr_len, char **privkey_pem,
+				  size_t *privkey_len);
+
+/**
  * lws_tls_cert_updated() - update every vhost using the given cert path
  *
  * \param context: our lws_context
  * \param certpath: the filepath to the certificate
  * \param keypath: the filepath to the private key of the certificate
- * \param mem_cert: copy of the cert in memory
+ * \param mem_cert: NULL, or a copy of the new cert in memory
  * \param len_mem_cert: length of the copy of the cert in memory
- * \param mem_privkey: copy of the private key in memory
+ * \param mem_privkey: NULL, or a copy of the new private key in memory
  * \param len_mem_privkey: length of the copy of the private key in memory
  *
  * Checks every vhost to see if it is the using certificate described by the
- * the given filepaths.  If so, it attempts to update the vhost ssl_ctx to use
- * the new certificate.
+ * the given filepaths.  If so, it makes the vhost a new ssl_ctx with the new
+ * certificate at once, loaded from the copies in memory if given, else from
+ * the files.  Give the copies if the vhost may no longer be able to read the
+ * files, eg, after dropping its privileges.
  *
- * Returns 0 on success or nonzero for failure.
+ * A vhost with a grace period (info->tls_cert_grace_secs) serves the new
+ * ssl_ctx once that has passed since the cert was issued or written,
+ * whichever is later, where "written" is when this is called if the vhost
+ * can't see the cert file.  Otherwise it serves it at once.
+ *
+ * A warning is logged if no vhost uses those paths.
+ *
+ * Returns 0 on success, or nonzero if a vhost using them could not load the
+ * new cert, and goes on serving its old one.
  */
 LWS_VISIBLE LWS_EXTERN int
 lws_tls_cert_updated(struct lws_context *context, const char *certpath,
@@ -291,3 +415,19 @@ lws_tls_cert_updated(struct lws_context *context, const char *certpath,
 		     const char *mem_cert, size_t len_mem_cert,
 		     const char *mem_privkey, size_t len_mem_privkey);
 
+/**
+ * lws_tls_alloc_pem_to_der_file() - Read a PEM file or buffer and convert to DER
+ *
+ * \param context: lws_context
+ * \param filename: filename to read from (or NULL)
+ * \param inbuf: input buffer if filename is NULL
+ * \param inlen: input length if filename is NULL
+ * \param buf: pointer to pointer to be set to allocated DER buffer
+ * \param amount: pointer to lws_filepos_t to be set to DER length
+ *
+ * Returns 0 on success.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_tls_alloc_pem_to_der_file(struct lws_context *context, const char *filename,
+			      const char *inbuf, lws_filepos_t inlen,
+			      uint8_t **buf, lws_filepos_t *amount);

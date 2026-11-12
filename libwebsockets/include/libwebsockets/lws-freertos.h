@@ -62,16 +62,17 @@ struct pollfd {
 #include <freertos/FreeRTOS.h>
 #include <freertos/event_groups.h>
 #include <string.h>
+#include "freertos/timers.h"
+
+#if defined(LWS_ESP_PLATFORM)
 #include "esp_wifi.h"
 #include "esp_system.h"
 #include "esp_event.h"
 //#include "esp_event_loop.h"
 #include "nvs.h"
 #include "driver/gpio.h"
-#include "esp_spi_flash.h"
-#include "freertos/timers.h"
+#include "spi_flash_mmap.h"
 
-#if defined(LWS_ESP_PLATFORM)
 #include "lwip/sockets.h"
 #include "lwip/netdb.h"
 #if defined(LWS_WITH_DRIVERS)

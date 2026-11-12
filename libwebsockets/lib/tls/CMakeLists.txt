@@ -1,7 +1,7 @@
 #
 # libwebsockets - small server side websockets and web server implementation
 #
-# Copyright (C) 2010 - 2020 Andy Green <andy@warmcat.com>
+# Copyright (C) 2010 - 2026 Andy Green <andy@warmcat.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to
@@ -45,18 +45,25 @@ if (LWS_WITH_CYASSL)
 	set(LWS_WOLFSSL_INCLUDE_DIRS ${LWS_CYASSL_INCLUDE_DIRS} CACHE PATH "Path to wolfSSL/CyaSSL header files" FORCE PARENT_SCOPE)
 endif()
 
+if (LWS_WITH_OPENHITLS)
+	find_package(OpenHITLS)
+	if (OPENHITLS_UNSUPPORTED_PLATFORM)
+		message(FATAL_ERROR "OpenHITLS is not supported on this platform.")
+	elseif (NOT OPENHITLS_FOUND)
+		message(FATAL_ERROR "OpenHITLS is selected but not available. Set OPENHITLS_LIBRARIES and OPENHITLS_INCLUDE_DIRS.")
+	endif()
+	set(LWS_WITH_TLS 1 PARENT_SCOPE)
+endif()
+
 set(LWS_OPENSSL_LIBRARIES CACHE PATH "Path to the OpenSSL library" )
 set(LWS_OPENSSL_INCLUDE_DIRS CACHE PATH "Path to the OpenSSL include directory" )
 set(LWS_WOLFSSL_LIBRARIES CACHE PATH "Path to the wolfSSL library" )
 set(LWS_WOLFSSL_INCLUDE_DIRS CACHE PATH "Path to the wolfSSL include directory" )
 
 
-if (LWS_WITH_BORINGSSL)
-	# boringssl deprecated EVP_PKEY
-	set (LWS_WITH_GENHASH OFF PARENT_SCOPE)
-endif()
+# BoringSSL and AWS-LC support modern GenHash APIs now
 
-if (LWS_WITH_SSL AND NOT LWS_WITH_WOLFSSL AND NOT LWS_WITH_MBEDTLS)
+if (LWS_WITH_SSL AND NOT LWS_WITH_WOLFSSL AND NOT LWS_WITH_MBEDTLS AND NOT LWS_WITH_SCHANNEL AND NOT LWS_WITH_OPENHITLS)
 	if ("${LWS_OPENSSL_LIBRARIES}" STREQUAL "" OR "${LWS_OPENSSL_INCLUDE_DIRS}" STREQUAL "")
 	else()
 		if (NOT LWS_PLAT_FREERTOS)
@@ -105,6 +112,23 @@ if (LWS_WITH_MBEDTLS)
 	include_directories(${_CMAKE_INC_LIST})
 endif()
 
+if (LWS_WITH_GNUTLS)
+	add_subdirectory(gnutls)
+	include_directories(${_CMAKE_INC_LIST})
+	if (GNUTLS_INCLUDE_DIRS)
+		set(LWS_PUBLIC_INCLUDES ${LWS_PUBLIC_INCLUDES} "${GNUTLS_INCLUDE_DIRS}")
+		set(LWS_PUBLIC_INCLUDES ${LWS_PUBLIC_INCLUDES} PARENT_SCOPE)
+	endif()
+endif()
+
+if (LWS_WITH_BEARSSL)
+	if (LWS_WITH_DTLS)
+		message(FATAL_ERROR "BearSSL does not support DTLS. Please disable LWS_WITH_DTLS (and features that imply it, like LWS_WITH_WEBRTC) or choose a different TLS backend.")
+	endif()
+	add_subdirectory(bearssl)
+	include_directories(${_CMAKE_INC_LIST})
+endif()
+
 # The base dir where the test-apps look for the SSL certs.
 set(LWS_OPENSSL_CLIENT_CERTS ../share CACHE PATH "Server SSL certificate directory")
 if (WIN32)
@@ -130,13 +154,59 @@ if (LWS_WITH_SSL)
 	endif()
 	
 	if (LWS_WITH_MBEDTLS)
+		set(CMAKE_REQUIRED_INCLUDES_TEMP ${CMAKE_REQUIRED_INCLUDES})
+		set(CMAKE_REQUIRED_INCLUDES ${CMAKE_REQUIRED_INCLUDES} ${MBEDTLS_INCLUDE_DIRS})
+		set(CMAKE_REQUIRED_LIBRARIES_TEMP ${CMAKE_REQUIRED_LIBRARIES})
+		set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES} ${MBEDTLS_LIBRARIES})
+		# On ESP-IDF, the probes can't link: mbedtls is a component IDF
+		# links into the firmware itself.  Being declared is what tells
+		# us the api is there, since an undeclared function is an
+		# error, so compile them only
+		if (ESP_PLATFORM)
+			set(_lws_tctt ${CMAKE_TRY_COMPILE_TARGET_TYPE})
+			set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
+		endif()
+		CHECK_C_SOURCE_COMPILES("#include <mbedtls/ssl.h>\nint main(void) { void *v = (void *)mbedtls_ssl_set_export_keys_cb; return !!v; }\n" LWS_HAVE_mbedtls_ssl_set_export_keys_cb)
+		CHECK_C_SOURCE_COMPILES("#include <mbedtls/ssl.h>\nint main(void) { void *v = (void *)mbedtls_ssl_conf_export_keys_cb; return !!v; }\n" LWS_HAVE_mbedtls_ssl_conf_export_keys_cb)
+		CHECK_C_SOURCE_COMPILES("#include <mbedtls/ssl.h>\nint main(void) { void *v = (void *)mbedtls_ssl_set_quic_transport_ops; return !!v; }\n" LWS_HAVE_mbedtls_ssl_set_quic_transport_ops)
+		if (ESP_PLATFORM)
+			set(CMAKE_TRY_COMPILE_TARGET_TYPE ${_lws_tctt})
+		endif()
+		set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES_TEMP})
+		set(CMAKE_REQUIRED_INCLUDES ${CMAKE_REQUIRED_INCLUDES_TEMP})
+
+		if (LWS_ROLE_QUIC AND NOT LWS_HAVE_mbedtls_ssl_set_export_keys_cb)
+			message(WARNING "MbedTLS version too old for QUIC; disabling QUIC and HTTP3")
+			set(LWS_ROLE_QUIC 0)
+			set(LWS_WITH_HTTP3 0)
+			set(LWS_ROLE_H3 0)
+			set(LWS_ROLE_WT 0)
+			set(LWS_ROLE_QUIC 0 PARENT_SCOPE)
+			set(LWS_WITH_HTTP3 0 PARENT_SCOPE)
+			set(LWS_ROLE_H3 0 PARENT_SCOPE)
+			set(LWS_ROLE_WT 0 PARENT_SCOPE)
+		endif()
+
+		if (LWS_ROLE_QUIC AND NOT LWS_HAVE_mbedtls_ssl_set_quic_transport_ops)
+			message(FATAL_ERROR "LWS_ROLE_QUIC (HTTP/3) requires mbedtls to be patched with QUIC support. Standard upstream mbedtls doesn't support quic.  See https://libwebsockets.org/git/mbedtls/log?h=development")
+		endif()
+
 		list(APPEND SOURCES
 			tls/mbedtls/mbedtls-tls.c
 			tls/mbedtls/mbedtls-extensions.c
 			tls/mbedtls/mbedtls-x509.c)
+		if (LWS_ROLE_QUIC AND LWS_WITH_NETWORK)
+			list(APPEND SOURCES tls/mbedtls/mbedtls-quic.c)
+		endif()
 		if (LWS_WITH_NETWORK)
 			list(APPEND SOURCES
 				tls/mbedtls/mbedtls-ssl.c)
+		endif()
+		if (LWS_WITH_NETWORK)
+			if (LWS_WITH_DTLS)
+				list(APPEND SOURCES
+					tls/mbedtls/lws-gendtls.c)
+			endif()
 		endif()
 		if (LWS_WITH_TLS_JIT_TRUST)
 			list(APPEND SOURCES
@@ -155,13 +225,122 @@ if (LWS_WITH_SSL)
 				tls/mbedtls/lws-genec.c
 				tls/mbedtls/lws-gencrypto.c)
 		endif()
+	elseif (LWS_WITH_SCHANNEL)
+		list(APPEND SOURCES
+			tls/schannel/schannel-tls.c
+			tls/schannel/schannel-session.c
+			tls/schannel/schannel-x509.c)
+		if (LWS_WITH_NETWORK)
+			list(APPEND SOURCES tls/schannel/schannel-ssl.c)
+		endif()
+		if (LWS_ROLE_QUIC AND LWS_WITH_NETWORK)
+			list(APPEND SOURCES tls/schannel/schannel-quic.c)
+		endif()
+		list(APPEND LIB_LIST "ncrypt" "bcrypt" "crypt32" "secur32")
+		if (LWS_WITH_GENCRYPTO)
+			list(APPEND SOURCES
+				tls/schannel/lws-genhash.c
+				tls/schannel/lws-genrsa.c
+				tls/schannel/lws-genaes.c
+				tls/lws-genec-common.c
+				tls/schannel/lws-genec.c)
+		endif()
+		if (LWS_WITH_DTLS)
+			list(APPEND SOURCES
+				tls/schannel/lws-gendtls.c)
+		endif()
+	elseif (LWS_WITH_OPENHITLS)
+		list(APPEND SOURCES
+			tls/openhitls/openhitls-tls.c
+			tls/openhitls/openhitls-ssl.c
+			tls/openhitls/openhitls-x509.c)
+		if (LWS_WITH_TLS_SESSIONS)
+			list(APPEND SOURCES
+				tls/openhitls/openhitls-session.c)
+		endif()
+		if (NOT LWS_WITHOUT_SERVER)
+			list(APPEND SOURCES
+				tls/openhitls/openhitls-server.c)
+		endif()
+		if (NOT LWS_WITHOUT_CLIENT)
+			list(APPEND SOURCES
+				tls/openhitls/openhitls-client.c)
+		endif()
+		if (LWS_WITH_GENCRYPTO)
+			list(APPEND SOURCES
+				tls/openhitls/lws-genhash.c
+				tls/openhitls/lws-genrsa.c
+				tls/openhitls/lws-genaes.c
+				tls/lws-genec-common.c
+				tls/openhitls/lws-genec.c
+				tls/openhitls/lws-gencrypto.c)
+		endif()
+		if (LWS_WITH_NETWORK AND LWS_WITH_DTLS)
+			list(APPEND SOURCES
+				tls/openhitls/lws-gendtls.c)
+		endif()
+	elseif (LWS_WITH_GNUTLS)
+		list(APPEND SOURCES
+			tls/gnutls/gnutls-tls.c
+			tls/gnutls/gnutls-x509.c)
+		if (LWS_ROLE_QUIC AND LWS_WITH_NETWORK)
+			list(APPEND SOURCES tls/gnutls/gnutls-quic.c)
+		endif()
+		if (LWS_WITH_NETWORK)
+			list(APPEND SOURCES
+				tls/gnutls/gnutls-ssl.c)
+		endif()
+		if (LWS_WITH_TLS_SESSIONS)
+			list(APPEND SOURCES
+				tls/gnutls/gnutls-session.c)
+		endif()
+		if (LWS_WITH_GENCRYPTO)
+			list(APPEND SOURCES
+				tls/gnutls/lws-genhash.c
+				tls/gnutls/lws-genrsa.c
+				tls/gnutls/lws-genaes.c
+				tls/lws-genec-common.c
+				tls/gnutls/lws-genec.c)
+			if (LWS_WITH_DTLS)
+				list(APPEND SOURCES
+					tls/gnutls/lws-gendtls.c)
+			endif()
+		endif()
+	elseif (LWS_WITH_BEARSSL)
+		list(APPEND SOURCES
+			tls/bearssl/bearssl-x509.c)
+		if (LWS_WITH_NETWORK)
+			list(APPEND SOURCES tls/bearssl/bearssl-ssl.c)
+		endif()
+		if (LWS_WITH_TLS_SESSIONS)
+			list(APPEND SOURCES
+				tls/bearssl/bearssl-session.c)
+		endif()
+		if (LWS_WITH_GENCRYPTO)
+			list(APPEND SOURCES
+				tls/bearssl/bearssl-crypto.c
+				tls/lws-genec-common.c)
+		endif()
+		if (LWS_WITH_DTLS)
+			list(APPEND SOURCES
+				tls/bearssl/bearssl-dtls.c)
+		endif()
 	else()
 		list(APPEND SOURCES
 			tls/openssl/openssl-tls.c
 			tls/openssl/openssl-x509.c)
+		if (LWS_ROLE_QUIC AND LWS_WITH_NETWORK)
+			list(APPEND SOURCES tls/openssl/openssl-quic.c)
+		endif()
 		if (LWS_WITH_NETWORK)
 			list(APPEND SOURCES
 				tls/openssl/openssl-ssl.c)
+		endif()
+		if (LWS_WITH_NETWORK)
+			if (LWS_WITH_DTLS)
+				list(APPEND SOURCES
+					tls/openssl/lws-gendtls.c)
+			endif()
 		endif()
 		if (LWS_WITH_TLS_SESSIONS)
 			list(APPEND SOURCES
@@ -174,17 +353,22 @@ if (LWS_WITH_SSL)
 				tls/openssl/lws-genaes.c
 				tls/lws-genec-common.c
 				tls/openssl/lws-genec.c
-				tls/openssl/lws-gencrypto.c)
+				tls/openssl/lws-gencrypto.c
+				tls/openssl/lws-genkem.c)
 		endif()
 	endif()
 		
 	if (NOT LWS_WITHOUT_SERVER)
 		list(APPEND SOURCES
-			tls/tls-server.c)
+			tls/tls-server.c
+			tls/tls-cert-watch.c)
 		if (LWS_WITH_MBEDTLS)
 			list(APPEND SOURCES
 				tls/mbedtls/mbedtls-server.c)
-		else()
+		elseif (LWS_WITH_BEARSSL)
+			list(APPEND SOURCES
+				tls/bearssl/bearssl-server.c)
+		elseif(NOT LWS_WITH_SCHANNEL AND NOT LWS_WITH_GNUTLS AND NOT LWS_WITH_OPENHITLS)
 			list(APPEND SOURCES
 				tls/openssl/openssl-server.c)
 		endif()
@@ -195,7 +379,10 @@ if (LWS_WITH_SSL)
 		if (LWS_WITH_MBEDTLS)
 			list(APPEND SOURCES
 				tls/mbedtls/mbedtls-client.c)
-		else()
+		elseif (LWS_WITH_BEARSSL)
+			list(APPEND SOURCES
+				tls/bearssl/bearssl-client.c)
+		elseif(NOT LWS_WITH_SCHANNEL AND NOT LWS_WITH_GNUTLS AND NOT LWS_WITH_OPENHITLS)
 			list(APPEND SOURCES
 				tls/openssl/openssl-client.c)
 		endif()
@@ -255,8 +442,71 @@ if (LWS_WITH_SSL)
 
 		list(INSERT LIB_LIST 0 "${MBEDTLS_LIBRARIES}")
 	endif()
+
+	if (LWS_WITH_BEARSSL AND DEFINED LWS_BEARSSL_INCLUDE_DIRS AND DEFINED LWS_BEARSSL_LIBRARIES)
+		message("BEARSSL include dir: ${LWS_BEARSSL_INCLUDE_DIRS}")
+		message("BEARSSL libraries: ${LWS_BEARSSL_LIBRARIES}")
+
+		foreach(inc ${LWS_BEARSSL_INCLUDE_DIRS})
+				set(LWS_PUBLIC_INCLUDES ${LWS_PUBLIC_INCLUDES} "${inc}")
+				set(LWS_PUBLIC_INCLUDES ${LWS_PUBLIC_INCLUDES} PARENT_SCOPE)
+		endforeach()
+
+		list(INSERT LIB_LIST 0 "${LWS_BEARSSL_LIBRARIES}")
+	endif()
 	
 	if (LWS_WITH_MBEDTLS)
+		set(chose_ssl 1)
+	endif()
+
+	if (LWS_WITH_OPENHITLS)
+		message("OpenHITLS include dir: ${OPENHITLS_INCLUDE_DIRS}")
+		message("OpenHITLS libraries: ${OPENHITLS_LIBRARIES}")
+		if (OPENHITLS_INCLUDE_DIRS)
+			set(LWS_PUBLIC_INCLUDES ${LWS_PUBLIC_INCLUDES} "${OPENHITLS_INCLUDE_DIRS}")
+			# Add the subdirectories that openHiTLS headers need
+			if (EXISTS "${OPENHITLS_INCLUDE_DIRS}/bsl")
+				set(LWS_PUBLIC_INCLUDES ${LWS_PUBLIC_INCLUDES} "${OPENHITLS_INCLUDE_DIRS}/bsl")
+			endif()
+			if (EXISTS "${OPENHITLS_INCLUDE_DIRS}/crypto")
+				set(LWS_PUBLIC_INCLUDES ${LWS_PUBLIC_INCLUDES} "${OPENHITLS_INCLUDE_DIRS}/crypto")
+			endif()
+			if (EXISTS "${OPENHITLS_INCLUDE_DIRS}/pki")
+				set(LWS_PUBLIC_INCLUDES ${LWS_PUBLIC_INCLUDES} "${OPENHITLS_INCLUDE_DIRS}/pki")
+			endif()
+			if (EXISTS "${OPENHITLS_INCLUDE_DIRS}/tls")
+				set(LWS_PUBLIC_INCLUDES ${LWS_PUBLIC_INCLUDES} "${OPENHITLS_INCLUDE_DIRS}/tls")
+			endif()
+			if (EXISTS "${OPENHITLS_INCLUDE_DIRS}/auth")
+				set(LWS_PUBLIC_INCLUDES ${LWS_PUBLIC_INCLUDES} "${OPENHITLS_INCLUDE_DIRS}/auth")
+			endif()
+			set(LWS_PUBLIC_INCLUDES ${LWS_PUBLIC_INCLUDES} PARENT_SCOPE)
+			# Also add to compiler include path for this build
+			include_directories("${OPENHITLS_INCLUDE_DIRS}")
+			if (EXISTS "${OPENHITLS_INCLUDE_DIRS}/bsl")
+				include_directories("${OPENHITLS_INCLUDE_DIRS}/bsl")
+			endif()
+			if (EXISTS "${OPENHITLS_INCLUDE_DIRS}/crypto")
+				include_directories("${OPENHITLS_INCLUDE_DIRS}/crypto")
+			endif()
+			if (EXISTS "${OPENHITLS_INCLUDE_DIRS}/pki")
+				include_directories("${OPENHITLS_INCLUDE_DIRS}/pki")
+			endif()
+			if (EXISTS "${OPENHITLS_INCLUDE_DIRS}/tls")
+				include_directories("${OPENHITLS_INCLUDE_DIRS}/tls")
+			endif()
+			if (EXISTS "${OPENHITLS_INCLUDE_DIRS}/auth")
+				include_directories("${OPENHITLS_INCLUDE_DIRS}/auth")
+			endif()
+		endif()
+		if (NOT LWS_PLAT_FREERTOS)
+			list(INSERT LIB_LIST 0 ${OPENHITLS_LIBRARIES})
+		endif()
+		set(LWS_WITH_TLS_KEYLOG 1 PARENT_SCOPE)
+		set(chose_ssl 1)
+	endif()
+
+	if (LWS_WITH_SCHANNEL OR LWS_WITH_GNUTLS OR LWS_WITH_BEARSSL)
 		set(chose_ssl 1)
 	endif()
 
@@ -265,12 +515,15 @@ if (LWS_WITH_SSL)
 			set(OPENSSL_INCLUDE_DIRS "${OPENSSL_INCLUDE_DIR}")
 		endif()
 
-		if (NOT OPENSSL_FOUND AND NOT LWS_WITH_BORINGSSL)
+		if (NOT OPENSSL_FOUND AND NOT LWS_WITH_BORINGSSL AND NOT LWS_WITH_AWSLC)
 			# TODO: Add support for STATIC also.
 			if (NOT LWS_PLAT_FREERTOS)
 				find_package(PkgConfig QUIET)
 				pkg_check_modules(PC_OPENSSL openssl QUIET)
-				find_package(OpenSSL REQUIRED)
+				find_package(OpenSSL)
+				if (NOT OPENSSL_FOUND)
+					message(FATAL_ERROR "OpenSSL development packages (e.g., libssl-dev or openssl-devel) not found! \\nIf you want to use OpenSSL, please install them.\\nIf you installed GnuTLS instead, you must explicitly enable it by adding -DLWS_WITH_GNUTLS=1 to your cmake line.\\nYou can also disable SSL completely with -DLWS_WITH_SSL=0.")
+				endif()
 				if (NOT OPENSSL_FOUND AND PC_OPENSSL_FOUND)
 					list(APPEND OPENSSL_LIBRARIES ${PC_OPENSSL_LINK_LIBRARIES})
 				endif()
@@ -288,11 +541,11 @@ if (LWS_WITH_SSL)
 			set(LWS_PUBLIC_INCLUDES ${LWS_PUBLIC_INCLUDES} "${OPENSSL_INCLUDE_DIRS}")
 			set(LWS_PUBLIC_INCLUDES ${LWS_PUBLIC_INCLUDES} PARENT_SCOPE)
 		endif()
-		if (NOT LWS_PLAT_FREERTOS)
+		if (NOT LWS_PLAT_FREERTOS AND OPENSSL_LIBRARIES)
 			list(INSERT LIB_LIST 0 ${OPENSSL_LIBRARIES})
 		endif()
 
-		if (NOT LWS_WITH_MBEDTLS)
+		if (NOT LWS_WITH_MBEDTLS AND NOT LWS_WITH_OPENHITLS)
 			# older (0.98) Openssl lacks this
 			set(CMAKE_REQUIRED_INCLUDES ${CMAKE_REQUIRED_INCLUDES} ${OPENSSL_INCLUDE_DIRS} PARENT_SCOPE)
 			set(CMAKE_REQUIRED_INCLUDES ${CMAKE_REQUIRED_INCLUDES} ${OPENSSL_INCLUDE_DIRS})
@@ -303,7 +556,14 @@ if (LWS_WITH_SSL)
 			endif()
 		else()
 			unset(LWS_HAVE_OPENSSL_ECDH_H PARENT_SCOPE)
-		endif(NOT LWS_WITH_MBEDTLS)
+		endif()
+
+		if (LWS_WITH_BORINGSSL OR LWS_WITH_AWSLC)
+			if (LWS_WITH_BORINGSSL)
+				list(APPEND LIB_LIST "stdc++")
+			endif()
+			list(APPEND LIB_LIST "pthread")
+		endif()
 	endif()
 
 endif(LWS_WITH_SSL)
@@ -314,8 +574,24 @@ endif()
 if (DEFINED LIB_LIST)
 	set(CMAKE_REQUIRED_LIBRARIES ${LIB_LIST})
 endif()
+set(LWS_ATOMIC_LIB "")
+if(UNIX AND (CMAKE_C_COMPILER_ID STREQUAL "GNU" OR CMAKE_C_COMPILER_ID MATCHES "Clang"))
+	set(LWS_ATOMIC_64_TEST_SRC "int main() { long long x = 0; __atomic_fetch_add(&x, 1, __ATOMIC_SEQ_CST); return 0; }")
+	check_c_source_compiles("${LWS_ATOMIC_64_TEST_SRC}" HAVE_WORKING_ATOMIC_64)
+	if(NOT HAVE_WORKING_ATOMIC_64)
+		# libatomic is not always available (eg, toolchains without threads),
+		# only use it if it actually provides the 64-bit atomics
+		cmake_push_check_state()
+		list(APPEND CMAKE_REQUIRED_LIBRARIES atomic)
+		check_c_source_compiles("${LWS_ATOMIC_64_TEST_SRC}" HAVE_WORKING_ATOMIC_64_WITH_LIBATOMIC)
+		cmake_pop_check_state()
+		if(HAVE_WORKING_ATOMIC_64_WITH_LIBATOMIC)
+			set(LWS_ATOMIC_LIB atomic)
+		endif()
+	endif()
+endif()
 if (UNIX AND NOT (${CMAKE_SYSTEM_NAME} MATCHES "QNX"))
-	set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES} ${CMAKE_DL_LIBS})
+	set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES} ${CMAKE_DL_LIBS} ${LWS_ATOMIC_LIB})
 endif()
 if ((CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX) AND NOT ((${CMAKE_SYSTEM_NAME} MATCHES "QNX") OR PC_OPENSSL_FOUND))
 	set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES} pthread)
@@ -325,13 +601,20 @@ if (NOT VARIA)
 	set(VARIA "")
 endif()
 
+#
+# These probe the OpenSSL api by linking against whatever the toolchain finds,
+# so only an OpenSSL-family backend may run them.  Under another backend an
+# unrelated OpenSSL on the link path (eg, vcpkg's MSBuild integration links
+# every installed library into the probe) would answer them, and the build
+# would then compile OpenSSL-only code against the wrong library.
+#
+if (LWS_WITH_SSL AND NOT LWS_WITH_SCHANNEL AND NOT LWS_WITH_OPENHITLS AND
+    NOT LWS_WITH_MBEDTLS AND NOT LWS_WITH_GNUTLS AND NOT LWS_WITH_BEARSSL)
+
 CHECK_FUNCTION_EXISTS(${VARIA}SSL_CTX_set1_param LWS_HAVE_SSL_CTX_set1_param PARENT_SCOPE)
 CHECK_FUNCTION_EXISTS(${VARIA}SSL_set_info_callback LWS_HAVE_SSL_SET_INFO_CALLBACK PARENT_SCOPE)
+
 CHECK_FUNCTION_EXISTS(${VARIA}X509_VERIFY_PARAM_set1_host LWS_HAVE_X509_VERIFY_PARAM_set1_host PARENT_SCOPE)
-CHECK_SYMBOL_EXISTS(${VARIA}X509_VERIFY_PARAM_set1_host LWS_HAVE_X509_VERIFY_PARAM_set1_host_sym PARENT_SCOPE)
-if (LWS_HAVE_X509_VERIFY_PARAM_set1_host_sym)
-	set(LWS_HAVE_X509_VERIFY_PARAM_set1_host 1 PARENT_SCOPE)
-endif()
 
 CHECK_FUNCTION_EXISTS(${VARIA}RSA_set0_key LWS_HAVE_RSA_SET0_KEY PARENT_SCOPE)
 CHECK_FUNCTION_EXISTS(${VARIA}X509_get_key_usage LWS_HAVE_X509_get_key_usage PARENT_SCOPE)
@@ -352,32 +635,59 @@ CHECK_FUNCTION_EXISTS(${VARIA}EVP_aes_128_ctr LWS_HAVE_EVP_aes_128_ctr PARENT_SC
 
 
 CHECK_FUNCTION_EXISTS(${VARIA}EVP_aes_128_xts LWS_HAVE_EVP_aes_128_xts PARENT_SCOPE)
-CHECK_FUNCTION_EXISTS(${VARIA}RSA_verify_pss_mgf1 LWS_HAVE_RSA_verify_pss_mgf1 PARENT_SCOPE)
 CHECK_FUNCTION_EXISTS(${VARIA}HMAC_CTX_new LWS_HAVE_HMAC_CTX_new PARENT_SCOPE)
-CHECK_SYMBOL_EXISTS(${VARIA}SSL_CTX_set_ciphersuites LWS_HAVE_SSL_CTX_set_ciphersuites PARENT_SCOPE)
+CHECK_FUNCTION_EXISTS(${VARIA}SSL_CTX_set_ciphersuites LWS_HAVE_SSL_CTX_set_ciphersuites PARENT_SCOPE)
 CHECK_FUNCTION_EXISTS(${VARIA}EVP_PKEY_new_raw_private_key LWS_HAVE_EVP_PKEY_new_raw_private_key PARENT_SCOPE)
+CHECK_FUNCTION_EXISTS(${VARIA}EVP_PKEY_Q_keygen LWS_HAVE_EVP_PKEY_Q_KEYGEN PARENT_SCOPE)
+CHECK_FUNCTION_EXISTS(${VARIA}EVP_PKEY_get_bn_param LWS_HAVE_EVP_PKEY_GET_BN_PARAM PARENT_SCOPE)
 CHECK_FUNCTION_EXISTS(${VARIA}SSL_SESSION_set_time LWS_HAVE_SSL_SESSION_set_time PARENT_SCOPE)
-CHECK_SYMBOL_EXISTS(${VARIA}SSL_SESSION_up_ref LWS_HAVE_SSL_SESSION_up_ref PARENT_SCOPE)
+CHECK_FUNCTION_EXISTS(${VARIA}SSL_SESSION_up_ref LWS_HAVE_SSL_SESSION_up_ref PARENT_SCOPE)
+CHECK_FUNCTION_EXISTS(${VARIA}SSL_SESSION_set1_ticket_appdata LWS_HAVE_SSL_SESSION_set1_ticket_appdata PARENT_SCOPE)
 CHECK_FUNCTION_EXISTS(${VARIA}SSL_CTX_set_keylog_callback LWS_HAVE_SSL_CTX_set_keylog_callback PARENT_SCOPE)
 
 
 # deprecated in openssl v3
 CHECK_FUNCTION_EXISTS(${VARIA}EC_KEY_new_by_curve_name LWS_HAVE_EC_KEY_new_by_curve_name PARENT_SCOPE)
 
-if (LWS_WITH_SSL AND NOT LWS_WITH_MBEDTLS)
+if (LWS_WITH_SSL AND NOT LWS_WITH_MBEDTLS AND NOT LWS_WITH_SCHANNEL AND NOT LWS_WITH_GNUTLS AND NOT LWS_WITH_BEARSSL AND NOT LWS_WITH_OPENHITLS)
 	# we don't want to confuse what's in or out of the wrapper with
 	# what's in an openssl also installed on the build host
 CHECK_C_SOURCE_COMPILES("#include <openssl/ssl.h>\nint main(void) { STACK_OF(X509) *c = NULL; SSL_CTX *ctx = NULL; return (int)SSL_CTX_get_extra_chain_certs_only(ctx, &c); }\n" LWS_HAVE_SSL_EXTRA_CHAIN_CERTS)
 CHECK_C_SOURCE_COMPILES("#include <openssl/ssl.h>\nint main(void) { EVP_MD_CTX *md_ctx = NULL; EVP_MD_CTX_free(md_ctx); return 0; }\n" LWS_HAVE_EVP_MD_CTX_free)
 CHECK_C_SOURCE_COMPILES("#include <openssl/ssl.h>\nint main(void) { OPENSSL_STACK *x = NULL; return !x; } \n" LWS_HAVE_OPENSSL_STACK)
+CHECK_C_SOURCE_COMPILES("#include <openssl/ssl.h>\nint main(void) { SSL_CTX *ctx = NULL; return SSL_CTX_set_ecdh_auto(ctx, 1); }\n" LWS_HAVE_SSL_CTX_SET_ECDH_AUTO)
+CHECK_C_SOURCE_COMPILES("#include <openssl/ssl.h>\nint main(void) { SSL_CTX *ctx = NULL; return (int)SSL_CTX_set1_groups_list(ctx, \"prime256v1\"); }\n" LWS_HAVE_SSL_CTX_set1_groups_list)
+CHECK_C_SOURCE_COMPILES("#include <openssl/ssl.h>\nint main(void) { SSL *ssl = NULL; return (int)SSL_set_tlsext_host_name(ssl, \"hello\"); }\n" LWS_HAVE_SSL_set_tlsext_host_name)
+# a macro before OpenSSL 3, so it can't be found by CHECK_FUNCTION_EXISTS
+CHECK_C_SOURCE_COMPILES("#include <openssl/evp.h>\n#include <openssl/rsa.h>\nint main(void) { return EVP_PKEY_CTX_set_rsa_oaep_md(NULL, EVP_sha256()); }\n" LWS_HAVE_EVP_PKEY_CTX_set_rsa_oaep_md)
+# OpenSSL 3.5+ ML-KEM, as used by lws_genkem: the forks lack some of it
+CHECK_C_SOURCE_COMPILES("#include <openssl/evp.h>\n#include <openssl/core_names.h>\nint main(void) { EVP_PKEY_CTX *c = EVP_PKEY_CTX_new_from_name(NULL, \"ML-KEM-768\", NULL); const char *s = OSSL_PKEY_PARAM_ML_KEM_SEED; (void)s; return EVP_PKEY_encapsulate_init(c, NULL) + EVP_PKEY_decapsulate_init(c, NULL); }\n" LWS_HAVE_OPENSSL_ML_KEM)
+
+set(LWS_HAVE_SSL_set_tlsext_host_name 1 CACHE BOOL "" FORCE)
 set(LWS_HAVE_SSL_EXTRA_CHAIN_CERTS ${LWS_HAVE_SSL_EXTRA_CHAIN_CERTS} PARENT_SCOPE)
 set(LWS_HAVE_EVP_MD_CTX_free ${LWS_HAVE_EVP_MD_CTX_free} PARENT_SCOPE)
+set(LWS_HAVE_SSL_CTX_SET_ECDH_AUTO ${LWS_HAVE_SSL_CTX_SET_ECDH_AUTO} PARENT_SCOPE)
+set(LWS_HAVE_SSL_CTX_set1_groups_list ${LWS_HAVE_SSL_CTX_set1_groups_list} PARENT_SCOPE)
+set(LWS_HAVE_EVP_PKEY_CTX_set_rsa_oaep_md ${LWS_HAVE_EVP_PKEY_CTX_set_rsa_oaep_md} PARENT_SCOPE)
+set(LWS_HAVE_OPENSSL_ML_KEM ${LWS_HAVE_OPENSSL_ML_KEM} PARENT_SCOPE)
 CHECK_FUNCTION_EXISTS(${VARIA}ECDSA_SIG_set0 LWS_HAVE_ECDSA_SIG_set0 PARENT_SCOPE)
 CHECK_FUNCTION_EXISTS(${VARIA}BN_bn2binpad LWS_HAVE_BN_bn2binpad PARENT_SCOPE)
 CHECK_FUNCTION_EXISTS(${VARIA}EVP_aes_128_wrap LWS_HAVE_EVP_aes_128_wrap PARENT_SCOPE)
 CHECK_FUNCTION_EXISTS(${VARIA}EC_POINT_get_affine_coordinates LWS_HAVE_EC_POINT_get_affine_coordinates PARENT_SCOPE)
-CHECK_SYMBOL_EXISTS(${VARIA}SSL_CTX_load_verify_file LWS_HAVE_SSL_CTX_load_verify_file PARENT_SCOPE)
-CHECK_SYMBOL_EXISTS(${VARIA}SSL_CTX_load_verify_dir LWS_HAVE_SSL_CTX_load_verify_dir PARENT_SCOPE)
+CHECK_FUNCTION_EXISTS(${VARIA}EC_POINT_is_on_curve LWS_HAVE_EC_POINT_is_on_curve PARENT_SCOPE)
+CHECK_FUNCTION_EXISTS(${VARIA}SSL_CTX_load_verify_file LWS_HAVE_SSL_CTX_load_verify_file PARENT_SCOPE)
+CHECK_FUNCTION_EXISTS(${VARIA}SSL_CTX_load_verify_dir LWS_HAVE_SSL_CTX_load_verify_dir PARENT_SCOPE)
+
+CHECK_C_SOURCE_COMPILES("#include <openssl/ssl.h>\nint main(void) { SSL_set_quic_method(NULL, NULL); return 0; }\n" LWS_HAVE_SSL_SET_QUIC_METHOD)
+if (LWS_ROLE_QUIC AND NOT LWS_HAVE_SSL_SET_QUIC_METHOD AND NOT LWS_WITH_BORINGSSL AND NOT LWS_WITH_AWSLC AND NOT LWS_WITH_GNUTLS AND NOT LWS_WITH_WOLFSSL)
+	message(FATAL_ERROR "LWS_ROLE_QUIC (HTTP/3) requires BoringSSL, GnuTLS, WolfSSL, or the quictls fork of OpenSSL. Standard upstream OpenSSL is not supported because it lacks SSL_set_quic_method.")
+endif()
+
+endif()
+endif()
+
+if (LWS_HAVE_SSL_CTX_set_keylog_callback)
+	set(LWS_WITH_TLS_KEYLOG 1 PARENT_SCOPE)
 endif()
 
 if (LWS_WITH_MBEDTLS)
@@ -387,15 +697,18 @@ if (LWS_WITH_MBEDTLS)
 		set(LWS_HAVE_X509_VERIFY_PARAM_set1_host 1 PARENT_SCOPE)
 	endif()
 
-	set(CMAKE_REQUIRED_LIBRARIES ${MBEDTLS_LIBRARY} ${MBEDX509_LIBRARY} ${MBEDCRYPTO_LIBRARY})
+	set(CMAKE_REQUIRED_LIBRARIES ${MBEDTLS_LIBRARIES} ${MBEDX509_LIBRARY} ${MBEDCRYPTO_LIBRARY})
 	set(CMAKE_REQUIRED_INCLUDES ${CMAKE_REQUIRED_INCLUDES} ${MBEDTLS_INCLUDE_DIRS})
 
 	if (ESP_PLATFORM)
 		# we know we should have things
 		set(LWS_HAVE_MBEDTLS_AUTH_KEY_ID 1 CACHE BOOL x)
+		set(LWS_HAVE_mbedtls_ssl_set_verify 1 CACHE BOOL x) # JIT trust KID capture
 		set(LWS_HAVE_mbedtls_ssl_conf_alpn_protocols 1 CACHE BOOL x)
 		set(LWS_HAVE_mbedtls_ssl_get_alpn_protocol 1 CACHE BOOL x)
 		set(LWS_HAVE_mbedtls_ssl_conf_sni 1 CACHE BOOL x)
+		set(LWS_HAVE_mbedtls_ssl_conf_ciphersuites 1 CACHE BOOL x)
+		set(LWS_HAVE_mbedtls_ssl_session_save 1 CACHE BOOL x)
 		set(LWS_HAVE_mbedtls_ssl_set_hs_ca_chain 1 CACHE BOOL x)
 		set(LWS_HAVE_mbedtls_ssl_set_hs_own_cert 1 CACHE BOOL x)
 		set(LWS_HAVE_mbedtls_ssl_set_hs_authmode 1 CACHE BOOL x)
@@ -404,6 +717,7 @@ if (LWS_WITH_MBEDTLS)
 		set(LWS_HAVE_mbedtls_md_setup 1 CACHE BOOL x) # not on xenial 2.2
 		set(LWS_HAVE_mbedtls_rsa_complete 1 CACHE BOOL x) # not on xenial 2.2
 		set(LWS_HAVE_mbedtls_internal_aes_encrypt 1 CACHE BOOL x) # not on xenial 2.2
+		set(LWS_HAVE_mbedtls_ssl_export_keying_material 1 CACHE BOOL x)
 	else()
 		CHECK_C_SOURCE_COMPILES("#include <mbedtls/x509_crt.h>\nint main(void) { struct mbedtls_x509_crt c; c.authority_key_id.keyIdentifier.tag = MBEDTLS_ASN1_OCTET_STRING; return c.authority_key_id.keyIdentifier.tag; }\n" LWS_HAVE_MBEDTLS_AUTH_KEY_ID)
 		CHECK_C_SOURCE_COMPILES("#include <mbedtls/ssl.h>\nint main(void) { void *v = (void *)mbedtls_ssl_set_verify; return !!v; }\n" LWS_HAVE_mbedtls_ssl_set_verify)
@@ -411,6 +725,8 @@ if (LWS_WITH_MBEDTLS)
 
 		CHECK_FUNCTION_EXISTS(mbedtls_ssl_get_alpn_protocol LWS_HAVE_mbedtls_ssl_get_alpn_protocol PARENT_SCOPE)
 		CHECK_FUNCTION_EXISTS(mbedtls_ssl_conf_sni LWS_HAVE_mbedtls_ssl_conf_sni PARENT_SCOPE)
+		CHECK_FUNCTION_EXISTS(mbedtls_ssl_conf_ciphersuites LWS_HAVE_mbedtls_ssl_conf_ciphersuites PARENT_SCOPE)
+		CHECK_FUNCTION_EXISTS(mbedtls_ssl_session_save LWS_HAVE_mbedtls_ssl_session_save PARENT_SCOPE)
 		CHECK_FUNCTION_EXISTS(mbedtls_ssl_set_hs_ca_chain LWS_HAVE_mbedtls_ssl_set_hs_ca_chain PARENT_SCOPE)
 		CHECK_FUNCTION_EXISTS(mbedtls_ssl_set_hs_own_cert LWS_HAVE_mbedtls_ssl_set_hs_own_cert PARENT_SCOPE)
 		CHECK_FUNCTION_EXISTS(mbedtls_ssl_set_hs_authmode LWS_HAVE_mbedtls_ssl_set_hs_authmode PARENT_SCOPE)
@@ -419,7 +735,10 @@ if (LWS_WITH_MBEDTLS)
 		CHECK_FUNCTION_EXISTS(mbedtls_md_setup LWS_HAVE_mbedtls_md_setup PARENT_SCOPE) # not on xenial 2.2
 		CHECK_FUNCTION_EXISTS(mbedtls_rsa_complete LWS_HAVE_mbedtls_rsa_complete PARENT_SCOPE) # not on xenial 2.2
 		CHECK_FUNCTION_EXISTS(mbedtls_internal_aes_encrypt LWS_HAVE_mbedtls_internal_aes_encrypt PARENT_SCOPE) # not on xenial 2.2
+		CHECK_FUNCTION_EXISTS(mbedtls_ssl_export_keying_material LWS_HAVE_mbedtls_ssl_export_keying_material PARENT_SCOPE)
 	endif()
+elseif (LWS_WITH_OPENHITLS)
+	set(LWS_HAVE_TLS_CLIENT_METHOD 0 PARENT_SCOPE)
 else()
 CHECK_FUNCTION_EXISTS(${VARIA}TLS_client_method LWS_HAVE_TLS_CLIENT_METHOD PARENT_SCOPE)
 CHECK_FUNCTION_EXISTS(${VARIA}TLSv1_2_client_method LWS_HAVE_TLSV1_2_CLIENT_METHOD PARENT_SCOPE)
@@ -455,43 +774,44 @@ message(" GENCERTS = ${GENCERTS}")
 if (GENCERTS)
 	message("Generating SSL Certificates for the test-server...")
 
+	#
+	# The ctests dial the local test servers as "localhost" on dual-stack
+	# builds, but as the literal 127.0.0.1 or ::1 when only one family is
+	# built in (see LWS_CTEST_SERVER_RESOLVE)... the client still checks
+	# the peer name in every case, so the cert must name all three
+	#
+	set(TEST_SERVER_SSL_SAN "subjectAltName=DNS:localhost,IP:127.0.0.1,IP:::1")
+
 	set(TEST_SERVER_SSL_KEY "${PROJECT_BINARY_DIR}/libwebsockets-test-server.key.pem")
 	set(TEST_SERVER_SSL_CERT "${PROJECT_BINARY_DIR}/libwebsockets-test-server.pem")
 
 	if (WIN32)
 		if (MINGW)
-			message("cmd = \"${OPENSSL_EXECUTABLE}\" req -new -newkey rsa:2048 -days 10000 -nodes -x509 -subj \"/C=GB/ST=Erewhon/L=All around/O=libwebsockets-test/CN=localhost\" -keyout \"${TEST_SERVER_SSL_KEY}\" -out \"${TEST_SERVER_SSL_CERT}\"")
+			message("cmd = \"${OPENSSL_EXECUTABLE}\" req -new -newkey rsa:2048 -days 10000 -nodes -x509 -subj \"/C=GB/ST=Erewhon/L=All around/O=libwebsockets-test/CN=localhost\" -addext \"${TEST_SERVER_SSL_SAN}\" -keyout \"${TEST_SERVER_SSL_KEY}\" -out \"${TEST_SERVER_SSL_CERT}\"")
 			execute_process(
-				COMMAND "${OPENSSL_EXECUTABLE}" req -new -newkey rsa:2048 -days 10000 -nodes -x509 -subj "/C=GB/ST=Erewhon/L=All around/O=libwebsockets-test/CN=localhost" -keyout "${TEST_SERVER_SSL_KEY}" -out "${TEST_SERVER_SSL_CERT}"
+				COMMAND "${OPENSSL_EXECUTABLE}" req -new -newkey rsa:2048 -days 10000 -nodes -x509 -subj "/C=GB/ST=Erewhon/L=All around/O=libwebsockets-test/CN=localhost" -addext "${TEST_SERVER_SSL_SAN}" -keyout "${TEST_SERVER_SSL_KEY}" -out "${TEST_SERVER_SSL_CERT}"
 				RESULT_VARIABLE OPENSSL_RETURN_CODE)
 		else()
-			file(WRITE "${PROJECT_BINARY_DIR}/openssl_input.txt"
-				"GB\n"
-				"Erewhon\n"
-				"All around\n"
-				"libwebsockets-test\n"
-				"localhost\n"
-				"none@invalid.org\n\n"
+			file(WRITE "${PROJECT_BINARY_DIR}/openssl_test_server.cnf"
+				"[req]\n"
+				"distinguished_name=req_distinguished_name\n"
+				"x509_extensions=v3\n"
+				"prompt=no\n"
+				"\n"
+				"[req_distinguished_name]\n"
+				"C=GB\n"
+				"ST=Erewhon\n"
+				"L=All around\n"
+				"O=libwebsockets-test\n"
+				"CN=localhost\n"
+				"\n"
+				"[v3]\n"
+				"${TEST_SERVER_SSL_SAN}\n"
 				)
 
-			# The "type" command is a bit picky with paths.
-			file(TO_NATIVE_PATH "${PROJECT_BINARY_DIR}/openssl_input.txt" OPENSSL_INPUT_WIN_PATH)
-			message("OPENSSL_INPUT_WIN_PATH = ${OPENSSL_INPUT_WIN_PATH}")
-			message("cmd = \"${OPENSSL_EXECUTABLE}\" req -new -newkey rsa:2048 -days 10000 -nodes -x509 -keyout \"${TEST_SERVER_SSL_KEY}\" -out \"${TEST_SERVER_SSL_CERT}\"")
-
-			if(OPENSSL_CONFIG_FILE)
-				execute_process(
-					COMMAND cmd /c type "${OPENSSL_INPUT_WIN_PATH}"
-					COMMAND "${OPENSSL_EXECUTABLE}" req -config ${OPENSSL_CONFIG_FILE} -new -newkey rsa:2048 -days 10000 -nodes -x509 -keyout "${TEST_SERVER_SSL_KEY}" -out "${TEST_SERVER_SSL_CERT}"
-					RESULT_VARIABLE OPENSSL_RETURN_CODE
-					OUTPUT_QUIET ERROR_QUIET)
-			else()
-				execute_process(
-					COMMAND cmd /c type "${OPENSSL_INPUT_WIN_PATH}"
-					COMMAND "${OPENSSL_EXECUTABLE}" req -new -newkey rsa:2048 -days 10000 -nodes -x509 -keyout "${TEST_SERVER_SSL_KEY}" -out "${TEST_SERVER_SSL_CERT}"
-					RESULT_VARIABLE OPENSSL_RETURN_CODE
-					OUTPUT_QUIET ERROR_QUIET)
-			endif()
+			execute_process(
+				COMMAND "${OPENSSL_EXECUTABLE}" req -config "${PROJECT_BINARY_DIR}/openssl_test_server.cnf" -new -newkey rsa:2048 -days 10000 -nodes -x509 -keyout "${TEST_SERVER_SSL_KEY}" -out "${TEST_SERVER_SSL_CERT}"
+				RESULT_VARIABLE OPENSSL_RETURN_CODE)
 
 			message("\n")
 		endif()
@@ -505,7 +825,7 @@ if (GENCERTS)
                if (CMAKE_HOST_SYSTEM_NAME MATCHES "NetBSD")
                 execute_process(
                         COMMAND "${OPENSSL_EXECUTABLE}"
-                                req -new -newkey rsa:2048 -days 10000 -nodes -x509 -subj "/O=lws/CN=localhost" -keyout "${TEST_SERVER_SSL_KEY}" -out "${TEST_SERVER_SSL_CERT}"
+                                req -new -newkey rsa:2048 -days 10000 -nodes -x509 -subj "/O=lws/CN=localhost" -addext "${TEST_SERVER_SSL_SAN}" -keyout "${TEST_SERVER_SSL_KEY}" -out "${TEST_SERVER_SSL_CERT}"
                         RESULT_VARIABLE OPENSSL_RETURN_CODE
                         #               OUTPUT_QUIET ERROR_QUIET
                         )
@@ -513,14 +833,13 @@ if (GENCERTS)
                else()
 	
 		# Unix.
-		execute_process(
-			COMMAND printf "GB\\nErewhon\\nAll around\\nlibwebsockets-test\\n\\nlocalhost\\nnone@invalid.org\\n"
-			COMMAND "${OPENSSL_EXECUTABLE}"
-				req -new -newkey rsa:2048 -days 10000 -nodes -x509 -keyout "${TEST_SERVER_SSL_KEY}" -out "${TEST_SERVER_SSL_CERT}"
-			RESULT_VARIABLE OPENSSL_RETURN_CODE
-			#		OUTPUT_QUIET ERROR_QUIET
-			)
-			
+               execute_process(
+                       COMMAND printf "GB\\nErewhon\\nAll around\\nlibwebsockets-test\\n\\nlocalhost\\nnone@invalid.org\\n"
+                       COMMAND "${OPENSSL_EXECUTABLE}"
+                               req -config /etc/ssl/openssl.cnf -new -newkey rsa:2048 -days 10000 -nodes -x509 -addext "${TEST_SERVER_SSL_SAN}" -keyout "${TEST_SERVER_SSL_KEY}" -out "${TEST_SERVER_SSL_CERT}"
+                       RESULT_VARIABLE OPENSSL_RETURN_CODE
+                       #               OUTPUT_QUIET ERROR_QUIET
+                       )
 		endif()
 
 		if (OPENSSL_RETURN_CODE)
@@ -530,9 +849,11 @@ if (GENCERTS)
 		endif()
 	endif()
 
-	list(APPEND TEST_SERVER_DATA 
-		"${TEST_SERVER_SSL_KEY}"
-		"${TEST_SERVER_SSL_CERT}")
+	if (NOT OPENSSL_RETURN_CODE)
+		list(APPEND TEST_SERVER_DATA
+			"${TEST_SERVER_SSL_KEY}"
+			"${TEST_SERVER_SSL_CERT}")
+	endif()
 endif()
 
 #
@@ -566,10 +887,20 @@ if (MSVC AND LWS_WITH_SSL AND NOT LWS_WITH_WOLFSSL)
 	endif()
 endif()
 
-if (LWS_WITH_TLS AND (LWS_WITH_JOSE OR LWS_WITH_GENCRYPTO))
 	list(APPEND SOURCES
-		tls/lws-gencrypto-common.c)
-endif()
+		tls/lws-gencrypto-common.c
+		tls/chacha.c
+		tls/poly1305.c
+		tls/lws-genchacha.c)
+	if (LWS_WITH_GENCRYPTO)
+		list(APPEND SOURCES
+			tls/lws-genaes-common.c
+			tls/keccak.c
+			tls/mlkem.c
+			tls/lws-genkem.c)
+	endif()
+
+
 
 #
 # Keep explicit parent scope exports at end
@@ -579,7 +910,12 @@ exports_to_parent_scope()
 set(LWS_HAVE_MBEDTLS_NET_SOCKETS ${LWS_HAVE_MBEDTLS_NET_SOCKETS} PARENT_SCOPE)
 set(LWS_HAVE_MBEDTLS_SSL_NEW_SESSION_TICKET ${LWS_HAVE_MBEDTLS_SSL_NEW_SESSION_TICKET} PARENT_SCOPE)
 set(LWS_HAVE_mbedtls_ssl_conf_alpn_protocols ${LWS_HAVE_mbedtls_ssl_conf_alpn_protocols} PARENT_SCOPE)
+set(LWS_HAVE_mbedtls_ssl_conf_ciphersuites ${LWS_HAVE_mbedtls_ssl_conf_ciphersuites} PARENT_SCOPE)
+set(LWS_HAVE_mbedtls_ssl_session_save ${LWS_HAVE_mbedtls_ssl_session_save} PARENT_SCOPE)
+set(LWS_HAVE_mbedtls_ssl_set_export_keys_cb ${LWS_HAVE_mbedtls_ssl_set_export_keys_cb} PARENT_SCOPE)
+set(LWS_HAVE_mbedtls_ssl_conf_export_keys_cb ${LWS_HAVE_mbedtls_ssl_conf_export_keys_cb} PARENT_SCOPE)
+set(LWS_HAVE_mbedtls_ssl_set_quic_transport_ops ${LWS_HAVE_mbedtls_ssl_set_quic_transport_ops} PARENT_SCOPE)
 set(TEST_SERVER_SSL_KEY "${TEST_SERVER_SSL_KEY}" PARENT_SCOPE)
 set(TEST_SERVER_SSL_CERT "${TEST_SERVER_SSL_CERT}" PARENT_SCOPE)
 set(TEST_SERVER_DATA ${TEST_SERVER_DATA} PARENT_SCOPE)
-
+set(LWS_DEP_LIB_PATHS ${LWS_DEP_LIB_PATHS} PARENT_SCOPE)

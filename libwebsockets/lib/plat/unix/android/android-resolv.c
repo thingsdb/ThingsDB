@@ -26,34 +26,41 @@
 #include "private-lib-async-dns.h"
 #include <sys/system_properties.h>
 
-lws_async_dns_server_check_t
-lws_plat_asyncdns_init(struct lws_context *context, lws_async_dns_t *dns)
+int
+lws_plat_asyncdns_get_server(struct lws_context *context, int index,
+			     lws_sockaddr46 *sa46)
 {
-	lws_async_dns_server_check_t s = LADNS_CONF_SERVER_SAME;
 	char prop[PROP_VALUE_MAX], netdns[9];
-	lws_async_dns_server_t *dsrv;
-	lws_sockaddr46 sa46t;
-	int n;
 
-	strcpy(netdns, "net.dns1");
-	for (n = 0; n < 4; n++) {
+	if (index < 0 || index >= 4)
+		return -1;
 
-		prop[0] = '\0';
-		if (__system_property_get(netdns, prop) <= 0)
-			continue;
+	lws_snprintf(netdns, sizeof(netdns), "net.dns%d", index + 1);
 
-		netdns[7]++; /* net.dns2... etc */
+	prop[0] = '\0';
+	if (__system_property_get(netdns, prop) <= 0)
+		return -1;
 
-		memset(&sa46t, 0, sizeof(sa46t));
-		if (lws_sa46_parse_numeric_address(prop, &sa46t) < 0)
-			continue;
+	memset(sa46, 0, sizeof(*sa46));
+	if (lws_sa46_parse_numeric_address(prop, sa46) < 0)
+		return -1;
 
-		dsrv = __lws_async_dns_server_find(dns, &sa46t);
-		if (!dsrv) {
-			__lws_async_dns_server_add(dns, &sa46t);
-			s = LADNS_CONF_SERVER_CHANGED;
-		}
-	}
-
-	return s;
+	return 0;
 }
+
+/* android has no system property for a resolver search list */
+
+int
+lws_plat_asyncdns_get_search(struct lws_context *context, char *buf,
+			     size_t len, int *ndots)
+{
+	(void)context;
+	(void)len;
+
+	*ndots = 1;
+	if (len)
+		buf[0] = '\0';
+
+	return 0;
+}
+

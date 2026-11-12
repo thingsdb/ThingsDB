@@ -29,49 +29,7 @@
 #
 # and keep everything else private
 
-include_directories(wrapper/include wrapper/include/internal)
-
- 	set(LWS_WITH_SSL ON)
- 	
-	include_directories(wrapper/include)
-	include_directories(wrapper/include/platform)
-	include_directories(wrapper/include/internal)
-	include_directories(wrapper/include/openssl)
- 	
- 	if (LWS_WITH_NETWORK)
-		list(APPEND HDR_PRIVATE
-			tls/mbedtls/wrapper/include/internal/ssl3.h
-			tls/mbedtls/wrapper/include/internal/ssl_cert.h
-			tls/mbedtls/wrapper/include/internal/ssl_code.h
-			tls/mbedtls/wrapper/include/internal/ssl_dbg.h
-			tls/mbedtls/wrapper/include/internal/ssl_lib.h
-			tls/mbedtls/wrapper/include/internal/ssl_methods.h
-			tls/mbedtls/wrapper/include/internal/ssl_pkey.h
-			tls/mbedtls/wrapper/include/internal/ssl_stack.h
-			tls/mbedtls/wrapper/include/internal/ssl_types.h
-			tls/mbedtls/wrapper/include/internal/ssl_x509.h
-			tls/mbedtls/wrapper/include/internal/tls1.h
-			tls/mbedtls/wrapper/include/internal/x509_vfy.h)
-	
-		list(APPEND HDR_PRIVATE
-			tls/mbedtls/wrapper/include/openssl/ssl.h)
-	
-		list(APPEND HDR_PRIVATE
-			tls/mbedtls/wrapper/include/platform/ssl_pm.h
-			tls/mbedtls/wrapper/include/platform/ssl_port.h)
-	
-		list(APPEND SOURCES
-			tls/mbedtls/wrapper/library/ssl_cert.c
-			tls/mbedtls/wrapper/library/ssl_lib.c
-			tls/mbedtls/wrapper/library/ssl_methods.c
-			tls/mbedtls/wrapper/library/ssl_pkey.c
-			tls/mbedtls/wrapper/library/ssl_stack.c
-			tls/mbedtls/wrapper/library/ssl_x509.c)
-	
-		list(APPEND SOURCES
-			tls/mbedtls/wrapper/platform/ssl_pm.c
-			tls/mbedtls/wrapper/platform/ssl_port.c)
-	endif()
+	set(LWS_WITH_SSL ON)
 
 	set(_WANT_MBT 0)
 	if (NOT LWS_PLAT_FREERTOS)
@@ -87,9 +45,19 @@ include_directories(wrapper/include wrapper/include/internal)
 
 		find_path(LWS_MBEDTLS_INCLUDE_DIRS mbedtls/ssl.h)
 
-		find_library(MBEDTLS_LIBRARY mbedtls)
-		find_library(MBEDX509_LIBRARY mbedx509)
-		find_library(MBEDCRYPTO_LIBRARY mbedcrypto)
+		if (LWS_MBEDTLS_INCLUDE_DIRS)
+			list(GET LWS_MBEDTLS_INCLUDE_DIRS 0 MBEDTLS_INC_BASE)
+			set(MBEDTLS_HINTS
+				"${MBEDTLS_INC_BASE}/../lib"
+				"${MBEDTLS_INC_BASE}/../lib64"
+				"${MBEDTLS_INC_BASE}/../build/library"
+				"${MBEDTLS_INC_BASE}/../library"
+			)
+		endif()
+
+		find_library(MBEDTLS_LIBRARY mbedtls HINTS ${MBEDTLS_HINTS})
+		find_library(MBEDX509_LIBRARY mbedx509 HINTS ${MBEDTLS_HINTS})
+		find_library(MBEDCRYPTO_LIBRARY mbedcrypto HINTS ${MBEDTLS_HINTS})
 
 		set(LWS_MBEDTLS_LIBRARIES "${MBEDTLS_LIBRARY}" "${MBEDX509_LIBRARY}" "${MBEDCRYPTO_LIBRARY}")
 
@@ -107,14 +75,59 @@ include_directories(wrapper/include wrapper/include/internal)
 		set(MBEDTLS_LIBRARIES ${LWS_MBEDTLS_LIBRARIES})
 		set(MBEDTLS_LIBRARIES ${LWS_MBEDTLS_LIBRARIES} PARENT_SCOPE)
 	endif()
-	if (LWS_MBEDTLS_INCLUDE_DIRS)
-		set(MBEDTLS_INCLUDE_DIRS ${LWS_MBEDTLS_INCLUDE_DIRS})
-		set(MBEDTLS_INCLUDE_DIRS ${LWS_MBEDTLS_INCLUDE_DIRS} PARENT_SCOPE)
+	if (LWS_MBEDTLS_INCLUDE_DIRS OR LWS_PLAT_FREERTOS)
+		set(CMAKE_REQUIRED_INCLUDES_TEMP ${CMAKE_REQUIRED_INCLUDES})
+		if (LWS_MBEDTLS_INCLUDE_DIRS)
+			list(GET LWS_MBEDTLS_INCLUDE_DIRS 0 MBEDTLS_INC_BASE)
+			set(LWS_MBEDTLS_TF_PSA_PATH "${MBEDTLS_INC_BASE}/../tf-psa-crypto" CACHE PATH "Path to TF-PSA-Crypto submodule")
+			set(CMAKE_REQUIRED_INCLUDES ${CMAKE_REQUIRED_INCLUDES} ${LWS_MBEDTLS_INCLUDE_DIRS} "${LWS_MBEDTLS_TF_PSA_PATH}/include" "${LWS_MBEDTLS_TF_PSA_PATH}/drivers/builtin/include")
+		endif()
+		# on ESP-IDF the include dirs (tf-psa-crypto ones included) are
+		# already in CMAKE_REQUIRED_INCLUDES from lib/CMakeLists.txt, and
+		# IDF links the crypto library itself; we still have to find out
+		# which mbedtls major we are facing.
+
+		CHECK_C_SOURCE_COMPILES("#include <mbedtls/build_info.h>\n#if MBEDTLS_VERSION_MAJOR < 4\n#error Not V4\n#endif\nint main(void) { return 0; }\n" LWS_HAVE_MBEDTLS_V4)
+		if (NOT LWS_HAVE_MBEDTLS_V4)
+			CHECK_C_SOURCE_COMPILES("#include <mbedtls/version.h>\n#if MBEDTLS_VERSION_MAJOR < 4\n#error Not V4\n#endif\nint main(void) { return 0; }\n" LWS_HAVE_MBEDTLS_V4_ALT)
+			if (LWS_HAVE_MBEDTLS_V4_ALT)
+				set(LWS_HAVE_MBEDTLS_V4 1)
+			endif()
+		endif()
+		if (LWS_HAVE_MBEDTLS_V4 AND LWS_MBEDTLS_INCLUDE_DIRS)
+			list(APPEND LWS_MBEDTLS_INCLUDE_DIRS "${LWS_MBEDTLS_TF_PSA_PATH}/include" "${LWS_MBEDTLS_TF_PSA_PATH}/drivers/builtin/include")
+			
+			find_library(TFPSACRYPTO_LIBRARY tfpsacrypto PATHS "${LWS_MBEDTLS_TF_PSA_PATH}/../build/library" "${MBEDTLS_INC_BASE}/../build/library")
+			if (NOT TFPSACRYPTO_LIBRARY)
+				message(FATAL_ERROR "Mbed TLS 4 requires TF-PSA-Crypto library (tfpsacrypto). Please specify TFPSACRYPTO_LIBRARY.")
+			endif()
+			list(APPEND MBEDTLS_LIBRARIES "${TFPSACRYPTO_LIBRARY}")
+			set(MBEDTLS_LIBRARIES ${MBEDTLS_LIBRARIES} PARENT_SCOPE)
+		endif()
+		set(CMAKE_REQUIRED_INCLUDES ${CMAKE_REQUIRED_INCLUDES_TEMP})
+
+		if (LWS_MBEDTLS_INCLUDE_DIRS)
+			set(MBEDTLS_INCLUDE_DIRS ${LWS_MBEDTLS_INCLUDE_DIRS})
+			set(MBEDTLS_INCLUDE_DIRS ${LWS_MBEDTLS_INCLUDE_DIRS} PARENT_SCOPE)
+		endif()
 	endif()
 	set(USE_MBEDTLS 1 PARENT_SCOPE)
 	if (DEFINED MBEDTLS_INCLUDE_DIRS)
 		include_directories(${MBEDTLS_INCLUDE_DIRS})
 		set(CMAKE_REQUIRED_INCLUDES ${CMAKE_REQUIRED_INCLUDES} ${MBEDTLS_INCLUDE_DIRS})
+	endif()
+
+	if (DEFINED MBEDTLS_LIBRARIES AND WIN32)
+		#
+		# A static mbedtls found by path doesn't bring its system library
+		# deps with it the way its cmake package would: its entropy
+		# source is BCryptGenRandom() and x509 uses inet_pton().  They go
+		# on MBEDTLS_LIBRARIES, so the feature probes that link against
+		# it see them too; otherwise every probe fails to link and lws
+		# builds without ALPN, SNI and the rest
+		#
+		list(APPEND MBEDTLS_LIBRARIES ws2_32 bcrypt)
+		set(MBEDTLS_LIBRARIES ${MBEDTLS_LIBRARIES} PARENT_SCOPE)
 	endif()
 
 	if (DEFINED MBEDTLS_LIBRARIES)

@@ -42,7 +42,9 @@ list(APPEND SOURCES
 
 if (LWS_ESP_PLATFORM AND LWS_WITH_DRIVERS)
 	list(APPEND SOURCES plat/freertos/esp32/drivers/settings-esp32.c
-			    plat/freertos/esp32/drivers/spi-esp32.c)
+			    plat/freertos/esp32/drivers/spi-esp32.c
+			    plat/freertos/esp32/drivers/epd-direct-esp32.c
+			    plat/freertos/esp32/drivers/epd-direct-runner-esp32.c)
 	if (LWS_WITH_NETWORK)
 		list(APPEND SOURCES plat/freertos/esp32/drivers/netdev/wifi-esp32.c)
 	endif()
@@ -52,6 +54,9 @@ if (LWS_WITH_FILE_OPS)
 endif()
 if (LWS_WITH_SYS_ASYNC_DNS OR LWS_WITH_SYS_NTPCLIENT)
 	list(APPEND SOURCES plat/freertos/freertos-resolv.c)
+endif()
+if (LWS_WITH_SYS_INFO)
+	list(APPEND SOURCES plat/freertos/freertos-sysinfo.c)
 endif()
 
 if (LWS_ESP_PLATFORM AND LWS_WITH_OTA)

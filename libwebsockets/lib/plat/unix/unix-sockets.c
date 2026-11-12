@@ -28,7 +28,10 @@
 #include "private-lib-core.h"
 
 #if defined(LWS_HAVE_LINUX_IPV6_H)
+#include <linux/version.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 12, 0)
 #include <linux/ipv6.h>
+#endif
 #endif
 
 #include <sys/ioctl.h>
@@ -52,36 +55,17 @@
 
 #include <netinet/ip.h>
 
+/*
+ * would the socket under wsi, the connection owning it, block a write now.
+ * Asked by IO's lws_io_tx_choked_pollfd() only for a valid socket that is
+ * not under a transport.
+ */
 int
-lws_send_pipe_choked(struct lws *wsi)
+lws_plat_tx_choked(struct lws *wsi)
 {
 	struct lws_pollfd fds;
-	struct lws *wsi_eff;
 
-#if !defined(LWS_WITHOUT_EXTENSIONS)
-	if (wsi->ws && wsi->ws->tx_draining_ext)
-		return 1;
-#endif
-
-#if defined(LWS_WITH_HTTP2)
-	wsi_eff = lws_get_network_wsi(wsi);
-#else
-	wsi_eff = wsi;
-#endif
-
-	/* the fact we checked implies we avoided back-to-back writes */
-	wsi_eff->could_have_pending = 0;
-
-	/* treat the fact we got a truncated send pending as if we're choked */
-	if (lws_has_buffered_out(wsi_eff)
-#if defined(LWS_WITH_HTTP_STREAM_COMPRESSION)
-	    ||wsi->http.comp_ctx.buflist_comp ||
-	    wsi->http.comp_ctx.may_have_more
-#endif
-	    )
-		return 1;
-
-	fds.fd = wsi_eff->desc.sockfd;
+	fds.fd = wsi->io->desc.sockfd;
 	fds.events = POLLOUT;
 	fds.revents = 0;
 
@@ -103,18 +87,41 @@ lws_plat_set_nonblocking(lws_sockfd_type fd)
 }
 
 int
+lws_plat_set_udp_bufs(lws_sockfd_type fd)
+{
+	int opt = 4 * 1024 * 1024;
+
+	return setsockopt(fd, SOL_SOCKET, SO_RCVBUF, (const char *)&opt,
+			  sizeof(opt)) < 0 ||
+	       setsockopt(fd, SOL_SOCKET, SO_SNDBUF, (const char *)&opt,
+			  sizeof(opt)) < 0;
+}
+
+int
+lws_plat_rx_pending(lws_sockfd_type fd, size_t *pending)
+{
+#if defined(FIONREAD)
+	int n = 0;
+
+	if (ioctl(fd, FIONREAD, &n) < 0 || n < 0)
+		return -1;
+
+	*pending = (size_t)n;
+
+	return 0;
+#else
+	(void)fd;
+	(void)pending;
+
+	return -1;
+#endif
+}
+
+int
 lws_plat_set_socket_options(struct lws_vhost *vhost, int fd, int unix_skt)
 {
 	int optval = 1;
 	socklen_t optlen = sizeof(optval);
-
-#if defined(__APPLE__) || \
-    defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || \
-    defined(__NetBSD__) || \
-    defined(__OpenBSD__) || \
-    defined(__HAIKU__)
-	struct protoent *tcp_proto;
-#endif
 
 	(void)fcntl(fd, F_SETFD, FD_CLOEXEC);
 
@@ -173,54 +180,98 @@ lws_plat_set_socket_options(struct lws_vhost *vhost, int fd, int unix_skt)
 	}
 #endif
 
-	/* Disable Nagle */
+	/*
+	 * Disable Nagle.  IPPROTO_TCP everywhere: it's what getprotobyname()
+	 * would look up in /etc/protocols, but that needs an fd, and with
+	 * none free it returns NULL
+	 */
 	optval = 1;
-#if defined (__sun) || defined(__QNX__) || defined(__NuttX__)
-	if (!unix_skt && setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (const void *)&optval, optlen) < 0)
+	if (!unix_skt && setsockopt(fd, IPPROTO_TCP, TCP_NODELAY,
+				    (const void *)&optval, optlen) < 0)
 		return 1;
-#elif !defined(__APPLE__) && \
-      !defined(__FreeBSD__) && !defined(__FreeBSD_kernel__) &&        \
-      !defined(__NetBSD__) && \
-      !defined(__OpenBSD__) && \
-      !defined(__HAIKU__)
-	if (!unix_skt && setsockopt(fd, SOL_TCP, TCP_NODELAY, (const void *)&optval, optlen) < 0)
-		return 1;
-#else
-	tcp_proto = getprotobyname("TCP");
-	if (!unix_skt && setsockopt(fd, tcp_proto->p_proto, TCP_NODELAY, &optval, optlen) < 0)
-		return 1;
-#endif
 
 	return lws_plat_set_nonblocking(fd);
 }
 
+#if 0
 #if !defined(__NuttX__)
 static const int ip_opt_lws_flags[] = {
-	LCCSCF_IP_LOW_LATENCY, LCCSCF_IP_HIGH_THROUGHPUT,
-	LCCSCF_IP_HIGH_RELIABILITY
-#if !defined(__OpenBSD__)
+	LCCSCF_IP_LOW_LATENCY, LCCSCF_IP_HIGH_THROUGHPUT
+#if !defined(__OpenBSD__) && !defined(__sun) && !defined(__QNX__)
+	, LCCSCF_IP_HIGH_RELIABILITY
 	, LCCSCF_IP_LOW_COST
 #endif
 }, ip_opt_val[] = {
-	IPTOS_LOWDELAY, IPTOS_THROUGHPUT, IPTOS_RELIABILITY
+	IPTOS_LOWDELAY, IPTOS_THROUGHPUT
 #if !defined(__OpenBSD__) && !defined(__sun) && !defined(__QNX__)
+	, IPTOS_RELIABILITY
 	, IPTOS_MINCOST
 #endif
 };
 #if !defined(LWS_WITH_NO_LOGS)
 static const char *ip_opt_names[] = {
-	"LOWDELAY", "THROUGHPUT", "RELIABILITY"
-#if !defined(__OpenBSD__) && !defined(__sun)
+	"LOWDELAY", "THROUGHPUT"
+#if !defined(__OpenBSD__) && !defined(__sun) && !defined(__QNX__)
+	, "RELIABILITY"
 	, "MINCOST"
 #endif
 };
 #endif
 #endif
+#endif
+
+int
+lws_plat_set_socket_dontfrag(lws_sockfd_type fd, int af)
+{
+	int ret = 0, v;
+
+	(void)v;
+
+#if defined(LWS_WITH_IPV6)
+	if (af == AF_INET6) {
+#if defined(IPV6_MTU_DISCOVER) && defined(IPV6_PMTUDISC_PROBE)
+		v = IPV6_PMTUDISC_PROBE;
+		ret = setsockopt(fd, IPPROTO_IPV6, IPV6_MTU_DISCOVER,
+				 (const void *)&v, sizeof(v));
+#elif defined(IPV6_DONTFRAG)
+		v = 1;
+		ret = setsockopt(fd, IPPROTO_IPV6, IPV6_DONTFRAG,
+				 (const void *)&v, sizeof(v));
+#endif
+		/*
+		 * A dual stack socket's IPv4 datagrams too, where the platform
+		 * applies the IPv4 option to them; where it doesn't, there's
+		 * nothing more we can do
+		 */
+#if defined(IP_MTU_DISCOVER) && defined(IP_PMTUDISC_PROBE)
+		v = IP_PMTUDISC_PROBE;
+		(void)setsockopt(fd, IPPROTO_IP, IP_MTU_DISCOVER,
+				 (const void *)&v, sizeof(v));
+#endif
+
+		return ret;
+	}
+#endif
+
+	(void)af;
+
+#if defined(IP_MTU_DISCOVER) && defined(IP_PMTUDISC_PROBE)
+	v = IP_PMTUDISC_PROBE;
+	ret = setsockopt(fd, IPPROTO_IP, IP_MTU_DISCOVER,
+			 (const void *)&v, sizeof(v));
+#elif defined(IP_DONTFRAG)
+	v = 1;
+	ret = setsockopt(fd, IPPROTO_IP, IP_DONTFRAG,
+			 (const void *)&v, sizeof(v));
+#endif
+
+	return ret;
+}
 
 int
 lws_plat_set_socket_options_ip(lws_sockfd_type fd, uint8_t pri, int lws_flags)
 {
-	int optval = (int)pri, ret = 0, n;
+	int optval = (int)pri, ret = 0;
 	socklen_t optlen = sizeof(optval);
 #if (_LWS_ENABLED_LOGS & LLL_WARN)
 	int en;
@@ -298,7 +349,14 @@ lws_plat_set_socket_options_ip(lws_sockfd_type fd, uint8_t pri, int lws_flags)
 
 
 #if !defined(__NuttX__)
-	for (n = 0; n < 4; n++) {
+	/* array size differs by platform */
+	/*
+	 * AG: Disabled for DHT routing fixes on strict custom Linux router kernels.
+	 * UDP sendto() throws EINVAL if IP_TOS flags conflict with internal strict
+	 * routing table validation!
+	 */
+#if 0
+	for (n = 0; n < (int)LWS_ARRAY_SIZE(ip_opt_lws_flags); n++) {
 		if (!(lws_flags & ip_opt_lws_flags[n]))
 			continue;
 
@@ -315,6 +373,7 @@ lws_plat_set_socket_options_ip(lws_sockfd_type fd, uint8_t pri, int lws_flags)
 			lwsl_notice("%s: set ip flag %s\n", __func__,
 				    ip_opt_names[n]);
 	}
+#endif
 #endif
 
 	return ret;
@@ -346,10 +405,18 @@ lws_interface_to_sa(int ipv6, const char *ifname, struct sockaddr_in *addr,
 #endif
 
 	if (getifaddrs(&ifr)) {
+		/*
+		 * Eg, EMFILE or ENOMEM.  We can't tell if ifname is an
+		 * interface, and must not claim it is usable when we wrote
+		 * nothing to addr: callers prefill addr with the wildcard.  A
+		 * numeric address doesn't need the interface list, so still
+		 * try that below; otherwise it reads as NOT_EXIST, which the
+		 * deferred iface retry tries again later.
+		 */
 		lwsl_err("%s: unable to getifaddrs: errno %d\n", __func__, errno);
-
-		return LWS_ITOSA_USABLE;
+		ifr = NULL;
 	}
+
 	for (ifc = ifr; ifc != NULL; ifc = ifc->ifa_next) {
 		if (!ifc->ifa_addr || !ifc->ifa_name)
 			continue;
@@ -370,12 +437,15 @@ lws_interface_to_sa(int ipv6, const char *ifname, struct sockaddr_in *addr,
 			continue;
 #endif
 
+#if defined(LWS_WITH_IPV4)
 		case AF_INET:
 #if defined(LWS_WITH_IPV6)
 			if (ipv6) {
 				/* any existing solution is better than this */
 				if (sco != IP_SCORE_NONE)
 					break;
+				if (addrlen < sizeof(struct sockaddr_in6))
+					goto unrepresentable;
 				sco = IP_SCORE_NONNATIVE;
 				rc = LWS_ITOSA_USABLE;
 				/* map IPv4 to IPv6 */
@@ -389,15 +459,30 @@ lws_interface_to_sa(int ipv6, const char *ifname, struct sockaddr_in *addr,
 				lwsl_debug("%s: uplevelling ipv4 bind to ipv6\n", __func__);
 				break;
 			}
-
+#endif
+			if (addrlen < sizeof(struct sockaddr_in))
+				goto unrepresentable;
+#if defined(LWS_WITH_IPV6)
 			sco = IP_SCORE_GLOBAL_NATIVE;
 #endif
 			rc = LWS_ITOSA_USABLE;
 			memcpy(addr, (struct sockaddr_in *)ifc->ifa_addr,
 						    sizeof(struct sockaddr_in));
 			break;
+#endif
 #if defined(LWS_WITH_IPV6)
 		case AF_INET6:
+			/*
+			 * addr6 aliases the caller's buffer, and sin6_addr sits
+			 * at offset 8 of a 24-byte struct sockaddr_in6... so we
+			 * may only touch it if the caller both asked for ipv6
+			 * and gave us something that large.  The AF_INET arm of
+			 * lws_socket_bind() passes a 16-byte struct sockaddr_in
+			 * with ipv6 == 0.
+			 */
+			if (!ipv6 || addrlen < sizeof(struct sockaddr_in6))
+				goto unrepresentable;
+
 			p = (const uint8_t *)
 				&((struct sockaddr_in6 *)ifc->ifa_addr)->sin6_addr;
 			ts = IP_SCORE_IPV6_SCOPE_BASE;
@@ -417,14 +502,44 @@ lws_interface_to_sa(int ipv6, const char *ifname, struct sockaddr_in *addr,
 #endif
 		default:
 			break;
+
+#if defined(LWS_WITH_IPV4) || defined(LWS_WITH_IPV6)
+unrepresentable:
+			/*
+			 * The interface exists, but this address of it is not
+			 * something we may write into what the caller gave us
+			 */
+			if (rc == LWS_ITOSA_NOT_EXIST)
+				rc = LWS_ITOSA_NOT_USABLE;
+			break;
+#endif
 		}
 	}
 
-	freeifaddrs(ifr);
+	if (ifr)
+		freeifaddrs(ifr);
 
-	if (rc &&
-	    !lws_sa46_parse_numeric_address(ifname, (lws_sockaddr46 *)addr))
-		rc = LWS_ITOSA_USABLE;
+	/*
+	 * ifname may be a numeric address literal rather than an interface
+	 * name.  Parse it into a full-width lws_sockaddr46 and copy back only
+	 * as much as fits in the caller's buffer: addr may be as small as a
+	 * struct sockaddr_in (eg, the AF_INET path in lws_socket_bind() passes
+	 * a 16-byte serv_addr4), so casting it to lws_sockaddr46 * and letting
+	 * lws_sa46_parse_numeric_address() memset sizeof(lws_sockaddr46) (28
+	 * bytes when IPv6 is enabled) straight through it overflows that buffer.
+	 */
+	if (rc) {
+		lws_sockaddr46 sa46;
+
+		if (!lws_sa46_parse_numeric_address(ifname, &sa46)) {
+			size_t n = (size_t)sa46_socklen(&sa46);
+
+			if (n > addrlen)
+				n = addrlen;
+			memcpy(addr, &sa46, n);
+			rc = LWS_ITOSA_USABLE;
+		}
+	}
 
 	return rc;
 }
@@ -479,7 +594,7 @@ lws_plat_rawudp_broadcast(uint8_t *p, const uint8_t *canned, size_t canned_len,
 	p[3] = (uint8_t)(n);
 
 	while (p16 < (uint16_t *)(p + 20))
-		ucs += ntohs(*p16++);
+		ucs = ucs + (uint32_t)(ntohs((uint16_t)(*p16++)));
 
 	ucs += ucs >> 16;
 	ucs ^= 0xffff;
@@ -491,7 +606,7 @@ lws_plat_rawudp_broadcast(uint8_t *p, const uint8_t *canned, size_t canned_len,
 
 	memset(&sll, 0, sizeof(sll));
 	sll.sll_family = AF_PACKET;
-	sll.sll_protocol = htons(0x800);
+	sll.sll_protocol = (uint16_t)(htons((uint16_t)0x800));
 	sll.sll_halen = 6;
 	sll.sll_ifindex = (int)if_nametoindex(iface);
 	memset(sll.sll_addr, 0xff, 6);
@@ -539,11 +654,19 @@ lws_plat_if_up(const char *ifname, int fd, int up)
 int
 lws_plat_BINDTODEVICE(lws_sockfd_type fd, const char *ifname)
 {
+	/* if no interface specified, it's a no-op everywhere */
+	if (!ifname || !ifname[0])
+		return 0;
+
 #if defined(__linux__)
 	struct ifreq i;
 
 	memset(&i, 0, sizeof(i));
+#if defined(LWS_WITH_IPV4)
 	i.ifr_addr.sa_family = AF_INET;
+#else
+	i.ifr_addr.sa_family = AF_INET6;
+#endif
 	lws_strncpy(i.ifr_ifrn.ifrn_name, ifname,
 		    sizeof(i.ifr_ifrn.ifrn_name));
 	if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, &i, sizeof(i)) < 0) {
@@ -579,6 +702,7 @@ lws_plat_ifconfig(int fd, lws_dhcpc_ifstate_t *is)
 		return 1;
 	}
 
+#if defined(LWS_WITH_IPV4)
 	if (is->sa46[LWSDH_SA46_IP].sa4.sin_family == AF_INET) {
 		struct sockaddr_in sin;
 
@@ -613,6 +737,7 @@ lws_plat_ifconfig(int fd, lws_dhcpc_ifstate_t *is)
 			return 1;
 		}
 	} else
+#endif
 		lws_plat_if_up(is->ifname, fd, 1);
 
 	return 0;

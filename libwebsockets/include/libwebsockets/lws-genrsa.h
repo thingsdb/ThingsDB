@@ -35,6 +35,10 @@
 
 /* include/libwebsockets/lws-jwk.h must be included before this */
 
+#if defined(LWS_WITH_OPENHITLS)
+#include <crypt_eal_pkey.h>
+#endif
+
 enum enum_genrsa_mode {
 	LGRSAM_PKCS1_1_5,
 	LGRSAM_PKCS1_OAEP_PSS,
@@ -42,9 +46,41 @@ enum enum_genrsa_mode {
 	LGRSAM_COUNT
 };
 
+/*
+ * The ctx is user-allocated storage, and may be uninitialized when first
+ * passed to a create() api.  create() marks the ctx once it has brought it
+ * to a known state, so it can distinguish a ctx that may hold live backend
+ * key handles (and must release them before re-initializing) from
+ * uninitialized storage; lws_genrsa_destroy() clears the mark.
+ */
+
+#define LWS_GENRSA_CTX_CREATED_MARK 0x4c574752u /* "LWGR" */
+
 struct lws_genrsa_ctx {
 #if defined(LWS_WITH_MBEDTLS)
+#if !defined(LWS_HAVE_MBEDTLS_V4)
 	mbedtls_rsa_context *ctx;
+#else
+	psa_key_id_t key_id;		/* signing policy for the mode */
+	psa_key_id_t key_id_crypt;	/* encryption policy for the mode */
+#endif
+#elif defined(LWS_WITH_SCHANNEL)
+	struct {
+		void *hAlg;
+		void *hKey;
+	} u;
+#elif defined(LWS_WITH_GNUTLS)
+	gnutls_privkey_t priv;
+	gnutls_pubkey_t pub;
+#elif defined(LWS_WITH_BEARSSL)
+	br_rsa_public_key pub;
+	br_rsa_private_key priv;
+	void *kbuf_priv;
+	void *kbuf_pub;
+#elif defined(LWS_WITH_OPENHITLS)
+	CRYPT_EAL_PkeyCtx *ctx;
+	CRYPT_EAL_PkeyPub pub;
+	CRYPT_EAL_PkeyPrv prv;
 #else
 	BIGNUM *bn[LWS_GENCRYPTO_RSA_KEYEL_COUNT];
 	EVP_PKEY_CTX *ctx;
@@ -52,6 +88,9 @@ struct lws_genrsa_ctx {
 #endif
 	struct lws_context *context;
 	enum enum_genrsa_mode mode;
+	enum lws_genhash_types oaep_hashid;
+
+	uint32_t created_mark;
 };
 
 /** lws_genrsa_public_decrypt_create() - Create RSA public decrypt context
@@ -65,6 +104,11 @@ struct lws_genrsa_ctx {
  *
  * Creates an RSA context with a public key associated with it, formed from
  * the key elements in \p el.
+ *
+ * \p ctx must be zeroed (eg, using memset) before it is passed to create
+ * apis the first time; if the ctx is still live from an earlier create, the
+ * call fails and returns nonzero.  After lws_genrsa_destroy() the same ctx
+ * can be passed to the create apis again.
  *
  * Mode LGRSAM_PKCS1_1_5 is in widespread use but has weaknesses.  It's
  * recommended to use LGRSAM_PKCS1_OAEP_PSS for new implementations.
@@ -104,6 +148,10 @@ lws_genrsa_destroy_elements(struct lws_gencrypto_keyelem *el);
  * Creates a new RSA context and generates a new keypair into it, with \p bits
  * bits.
  *
+ * \p ctx follows the same lifetime rules as for lws_genrsa_create(): it must
+ * be zeroed before first use and must not still be live from an earlier
+ * create or new_keypair, the call fails otherwise.
+ *
  * Returns 0 for OK or nonzero for error.
  *
  * Mode LGRSAM_PKCS1_1_5 is in widespread use but has weaknesses.  It's
@@ -121,11 +169,16 @@ lws_genrsa_new_keypair(struct lws_context *context, struct lws_genrsa_ctx *ctx,
  * \param ctx: your struct lws_genrsa_ctx
  * \param in: plaintext input
  * \param in_len: length of plaintext input
- * \param out: encrypted output
+ * \param out: encrypted output, with room for the key's modulus size
  *
  * Performs PKCS1 v1.5 Encryption
  *
- * Returns <0 for error, or length of decrypted data.
+ * The encrypted output is always the size of the key's modulus, eg, 256 bytes
+ * for a 2048-bit key, and \p out must have room for that much.
+ *
+ * Returns <0 for error, or length of encrypted data.  -2 means the backend
+ * can't do it at all, eg, GnuTLS on a host whose system crypto policy
+ * disallows PKCS#1 v1.5 encryption (as RHEL-family distros' DEFAULT does).
  *
  * This and related APIs operate identically with OpenSSL or mbedTLS backends.
  */
@@ -138,11 +191,14 @@ lws_genrsa_public_encrypt(struct lws_genrsa_ctx *ctx, const uint8_t *in,
  * \param ctx: your struct lws_genrsa_ctx
  * \param in: plaintext input
  * \param in_len: length of plaintext input
- * \param out: encrypted output
+ * \param out: encrypted output, with room for the key's modulus size
  *
  * Performs PKCS1 v1.5 Encryption
  *
- * Returns <0 for error, or length of decrypted data.
+ * The encrypted output is always the size of the key's modulus, eg, 256 bytes
+ * for a 2048-bit key, and \p out must have room for that much.
+ *
+ * Returns <0 for error, or length of encrypted data.
  *
  * This and related APIs operate identically with OpenSSL or mbedTLS backends.
  */

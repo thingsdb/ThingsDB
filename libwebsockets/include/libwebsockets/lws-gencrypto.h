@@ -33,7 +33,8 @@ enum lws_gencrypto_kty {
 
 	LWS_GENCRYPTO_KTY_OCT,
 	LWS_GENCRYPTO_KTY_RSA,
-	LWS_GENCRYPTO_KTY_EC
+	LWS_GENCRYPTO_KTY_EC,
+	LWS_GENCRYPTO_KTY_OKP
 };
 
 /*
@@ -86,6 +87,28 @@ enum lws_gencrypto_aes_tok {
 	LWS_GENCRYPTO_AES_KEYEL_COUNT
 };
 
+enum lws_gencrypto_okp_tok {
+	LWS_GENCRYPTO_OKP_KEYEL_CRV,
+	LWS_GENCRYPTO_OKP_KEYEL_X,
+	/* note... same offset as RSA D */
+	LWS_GENCRYPTO_OKP_KEYEL_D = LWS_GENCRYPTO_RSA_KEYEL_D,
+
+	LWS_GENCRYPTO_OKP_KEYEL_COUNT
+};
+
+/*
+ * KEM (eg, ML-KEM) key elements, all as the FIPS 203 byte strings.  Not
+ * used with JWK.
+ */
+
+enum lws_gencrypto_kem_tok {
+	LWS_GENCRYPTO_KEM_KEYEL_EK,	/* encapsulation (public) key */
+	LWS_GENCRYPTO_KEM_KEYEL_DK,	/* decapsulation (private) key */
+	LWS_GENCRYPTO_KEM_KEYEL_SEED,	/* 64-byte d || z the keys derive from */
+
+	LWS_GENCRYPTO_KEM_KEYEL_COUNT
+};
+
 /* largest number of key elements for any algorithm */
 #define LWS_GENCRYPTO_MAX_KEYEL_COUNT LWS_GENCRYPTO_RSA_KEYEL_COUNT
 
@@ -127,7 +150,7 @@ lws_base64_size(int bytes);
 /**
  * lws_gencrypto_padded_length() - returns PKCS#5/#7 padded length
  *
- * @param blocksize - blocksize to pad to
+ * @param block_size - blocksize to pad to
  * @param len - Length of input to pad
  *
  * Returns the length of a buffer originally of size len after PKCS#5 or PKCS#7

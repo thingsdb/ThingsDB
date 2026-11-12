@@ -100,6 +100,7 @@ CPackSourceConfig.cmake
 thingsdb
 Debug/
 build/
+compile_commands.json
 
 # libwebsockets build
 libwebsockets-build/
@@ -137,3 +138,4 @@ libwebsockets/lws_config.h
 libwebsockets/lws_config_private.h
 libwebsockets/lwsws/CTestTestfile.cmake
 libwebsockets/plugins/CTestTestfile.cmake
+

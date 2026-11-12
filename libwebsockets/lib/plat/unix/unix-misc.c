@@ -60,14 +60,43 @@ lws_now_usecs(void)
 }
 
 size_t
-lws_get_random(struct lws_context *context, void *buf, size_t len)
+lws_plat_get_random(struct lws_context *context, void *buf, size_t len)
 {
 #if defined(__COVERITY__)
 	memset(buf, 0, len);
 	return len;
 #else
-	/* coverity[tainted_scalar] */
-	return (size_t)read(context->fd_random, (char *)buf, len);
+	uint8_t *p = (uint8_t *)buf;
+	size_t done = 0;
+
+	/*
+	 * read() on the random source may return short (eg, a signal arrived
+	 * during it), and may fail.  Callers are entitled to believe that a
+	 * return of len means len good random bytes... so loop, and on any
+	 * hard failure destroy whatever partial content we produced and
+	 * return the real count, ie, 0.
+	 */
+
+	while (done < len) {
+		/* coverity[tainted_scalar] */
+		ssize_t n = read(context->fd_random, p + done, len - done);
+
+		if (n > 0) {
+			done += (size_t)n;
+			continue;
+		}
+
+		if (n < 0 && errno == EINTR)
+			continue;
+
+		/* 0 = EOF, or a hard error... we cannot fulfil this */
+
+		lws_explicit_bzero(buf, len);
+
+		return 0;
+	}
+
+	return done;
 #endif
 }
 
@@ -115,28 +144,3 @@ lws_plat_recommended_rsa_bits(void)
 {
 	return 4096;
 }
-
-/*
- * Platform-specific ntpclient server configuration
- */
-
-int
-lws_plat_ntpclient_config(struct lws_context *context)
-{
-#if defined(LWS_HAVE_GETENV)
-	char *ntpsrv = getenv("LWS_NTP_SERVER");
-
-	if (ntpsrv && strlen(ntpsrv) < 64) {
-		lws_system_blob_t *blob = lws_system_get_blob(context,
-                                            LWS_SYSBLOB_TYPE_NTP_SERVER, 0);
-		if (!blob)
-			return 0;
-
-		lws_system_blob_direct_set(blob, (const uint8_t *)ntpsrv,
-					    strlen(ntpsrv));
-		return 1;
-	}
-#endif
-	return 0;
-}
-

@@ -25,25 +25,13 @@
  *  same whether you are using openssl or mbedtls hash functions underneath.
  */
 #include "private-lib-core.h"
+#if !defined(LWS_HAVE_MBEDTLS_V4)
 #if defined(LWS_WITH_JOSE)
 #include "private-lib-jose.h"
 #endif
 
-static int operation_map[] = { MBEDTLS_AES_ENCRYPT, MBEDTLS_AES_DECRYPT };
-
-static unsigned int
-_write_pkcs7_pad(uint8_t *p, int len)
-{
-	unsigned int n = 0, padlen = LWS_AES_CBC_BLOCKLEN * ((unsigned int)len /
-					LWS_AES_CBC_BLOCKLEN + 1) - (unsigned int)len;
-
-	p += len;
-
-	while (n++ < padlen)
-		*p++ = (uint8_t)padlen;
-
-	return padlen;
-}
+/* indexed by enum enum_aes_operation */
+static const int operation_map[] = { MBEDTLS_AES_ENCRYPT, MBEDTLS_AES_DECRYPT };
 
 int
 lws_genaes_create(struct lws_genaes_ctx *ctx, enum enum_aes_operation op,
@@ -54,9 +42,10 @@ lws_genaes_create(struct lws_genaes_ctx *ctx, enum enum_aes_operation op,
 
 	ctx->mode = mode;
 	ctx->k = el;
-	ctx->op = (enum enum_aes_operation)operation_map[op];
+	ctx->op = op;
 	ctx->underway = 0;
-	ctx->padding = padding == LWS_GAESP_WITH_PADDING;
+	if (lws_genaes_create_common(ctx, mode, padding))
+		return -1;
 
 	switch (ctx->mode) {
 	case LWS_GAESM_XTS:
@@ -137,6 +126,14 @@ lws_genaes_destroy(struct lws_genaes_ctx *ctx, unsigned char *tag, size_t tlen)
 #endif
 	int n;
 
+	if (ctx->mode == LWS_GAESM_CBC) {
+		/* this may still need the key, for a padded encrypt's tail */
+		n = lws_genaes_cbc_destroy(ctx, tag, tlen);
+		mbedtls_aes_free(&ctx->u.ctx);
+
+		return n;
+	}
+
 	if (ctx->mode == LWS_GAESM_GCM) {
 #if defined(MBEDTLS_VERSION_NUMBER) && MBEDTLS_VERSION_NUMBER >= 0x03000000
 		n = mbedtls_gcm_finish(&ctx->u.ctx_gcm, last, sizeof(last),
@@ -148,13 +145,31 @@ lws_genaes_destroy(struct lws_genaes_ctx *ctx, unsigned char *tag, size_t tlen)
 		if (n)
 			lwsl_notice("%s: mbedtls_gcm_finish: -0x%x\n",
 				    __func__, -n);
-		if (tag && ctx->op == MBEDTLS_AES_DECRYPT && !n) {
+		if (tag && ctx->op == LWS_GAESO_DEC && !n) {
+			/*
+			 * "tag" is tlen bytes and holds the tag mbedtls just
+			 * computed; ctx->tag is ctx->taglen bytes and holds
+			 * the one the peer sent.  The two lengths arrive from
+			 * different calls, so a mismatch means the caller is
+			 * confused about the tag size... it can only be
+			 * treated as a failed authentication.
+			 */
+			if (tlen != (size_t)ctx->taglen) {
+				lwsl_err("%s: tag len %d, expected %d\n",
+					 __func__, (int)tlen, ctx->taglen);
+				lws_explicit_bzero(tag, tlen);
+				n = -1;
+			} else
 			if (lws_timingsafe_bcmp(ctx->tag, tag, (unsigned int)ctx->taglen)) {
-				lwsl_err("%s: lws_genaes_crypt tag "
-					 "mismatch (bad first)\n",
-						__func__);
-				lwsl_hexdump_notice(tag, tlen);
-				lwsl_hexdump_notice(ctx->tag, (unsigned int)ctx->taglen);
+				/*
+				 * Never log "tag" here: it is the valid tag
+				 * for whatever AAD and ciphertext the peer
+				 * sent, under our key, ie, a forgery for
+				 * anyone who can read the log.  Don't hand
+				 * it back to the caller either.
+				 */
+				lwsl_info("%s: tag mismatch\n", __func__);
+				lws_explicit_bzero(tag, tlen);
 				n = -1;
 			}
 		}
@@ -169,6 +184,29 @@ lws_genaes_destroy(struct lws_genaes_ctx *ctx, unsigned char *tag, size_t tlen)
 #endif
 	else
 		mbedtls_aes_free(&ctx->u.ctx);
+
+	return 0;
+}
+
+int
+lws_genaes_cbc_blocks(struct lws_genaes_ctx *ctx, const uint8_t *in,
+		      size_t len, uint8_t *out)
+{
+	int n;
+
+	/*
+	 * ctx->tag starts as the iv and mbedtls updates it with the chaining
+	 * value, so the next call continues where this one stopped
+	 */
+
+	n = mbedtls_aes_crypt_cbc(&ctx->u.ctx, operation_map[ctx->op], len,
+				  ctx->tag, in, out);
+	if (n) {
+		lwsl_notice("%s: mbedtls_aes_crypt_cbc: -0x%x\n", __func__,
+			    -n);
+
+		return -1;
+	}
 
 	return 0;
 }
@@ -292,14 +330,29 @@ lws_genaes_crypt(struct lws_genaes_ctx *ctx, const uint8_t *in, size_t len,
 		 uint8_t *stream_block_16, size_t *nc_or_iv_off, int taglen)
 {
 	uint8_t iv[LWS_JWE_AES_IV_BYTES], sb[16];
+	size_t nc;
 	int n = 0;
 
 	switch (ctx->mode) {
 	case LWS_GAESM_KW:
 #if defined(LWS_HAVE_mbedtls_internal_aes_encrypt)
+		/*
+		 * KW has no output length argument, so the block count is
+		 * derived from len alone... RFC3394 requires whole 64-bit
+		 * blocks, and at least one of them on top of the 8-byte IV.
+		 * Without this, a short unwrap makes the block count negative
+		 * and 8 * (unsigned)c64 a ~4GB memcpy.
+		 */
+		if (len < (ctx->op == LWS_GAESO_ENC ? 16u : 24u) ||
+		    (len & 7)) {
+			lwsl_err("%s: bad KW length %d\n", __func__, (int)len);
+
+			return -1;
+		}
+
 		/* a key of length ctx->k->len is wrapped by a 128-bit KEK */
-		n = lws_genaes_rfc3394_wrap(ctx->op == MBEDTLS_AES_ENCRYPT,
-				(ctx->op == MBEDTLS_AES_ENCRYPT ? (int)len * 8 :
+		n = lws_genaes_rfc3394_wrap(ctx->op == LWS_GAESO_ENC,
+				(ctx->op == LWS_GAESO_ENC ? (int)len * 8 :
 						((int)len - 8) * 8), ctx->k->buf,
 						(int)ctx->k->len * 8,
 				in, out);
@@ -309,59 +362,55 @@ lws_genaes_crypt(struct lws_genaes_ctx *ctx, const uint8_t *in, size_t len,
 		return -1;
 #endif
 	case LWS_GAESM_CBC:
-		memcpy(iv, iv_or_nonce_ctr_or_data_unit_16, 16);
-
-		/*
-		 * If encrypting, we do the PKCS#7 padding.
-		 * During decryption, the caller will need to unpad.
-		 */
-		if (ctx->padding && ctx->op == MBEDTLS_AES_ENCRYPT) {
-			/*
-			 * Since we don't want to burden the caller with
-			 * the over-allocation at the end of the input,
-			 * we have to allocate a temp with space for it
-			 */
-			uint8_t *padin = (uint8_t *)lws_malloc(
-				lws_gencrypto_padded_length(LWS_AES_CBC_BLOCKLEN, len),
-								__func__);
-
-			if (!padin)
-				return -1;
-
-			memcpy(padin, in, len);
-			len += _write_pkcs7_pad((uint8_t *)padin, (int)len);
-			n = mbedtls_aes_crypt_cbc(&ctx->u.ctx, (int)ctx->op, len, iv,
-						  padin, out);
-			lws_free(padin);
-		} else
-			n = mbedtls_aes_crypt_cbc(&ctx->u.ctx, (int)ctx->op, len, iv,
-                                      in, out);
-
-		break;
+		/* padding and chaining are common to all backends */
+		return lws_genaes_cbc_crypt(ctx, in, len, out,
+					    iv_or_nonce_ctr_or_data_unit_16,
+					    nc_or_iv_off);
 
 	case LWS_GAESM_CFB128:
 		memcpy(iv, iv_or_nonce_ctr_or_data_unit_16, 16);
-		n = mbedtls_aes_crypt_cfb128(&ctx->u.ctx, (int)ctx->op, len,
+		n = mbedtls_aes_crypt_cfb128(&ctx->u.ctx, operation_map[ctx->op], len,
 					     nc_or_iv_off, iv, in, out);
 		break;
 
 	case LWS_GAESM_CFB8:
 		memcpy(iv, iv_or_nonce_ctr_or_data_unit_16, 16);
-		n = mbedtls_aes_crypt_cfb8(&ctx->u.ctx, (int)ctx->op, len, iv,
+		n = mbedtls_aes_crypt_cfb8(&ctx->u.ctx, operation_map[ctx->op], len, iv,
 					   in, out);
 		break;
 
 	case LWS_GAESM_CTR:
+		/*
+		 * The stream block and its offset nc are optional (see
+		 * lws-genaes.h): without them, the call starts on a fresh
+		 * keystream block and the rest of its last one is dropped.  A
+		 * nonzero nc points into a stream block, so it needs one.
+		 */
+		if (!iv_or_nonce_ctr_or_data_unit_16 ||
+		    (!stream_block_16 && nc_or_iv_off && *nc_or_iv_off)) {
+			lwsl_err("%s: bad CTR args\n", __func__);
+
+			return -1;
+		}
+
 		memcpy(iv, iv_or_nonce_ctr_or_data_unit_16, 16);
-		memcpy(sb, stream_block_16, 16);
-		n = mbedtls_aes_crypt_ctr(&ctx->u.ctx, len, nc_or_iv_off,
+		if (stream_block_16)
+			memcpy(sb, stream_block_16, 16);
+		else
+			memset(sb, 0, sizeof(sb));
+		nc = nc_or_iv_off ? *nc_or_iv_off : 0;
+		n = mbedtls_aes_crypt_ctr(&ctx->u.ctx, len, &nc,
 					  iv, sb, in, out);
 		memcpy(iv_or_nonce_ctr_or_data_unit_16, iv, 16);
-		memcpy(stream_block_16, sb, 16);
+		if (stream_block_16)
+			memcpy(stream_block_16, sb, 16);
+		if (nc_or_iv_off)
+			*nc_or_iv_off = nc;
+		lws_explicit_bzero(sb, sizeof(sb));
 		break;
 
 	case LWS_GAESM_ECB:
-		n = mbedtls_aes_crypt_ecb(&ctx->u.ctx, (int)ctx->op, in, out);
+		n = mbedtls_aes_crypt_ecb(&ctx->u.ctx, operation_map[ctx->op], in, out);
 		break;
 
 	case LWS_GAESM_OFB:
@@ -377,7 +426,7 @@ lws_genaes_crypt(struct lws_genaes_ctx *ctx, const uint8_t *in, size_t len,
 	case LWS_GAESM_XTS:
 #if defined(MBEDTLS_CIPHER_MODE_XTS)
 		memcpy(iv, iv_or_nonce_ctr_or_data_unit_16, 16);
-		n = mbedtls_aes_crypt_xts(&ctx->u.ctx_xts, (int)ctx->op, len, iv,
+		n = mbedtls_aes_crypt_xts(&ctx->u.ctx_xts, operation_map[ctx->op], len, iv,
 					  in, out);
 		break;
 #else
@@ -385,9 +434,38 @@ lws_genaes_crypt(struct lws_genaes_ctx *ctx, const uint8_t *in, size_t len,
 #endif
 	case LWS_GAESM_GCM:
 		if (!ctx->underway) {
+			/*
+			 * ctx->tag is a fixed 16 bytes... the tag length is a
+			 * per-call argument, so it has to be bounded against
+			 * that here, otherwise a caller asking for a longer
+			 * (or negative, ie ~4GB unsigned) tag overflows it
+			 */
+
+			if (taglen < 4 || (size_t)taglen > sizeof(ctx->tag)) {
+				lwsl_err("%s: bad taglen %d\n", __func__,
+					 taglen);
+
+				return -1;
+			}
+
+			/*
+			 * On decrypt, stream_block_16 is the tag the peer
+			 * sent, that lws_genaes_destroy() verifies against:
+			 * it can't be missing.  On encrypt the tag comes out
+			 * of lws_genaes_destroy() and it may be NULL.
+			 */
+			if (!iv_or_nonce_ctr_or_data_unit_16 || !nc_or_iv_off ||
+			    (ctx->op == LWS_GAESO_DEC && !stream_block_16)) {
+				lwsl_err("%s: bad GCM args\n", __func__);
+
+				return -1;
+			}
+
 			ctx->underway = 1;
 
-			memcpy(ctx->tag, stream_block_16, (unsigned int)taglen);
+			if (stream_block_16)
+				memcpy(ctx->tag, stream_block_16,
+				       (unsigned int)taglen);
 			ctx->taglen = taglen;
 
 			/*
@@ -399,14 +477,14 @@ lws_genaes_crypt(struct lws_genaes_ctx *ctx, const uint8_t *in, size_t len,
 			 */
 
 #if defined(MBEDTLS_VERSION_NUMBER) && MBEDTLS_VERSION_NUMBER >= 0x03000000
-			n = mbedtls_gcm_starts(&ctx->u.ctx_gcm, (int)ctx->op,
+			n = mbedtls_gcm_starts(&ctx->u.ctx_gcm, operation_map[ctx->op],
 					       iv_or_nonce_ctr_or_data_unit_16,
 					       *nc_or_iv_off);
 			if (!n)
 				n = mbedtls_gcm_update_ad(&ctx->u.ctx_gcm,
 							  in, len);
 #else
-			n = mbedtls_gcm_starts(&ctx->u.ctx_gcm, (int)ctx->op,
+			n = mbedtls_gcm_starts(&ctx->u.ctx_gcm, operation_map[ctx->op],
 					       iv_or_nonce_ctr_or_data_unit_16,
 					       *nc_or_iv_off, in, len);
 #endif
@@ -445,3 +523,307 @@ lws_genaes_crypt(struct lws_genaes_ctx *ctx, const uint8_t *in, size_t len,
 
 	return 0;
 }
+#else /* LWS_HAVE_MBEDTLS_V4 */
+
+#if defined(LWS_WITH_JOSE)
+#include "private-lib-jose.h"
+#endif
+
+#include <psa/crypto.h>
+
+int
+lws_genaes_create(struct lws_genaes_ctx *ctx, enum enum_aes_operation op,
+		  enum enum_aes_modes mode, struct lws_gencrypto_keyelem *el,
+		  enum enum_aes_padding padding, void *engine)
+{
+	psa_key_attributes_t attr = PSA_KEY_ATTRIBUTES_INIT;
+	psa_algorithm_t alg;
+	psa_key_usage_t usage;
+
+	/* everything is PSA's: idempotent, and there may be no context */
+	if (psa_crypto_init() != PSA_SUCCESS)
+		return -1;
+
+	ctx->mode = mode;
+	ctx->k = el;
+	ctx->op = op; /* We use the enum_aes_operation directly */
+	ctx->underway = 0;
+	if (lws_genaes_create_common(ctx, mode, padding))
+		return -1;
+	ctx->cipher_ctx = psa_cipher_operation_init();
+	ctx->aead_ctx = psa_aead_operation_init();
+	ctx->key_id = 0;
+
+	usage = (op == LWS_GAESO_ENC) ? PSA_KEY_USAGE_ENCRYPT : PSA_KEY_USAGE_DECRYPT;
+
+	switch (ctx->mode) {
+	case LWS_GAESM_CBC:
+		alg = PSA_ALG_CBC_NO_PADDING;
+		break;
+	case LWS_GAESM_CFB128:
+		alg = PSA_ALG_CFB;
+		break;
+	case LWS_GAESM_CFB8:
+		lwsl_err("%s: AES-CFB8 not supported in V4\n", __func__);
+		return -1;
+	case LWS_GAESM_CTR:
+		alg = PSA_ALG_CTR;
+		break;
+	case LWS_GAESM_ECB:
+		alg = PSA_ALG_ECB_NO_PADDING;
+		break;
+	case LWS_GAESM_OFB:
+		alg = PSA_ALG_OFB;
+		break;
+	case LWS_GAESM_XTS:
+		lwsl_err("%s: AES-XTS not supported in V4\n", __func__);
+		return -1;
+	case LWS_GAESM_GCM:
+		alg = PSA_ALG_GCM;
+		break;
+	case LWS_GAESM_KW:
+		/* Not supported directly via cipher, but we can implement the wrapper */
+		lwsl_err("%s: AES-KW not yet supported in V4\n", __func__);
+		return -1;
+	default:
+		return -1;
+	}
+
+	ctx->alg = alg;
+
+	psa_set_key_type(&attr, PSA_KEY_TYPE_AES);
+	psa_set_key_bits(&attr, el->len * 8);
+	psa_set_key_usage_flags(&attr, usage);
+	/*
+	 * The GCM tag length only arrives with the first lws_genaes_crypt(),
+	 * so let the key be used with any tag length from the 4 byte floor
+	 * the other backends enforce (C-362)
+	 */
+	psa_set_key_algorithm(&attr, alg == PSA_ALG_GCM ?
+			PSA_ALG_AEAD_WITH_AT_LEAST_THIS_LENGTH_TAG(PSA_ALG_GCM, 4) :
+			alg);
+
+	if (psa_import_key(&attr, el->buf, el->len, &ctx->key_id) != PSA_SUCCESS) {
+		lwsl_err("%s: psa_import_key failed\n", __func__);
+		return -1;
+	}
+
+	return 0;
+}
+
+int
+lws_genaes_destroy(struct lws_genaes_ctx *ctx, unsigned char *tag, size_t tlen)
+{
+	int ret = 0;
+
+	if (ctx->mode == LWS_GAESM_GCM) {
+		if (ctx->underway) {
+			size_t olen, tl;
+
+			/*
+			 * As for the other backends, "tag" is an out buffer in
+			 * both directions.  On decrypt, what we verify against
+			 * is the peer's tag that lws_genaes_crypt() was given
+			 * on its first call, never whatever is in "tag".
+			 */
+
+			if (ctx->op == LWS_GAESO_ENC) {
+				if (!tag || tlen < (size_t)ctx->taglen ||
+				    psa_aead_finish(&ctx->aead_ctx, NULL, 0,
+						    &olen, tag, tlen, &tl) !=
+								PSA_SUCCESS)
+					ret = -1;
+			} else {
+				if (psa_aead_verify(&ctx->aead_ctx, NULL, 0,
+						    &olen, ctx->tag,
+						    (size_t)ctx->taglen) !=
+								PSA_SUCCESS) {
+					lwsl_info("%s: tag mismatch\n",
+						  __func__);
+					ret = -1;
+				} else if (tag && tlen)
+					memcpy(tag, ctx->tag,
+					       tlen < (size_t)ctx->taglen ?
+					       tlen : (size_t)ctx->taglen);
+			}
+			psa_aead_abort(&ctx->aead_ctx);
+			lws_explicit_bzero(ctx->tag, sizeof(ctx->tag));
+		}
+	} else {
+		/* this may still need the cipher, for a padded CBC encrypt */
+		ret = lws_genaes_cbc_destroy(ctx, tag, tlen);
+		psa_cipher_abort(&ctx->cipher_ctx);
+	}
+
+	if (ctx->key_id) {
+		psa_destroy_key(ctx->key_id);
+		ctx->key_id = 0;
+	}
+
+	return ret;
+}
+
+int
+lws_genaes_cbc_blocks(struct lws_genaes_ctx *ctx, const uint8_t *in,
+		      size_t len, uint8_t *out)
+{
+	psa_status_t status;
+	size_t olen = 0;
+
+	/*
+	 * One PSA operation for the whole CBC run, so the chain carries on
+	 * between calls; it starts from the iv in ctx->tag
+	 */
+
+	if (!ctx->underway) {
+		if (ctx->op == LWS_GAESO_ENC)
+			status = psa_cipher_encrypt_setup(&ctx->cipher_ctx,
+							  ctx->key_id, ctx->alg);
+		else
+			status = psa_cipher_decrypt_setup(&ctx->cipher_ctx,
+							  ctx->key_id, ctx->alg);
+		if (status == PSA_SUCCESS)
+			status = psa_cipher_set_iv(&ctx->cipher_ctx, ctx->tag,
+						   LWS_AES_CBC_BLOCKLEN);
+		if (status != PSA_SUCCESS) {
+			lwsl_err("%s: setup failed %d\n", __func__,
+				 (int)status);
+			psa_cipher_abort(&ctx->cipher_ctx);
+
+			return -1;
+		}
+		ctx->underway = 1;
+	}
+
+	/* "out" is exactly len bytes, and must be filled */
+	status = psa_cipher_update(&ctx->cipher_ctx, in, len, out, len, &olen);
+	if (status != PSA_SUCCESS || olen != len) {
+		lwsl_err("%s: update failed %d, olen %d\n", __func__,
+			 (int)status, (int)olen);
+
+		return -1;
+	}
+
+	return 0;
+}
+
+int
+lws_genaes_crypt(struct lws_genaes_ctx *ctx, const uint8_t *in, size_t len,
+		 uint8_t *out, uint8_t *iv_or_nonce_ctr_or_data_unit_16,
+		 uint8_t *stream_block_16, size_t *nc_or_iv_off, int taglen)
+{
+	size_t olen;
+	psa_status_t status;
+
+	switch (ctx->mode) {
+	case LWS_GAESM_KW:
+		lwsl_err("%s: AES-KW not implemented in V4\n", __func__);
+		return -1;
+
+	case LWS_GAESM_CBC:
+		/* padding and chaining are common to all backends */
+		return lws_genaes_cbc_crypt(ctx, in, len, out,
+					    iv_or_nonce_ctr_or_data_unit_16,
+					    nc_or_iv_off);
+
+	case LWS_GAESM_CFB128:
+	case LWS_GAESM_CFB8:
+	case LWS_GAESM_OFB:
+	case LWS_GAESM_XTS:
+	case LWS_GAESM_ECB:
+	case LWS_GAESM_CTR:
+		if (ctx->op == LWS_GAESO_ENC)
+			status = psa_cipher_encrypt_setup(&ctx->cipher_ctx, ctx->key_id, ctx->alg);
+		else
+			status = psa_cipher_decrypt_setup(&ctx->cipher_ctx, ctx->key_id, ctx->alg);
+		
+		if (status != PSA_SUCCESS) return -1;
+
+		if (ctx->mode != LWS_GAESM_ECB) {
+			status = psa_cipher_set_iv(&ctx->cipher_ctx, iv_or_nonce_ctr_or_data_unit_16, 16);
+			if (status != PSA_SUCCESS) {
+				lwsl_err("%s: set_iv failed %d\n", __func__, (int)status);
+				return -1;
+			}
+		}
+
+		/*
+		 * The lws_genaes_crypt() contract is that "out" holds as many
+		 * bytes as we pass in... we must not tell PSA there is more
+		 * room than that, it is the only bound it can apply.
+		 */
+		status = psa_cipher_update(&ctx->cipher_ctx, in, len, out, len, &olen);
+
+		if (status != PSA_SUCCESS) {
+			psa_cipher_abort(&ctx->cipher_ctx);
+			return -1;
+		}
+
+		/*
+		 * All the algorithms we configure here are unpadded, so finish
+		 * emits nothing... there is no room left in "out" for it to
+		 * emit into either.
+		 */
+		status = psa_cipher_finish(&ctx->cipher_ctx, out + olen, 0, &olen);
+		if (status != PSA_SUCCESS) return -1;
+		break;
+
+	case LWS_GAESM_GCM:
+		if (!ctx->underway) {
+			psa_algorithm_t alg;
+
+			/*
+			 * ctx->tag is a fixed 16 bytes, and 4 is the floor the
+			 * other backends apply (C-362).  On decrypt,
+			 * stream_block_16 is the tag the peer sent: keep it,
+			 * it is what lws_genaes_destroy() verifies against.
+			 */
+
+			if (taglen < 4 || (size_t)taglen > sizeof(ctx->tag) ||
+			    !iv_or_nonce_ctr_or_data_unit_16 || !nc_or_iv_off ||
+			    (ctx->op == LWS_GAESO_DEC && !stream_block_16)) {
+				lwsl_err("%s: bad GCM args, taglen %d\n",
+					 __func__, taglen);
+
+				return -1;
+			}
+
+			if (ctx->op == LWS_GAESO_DEC)
+				memcpy(ctx->tag, stream_block_16,
+				       (size_t)taglen);
+
+			ctx->underway = 1;
+			ctx->taglen = taglen;
+
+			alg = taglen == 16 ? PSA_ALG_GCM :
+				PSA_ALG_AEAD_WITH_SHORTENED_TAG(PSA_ALG_GCM,
+							(size_t)taglen);
+
+			if (ctx->op == LWS_GAESO_ENC)
+				status = psa_aead_encrypt_setup(&ctx->aead_ctx,
+							ctx->key_id, alg);
+			else
+				status = psa_aead_decrypt_setup(&ctx->aead_ctx,
+							ctx->key_id, alg);
+
+			if (status != PSA_SUCCESS) return -1;
+
+			status = psa_aead_set_nonce(&ctx->aead_ctx, iv_or_nonce_ctr_or_data_unit_16, *nc_or_iv_off);
+			if (status != PSA_SUCCESS) return -1;
+
+			if (len) {
+				status = psa_aead_update_ad(&ctx->aead_ctx, in, len);
+				if (status != PSA_SUCCESS) return -1;
+			}
+			break;
+		}
+
+		/* as above, "out" is only len bytes */
+		status = psa_aead_update(&ctx->aead_ctx, in, len, out, len, &olen);
+		if (status != PSA_SUCCESS) return -1;
+		break;
+	}
+
+	return 0;
+}
+#endif

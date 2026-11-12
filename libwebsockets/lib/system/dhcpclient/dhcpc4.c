@@ -30,6 +30,11 @@
 #define LDHC_OP_BOOTREQUEST 1
 #define LDHC_OP_BOOTREPLY 2
 
+/* IPv4 header without options, + UDP header... see rawdisc4[] below */
+#define LWS_DHCPC4_UHLEN	28
+/* offset in the BOOTP message of the RFC2132 magic cookie */
+#define LWS_DHCPC4_COOKIE_OFS	0xec
+
 /*
  *  IPv4... max total 576
  *
@@ -91,7 +96,7 @@ lws_dhcpc4_prep(uint8_t *start, unsigned int bufsiz, lws_dhcpc_req_t *r, int op)
 
 	p += 0x1c - 3;
 
-	if (lws_plat_ifname_to_hwaddr(r->wsi_raw->desc.sockfd,
+	if (lws_plat_ifname_to_hwaddr(r->wsi_raw->io->desc.sockfd,
 				      (const char *)&r[1], r->is.mac, 6) < 0)
 		return -1;
 
@@ -172,6 +177,9 @@ callback_dhcpc4(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 
 	case LWS_CALLBACK_RAW_RX:
 
+		if (!r)
+			break;
+
 		if (lws_dhcpc4_parse(r, in, len))
 			break;
 
@@ -181,7 +189,7 @@ callback_dhcpc4(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 
 		/* set up our network interface as offered */
 
-		if (lws_plat_ifconfig(r->wsi_raw->desc.sockfd, &r->is))
+		if (lws_plat_ifconfig(r->wsi_raw->io->desc.sockfd, &r->is))
 			/*
 			 * Problem setting the IP... maybe something
 			 * transient like racing with NetworkManager?
@@ -190,14 +198,47 @@ callback_dhcpc4(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 			 */
 			return -1;
 
+#if defined(LWS_WITH_SYS_ASYNC_DNS)
+		/*
+		 * Only now we accepted and applied the offer do the DNS
+		 * servers it mentioned get pinned into the resolver... the
+		 * parser deliberately only collected them, since a packet we
+		 * end up rejecting must not be able to steer our name lookups
+		 */
+
+		for (n = LWSDH_SA46_DNS_SRV_1; n <= LWSDH_SA46_DNS_SRV_4; n++)
+			if (r->is.sa46[n].sa4.sin_family == AF_INET)
+				lws_async_dns_server_add(r->context,
+							 &r->is.sa46[n]);
+#endif
+
 		/* clear timeouts related to the broadcast socket */
 
 		lws_sul_cancel(&r->sul_write);
 		lws_sul_cancel(&r->sul_conn);
 
-		lwsl_notice("%s: DHCP configured %s\n", __func__,
-				(const char *)&r[1]);
+		lwsl_notice("%s: DHCP configured %s, lease %us\n", __func__,
+				(const char *)&r[1], r->is.nums[LWSDH_LEASE_SECS]);
 		r->state = LDHC_BOUND;
+
+		/*
+		 * The lease is for a time.  At T1 (the server's renewal time,
+		 * else half the lease) we go through the exchange again from
+		 * the start on a fresh broadcast socket, which keeps the
+		 * configuration we have in place until the server answers;
+		 * the server ordinarily offers the same address again
+		 */
+		{
+			uint32_t t1 = r->is.nums[LWSDH_RENEWAL_SECS];
+
+			if (!t1 || t1 >= r->is.nums[LWSDH_LEASE_SECS])
+				t1 = r->is.nums[LWSDH_LEASE_SECS] / 2;
+			if (t1 < 10)
+				t1 = 10;
+			lws_sul_schedule(r->context, 0, &r->sul_renew,
+					 lws_dhcpc4_renew, (lws_usec_t)t1 *
+							   LWS_US_PER_SEC);
+		}
 
 		lws_state_transition_steps(&wsi->a.context->mgr_system,
 					   LWS_SYSTATE_OPERATIONAL);
@@ -254,7 +295,7 @@ bcast:
 			m = lws_plat_rawudp_broadcast(p, rawdisc4,
 						      LWS_ARRAY_SIZE(rawdisc4),
 						      (size_t)(n + 28),
-						      r->wsi_raw->desc.sockfd,
+						      r->wsi_raw->io->desc.sockfd,
 						      (const char *)&r[1]);
 			if (m < 0)
 				lwsl_err("%s: Failed to write dhcp client req: "
@@ -281,8 +322,34 @@ retry_conn:
 	return 0;
 }
 
-struct lws_protocols lws_system_protocol_dhcpc4 =
-	{ "lws-dhcp4client", callback_dhcpc4, 0, 128, 0, NULL, 0 };
+/*
+ * rx_buffer_size is what the raw-skt role hands to recvfrom()... at the old
+ * 128 every DHCP frame was truncated below the minimum size the parser
+ * requires, ie, the client could never work.  1500 is the usual LAN MTU and
+ * comfortably above the RFC2131 minimum 576-byte datagram.
+ */
+
+const struct lws_protocols lws_system_protocol_dhcpc4 =
+	{ "lws-dhcp4client", callback_dhcpc4, 0, 1500, 0, NULL, 0 };
+
+/*
+ * The renewal time of a bound lease came: start the exchange over, keeping
+ * the bound configuration until the server answers
+ */
+void
+lws_dhcpc4_renew(struct lws_sorted_usec_list *sul)
+{
+	lws_dhcpc_req_t *r = lws_container_of(sul, lws_dhcpc_req_t, sul_renew);
+
+	if (r->state != LDHC_BOUND || r->wsi_raw)
+		return;
+
+	lwsl_notice("%s: lease renewal time, renewing %s\n", __func__,
+		    (const char *)&r[1]);
+	r->state = LDHC_INIT;
+	r->retry_count_conn = 0;
+	lws_dhcpc4_retry_conn(&r->sul_conn);
+}
 
 void
 lws_dhcpc4_retry_conn(struct lws_sorted_usec_list *sul)
@@ -312,8 +379,8 @@ lws_dhcpc4_retry_conn(struct lws_sorted_usec_list *sul)
 	}
 
 	/* force the network if up */
-	lws_plat_if_up((const char *)&r[1], r->wsi_raw->desc.sockfd, 0);
-	lws_plat_if_up((const char *)&r[1], r->wsi_raw->desc.sockfd, 1);
+	lws_plat_if_up((const char *)&r[1], r->wsi_raw->io->desc.sockfd, 0);
+	lws_plat_if_up((const char *)&r[1], r->wsi_raw->io->desc.sockfd, 1);
 
 	r->wsi_raw->user_space = r;
 	r->wsi_raw->user_space_externally_allocated = 1;
@@ -331,7 +398,7 @@ lws_sa46_set_ipv4(lws_dhcpc_req_t *r, unsigned int which, uint8_t *p)
 int
 lws_dhcpc4_parse(lws_dhcpc_req_t *r, void *in, size_t len)
 {
-	uint8_t pkt[LWS_PRE + 576], *p = pkt + LWS_PRE, *end;
+	uint8_t pkt[LWS_PRE + 576], *p = pkt + LWS_PRE, *end, *q;
 	int n, m;
 
 	switch (r->state) {
@@ -339,12 +406,30 @@ lws_dhcpc4_parse(lws_dhcpc_req_t *r, void *in, size_t len)
 	case LDHC_REQUESTING:	/* expect DHCPACK */
 		/*
 		 * We should check carefully if we like what we were
-		 * sent... anything can spam us with crafted replies
+		 * sent... anything can spam us with crafted replies.
+		 *
+		 * We must have the IP + UDP headers, the whole fixed part of
+		 * the BOOTP message and the 4-byte magic cookie at +0xec
+		 * actually present before we may read any of them... the old
+		 * 0x100 minimum left the cookie read up to 12 bytes over the
+		 * end of the received packet
 		 */
-		if (len < 0x100)
+		if (len < LWS_DHCPC4_UHLEN + LWS_DHCPC4_COOKIE_OFS + 4)
 			break;
 
-		p = (uint8_t *)in + 28; /* skip to UDP payload */
+		/*
+		 * The PF_PACKET socket sees every inbound IPv4 packet, and the
+		 * header skip below is hardcoded for an IPv4 header without
+		 * options... so confirm that this really is IPv4, no options,
+		 * UDP, and to the DHCP client port, before believing the
+		 * offsets mean anything
+		 */
+		q = (uint8_t *)in;
+		if (q[0] != 0x45 || q[9] != IPPROTO_UDP ||
+		    lws_ser_ru16be(&q[22]) != 68)
+			break;
+
+		p = (uint8_t *)in + LWS_DHCPC4_UHLEN; /* skip to UDP payload */
 		if (p[0] != 2 || p[1] != 1 || p[2] != 6)
 			break;
 
@@ -355,8 +440,14 @@ lws_dhcpc4_parse(lws_dhcpc_req_t *r, void *in, size_t len)
 			break;
 
 		/* the DHCP magic cookie must be in place */
-		if (lws_ser_ru32be(&p[0xec]) != 0x63825363)
+		if (lws_ser_ru32be(&p[LWS_DHCPC4_COOKIE_OFS]) != 0x63825363)
 			break;
+
+		/*
+		 * Start from scratch for this packet, so nothing an earlier,
+		 * rejected packet set can survive into what we commit
+		 */
+		memset(r->is.sa46, 0, sizeof(r->is.sa46));
 
 		/* "your" client IP address */
 		lws_sa46_set_ipv4(r, LWSDH_SA46_IP, p + 0x10);
@@ -366,20 +457,30 @@ lws_dhcpc4_parse(lws_dhcpc_req_t *r, void *in, size_t len)
 		/* it looks legit so far... look at the options */
 
 		end = (uint8_t *)in + len;
-		p += 0xec + 4;
+		p += LWS_DHCPC4_COOKIE_OFS + 4;
 		while (p < end) {
 			uint8_t c = *p++;
 			uint8_t l = 0;
 
 			if (c && c != 0xff) {
 				/* pad 0 and EOT 0xff have no length */
+				if (p >= end) {
+					/*
+					 * The code byte was the last byte in
+					 * the packet, there's no length byte
+					 * to read
+					 */
+					lwsl_err("%s: trunc opt\n",
+							__func__);
+					goto broken;
+				}
 				l = *p++;
 				if (!l) {
 					lwsl_err("%s: zero length\n",
 							__func__);
 					goto broken;
 				}
-				if (p + l > end) {
+				if ((size_t)l > lws_ptr_diff_size_t(end, p)) {
 					/* ...nice try... */
 					lwsl_err("%s: bad len\n",
 							__func__);
@@ -397,10 +498,20 @@ lws_dhcpc4_parse(lws_dhcpc_req_t *r, void *in, size_t len)
 				goto get_ipv4;
 
 			case LWSDHC4POPT_ROUTER:
+				/*
+				 * lws_sa46_set_ipv4() reads 4 bytes... these
+				 * options are a list of IPv4 addresses, so
+				 * anything that isn't a nonzero multiple of 4
+				 * is malformed and must not be read from
+				 */
+				if (l < 4 || (l & 3))
+					break;
 				lws_sa46_set_ipv4(r, LWSDH_SA46_IPV4_ROUTER, p);
 				break;
 
 			case LWSDHC4POPT_TIME_SERVER:
+				if (l < 4 || (l & 3))
+					break;
 				lws_sa46_set_ipv4(r, LWSDH_SA46_NTP_SERVER, p);
 				break;
 
@@ -421,13 +532,18 @@ lws_dhcpc4_parse(lws_dhcpc_req_t *r, void *in, size_t len)
 				goto get_ipv4;
 
 			case LWSDHC4POPT_DNSERVER:
-				if (l & 3)
+				if (l < 4 || (l & 3))
 					break;
 				m = LWSDH_SA46_DNS_SRV_1;
+				/*
+				 * Just collect them here (at most 4)... we
+				 * must not pin them into the resolver until
+				 * we decided we accept the packet, or anybody
+				 * on the LAN can hijack our DNS with a packet
+				 * we are going to reject anyway
+				 */
 				while (l && m - LWSDH_SA46_DNS_SRV_1 < 4) {
 					lws_sa46_set_ipv4(r, (unsigned int)m, p);
-					lws_async_dns_server_add(r->context,
-								&r->is.sa46[m]);
 					l = (uint8_t)(l - 4);
 					p += 4;
 					m++;
@@ -461,8 +577,20 @@ lws_dhcpc4_parse(lws_dhcpc_req_t *r, void *in, size_t len)
 			p += l;
 			continue;
 get_ipv4:
-			if (l >= 4)
-				r->is.nums[n] = ntohl(lws_ser_ru32be(p));
+			/*
+			 * The address-shaped numbers (mask, broadcast) are
+			 * kept as the wire bytes, which is what s_addr wants;
+			 * the time-shaped ones (lease, T1, T2) are seconds in
+			 * host order, since they are arithmetic for us
+			 */
+			if (l >= 4) {
+				if (n == LWSDH_LEASE_SECS ||
+				    n == LWSDH_RENEWAL_SECS ||
+				    n == LWSDH_REBINDING_SECS)
+					r->is.nums[n] = lws_ser_ru32be(p);
+				else
+					r->is.nums[n] = ntohl(lws_ser_ru32be(p));
+			}
 			p += l;
 			continue;
 broken:
@@ -518,10 +646,14 @@ broken:
 		}
 
 		if (r->state == LDHC_INIT) {
+			/*
+			 * An OFFER is not a lease: ask for it with a REQUEST
+			 * and only commit to the configuration on the ACK
+			 */
 			lwsl_info("%s: moving to REQ\n", __func__);
 			r->state = LDHC_REQUESTING;
 			lws_callback_on_writable(r->wsi_raw);
-			//break;
+			break;
 		}
 
 		return 0;

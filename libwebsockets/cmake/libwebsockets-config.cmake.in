@@ -8,17 +8,27 @@
 get_filename_component(LWS_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
 list(APPEND CMAKE_MODULE_PATH ${libwebsockets_DIR})
 
-set(LIBWEBSOCKETS_INCLUDE_DIRS "@LWS__INCLUDE_DIRS@" "@LWS_PUBLIC_INCLUDES@")
+set(LIBWEBSOCKETS_INCLUDE_DIRS "@LWS__INCLUDE_DIRS@")
 
 # Include the project Targets file, this contains definitions for IMPORTED targets.
-if (LIB_LIST_AT_END)
+if (TARGET websockets OR TARGET websockets_shared)
 else()
 include(${LWS_CMAKE_DIR}/LibwebsocketsTargets.cmake)
 endif()
 include(${LWS_CMAKE_DIR}/LwsCheckRequirements.cmake)
 
 # IMPORTED targets from LibwebsocketsTargets.cmake
-set(LIBWEBSOCKETS_LIBRARIES websockets websockets_shared)
+set(LIBWEBSOCKETS_LIBRARIES)
+if (TARGET websockets)
+	set(LIBWEBSOCKETS_LIBRARIES ${LIBWEBSOCKETS_LIBRARIES} websockets)
+endif()
+if (TARGET websockets_shared)
+	set(LIBWEBSOCKETS_LIBRARIES ${LIBWEBSOCKETS_LIBRARIES} websockets_shared)
+endif()
+
+if (TARGET websockets_shared)
+	set(websockets_shared 1)
+endif()
 
 # These are additional include paths you will need
 foreach(item "${LIBWEBSOCKETS_INCLUDE_DIRS}")
@@ -29,6 +39,11 @@ endforeach()
 # These are additional libs that lws wants your app to also link to
 foreach(item "@LIB_LIST_AT_END@")
 	list(APPEND LIBWEBSOCKETS_DEP_LIBS ${item})
+endforeach()
+
+set(LWS_DEP_LIB_PATHS "@LWS_DEP_LIB_PATHS@")
+foreach(item ${LWS_DEP_LIB_PATHS})
+	link_directories(${item})
 endforeach()
 
 # Move boilerplate for consuming cmake files into here

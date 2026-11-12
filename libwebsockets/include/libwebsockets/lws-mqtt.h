@@ -33,11 +33,17 @@ struct lws_mqtt_str_st;
 typedef struct lws_mqtt_str_st lws_mqtt_str_t;
 
 #define MQTT_VER_3_1_1 4
+#if MQTT_VER_3_1_1 == 4
+	#define MQTT_VER_STRING "3.1.1"
+#else
+	#define MQTT_VER_STRING "unknown"
+#endif
 
 #define LWS_MQTT_FINAL_PART 1
 
 #define LWS_MQTT_MAX_AWSIOT_TOPICLEN  256
 #define LWS_MQTT_MAX_TOPICLEN  65535
+#define LWS_MQTT_MAX_PACKET_SIZE (1 * 1024 * 1024)
 #define LWS_MQTT_MAX_CIDLEN    128
 #define LWS_MQTT_RANDOM_CIDLEN 23 /* 3.1.3.1-5: Server MUST... between
 				     1 and 23 chars... */
@@ -68,7 +74,7 @@ typedef struct lws_mqtt_str_st lws_mqtt_str_t;
 typedef enum {
 	QOS0,
 	QOS1,
-	QOS2,				/* not supported */
+	QOS2,
 	RESERVED_QOS_LEVEL,
 	FAILURE_QOS_LEVEL = 0x80
 } lws_mqtt_qos_levels_t;
@@ -82,6 +88,11 @@ typedef union {
 	} flags;
 	uint8_t 		bits;
 } lws_mqtt_fixed_hdr_t;
+
+typedef struct lws_mqtt_qos2_state_ops {
+	int (*rx_add)(struct lws *wsi, const char *client_id, uint16_t pkt_id);
+	int (*rx_remove)(struct lws *wsi, const char *client_id, uint16_t pkt_id);
+} lws_mqtt_qos2_state_ops_t;
 
 /*
  * MQTT connection parameters, passed into struct
@@ -117,6 +128,7 @@ typedef struct lws_mqtt_client_connect_param_s {
 						   parameters */
 	const char 			*username;
 	const char 			*password;
+	const lws_mqtt_qos2_state_ops_t	*qos2_state_ops;
 	uint8_t				aws_iot;
 } lws_mqtt_client_connect_param_t;
 
@@ -147,6 +159,15 @@ typedef struct topic_elem {
 	/*--v-Following will be used by LWS-v--*/
 	uint8_t 		acked;
 } lws_mqtt_topic_elem_t;
+
+/*
+ * The maximum number of topic elements that can be passed in a single
+ * lws_mqtt_client_send_subcribe() or lws_mqtt_client_send_unsubcribe()
+ * call, ie, the top end of the valid range for
+ * lws_mqtt_subscribe_param_t.num_topics.  Calls with a num_topics of
+ * zero or greater than this are rejected with a nonzero return.
+ */
+#define LWS_MQTT_MAX_TOPICS 8
 
 /*
  * MQTT publish parameters
@@ -284,9 +305,6 @@ typedef enum {
 	LMQPROP_SHARED_SUBSCRIPTION_AVAIL			= 0x2a
 } lws_mqtt_property;
 
-int
-lws_read_mqtt(struct lws *wsi, unsigned char *buf, lws_filepos_t len);
-
 /* returns 0 if bd1 and bd2 are "the same", that includes empty, else nonzero */
 LWS_VISIBLE LWS_EXTERN int
 lws_mqtt_bindata_cmp(const lws_mqtt_str_t *bd1, const lws_mqtt_str_t *bd2);
@@ -318,7 +336,8 @@ lws_mqtt_str_free(lws_mqtt_str_t **s);
  *
  * \param wsi: the mqtt child wsi
  * \param pub: additional information on what we're publishing
- * \param buf: payload to send
+ * \param buf: payload to send, with LWS_PRE bytes valid before it as for
+ *		lws_write()
  * \param len: length of data in buf
  * \param final: flag indicating this is the last part
  *
@@ -339,6 +358,26 @@ lws_mqtt_str_free(lws_mqtt_str_t **s);
  * up into 1 or 2- mtu sized chunks and send that.
  *
  * Final should be set when you're calling with the last part of the payload.
+ *
+ * While a PUBLISH is going out in parts, nothing else can be sent on the
+ * connection, including the acks lws owes the broker for what it receives.
+ * lws holds a limited number of those, and when they fill up it stops reading
+ * the connection until it can write them, ie, until this PUBLISH is finished.
+ * So finishing a PUBLISH sent in parts must not wait for anything received on
+ * the same connection, or it may wait forever.
+ *
+ * A QoS0 PUBLISH has no PUBACK, lws acknowledges it locally with
+ * LWS_CALLBACK_MQTT_ACK once the last part is sent.  Like a real PUBACK for
+ * QoS1, that comes afterwards from the event loop, never from inside this call.
+ *
+ * A stream has at most one operation awaiting the broker's ack: a QoS1 or QoS2
+ * PUBLISH until its LWS_CALLBACK_MQTT_ACK (for QoS2, that comes at the PUBREC;
+ * lws completes the exchange itself), or a SUBSCRIBE or UNSUBSCRIBE until its
+ * SUBSCRIBED or UNSUBSCRIBED.  Starting a QoS1 or QoS2 PUBLISH while one is
+ * awaiting its ack fails.  After LWS_CALLBACK_MQTT_RESEND, the PUBLISH may be
+ * sent again with \p pub .dup set, which goes with the packet id it went with
+ * before, or the stream may go on to something else instead.  Use more streams
+ * on the connection for more operations at once.
  */
 LWS_VISIBLE LWS_EXTERN int
 lws_mqtt_client_send_publish(struct lws *wsi, lws_mqtt_publish_param_t *pub,
@@ -353,7 +392,11 @@ lws_mqtt_client_send_publish(struct lws *wsi, lws_mqtt_publish_param_t *pub,
  * For topics other child streams have not already subscribed to, send a packet
  * to the server asking to subscribe to them.  If all topics listed are already
  * subscribed to be the shared network connection, just trigger the
- * LWS_CALLBACK_MQTT_SUBSCRIBED callback as if a SUBACK had come.
+ * LWS_CALLBACK_MQTT_SUBSCRIBED callback as if a SUBACK had come: like a real
+ * SUBACK, it comes afterwards from the event loop, not from inside this call.
+ *
+ * It fails if the stream already has an operation awaiting the broker's ack,
+ * see lws_mqtt_client_send_publish().
  *
  * \p sub doesn't need to exist after the return from this function.
  */
@@ -364,18 +407,34 @@ lws_mqtt_client_send_subcribe(struct lws *wsi, lws_mqtt_subscribe_param_t *sub);
  * lws_mqtt_client_send_unsubcribe() - lws_write a unsubscribe packet
  *
  * \param wsi: the mqtt child wsi
- * \param sub: which topic(s) we want to unsubscribe from
+ * \param unsub: which topic(s) we want to unsubscribe from
  *
  * For topics other child streams are not subscribed to, send a packet
  * to the server asking to unsubscribe from them.  If all topics
  * listed are already subscribed by other child streams on the shared
  * network connection, just trigger the LWS_CALLBACK_MQTT_UNSUBSCRIBED
- * callback as if a UNSUBACK had come.
+ * callback as if a UNSUBACK had come: like a real UNSUBACK, it comes
+ * afterwards from the event loop, not from inside this call.
+ *
+ * It fails if the stream already has an operation awaiting the broker's ack,
+ * see lws_mqtt_client_send_publish().
  *
  * \p unsub doesn't need to exist after the return from this function.
  */
 LWS_VISIBLE LWS_EXTERN int LWS_WARN_UNUSED_RESULT
 lws_mqtt_client_send_unsubcribe(struct lws *wsi,
 				const lws_mqtt_subscribe_param_t *unsub);
+
+/**
+ * lws_mqtt_client_qos2_rx_add() - inject a saved QoS2 packet ID into the rx list
+ *
+ * \param wsi: the mqtt child wsi
+ * \param pkt_id: the packet ID to inject
+ *
+ * This allows the application to repopulate the unacknowledged QoS2 receives
+ * from persistent storage when a session is resumed.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_mqtt_client_qos2_rx_add(struct lws *wsi, uint16_t pkt_id);
 
 #endif /* _LWS_MQTT_H */

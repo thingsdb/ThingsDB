@@ -38,7 +38,14 @@ lws_log_cx_t log_cx = {
 #else
 	.u.emit				= lwsl_emit_optee,
 #endif
-	.lll_flags			= LLL_ERR | LLL_WARN | LLL_NOTICE,
+	/*
+	 * Default for code that logs before or without any lws_context,
+	 * or that never calls lws_set_log_level(): USER is included so
+	 * a tool's own output (eg, a test's FAIL lines) is not silently
+	 * filtered
+	 */
+	.lll_flags			= LLL_ERR | LLL_WARN | LLL_NOTICE |
+					  LLL_USER,
 };
 
 #if !defined(LWS_PLAT_OPTEE) && !defined(LWS_WITH_NO_LOGS)
@@ -47,6 +54,14 @@ static const char * log_level_names ="EWNIDPHXCLUT??";
 
 /*
  * Name an instance tag and attach to a group
+ *
+ * The groups' lists and ordinals are the context's, shared by every service
+ * thread: objects are tagged and untagged on whichever thread creates or
+ * frees them, so with LWS_MAX_SMP > 1 the lists are only touched under the
+ * context lock (G-549).  It's recursive, so callers already holding it are
+ * fine; a caller must not be holding a pt or vhost lock without it (debug
+ * SMP builds assert on a pt one).  Appending to an existing tag only changes
+ * the object's own gutag, which is the business of whoever owns the object.
  */
 
 void
@@ -59,7 +74,7 @@ __lws_lc_tag(struct lws_context *context, lws_lifecycle_group_t *grp,
 	if (*lc->gutag == '[') {
 		/* appending inside [] */
 
-		char *cp = strchr(lc->gutag, ']');
+		char *cp = (char *)strchr(lc->gutag, ']');
 		char rend[96];
 		size_t ll, k;
 		int n;
@@ -91,8 +106,11 @@ __lws_lc_tag(struct lws_context *context, lws_lifecycle_group_t *grp,
 		return;
 	}
 
+	assert(context);
 	assert(grp);
 	assert(grp->tag_prefix); /* lc group must have a tag prefix string */
+
+	lws_context_lock(context, __func__); /* ------------- context { */
 
 	lc->gutag[0] = '[';
 
@@ -121,11 +139,13 @@ __lws_lc_tag(struct lws_context *context, lws_lifecycle_group_t *grp,
 	lc->us_creation = (uint64_t)lws_now_usecs();
 	lws_dll2_add_tail(&lc->list, &grp->owner);
 
-	lwsl_refcount_cx(lc->log_cx, 1);
-
 #if defined(LWS_LOG_TAG_LIFECYCLE)
-	lwsl_cx_notice(context, " ++ %s (%d)", lc->gutag, (int)grp->owner.count);
+	lwsl_cx_info(context, " ++ %s (%d)", lc->gutag, (int)lws_dll2_count(&grp->owner));
 #endif
+
+	lws_context_unlock(context); /* ----------------------- } context */
+
+	lwsl_refcount_cx(lc->log_cx, 1);
 }
 
 /*
@@ -146,6 +166,23 @@ __lws_lc_tag_append(lws_lifecycle_t *lc, const char *app)
 	if (n && lc->gutag[n - 1] == ']')
 		n--;
 
+	if (!lc->recycle_len)
+		lc->recycle_len = (uint8_t)n;
+	else
+		n = lc->recycle_len;
+
+	if ((unsigned int)n + 2u >= sizeof(lc->gutag)) {
+		/*
+		 * No room to append anything... sizeof(gutag) - 2 - n would
+		 * underflow to a huge size_t and lws_snprintf() only rejects
+		 * size 0.  Just make sure the tag is closed and terminated.
+		 */
+		lc->gutag[sizeof(lc->gutag) - 2] = ']';
+		lc->gutag[sizeof(lc->gutag) - 1] = '\0';
+
+		return;
+	}
+
 	n += lws_snprintf(&lc->gutag[n], sizeof(lc->gutag) - 2u -
 					 (unsigned int)n, "|%s]", app);
 
@@ -156,14 +193,15 @@ __lws_lc_tag_append(lws_lifecycle_t *lc, const char *app)
 }
 
 /*
- * Remove instance from group
+ * Remove instance from group, under the context lock like the tag
  */
 
 void
 __lws_lc_untag(struct lws_context *context, lws_lifecycle_t *lc)
 {
-	//lws_lifecycle_group_t *grp;
+#if defined(LWS_LOG_TAG_LIFECYCLE)
 	char buf[24];
+#endif
 
 	if (!lc->gutag[0]) { /* we never tagged this object... */
 		lwsl_cx_err(context, "%s never tagged", lc->gutag);
@@ -171,24 +209,28 @@ __lws_lc_untag(struct lws_context *context, lws_lifecycle_t *lc)
 		return;
 	}
 
-	if (!lc->list.owner) { /* we already untagged this object... */
+	assert(context);
+	lws_context_lock(context, __func__); /* ------------- context { */
+
+	if (!lws_dll2_owner(&lc->list)) { /* we already untagged this object... */
+		lws_context_unlock(context);
 		lwsl_cx_err(context, "%s untagged twice", lc->gutag);
 		assert(0);
 		return;
 	}
-
-	//grp = lws_container_of(lc->list.owner, lws_lifecycle_group_t, owner);
 
 #if defined(LWS_LOG_TAG_LIFECYCLE)
 	if (lws_humanize(buf, sizeof(buf),
 		     (uint64_t)lws_now_usecs() - lc->us_creation,
 		     humanize_schema_us) > 0)
 
-	lwsl_cx_notice(context, " -- %s (%d) %s", lc->gutag,
-		    (int)lc->list.owner->count - 1, buf);
+	lwsl_cx_info(context, " -- %s (%d) %s", lc->gutag,
+		    (int)lws_dll2_count(lws_dll2_owner(&lc->list)) - 1, buf);
 #endif
 
 	lws_dll2_remove(&lc->list);
+
+	lws_context_unlock(context); /* ----------------------- } context */
 
 	lwsl_refcount_cx(lc->log_cx, -1);
 }
@@ -243,7 +285,21 @@ lwsl_timestamp(int level, char *p, size_t len)
 					(unsigned long long) now / 10000,
 					(int)(now % 10000), log_level_names[n]);
 
-#if defined(LWS_PLAT_FREERTOS)
+#if defined(LWS_PLAT_HEAP_INTERNAL)
+		{
+			/* internal free / all free, if they differ */
+			size_t fi = lws_plat_heap_free_internal(),
+			       ft = esp_get_free_heap_size();
+
+			if (fi != ft)
+				n += lws_snprintf(p + n, len - n, "%6u/%7u: ",
+						  (unsigned int)fi,
+						  (unsigned int)ft);
+			else
+				n += lws_snprintf(p + n, len - n, "%6u: ",
+						  (unsigned int)ft);
+		}
+#elif defined(LWS_PLAT_FREERTOS)
 		n += lws_snprintf(p + n, len - n, "%6u: ",
 #if defined(LWS_AMAZON_RTOS)
 				  (unsigned int)xPortGetFreeHeapSize());
@@ -260,6 +316,24 @@ lwsl_timestamp(int level, char *p, size_t len)
 
 	return 0;
 }
+
+uint32_t
+lws_log_ratelimit_check(lws_log_ratelimit_t *rl, int64_t interval_us)
+{
+	lws_usec_t now = lws_now_usecs();
+
+	if (now >= rl->next_log_us) {
+		uint32_t r = rl->dropped + 1;
+		rl->next_log_us = now + interval_us;
+		rl->dropped = 0;
+		return r;
+	}
+
+	rl->dropped++;
+
+	return 0;
+}
+
 
 #ifndef LWS_PLAT_OPTEE
 static const char * const colours[] = {
@@ -362,19 +436,522 @@ lws_log_use_cx_file(struct lws_log_cx *cx, int _new)
 #endif
 
 #if !(defined(LWS_PLAT_OPTEE) && !defined(LWS_WITH_NETWORK))
+
+#if defined(LWS_LOG_THREADED)
+#define LWS_LOG_LINE_MAX	1024
+#else
+#define LWS_LOG_LINE_MAX	256
+#endif
+
+/*
+ * The dupe and spew state below is processwide.  When there may be more than
+ * one thread logging, it is guarded by a lock that is never held across a
+ * call into the emit function, so an emit that itself logs cannot deadlock.
+ */
+
+#if defined(LWS_LOG_THREADED)
+static pthread_mutex_t log_lock = PTHREAD_MUTEX_INITIALIZER;
+#define log_lock_take()		pthread_mutex_lock(&log_lock)
+#define log_lock_release()	pthread_mutex_unlock(&log_lock)
+#else
+#define log_lock_take()
+#define log_lock_release()
+#endif
+
+/*
+ * Log spew handling
+ *
+ * A "spew" is a sustained rate of log emission that nothing downstream can
+ * usefully absorb: a tight loop logging every service call, a POLLOUT storm,
+ * a state machine ping-ponging.  Left alone it fills the disk, or in a test
+ * harness, the RAM the logs were being captured in, within seconds.
+ *
+ * Back-to-back identical lines are already collapsed by the dupe detection
+ * in __lws_logv().  This catches the general case where the lines differ.
+ *
+ * We keep a small ring of the timestamps of the last LWS_LOG_SPEW_TS_RING
+ * lines that got as far as emission.  When the whole ring spans less than
+ * LWS_LOG_SPEW_ENTER_US, ie, the sustained rate has exceeded
+ * LWS_LOG_SPEW_TS_RING / LWS_LOG_SPEW_ENTER_US, we enter spew mode: we
+ * allocate a small heap ringbuffer of LWS_LOG_SPEW_RING_SIZE bytes and divert
+ * the formatted lines into that instead of emitting them.  It retains only
+ * the last LWS_LOG_SPEW_TAIL_LINES lines, fewer if they are long: enough to
+ * see how the spew ended, since the spew itself is the problem, and this also
+ * runs on devices with little heap.  A heartbeat line goes out once a second
+ * so the log shows the process is alive and how much was swallowed.
+ *
+ * Leaving spew mode is decided over a much shorter window than entering it,
+ * since a spew typically never pauses at all: once the last
+ * LWS_LOG_SPEW_EXIT_SAMPLES lines span more than the exit quiet, initially
+ * LWS_LOG_SPEW_EXIT_US, we call the spew over, replay the retained tail in
+ * order, free the ringbuffer and go back to emitting directly.  The timestamp
+ * ring is restarted, so a full LWS_LOG_SPEW_TS_RING lines at spew rate are
+ * needed before we would enter again; that stops a bursty spew flapping in
+ * and out of the mode and replaying its tail each time.
+ *
+ * When the next log arrives, a spew that stopped and a process that was
+ * starved of cpu for a while, eg, on an overloaded box, look exactly the same.
+ * What does tell them apart is the spew coming back: if we enter spew mode
+ * again within LWS_LOG_SPEW_RESUME_US of calling it over, we were wrong, and
+ * the quiet that fooled us is what a stall looks like on this box at the
+ * moment.  So the exit quiet grows to twice that, up to
+ * LWS_LOG_SPEW_EXIT_MAX_US, and we say so.  Conditions change, so each time a
+ * spew starts afresh, the exit quiet halves back towards LWS_LOG_SPEW_EXIT_US.
+ *
+ * A legitimate surge of logs, eg, context creation at debug level, may be
+ * fast enough to trip entry.  The first LWS_LOG_SPEW_TS_RING - 1 lines of it
+ * were emitted before we entered spew mode, and if it ends within the tail we
+ * retain, it is replayed intact, so a surge of up to that many lines is
+ * waved through losslessly.  A longer one loses its middle, as a spew does.
+ *
+ * The exit check can only run when a log arrives.  If a spew stops dead and
+ * nothing logs afterwards, the retained tail is replayed by the next log
+ * whenever it comes, or by lws_context_destroy().  If the process dies
+ * during a spew, the retained tail dies with it; that is the price of not
+ * having written it out.
+ *
+ * The tunables can be overridden from the compiler command line.  How much of
+ * the tail is retained can also be changed at runtime by
+ * lws_log_spew_tail_lines(), eg from the --log-spew-tail commandline switch,
+ * for when the part of interest is further back than the default tail.  A log
+ * context with LLLF_LOG_SPEW_OFF in its flags bypasses all of this.
+ */
+
+#if !defined(LWS_LOG_SPEW_TS_RING)
+#define LWS_LOG_SPEW_TS_RING		64
+#endif
+#if !defined(LWS_LOG_SPEW_ENTER_US)
+#define LWS_LOG_SPEW_ENTER_US		20000
+#endif
+#if !defined(LWS_LOG_SPEW_EXIT_SAMPLES)
+#define LWS_LOG_SPEW_EXIT_SAMPLES	8
+#endif
+#if !defined(LWS_LOG_SPEW_EXIT_US)
+#define LWS_LOG_SPEW_EXIT_US		5000
+#endif
+#if !defined(LWS_LOG_SPEW_EXIT_MAX_US)
+#define LWS_LOG_SPEW_EXIT_MAX_US	1000000
+#endif
+#if !defined(LWS_LOG_SPEW_RESUME_US)
+#define LWS_LOG_SPEW_RESUME_US		1000000
+#endif
+#if !defined(LWS_LOG_SPEW_TAIL_LINES)
+#define LWS_LOG_SPEW_TAIL_LINES		10
+#endif
+#if !defined(LWS_LOG_SPEW_RING_SIZE)
+/* a threaded build's lines are 1024 long, too big for the small ring */
+#if (defined(LWS_PLAT_FREERTOS) || defined(LWS_PLAT_BAREMETAL)) && \
+    !defined(LWS_LOG_THREADED)
+#define LWS_LOG_SPEW_RING_SIZE		1024
+#else
+#define LWS_LOG_SPEW_RING_SIZE		2048
+#endif
+#endif
+#if !defined(LWS_LOG_SPEW_HEARTBEAT_US)
+#define LWS_LOG_SPEW_HEARTBEAT_US	1000000
+#endif
+/*
+ * Ring bytes budgeted per line when the tail is set at runtime: typical lines
+ * fit, so the tail is usually the number of lines asked for, fewer if they
+ * are long
+ */
+#if !defined(LWS_LOG_SPEW_LINE_BUDGET)
+#define LWS_LOG_SPEW_LINE_BUDGET	256
+#endif
+/* limit of a runtime tail, so a typo cannot ask for gigabytes of heap */
+#if !defined(LWS_LOG_SPEW_TAIL_LINES_MAX)
+#define LWS_LOG_SPEW_TAIL_LINES_MAX	65536
+#endif
+
+/* each retained line is [len lo][len hi][level lo][level hi][len bytes] */
+#define SPEW_HDR			4
+
+#if LWS_LOG_LINE_MAX + SPEW_HDR > LWS_LOG_SPEW_RING_SIZE
+#error "LWS_LOG_SPEW_RING_SIZE must hold at least one maximum-length log line"
+#endif
+
+typedef struct lws_log_spew_ring {
+	uint8_t		*buf;		/* NULL: not in spew mode */
+	size_t		size;		/* of buf */
+	size_t		head;		/* next byte to write */
+	size_t		tail;		/* oldest byte retained */
+	size_t		used;
+	unsigned int	lines;		/* retained */
+	unsigned int	max_lines;	/* most lines to retain */
+	lws_usec_t	entered;
+	lws_usec_t	exit_us;	/* quiet needed to call this spew over */
+	lws_usec_t	quiet;		/* the quiet that called it over */
+	uint32_t	swallowed;	/* lines diverted into the ring */
+	uint32_t	lost;		/* of those, pushed out again */
+} lws_log_spew_ring_t;
+
+typedef struct lws_log_spew {
+	lws_usec_t		ts[LWS_LOG_SPEW_TS_RING];
+	lws_log_spew_ring_t	r;
+	lws_usec_t		last_heartbeat;
+	lws_usec_t		exit_us;	/* quiet that calls a spew over */
+	lws_usec_t		exited;		/* when we last called one over */
+	lws_usec_t		exited_quiet;	/* ... on seeing this quiet */
+	unsigned int		ts_head;	/* next slot to write */
+	unsigned int		ts_count;	/* valid slots */
+	unsigned int		tail_lines;	/* runtime tail, 0 = default */
+} lws_log_spew_t;
+
+static lws_log_spew_t spew;
+static char spew_entering; /* setting the ring up: no re-entry */
+
+enum {
+	SPEW_EMIT,	/* not in spew mode, emit normally */
+	SPEW_ENTERED,	/* this line entered spew mode and was retained */
+	SPEW_RESUMED,	/* ... and we had called the spew over too early */
+	SPEW_SWALLOWED,	/* retained, say nothing */
+	SPEW_HEARTBEAT,	/* retained, but it is time to show signs of life */
+	SPEW_EXITED	/* spew eased: replay the ring, then emit normally */
+};
+
+/* timestamp of the line k lines before the most recent one */
+
+static lws_usec_t
+spew_ts_ago(unsigned int k)
+{
+	return spew.ts[(spew.ts_head + LWS_LOG_SPEW_TS_RING - 1 - k) %
+		       LWS_LOG_SPEW_TS_RING];
+}
+
+static void
+spew_ring_write(lws_log_spew_ring_t *r, const uint8_t *p, size_t len)
+{
+	size_t n = r->size - r->head;
+
+	if (n > len)
+		n = len;
+	memcpy(r->buf + r->head, p, n);
+	if (len - n)
+		memcpy(r->buf, p + n, len - n);
+	r->head = (r->head + len) % r->size;
+	r->used += len;
+}
+
+static void
+spew_ring_read(lws_log_spew_ring_t *r, uint8_t *p, size_t len)
+{
+	size_t n = r->size - r->tail;
+
+	if (n > len)
+		n = len;
+	memcpy(p, r->buf + r->tail, n);
+	if (len - n)
+		memcpy(p + n, r->buf, len - n);
+	r->tail = (r->tail + len) % r->size;
+	r->used -= len;
+}
+
+/* take the oldest retained line out of the ring, 0 if nothing retained */
+
+static size_t
+spew_ring_pop(lws_log_spew_ring_t *r, char *line, size_t max, int *level)
+{
+	uint8_t hdr[SPEW_HDR];
+	size_t len;
+
+	*level = 0;
+	if (!r->lines)
+		return 0;
+
+	spew_ring_read(r, hdr, SPEW_HDR);
+	len = (size_t)hdr[0] | ((size_t)hdr[1] << 8);
+	*level = hdr[2] | (hdr[3] << 8);
+	r->lines--;
+
+	if (!line) {
+		/* discard it */
+		r->tail = (r->tail + len) % r->size;
+		r->used -= len;
+
+		return len;
+	}
+
+	assert(len < max);
+	spew_ring_read(r, (uint8_t *)line, len);
+	line[len] = '\0';
+
+	return len;
+}
+
+static void
+spew_ring_push(lws_log_spew_ring_t *r, int level, const char *line, size_t len)
+{
+	uint8_t hdr[SPEW_HDR];
+	int lv;
+
+	/*
+	 * len is at most LWS_LOG_LINE_MAX, which the ring is checked at
+	 * compile time to hold along with its header, and is never sized
+	 * smaller than that at runtime.  Still hold that against the ring we
+	 * actually have: a line it can't hold would never fit however many
+	 * old lines we forget below, and would overrun it if written.
+	 */
+
+	if (len + SPEW_HDR > r->size)
+		return;
+
+	/* make room by forgetting the oldest lines */
+
+	while (r->lines >= r->max_lines ||
+	       r->size - r->used < len + SPEW_HDR) {
+		spew_ring_pop(r, NULL, 0, &lv);
+		r->lost++;
+	}
+
+	hdr[0] = (uint8_t)(len & 0xff);
+	hdr[1] = (uint8_t)(len >> 8);
+	hdr[2] = (uint8_t)(level & 0xff);
+	hdr[3] = (uint8_t)((level >> 8) & 0xff);
+	spew_ring_write(r, hdr, SPEW_HDR);
+	spew_ring_write(r, (const uint8_t *)line, len);
+	r->lines++;
+	r->swallowed++;
+}
+
+/*
+ * Account for a line that is about to be emitted and decide its fate.
+ *
+ * Called with the log lock held.  If we leave spew mode, ownership of the ring
+ * is handed out via *replay so the caller can replay and free it without the
+ * lock, and the caller sees an empty ring here from then on.
+ */
+
+static int
+spew_track(lws_usec_t now, int level, const char *line, size_t len,
+	   lws_log_spew_ring_t *replay)
+{
+	lws_usec_t quiet;
+	int act;
+
+	spew.ts[spew.ts_head] = now;
+	spew.ts_head = (spew.ts_head + 1) % LWS_LOG_SPEW_TS_RING;
+	if (spew.ts_count < LWS_LOG_SPEW_TS_RING)
+		spew.ts_count++;
+
+	if (!spew.r.buf) {
+		if (spew.ts_count < LWS_LOG_SPEW_TS_RING ||
+		    now - spew_ts_ago(LWS_LOG_SPEW_TS_RING - 1) >=
+						LWS_LOG_SPEW_ENTER_US)
+			return SPEW_EMIT;
+
+		/*
+		 * The ring comes from the libc allocator, not lws_malloc():
+		 * the lws allocator logs its allocations at debug level, and
+		 * that log re-entered here while the ring was being set up,
+		 * so an inner call allocated and filled one ring and the
+		 * outer then installed a different buffer under the inner's
+		 * counters (and with a non-recursive log lock it would have
+		 * deadlocked).  The guard below refuses re-entry outright.
+		 */
+		if (spew_entering)
+			return SPEW_EMIT;
+		spew_entering = 1;
+		memset(&spew.r, 0, sizeof(spew.r));
+		spew.r.max_lines = LWS_LOG_SPEW_TAIL_LINES;
+		spew.r.size = LWS_LOG_SPEW_RING_SIZE;
+		if (spew.tail_lines) {
+			spew.r.max_lines = spew.tail_lines;
+			if (spew.r.size < (size_t)spew.tail_lines *
+						LWS_LOG_SPEW_LINE_BUDGET)
+				spew.r.size = (size_t)spew.tail_lines *
+						LWS_LOG_SPEW_LINE_BUDGET;
+		}
+		/* zeroed, so no stale heap content can ever be read out of it */
+		spew.r.buf = calloc(1, spew.r.size);
+		spew_entering = 0;
+		if (!spew.r.buf)
+			/* no memory to retain anything: keep emitting */
+			return SPEW_EMIT;
+
+		if (spew.exited && now - spew.exited < LWS_LOG_SPEW_RESUME_US) {
+			/*
+			 * The spew never ended, we were only descheduled for
+			 * long enough to think so: don't be fooled by that
+			 * again
+			 */
+			act = SPEW_RESUMED;
+			if (spew.exit_us < 2 * spew.exited_quiet)
+				spew.exit_us = 2 * spew.exited_quiet;
+			if (spew.exit_us > LWS_LOG_SPEW_EXIT_MAX_US)
+				spew.exit_us = LWS_LOG_SPEW_EXIT_MAX_US;
+			spew.r.quiet = spew.exited_quiet;
+		} else {
+			/* a new spew: conditions may have improved since */
+			act = SPEW_ENTERED;
+			spew.exit_us /= 2;
+			if (spew.exit_us < LWS_LOG_SPEW_EXIT_US)
+				spew.exit_us = LWS_LOG_SPEW_EXIT_US;
+		}
+		spew.exited = 0;
+
+		spew.r.entered = now;
+		spew.r.exit_us = spew.exit_us;
+		spew.last_heartbeat = now;
+		spew_ring_push(&spew.r, level, line, len);
+		*replay = spew.r;
+
+		return act;
+	}
+
+	quiet = now - spew_ts_ago(LWS_LOG_SPEW_EXIT_SAMPLES);
+	if (spew.ts_count > LWS_LOG_SPEW_EXIT_SAMPLES &&
+	    quiet > spew.r.exit_us) {
+		spew.r.quiet = quiet;
+		*replay = spew.r;
+		memset(&spew.r, 0, sizeof(spew.r));
+		/* a fresh run at spew rate is needed to enter again */
+		spew.ts_head = 0;
+		spew.ts_count = 0;
+		/* if it enters again right away, we were wrong about this */
+		spew.exited = now;
+		spew.exited_quiet = quiet;
+
+		return SPEW_EXITED;
+	}
+
+	spew_ring_push(&spew.r, level, line, len);
+
+	if (now - spew.last_heartbeat >= LWS_LOG_SPEW_HEARTBEAT_US) {
+		spew.last_heartbeat = now;
+		*replay = spew.r;
+
+		return SPEW_HEARTBEAT;
+	}
+
+	return SPEW_SWALLOWED;
+}
+
+static void
+log_emit(lws_log_cx_t *cx, int level, const char *line, size_t len)
+{
+	if (cx->lll_flags & LLLF_LOG_CONTEXT_AWARE)
+		cx->u.emit_cx(cx, level, line, len);
+	else
+		cx->u.emit(level, line);
+}
+
+/* emit a line of our own about the spew, in the style of the cx */
+
+static void LWS_FORMAT(3)
+spew_emit(lws_log_cx_t *cx, int level, const char *format, ...)
+{
+	char b[160], *p = b, *end = b + sizeof(b) - 2;
+	va_list ap;
+	int n;
+
+	b[0] = '\0';
+#if !defined(LWS_LOGS_TIMESTAMP)
+	if (cx->lll_flags & LLLF_LOG_TIMESTAMP)
+#endif
+	{
+		lwsl_timestamp(level, b, sizeof(b));
+		p += strlen(b);
+	}
+
+	va_start(ap, format);
+	n = vsnprintf(p, lws_ptr_diff_size_t(end, p), format, ap);
+	va_end(ap);
+	if (n < 0)
+		n = 0;
+	p += n;
+	if (p > end)
+		p = end;
+	*p++ = '\n';
+	*p = '\0';
+
+	log_emit(cx, level, b, lws_ptr_diff_size_t(p, b));
+}
+
+/* replay the retained tail of a spew in order, then free the ring */
+
+static void
+spew_replay(lws_log_cx_t *cx, int level, lws_log_spew_ring_t *r,
+	    lws_usec_t now)
+{
+	char line[LWS_LOG_LINE_MAX + 1];
+	int lv = level;
+	size_t len;
+
+	spew_emit(cx, level, "lws: log spew eased: %ums quiet, swallowed %u logs"
+			     " over %ums, %u oldest not retained, last %u"
+			     " replayed:",
+		  (unsigned int)(r->quiet / 1000),
+		  (unsigned int)r->swallowed,
+		  (unsigned int)((now - r->entered) / 1000),
+		  (unsigned int)r->lost, r->lines);
+
+	while (r->lines) {
+		len = spew_ring_pop(r, line, sizeof(line), &lv);
+		log_emit(cx, lv, line, len);
+	}
+
+	spew_emit(cx, level, "lws: log spew: end of replay");
+
+	free(r->buf); /* libc's: see spew_track() */
+	r->buf = NULL;
+}
+
+void
+lws_log_spew_tail_lines(unsigned int lines)
+{
+	if (lines > LWS_LOG_SPEW_TAIL_LINES_MAX)
+		lines = LWS_LOG_SPEW_TAIL_LINES_MAX;
+
+	/* a spew in progress keeps the ring it has, the next one uses this */
+	log_lock_take();
+	spew.tail_lines = lines;
+	log_lock_release();
+}
+
+/*
+ * If a spew was in progress, replay and free what it retained now, rather than
+ * waiting for a log that may never come.  Called from lws_context_destroy().
+ */
+
+void
+lws_log_spew_flush(lws_log_cx_t *cx)
+{
+	lws_log_spew_ring_t r;
+
+	if (!cx)
+		cx = &log_cx;
+
+	log_lock_take();
+	r = spew.r;
+	memset(&spew.r, 0, sizeof(spew.r));
+	spew.ts_head = 0;
+	spew.ts_count = 0;
+	/* not called over by a quiet: nothing to learn if it comes back */
+	spew.exited = 0;
+	log_lock_release();
+
+	if (r.buf)
+		spew_replay(cx, LLL_NOTICE, &r, lws_now_usecs());
+}
+
 void
 __lws_logv(lws_log_cx_t *cx, lws_log_prepend_cx_t prep, void *obj,
-	   int filter, const char *_fun, const char *format, va_list vl)
+	   int filter, uint32_t dropped, const char *_fun, const char *format, va_list vl)
 {
-#if LWS_MAX_SMP == 1 && !defined(LWS_WITH_THREADPOOL)
+#if !defined(LWS_LOG_THREADED)
 	/* this is incompatible with multithreaded logging */
-	static char buf[256];
+	static char buf[LWS_LOG_LINE_MAX];
 #else
-	char buf[1024];
+	char buf[LWS_LOG_LINE_MAX];
 #endif
-	char *p = buf, *end = p + sizeof(buf) - 1;
+	static char prev_buf[LWS_LOG_LINE_MAX];
+	static uint32_t log_dupes;
+	static lws_usec_t last_log_dupe_emit;
+	char *p = buf, *end = p + sizeof(buf) - 1, *body_start;
+	lws_log_spew_ring_t replay;
 	lws_log_cx_t *cxp;
-	int n, back = 0;
+	int n, back = 0, act = SPEW_EMIT;
+	lws_usec_t now;
 
 	/*
 	 * We need to handle NULL wsi etc at the wrappers as gracefully as
@@ -406,6 +983,8 @@ __lws_logv(lws_log_cx_t *cx, lws_log_prepend_cx_t prep, void *obj,
 		p += strlen(buf);
 	}
 
+	body_start = p;
+
 	/*
 	 * prepend parent log ctx content first
 	 * top level cx also gets an opportunity to prepend
@@ -428,7 +1007,11 @@ __lws_logv(lws_log_cx_t *cx, lws_log_prepend_cx_t prep, void *obj,
 		back--;
 	} while (back > 0);
 
-	if (prep)
+	/*
+	 * The object prepends describe their object: there's nothing for them
+	 * to say about a NULL one, eg, a context that does not exist yet
+	 */
+	if (prep && obj)
 		prep(cxp, obj, &p, end);
 
 	if (_fun)
@@ -448,27 +1031,107 @@ __lws_logv(lws_log_cx_t *cx, lws_log_prepend_cx_t prep, void *obj,
 		*p++ = '.';
 		*p++ = '\n';
 		*p++ = '\0';
-	} else
+	} else {
 		if (n > 0) {
 			p += n;
-			if (p[-1] != '\n')
+			if (p[-1] == '\n')
+				p--;
+			if (dropped > 1)
+				p += lws_snprintf(p, lws_ptr_diff_size_t(end, p), " (dropped %u logs)", (unsigned int)(dropped - 1));
+			if (p < end - 1) {
 				*p++ = '\n';
-			*p = '\0';
+				*p = '\0';
+			}
 		}
+	}
+
+	now = lws_now_usecs();
+
+	log_lock_take();
+
+	if (!strcmp(body_start, prev_buf)) {
+		log_dupes++;
+		if (now - last_log_dupe_emit < 1000000) {
+			log_lock_release();
+			return;
+		}
+
+		p = body_start + strlen(body_start);
+		if (p > buf && p[-1] == '\n')
+			p--;
+		p += lws_snprintf(p, lws_ptr_diff_size_t(end, p),
+				  " (swallowed %u dupes)\n", (unsigned int)log_dupes);
+		log_dupes = 0;
+		last_log_dupe_emit = now;
+	} else {
+		lws_strncpy(prev_buf, body_start, sizeof(prev_buf));
+		log_dupes = 0;
+		last_log_dupe_emit = now;
+	}
+
+	if (!(cx->lll_flags & LLLF_LOG_SPEW_OFF))
+		act = spew_track(now, filter, buf, lws_ptr_diff_size_t(p, buf),
+				 &replay);
+
+	log_lock_release();
+
+#if defined(LWS_WITH_LOG_SHIP)
+	/*
+	 * Whatever cx it went through, the shipper sees it, even if the spew
+	 * handling keeps it from being emitted here: the shipper's backlog is
+	 * bounded by itself, and its lines are only sent when they're asked
+	 * for, which may be exactly when there's a lot of them
+	 */
+	lws_log_ship_tap(filter, buf, lws_ptr_diff_size_t(p, buf));
+#endif
+
+	switch (act) {
+	case SPEW_ENTERED:
+		spew_emit(cx, filter, "lws: log spew: %u logs in %ums, retaining"
+				      " the last %u of it until %u logs"
+				      " span over %ums",
+			  LWS_LOG_SPEW_TS_RING, LWS_LOG_SPEW_ENTER_US / 1000,
+			  LWS_LOG_SPEW_TAIL_LINES, LWS_LOG_SPEW_EXIT_SAMPLES,
+			  (unsigned int)(replay.exit_us / 1000));
+		return;
+
+	case SPEW_RESUMED:
+		spew_emit(cx, filter, "lws: log spew: resumed after %ums quiet,"
+				      " it was not over: retaining again until"
+				      " %u logs span over %ums",
+			  (unsigned int)(replay.quiet / 1000),
+			  LWS_LOG_SPEW_EXIT_SAMPLES,
+			  (unsigned int)(replay.exit_us / 1000));
+		return;
+
+	case SPEW_SWALLOWED:
+		return;
+
+	case SPEW_HEARTBEAT:
+		spew_emit(cx, filter, "lws: log spew: still going, %u logs"
+				      " swallowed over %us",
+			  (unsigned int)replay.swallowed,
+			  (unsigned int)((now - replay.entered) / 1000000));
+		return;
+
+	case SPEW_EXITED:
+		spew_replay(cx, filter, &replay, now);
+		break;
+
+	default:
+		break;
+	}
 
 	/*
 	 * The actual emit
 	 */
 
-	if (cx->lll_flags & LLLF_LOG_CONTEXT_AWARE)
-		cx->u.emit_cx(cx, filter, buf, lws_ptr_diff_size_t(p, buf));
-	else
-		cx->u.emit(filter, buf);
+	log_emit(cx, filter, buf, lws_ptr_diff_size_t(p, buf));
 }
 
 void _lws_logv(int filter, const char *format, va_list vl)
 {
-	__lws_logv(&log_cx, NULL, NULL, filter, NULL, format, vl);
+	__lws_logv(&log_cx, NULL, NULL, filter, 0, NULL, format, vl);
 }
 
 void _lws_log(int filter, const char *format, ...)
@@ -476,7 +1139,16 @@ void _lws_log(int filter, const char *format, ...)
 	va_list ap;
 
 	va_start(ap, format);
-	__lws_logv(&log_cx, NULL, NULL, filter, NULL, format, ap);
+	__lws_logv(&log_cx, NULL, NULL, filter, 0, NULL, format, ap);
+	va_end(ap);
+}
+
+void _lws_log_rl(int filter, uint32_t dropped, const char *format, ...)
+{
+	va_list ap;
+
+	va_start(ap, format);
+	__lws_logv(&log_cx, NULL, NULL, filter, dropped, NULL, format, ap);
 	va_end(ap);
 }
 
@@ -489,7 +1161,20 @@ void _lws_log_cx(lws_log_cx_t *cx, lws_log_prepend_cx_t prep, void *obj,
 		cx = &log_cx;
 
 	va_start(ap, format);
-	__lws_logv(cx, prep, obj, filter, _fun, format, ap);
+	__lws_logv(cx, prep, obj, filter, 0, _fun, format, ap);
+	va_end(ap);
+}
+
+void _lws_log_cx_rl(lws_log_cx_t *cx, lws_log_prepend_cx_t prep, void *obj,
+		 int filter, uint32_t dropped, const char *_fun, const char *format, ...)
+{
+	va_list ap;
+
+	if (!cx)
+		cx = &log_cx;
+
+	va_start(ap, format);
+	__lws_logv(cx, prep, obj, filter, dropped, _fun, format, ap);
 	va_end(ap);
 }
 #endif
@@ -616,4 +1301,27 @@ lwsl_hexdump(const void *vbuf, size_t len)
 #if defined(_DEBUG)
 	lwsl_hexdump_level(LLL_DEBUG, vbuf, len);
 #endif
+}
+
+/*
+ * A context's log lines: its log context, and its name to prefix them with
+ */
+
+void
+lws_log_prepend_context(struct lws_log_cx *cx, void *obj, char **p, char *e)
+{
+	struct lws_context *lcx = (struct lws_context *)obj;
+
+	if (lcx->name)
+		*p += lws_snprintf(*p, lws_ptr_diff_size_t(e, (*p)), "%s: ",
+				   lcx->name);
+}
+
+struct lws_log_cx *
+lwsl_context_get_cx(struct lws_context *cx)
+{
+	if (!cx)
+		return NULL;
+
+	return cx->log_cx;
 }

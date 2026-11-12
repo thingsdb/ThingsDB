@@ -94,8 +94,12 @@ lws_upng_free(lws_upng_t **upng);
  * Return will be one of LWS_SRET_WANT_INPUT is the decoder is stalled waiting
  * for more input to be provided, LWS_SRET_WANT_OUTPUT is the decoder stopped
  * because it had produced a whole line of output pixels (which can be found
- * starting at *ppix), LWS_SRET_OK is it completed and LWS_SRET_FATAL or larger
+ * starting at *ppix), LWS_SRET_OK is it completed and a return with the LWS_SRET_FATAL bit set
  * if the decode failed.
+ *
+ * A failure is final: once a call has returned with LWS_SRET_FATAL set, every
+ * later call on the same decode object returns the same value without
+ * consuming any input.
  */
 LWS_VISIBLE LWS_EXTERN lws_stateful_ret_t
 lws_upng_emit_next_line(lws_upng_t *upng, const uint8_t **ppix,
@@ -145,6 +149,14 @@ lws_upng_inflator_create(const uint8_t **outring, size_t *outringlen,
  * Output is into a ringfuffer, typically sized at 32KB.  \p opl and \p cl
  * are "linear", that is extend beyond the ringbuffer.  They should be modulo
  * outringlen (given when the inflator was created) when accessing outring.
+ *
+ * Returns LWS_SRET_WANT_INPUT when all the input so far was used and more is
+ * needed, LWS_SRET_WANT_OUTPUT when the output should be consumed before
+ * calling again with \p buf NULL, LWS_SRET_OK once the gzip member is complete
+ * and its trailer CRC32 and length matched what was inflated, or a value with
+ * LWS_SRET_FATAL set if the gzip is broken, including a trailer mismatch.
+ * Input after the end of the member is left unconsumed.  Data whose input
+ * ran out before LWS_SRET_OK was returned is incomplete.
  */
 LWS_VISIBLE LWS_EXTERN lws_stateful_ret_t
 lws_upng_inflate_data(struct inflator_ctx *inf, const void *buf, size_t len);

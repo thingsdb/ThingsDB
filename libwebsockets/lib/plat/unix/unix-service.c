@@ -71,12 +71,21 @@ _lws_plat_service_forced_tsi(struct lws_context *context, int tsi)
 int
 _lws_plat_service_tsi(struct lws_context *context, int timeout_ms, int tsi)
 {
-	volatile struct lws_foreign_thread_pollfd *ftp, *next;
+	struct lws_foreign_thread_pollfd *ftp;
 	volatile struct lws_context_per_thread *vpt;
+	struct lws_dll2 *head;
 	struct lws_context_per_thread *pt;
 	lws_usec_t timeout_us, us;
+#if defined(LWS_WITH_WAKE_LOGGING)
+	unsigned int u;
+	char hu[25];
+	lws_usec_t a1;
+#endif
 #if defined(LWS_WITH_SYS_METRICS)
-	lws_usec_t a, b;
+	lws_usec_t a;
+#endif
+#if defined(LWS_WITH_SYS_METRICS) || defined(LWS_WITH_WAKE_LOGGING)
+	lws_usec_t b = 0;
 #endif
 	int n;
 #if (defined(LWS_ROLE_WS) && !defined(LWS_WITHOUT_EXTENSIONS)) || defined(LWS_WITH_TLS)
@@ -106,23 +115,26 @@ _lws_plat_service_tsi(struct lws_context *context, int timeout_ms, int tsi)
 	if (context->event_loop_ops->run_pt)
 		context->event_loop_ops->run_pt(context, tsi);
 
-	if (!pt->service_tid_detected && context->vhost_list) {
+	if (!pt->service_tid_detected && lws_dll2_get_head(&context->vhost_list_owner)) {
 		lws_fakewsi_def_plwsa(pt);
 
 		lws_fakewsi_prep_plwsa_ctx(context);
 
-		pt->service_tid = context->vhost_list->protocols[0].callback(
+		pt->service_tid = lws_vhost_first(context)->protocols[0].callback(
 					(struct lws *)plwsa,
 					LWS_CALLBACK_GET_THREAD_ID,
-					NULL, NULL, 0);
+					lws_vhost_first(context)->protocols[0].user,
+					NULL, 0);
 		pt->service_tid_detected = 1;
 	}
 
+	lws_context_lock(pt->context, __func__); /* cx then pt */
 	lws_pt_lock(pt, __func__);
 	/*
 	 * service ripe scheduled events, and limit wait to next expected one
 	 */
-	us = __lws_sul_service_ripe(pt->pt_sul_owner, LWS_COUNT_PT_SUL_OWNERS, us);
+	us = __lws_sul_service_ripe(&pt->pt_sul_owner[0].owner,
+				    LWS_COUNT_PT_SUL_OWNERS, us);
 	if (us && us < timeout_us)
 		/*
 		 * If something wants zero wait, that's OK, but if the next sul
@@ -133,6 +145,7 @@ _lws_plat_service_tsi(struct lws_context *context, int timeout_ms, int tsi)
 					context->us_wait_resolution : us;
 
 	lws_pt_unlock(pt);
+	lws_context_unlock(pt->context);
 
 	/*
 	 * is there anybody with pending stuff that needs service forcing?
@@ -140,12 +153,22 @@ _lws_plat_service_tsi(struct lws_context *context, int timeout_ms, int tsi)
 	if (!lws_service_adjust_timeout(context, 1, tsi))
 		timeout_us = 0;
 
-	/* ensure we don't wrap at 2^31 with poll()'s signed int ms */
+	/*
+	 * poll() waits in ms: round up, so a timer not due yet is slept until
+	 * rather than woken short of and then spun on until it is due.  It
+	 * can't wrap poll()'s signed int ms, timeout_us is at most
+	 * LWS_POLL_WAIT_LIMIT ms
+	 */
 
-	timeout_us /= LWS_US_PER_MS; /* ms now */
+	timeout_us = lws_us_to_ms_ceil(timeout_us); /* ms now */
 
 #if defined(LWS_WITH_SYS_METRICS)
 	a = lws_now_usecs() - b;
+#endif
+#if defined(LWS_WITH_WAKE_LOGGING)
+	a1 = lws_now_usecs();
+	lws_humanize(hu, sizeof(hu), (uint64_t)(timeout_us * LWS_US_PER_MS), humanize_schema_us);
+	lwsl_cx_notice(context, "event loop: entering sleep... scheduled wake after %s", hu);
 #endif
 	vpt->inside_poll = 1;
 	lws_memory_barrier();
@@ -153,9 +176,39 @@ _lws_plat_service_tsi(struct lws_context *context, int timeout_ms, int tsi)
 	vpt->inside_poll = 0;
 	lws_memory_barrier();
 
-#if defined(LWS_WITH_SYS_METRICS)
+#if defined(LWS_WITH_SYS_METRICS) || defined(LWS_WITH_WAKE_LOGGING)
 	b = lws_now_usecs();
 #endif
+#if defined(LWS_WITH_WAKE_LOGGING)
+	lws_humanize(hu, sizeof(hu), (uint64_t)(b - a1), humanize_schema_us);
+	lwsl_cx_notice(context, "event loop: WOKE after %s, %d fds ready", hu, n);
+	for (u = 0; u < pt->fds_count; u++) {
+		struct lws *wsi;
+		struct lws_pollfd *pfd = &vpt->fds[u];
+
+		if (lws_socket_is_valid(pfd->fd) &&
+		    (pfd->revents & (POLLIN | POLLOUT | POLLERR))) {
+			wsi = wsi_from_fd(context, pfd->fd);
+#if defined(LWS_WITH_SECURE_STREAMS)
+			if (wsi->for_ss && wsi->a.opaque_user_data) {
+				lws_ss_handle_t *fih = (lws_ss_handle_t *)wsi->a.opaque_user_data;
+
+				lwsl_ss_notice(fih, "    ready fd %d, %s %s %s, SS policy %s", pfd->fd,
+					pfd->revents & POLLIN ? "POLLIN" : "",
+					pfd->revents & POLLOUT ? "POLLOUT" : "",
+					pfd->revents & POLLERR ? "POLLERR": "",
+					fih->policy ? fih->policy->streamtype : "(null)");
+			} else
+#endif
+			lwsl_wsi_notice(wsi, "    ready fd %d, %s %s %s, protocol %s", pfd->fd,
+					pfd->revents & POLLIN ? "POLLIN" : "",
+					pfd->revents & POLLOUT ? "POLLOUT" : "",
+					pfd->revents & POLLERR ? "POLLERR": "",
+					wsi->a.protocol ? wsi->a.protocol->name : "(null)");
+		}
+	}
+#endif
+
 	/* Collision will be rare and brief.  Spin until it completes */
 	while (vpt->foreign_spinlock)
 		;
@@ -171,24 +224,33 @@ _lws_plat_service_tsi(struct lws_context *context, int timeout_ms, int tsi)
 
 	lws_pt_lock(pt, __func__);
 
-	ftp = vpt->foreign_pfd_list;
-	//lwsl_notice("cleared list %p\n", ftp);
+	/* head read still via the volatile pt view: the helpers take a
+	 * non-volatile owner pointer, so this one stays a direct read.  The
+	 * list is nearly always empty: no container_of() on a NULL head */
+	head = (struct lws_dll2 *)vpt->foreign_pfd_owner.head;
+	ftp = head ? lws_container_of(head, struct lws_foreign_thread_pollfd,
+				      list) : NULL;
 	while (ftp) {
 		struct lws *wsi;
 		struct lws_pollfd *pfd;
+		struct lws_dll2 *d = lws_dll2_get_next(&ftp->list);
 
-		next = ftp->next;
 		pfd = &vpt->fds[ftp->fd_index];
 		if (lws_socket_is_valid(pfd->fd)) {
 			wsi = wsi_from_fd(context, pfd->fd);
 			if (wsi)
-				__lws_change_pollfd(wsi, ftp->_and,
-						    ftp->_or);
+				__lws_change_pollfd((struct lws *)wsi,
+						    ftp->_and, ftp->_or);
 		}
+#if defined(LWS_WITH_WAKE_LOGGING)
+		else
+			lwsl_cx_notice(context, "*** WOKE on Invalid fd in foreign pfd list");
+#endif
+		lws_dll2_remove(&ftp->list);
 		lws_free((void *)ftp);
-		ftp = next;
+		ftp = d ? lws_container_of(d, struct lws_foreign_thread_pollfd,
+					   list) : NULL;
 	}
-	vpt->foreign_pfd_list = NULL;
 	lws_memory_barrier();
 
 	lws_pt_unlock(pt);

@@ -27,6 +27,52 @@
 #if !defined(__LWS_PRIVATE_LIB_TLS_OPENSSL_H__)
 #define __LWS_PRIVATE_LIB_TLS_OPENSSL_H__
 
+
+/*
+* SSL library compatibility layer:
+*
+* Different SSL implementations (OpenSSL, BoringSSL, wolfSSL, etc.) require
+* different type signatures for their APIs. These macros provide the appropriate
+* type definitions and cast operations to ensure correct function signatures
+* across all supported SSL backends.
+*
+* SSL_OPT_TYPE    - Defines the correct type for SSL options based on library
+* SSL_SIZE_T_CAST and SSL_UINT_CAST   - Performs appropriate cast for buffer size parameters
+* SSL_DATA_CAST   - Handles buffer pointer type differences between implementations
+*/
+#if defined(USE_WOLFSSL)
+    #define SSL_OPT_TYPE long
+#elif defined(LWS_WITH_BORINGSSL) || defined(LWS_WITH_AWSLC)
+    #define SSL_OPT_TYPE uint32_t
+#elif (OPENSSL_VERSION_NUMBER >= 0x10003000l) && !defined(LIBRESSL_VERSION_NUMBER)
+    #define SSL_OPT_TYPE unsigned long
+#else
+    #define SSL_OPT_TYPE long
+#endif
+
+/* Define macros for appropriate size cast by SSL implementation */
+#if defined(LWS_WITH_BORINGSSL) || defined(LWS_WITH_AWSLC)
+#define SSL_SIZE_T_CAST(x) ((size_t)(x))
+#define SSL_UINT_CAST(x)   ((unsigned int)(x))
+#else
+#define SSL_SIZE_T_CAST(x) ((int)(x))
+#define SSL_UINT_CAST(x)   ((int)(x))
+#endif
+
+#if defined(USE_WOLFSSL)
+	#define SSL_DATA_CAST(x) ((unsigned char *)(x))
+#else
+	#define SSL_DATA_CAST(x) (x)
+#endif
+
+/* Cast for ERR_error_string_n's first argument */
+#if defined(LWS_WITH_BORINGSSL) || defined(LWS_WITH_AWSLC)
+	#define LWS_TLS_ERR_CAST(x) ((uint32_t)(x))
+#else
+	#define LWS_TLS_ERR_CAST(x) ((unsigned long)(x))
+#endif
+
+
 /*
  * one of these per different client context
  * cc_owner is in lws_context.lws_context_tls
@@ -38,6 +84,12 @@ struct lws_tls_client_reuse {
 	struct lws_dll2 cc_list;
 	int refcount;
 	int index;
+	/*
+	 * No other vhost may take this ctx, because its owner's trust is its
+	 * own: it was created with .client_ssl_ctx_unshared, or a CA was
+	 * added to it after creation
+	 */
+	uint8_t unshared;
 };
 
 typedef int (*next_proto_cb)(SSL *, const unsigned char **out,
@@ -46,6 +98,7 @@ typedef int (*next_proto_cb)(SSL *, const unsigned char **out,
 
 struct lws_x509_cert {
 	X509 *cert; /* X509 is opaque, this has to be a pointer */
+	STACK_OF(X509) *chain; /* NULL, or any further certs from the PEM */
 };
 
 int

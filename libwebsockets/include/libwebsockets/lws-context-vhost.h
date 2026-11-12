@@ -171,7 +171,10 @@
 	/**< (VH) On this vhost, if the connection is being upgraded, insist
 	 * that there's a Host: header and that the contents match the vhost
 	 * name + port (443 / 80 are assumed if no :port given based on if the
-	 * connection is using TLS).
+	 * connection is using TLS).  The whole name must match, ignoring case,
+	 * and an IPv6 literal is matched in its brackets.  For ws over an h2
+	 * or h3 stream, and a WebTransport session over h3, the :authority is
+	 * checked the same way.
 	 *
 	 * By default, without this flag, on upgrade lws just checks that the
 	 * Host: header was given without checking the contents... this is to
@@ -212,14 +215,24 @@
 	/**< (VH) Indicates the connections using this vhost should ignore
 	 * h2 WINDOW_UPDATE from broken peers and fix them up */
 
-#define LWS_SERVER_OPTION_VH_H2_HALF_CLOSED_LONG_POLL		 (1ll << 32)
-	/**< (VH) Tell the vhost to treat half-closed remote clients as
-	 * entered into an immortal (ie, not subject to normal timeouts) long
-	 * poll mode.
-	 */
+#define LWS_SERVER_OPTION_VH_H2_HALF_CLOSED_LONG_POLL            (1ll << 32)
+        /**< (VH) Tell the vhost to treat half-closed remote clients as
+         * entered into an immortal (ie, not subject to normal timeouts) long
+         * poll mode.
+         */
+#define LWS_SERVER_OPTION_DISABLE_UTF8_VALIDATION                (1ll << 34)
+        /**< (VH) Disable UTF-8 validation of websocket TEXT frames.
+         * By default, TEXT frames are validated.
+         */
+
+        /****** add new things just above ---^ ******/
 
 #define LWS_SERVER_OPTION_GLIB					 (1ll << 33)
 	/**< (CTX) Use glib event loop */
+
+#define LWS_SERVER_OPTION_QUIC_FORCE_RETRY			(1ll << 52)
+	/**< (VH) For QUIC, force the server to always send a Retry packet.
+	 * Normally used only for testing. */
 
 #define LWS_SERVER_OPTION_H2_PRIOR_KNOWLEDGE			 (1ll << 34)
 	/**< (VH) Tell the vhost to treat plain text http connections as
@@ -242,8 +255,86 @@
 #define LWS_SERVER_OPTION_DISABLE_TLS_SESSION_CACHE		 (1ll << 39)
 	/**< (VHOST) Disallow use of client tls caching (on by default) */
 
+#define LWS_SERVER_OPTION_OPENSSL_AUTO_DH_PARAMETERS		 (1ll << 40)
+	/**< Configure openssl to use the default built-in DH parameters
+	 * to support TLSv1.2 Kx=DH ciphers (by calling SSL_CTX_set_dh_auto)
+	 * This is needed when you want to enable TLSv1.2 ephemeral
+	 * Diffie-Hellman (DH) key exchange ciphers
+	 * (e.g. TLS_DHE_RSA_WITH_AES_256_GCM_SHA384). It's not recommended. */
 
-	/****** add new things just above ---^ ******/
+#define LWS_SERVER_OPTION_MBEDTLS_VERIFY_CLIENT_CERT_POST_HANDSHAKE	 ((1ll << 41) | \
+								 (1ll << 12))
+	/**< (VH) An option to be used with mbedtls only, forces server to load 
+	 * and store the client cert (without CA dependent check)
+	 * to be able to verify it later (after the handshake);
+	 * provides LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT.
+	 * Note: LWS_SERVER_OPTION_REQUIRE_VALID_OPENSSL_CLIENT_CERT and
+	 * LWS_SERVER_OPTION_PEER_CERT_NOT_REQUIRED are ignored if
+	 * LWS_SERVER_OPTION_MBEDTLS_VERIFY_CLIENT_CERT_POST_HANDSHAKE is set */
+
+#define LWS_SERVER_OPTION_VH_INSTANTIATE_ALL_PROTOCOLS		(1ll << 42)
+	/**< (VH) force instantiation of all protocols for this vhost */
+
+#define LWS_SERVER_OPTION_VH_SKIP_PRIV_DROP                     (1ll << 43)
+        /**< Cause create vhost api to skip priv drop, requires caller
+          *  to manage it themselves */
+
+#define LWS_SERVER_OPTION_CMDLINE_FORCE_H1                      (1ll << 44)
+        /**< (CTX) Set by core built-in options to force ALPN to HTTP/1.1 */
+
+#define LWS_SERVER_OPTION_CMDLINE_FORCE_H2                      (1ll << 45)
+        /**< (CTX) Set by core built-in options to force ALPN to H2 */
+
+#define LWS_SERVER_OPTION_CMDLINE_FORCE_H3                      (1ll << 46)
+        /**< (CTX) Set by core built-in options to force ALPN to H3 */
+
+#define LWS_SERVER_OPTION_ALLOW_EARLY_DATA                      (1ll << 47)
+        /**< (VH) Accept 0-RTT early data for QUIC/TLS 1.3 connections.
+	 * Only gnutls builds honour it.  A gnutls older than 3.8.4 accepts
+	 * none over QUIC: those gnutls crash a server that takes it.  The
+	 * openssl-family backends never accept it, lws having no replay
+	 * protection for early data there */
+
+#define LWS_SERVER_OPTION_CPD_BYPASS                            (1ll << 48)
+        /**< (CTX) Bypass Captive Portal Detection and immediately assume internet is OK */
+
+#define LWS_SERVER_OPTION_QUIC_PAD_CRYPTO                       (1ll << 49)
+        /**< (VH) Pad the QUIC handshake crypto data to artificially hit anti-amplification limits */
+
+#define LWS_SERVER_OPTION_QUIC_EARLY_KEY_UPDATE                 (1ll << 51)
+	/**< CONTEXT: For testing. Trigger a QUIC early key update */
+
+#define LWS_SERVER_OPTION_QUIC_LATEST_VERSION                   (1ll << 50)
+        /**< (CTX) Force client to initiate QUIC connections using the latest supported version (e.g. v2) */
+
+#define LWS_SERVER_OPTION_SNI_FALLBACK                          (1ll << 53)
+	/**< (VH) This vhost is the fallback for TLS connections arriving on
+	 * its listen port with an SNI name that matches no vhost there.
+	 * Without a vhost marked like this on the port, an unrecognized SNI
+	 * name is refused with a fatal unrecognized_name alert rather than
+	 * being served by whichever vhost happens to be first on the port,
+	 * since that would decide the certificate shown and the client
+	 * certificate policy applied by vhost creation order.  Connections
+	 * that send no SNI at all are not affected either way, they stay on
+	 * the vhost that accepted them. */
+
+#define LWS_SERVER_OPTION_DISABLE_IPV4				 (1ll << 54)
+	/**< (VH) Disable IPV4 support, eg, to force ipv6-only operation
+	 * (the -6 commandline switch sets this at context level).  This is
+	 * the mirror of LWS_SERVER_OPTION_DISABLE_IPV6: DNS results for the
+	 * disabled family are filtered out and no listeners are created for
+	 * it */
+
+#define LWS_SERVER_OPTION_NO_HTTP_STREAM_COMPRESSION		 (1ll << 55)
+	/**< (VH) This vhost never compresses its http responses on the fly
+	 * (LWS_WITH_HTTP_STREAM_COMPRESSION), whatever the client's
+	 * Accept-Encoding, eg, where responses mix secrets with what the
+	 * client controls and compression would leak them (BREACH).  Its
+	 * responses do not depend on Accept-Encoding then, so they carry no
+	 * "vary: accept-encoding" for it either.  Files served already
+	 * gzipped from a zip are not affected */
+
+        /****** add new things just above ---^ ******/
 
 
 #define lws_check_opt(c, f) ((((uint64_t)c) & ((uint64_t)f)) == ((uint64_t)f))
@@ -262,6 +353,26 @@ typedef int (*lws_peer_limits_notify_t)(struct lws_context *ctx,
 					lws_sockaddr46 *sa46);
 #endif
 
+/**
+ * lws_quic_tx_credit_cb_t - Callback for dynamic QUIC TX credit window scaling
+ *
+ * \param wsi: The stream wsi, or the network wsi for connection-level flow control
+ * \param current_window: The current window size (rx_window_size)
+ * \param consumed_bytes: The number of bytes the application just consumed
+ * \param time_since_last_update_us: Microseconds since the window was last scaled or initialized
+ *
+ * Return: The new window size (in bytes). If you return 0 or a value less than the
+ *         current ungranted window, the window will not be scaled.
+ */
+typedef uint64_t (*lws_quic_tx_credit_cb_t)(struct lws *wsi, uint64_t current_window,
+                                            uint64_t consumed_bytes, uint64_t time_since_last_update_us);
+
+/*
+ * Largest info->pt_serv_buf_size lws accepts, bigger requests are clamped to
+ * it.  Each service thread takes twice this after the context allocation.
+ */
+#define LWS_PT_SERV_BUF_SIZE_MAX (16u * 1024u * 1024u)
+
 /** struct lws_context_creation_info - parameters to create context and /or vhost with
  *
  * This is also used to create vhosts.... if LWS_SERVER_OPTION_EXPLICIT_VHOSTS
@@ -271,6 +382,65 @@ typedef int (*lws_peer_limits_notify_t)(struct lws_context *ctx,
  * If LWS_SERVER_OPTION_EXPLICIT_VHOSTS is given, then no vhosts are created
  * at the same time as the context, they are expected to be created afterwards.
  */
+/*
+ * Per-service-thread fd budget, for info.fd_limit_per_thread
+ *
+ * A nonzero fd_limit_per_thread selects the small lookup scheme: the fds
+ * table and the fd -> wsi lookup are sized to it instead of to the process
+ * fd limit, and lookups walk the table.  The number has to cover more than
+ * the connections the application itself makes.
+ *
+ * LWS_FD_LIMIT_INTERNAL is what lws itself holds on a service thread in this
+ * build: the event pipe, the netlink socket, the async DNS resolver sockets,
+ * the ntp and dhcp client sockets, and the slot it keeps free so a full table
+ * is seen before an accept fails.  A nonzero fd_limit_per_thread below it is
+ * raised to it at context creation.
+ *
+ * LWS_FD_LIMIT_PER_THREAD_MIN adds the overhead connections carry beyond
+ * their own fd: the h2 or h3 network connection behind a client stream, the
+ * connection a redirect opens before the first is gone, a listening vhost's
+ * socket or two, and connections lingering in close.  Set
+ *
+ *   info.fd_limit_per_thread = LWS_FD_LIMIT_PER_THREAD_MIN + n;
+ *
+ * where n is the number of connections you mean to have open at once, or
+ * leave it 0 to size everything to the process fd limit, which suits a
+ * server.
+ */
+#if defined(LWS_WITH_NETLINK)
+#define LWS_FD_LIMIT_INTERNAL_NETLINK	1
+#else
+#define LWS_FD_LIMIT_INTERNAL_NETLINK	0
+#endif
+#if defined(LWS_WITH_SYS_ASYNC_DNS)
+#define LWS_FD_LIMIT_INTERNAL_ADNS	2 /* the resolver's query sockets */
+#else
+#define LWS_FD_LIMIT_INTERNAL_ADNS	0
+#endif
+#if defined(LWS_WITH_SYS_NTPCLIENT)
+#define LWS_FD_LIMIT_INTERNAL_NTP	1
+#else
+#define LWS_FD_LIMIT_INTERNAL_NTP	0
+#endif
+#if defined(LWS_WITH_SYS_DHCP_CLIENT)
+#define LWS_FD_LIMIT_INTERNAL_DHCP	1
+#else
+#define LWS_FD_LIMIT_INTERNAL_DHCP	0
+#endif
+
+#define LWS_FD_LIMIT_INTERNAL (1 /* event pipe */ + 1 /* kept free */ + \
+			       LWS_FD_LIMIT_INTERNAL_NETLINK + \
+			       LWS_FD_LIMIT_INTERNAL_ADNS + \
+			       LWS_FD_LIMIT_INTERNAL_NTP + \
+			       LWS_FD_LIMIT_INTERNAL_DHCP)
+
+#define LWS_FD_LIMIT_PER_THREAD_MIN (LWS_FD_LIMIT_INTERNAL + 8 /* overhead */)
+
+/* for .http_body_min_rate: a request body may arrive as slowly as it likes */
+#define LWS_HTTP_BODY_MIN_RATE_NONE	0xffffffffu
+/* for .mux_reset_limit: a connection's streams may be reset without limit */
+#define LWS_MUX_RESET_LIMIT_NONE	0xffffu
+
 struct lws_context_creation_info {
 #if defined(LWS_WITH_NETWORK)
 	const char *iface;
@@ -291,10 +461,12 @@ struct lws_context_creation_info {
 	/**< VHOST: NULL or array of lws_extension structs listing the
 	 * extensions this context supports. */
 #endif
-#if defined(LWS_ROLE_H1) || defined(LWS_ROLE_H2)
+#if defined(LWS_ROLE_H1) || defined(LWS_ROLE_H2) || defined(LWS_ROLE_H3)
 	const struct lws_token_limits *token_limits;
 	/**< CONTEXT: NULL or struct lws_token_limits pointer which is
-	 * initialized with a token length limit for each possible WSI_TOKEN_ */
+	 * initialized with a token length limit for each possible WSI_TOKEN_,
+	 * 0 meaning no limit but the ah size.  A header value longer than its
+	 * limit fails the whole request or response, it is not truncated */
 	const char *http_proxy_address;
 	/**< VHOST: If non-NULL, attempts to proxy via the given address.
 	 * If proxy auth is required, use format
@@ -310,12 +482,26 @@ struct lws_context_creation_info {
 	 *
 	 * Eg, "badrobot" "404 Not Found"
 	 */
+#endif
 	const struct lws_protocol_vhost_options *pvo;
 	/**< VHOST: pointer to optional linked list of per-vhost
-	 * options made accessible to protocols */
+	 * options made accessible to protocols.  A protocol named here is
+	 * instantiated on the vhost.  If this is NULL, so are all of the
+	 * vhost's own protocols, but a plugin protocol always needs to be
+	 * named here (or LWS_SERVER_OPTION_VH_INSTANTIATE_ALL_PROTOCOLS) */
 	const char *log_filepath;
 	/**< VHOST: filepath to append logs to... this is opened before
-	 *		any dropping of initial privileges */
+	 *		any dropping of initial privileges.  These are
+	 *		apache-compatible access logs; where a connection's peer
+	 *		has more layers than its own address (eg, a trusted
+	 *		front's PROXY v2 header), the host field is all of them,
+	 *		as lws_peer_describe() gives with LWS_PEER_DESC_TOKEN |
+	 *		LWS_PEER_DESC_BARE_SINGLE (see README.lwsws.md).  The
+	 *		peer's text in the request, referrer and user agent is
+	 *		written as printable ASCII only: a '"' as '\'', a C0
+	 *		control as '_', and, as Apache does, a backslash as
+	 *		"\\\\" and DEL or any byte above it as "\\xhh" */
+#if defined(LWS_ROLE_H1) || defined(LWS_ROLE_H2) || defined(LWS_ROLE_H3)
 	const struct lws_http_mount *mounts;
 	/**< VHOST: optional linked list of mounts for this vhost */
 	const char *server_string;
@@ -326,6 +512,7 @@ struct lws_context_creation_info {
 	/**< VHOST: If non-NULL, when asked to serve a non-existent file,
 	 *          lws attempts to server this url path instead.  Eg,
 	 *          "/404.html" */
+#endif
 	int port;
 	/**< VHOST: Port to listen on. Use CONTEXT_PORT_NO_LISTEN to suppress
 	 * listening for a client. Use CONTEXT_PORT_NO_LISTEN_SERVER if you are
@@ -339,6 +526,7 @@ struct lws_context_creation_info {
 	 * If options specifies LWS_SERVER_OPTION_UNIX_SOCK, you should set
 	 * port to 0 */
 
+#if defined(LWS_ROLE_H1) || defined(LWS_ROLE_H2) || defined(LWS_ROLE_H3)
 	unsigned int http_proxy_port;
 	/**< VHOST: If http_proxy_address was non-NULL, uses this port */
 	unsigned int max_http_header_data2;
@@ -351,15 +539,20 @@ struct lws_context_creation_info {
 	 * is nonzero, this will be used in place of the default.  It's
 	 * like this for compatibility with the original short version:
 	 * this is unsigned int length. */
+#endif
 
 	int keepalive_timeout;
 	/**< VHOST: (default = 0 = 5s, 31s for http/2) seconds to allow remote
 	 * client to hold on to an idle HTTP/1.1 connection.  Timeout lifetime
 	 * applied to idle h2 network connections */
+#if defined(LWS_ROLE_H1) || defined(LWS_ROLE_H2) || defined(LWS_ROLE_H3)
 	uint32_t	http2_settings[7];
 	/**< VHOST:  if http2_settings[0] is nonzero, the values given in
 	 *	      http2_settings[1]..[6] are used instead of the lws
-	 *	      platform default values.
+	 *	      platform default values, except a 0 for
+	 *	      H2SET_MAX_HEADER_LIST_SIZE keeps the default.  That one
+	 *	      is also the SETTINGS_MAX_FIELD_SECTION_SIZE an h3 vhost
+	 *	      advertises and enforces.
 	 *	      Just leave all at 0 if you don't care.
 	 */
 
@@ -431,16 +624,52 @@ struct lws_context_creation_info {
 	 * but it is preferred to use .client_ssl_cipher_list for that.)
 	 * SEE .tls1_3_plus_cipher_list and .client_tls_1_3_plus_cipher_list
 	 * for the equivalent for tls1.3.
+	 *
+	 * For GnuTLS, this instead takes a GnuTLS Priority String.
+	 *
+	 * RECOMMENDATION: For OpenSSL and mbedTLS, it's recommended to use
+	 * .tls_ciphers_iana instead. If .tls_ciphers_iana is provided, this
+	 * field is ignored for those backends.
+	 */
+	const char *tls_ciphers_iana;
+	/**< VHOST: Strict IANA-formatted comma-separated list of ciphers to use.
+	 * If populated, this overrides ssl_cipher_list and provides cross-library
+	 * consistency. (e.g. "TLS_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384")
+	 * Note: Only supported on OpenSSL and mbedTLS backends.
 	 */
 	const char *ecdh_curve;
-	/**< VHOST: if NULL, defaults to initializing server with
-	 *   "prime256v1" */
+	/**< VHOST: Colon-separated list of TLS group names (eg,
+	 * "X25519:P-384:P-521", or a single group name like "prime256v1")
+	 * restricting the groups this vhost's server SSL_CTX will use for key
+	 * exchange.  If NULL, the TLS library defaults are used.
+	 *
+	 * On the OpenSSL backend this is applied with
+	 * SSL_CTX_set1_groups_list() where available (OpenSSL 1.1.0+); on
+	 * older OpenSSL lacking that api, only a single curve name is
+	 * understood, it is applied as the server tmp ECDH curve, and if this
+	 * is NULL, "prime256v1" is used.  Other TLS backends ignore it (with
+	 * GnuTLS, restrict groups via the priority string in
+	 * \p ssl_cipher_list instead).
+	 */
+	const char *client_ecdh_curve;
+	/**< VHOST: Colon-separated list of TLS group names restricting the
+	 * groups this vhost's client SSL_CTX offers in the ClientHello.  If
+	 * NULL, \p ecdh_curve is used instead, else the TLS library defaults.
+	 *
+	 * This is the way to stop clients offering groups that some servers
+	 * cannot cope with, for example the post-quantum and ffdhe groups
+	 * that OpenSSL 3.4+ includes in its defaults.  Only applied on the
+	 * OpenSSL backend with SSL_CTX_set1_groups_list() available.
+	 */
 	const char *tls1_3_plus_cipher_list;
 	/**< VHOST: List of valid ciphers to use for incoming server connections
 	 * ON TLS1.3 AND ABOVE (eg, "TLS_CHACHA20_POLY1305_SHA256" on this vhost
 	 * or you can leave it as NULL to get "DEFAULT".
 	 * SEE .client_tls_1_3_plus_cipher_list to do the same on the vhost
 	 * client SSL_CTX.
+	 *
+	 * RECOMMENDATION: It's recommended to use .tls_ciphers_iana instead.
+	 * If .tls_ciphers_iana is provided, this field is ignored.
 	 */
 
 	const void *server_ssl_cert_mem;
@@ -463,9 +692,15 @@ struct lws_context_creation_info {
 	/**< VHOST: Any bits set here will be cleared as server SSL options */
 	int simultaneous_ssl_restriction;
 	/**< CONTEXT: 0 (no limit) or limit of simultaneous SSL sessions
-	 * possible.*/
+	 * possible.  Client and server, tcp and QUIC connections all count.
+	 * While it, or simultaneous_ssl_handshake_restriction, is reached,
+	 * new connections are refused: the tls vhosts' tcp listeners stop
+	 * accepting, and a new QUIC connection is refused once its client's
+	 * address is validated (it takes no slot before then, so spoofed
+	 * Initials cannot fill it).  Established QUIC connections carry on.*/
 	int simultaneous_ssl_handshake_restriction;
-	/**< CONTEXT: 0 (no limit) or limit of simultaneous SSL handshakes ongoing */
+	/**< CONTEXT: 0 (no limit) or limit of simultaneous SSL handshakes
+	 * ongoing, counted and enforced like simultaneous_ssl_restriction */
 	int ssl_info_event_mask;
 	/**< VHOST: mask of ssl events to be reported on LWS_CALLBACK_SSL_INFO
 	 * callback for connections on this vhost.  The mask values are of
@@ -515,17 +750,35 @@ struct lws_context_creation_info {
 	/**< VHOST: Client SSL context init: CA certificate filepath or NULL */
 	const void *client_ssl_ca_mem;
 	/**< VHOST: Client SSL context init: CA certificate memory buffer or
-	 * NULL... use this to load CA cert from memory instead of file */
+	 * NULL... use this to load CA cert(s) from memory instead of file.
+	 * Supports a single certificate (PEM or DER) or multiple concatenated
+	 * PEM certificates across all TLS backends. */
 
 	const char *client_ssl_cipher_list;
 	/**< VHOST: Client SSL context init: List of valid ciphers to use (eg,
 	* "RC4-MD5:RC4-SHA:AES128-SHA:AES256-SHA:HIGH:!DSS:!aNULL"
-	* or you can leave it as NULL to get "DEFAULT" */
+	* or you can leave it as NULL to get "DEFAULT"
+	*
+	* For GnuTLS, this instead takes a GnuTLS Priority String.
+	*
+	* RECOMMENDATION: For OpenSSL and mbedTLS, it's recommended to use
+	* .client_tls_ciphers_iana instead. If .client_tls_ciphers_iana is provided,
+	* this field is ignored for those backends.
+	*/
+	const char *client_tls_ciphers_iana;
+	/**< VHOST: Strict IANA-formatted comma-separated list of ciphers to use.
+	 * If populated, this overrides client_ssl_cipher_list and provides
+	 * cross-library consistency.
+	 * Note: Only supported on OpenSSL and mbedTLS backends.
+	 */
 	const char *client_tls_1_3_plus_cipher_list;
 	/**< VHOST: List of valid ciphers to use for outgoing client connections
 	 * ON TLS1.3 AND ABOVE on this vhost (eg,
 	 * "TLS_CHACHA20_POLY1305_SHA256") or you can leave it as NULL to get
 	 * "DEFAULT".
+	 *
+	 * RECOMMENDATION: It's recommended to use .client_tls_ciphers_iana instead.
+	 * If .client_tls_ciphers_iana is provided, this field is ignored.
 	 */
 
 	long ssl_client_options_set;
@@ -543,13 +796,14 @@ struct lws_context_creation_info {
 
 #endif
 
-#if !defined(LWS_WITH_MBEDTLS)
+#if !defined(LWS_WITH_MBEDTLS) && !defined(LWS_WITH_BEARSSL) && \
+	!defined(LWS_WITH_OPENHITLS)
 	SSL_CTX *provided_client_ssl_ctx;
 	/**< CONTEXT: If non-null, swap out libwebsockets ssl
 	  * implementation for the one provided by provided_ssl_ctx.
 	  * Libwebsockets no longer is responsible for freeing the context
 	  * if this option is selected. */
-#else /* WITH_MBEDTLS */
+#elif defined(LWS_WITH_MBEDTLS)
 	const char *mbedtls_client_preload_filepath;
 	/**< CONTEXT: If NULL, no effect.  Otherwise it should point to a
 	 * filepath where every created client SSL_CTX is preloaded from the
@@ -638,9 +892,12 @@ struct lws_context_creation_info {
 	 * trade off speed against memory usage if you know the lws context
 	 * will only use a handful of fds.
 	 *
-	 * Bear in mind lws may use some fds internally, for example for the
-	 * cancel pipe, so you may need to allow for some extras for normal
-	 * operation.
+	 * The count is the whole table, including the fds lws holds itself
+	 * (LWS_FD_LIMIT_INTERNAL, the floor a nonzero value is raised to) and
+	 * the overhead connections carry: set it to
+	 * LWS_FD_LIMIT_PER_THREAD_MIN plus the connections you will have
+	 * open at once.  A full table stops every listener accepting until a
+	 * connection closes, logged once per thread at WARN.
 	 */
 	const char *vhost_name;
 	/**< VHOST: name of vhost, must match external DNS name used to
@@ -668,7 +925,9 @@ struct lws_context_creation_info {
 	 * various service related features including file serving, it
 	 * defines the max chunk of file that can be sent at once.
 	 * At the risk of lws having to buffer failed large sends, it
-	 * can be increased to, eg, 128KiB to improve throughput. */
+	 * can be increased to, eg, 128KiB to improve throughput.  Values
+	 * below LWS_PRE + 1024 or above LWS_PT_SERV_BUF_SIZE_MAX (16MiB)
+	 * are clamped to those limits. */
 #if defined(LWS_WITH_FILE_OPS)
 	const struct lws_plat_file_ops *fops;
 	/**< CONTEXT: NULL, or pointer to an array of fops structs, terminated
@@ -798,14 +1057,35 @@ struct lws_context_creation_info {
 	 * point to a string giving the Unix Domain Socket address to use (start
 	 * with @ for abstract namespace), ss_proxy_port nonzero: set the
 	 * network interface address (not name, it's ambiguous for ipv4/6) to
-	 * bind the tcp connection to the proxy to */
+	 * bind the tcp connection to the proxy to.
+	 *
+	 * A name in the Linux abstract namespace (starting with @, as the
+	 * default "@proxy.ss.lws" does) has no filesystem permissions and
+	 * belongs to whichever local process binds it first, whatever its
+	 * user.  The proxy checks who its clients are (see .ss_proxy_perms),
+	 * but sspc clients do not check who the proxy is: a local user who
+	 * binds the name while the proxy is not listening, eg, before it
+	 * starts or while it restarts, sees everything the clients send,
+	 * metadata included, and answers them as it likes.  Where the
+	 * proxy's identity matters, use a socket path in the filesystem
+	 * instead, in a directory only the proxy's user may create files in,
+	 * so the file's owner and permissions decide who can be the proxy
+	 * and who can reach it.  Clients log the proxy's uid and gid when
+	 * they connect, where the platform can tell them.
+	 *
+	 * For a proxy listening on tcp (lws_ss_proxy_create() with a port),
+	 * NULL listens on the loopback address only (127.0.0.1, or ::1 if
+	 * the build has no IPv4).  A bind that is not a numeric loopback
+	 * address is refused unless .ss_proxy_tcp_allow_remote is set. */
 	const char *ss_proxy_address; /**< CONTEXT: NULL, or if ss_proxy_port
 	 * nonzero: the tcp address of the ss proxy to connect to */
 	uint16_t ss_proxy_port; /* 0 = if connecting to ss proxy, do it via a
 	 * Unix Domain Socket, "+@proxy.ss.lws" if ss_proxy_bind is NULL else
 	 * the socket path given in ss_proxy_bind (start it with a + or +@);
 	 * nonzero means connect via a tcp socket to the tcp address in
-	 * ss_proxy_bind and the given port */
+	 * ss_proxy_bind and the given port.  The tcp link has no
+	 * authentication in either direction: the proxy cannot tell who its
+	 * clients are, nor the clients who the proxy is. */
 	const struct lws_transport_proxy_ops *txp_ops_ssproxy; /**< CONTEXT: NULL, or
 	 * custom sss transport ops used for ss proxy communication.  NULL means
 	 * to use the default wsi-based proxy server */
@@ -829,22 +1109,39 @@ struct lws_context_creation_info {
 	 * connection is being dropped because of peer limits.
 	 *
 	 * The callback provides the context, and an lws_sockaddr46 with the
-	 * peer address and port.
+	 * host at its limit, as the limits count it (see .ip_limit_wsi): an
+	 * IPv4 address as AF_INET, also for an IPv4-mapped IPv6 peer, or an
+	 * IPv6 /64 with the low 64 bits zero; the port is 0.  The sockfd is
+	 * LWS_SOCK_INVALID for a QUIC connection, which has no socket of its
+	 * own.  For a connection from a .proxy_v2_trusted proxy, it is the
+	 * host of the client its PROXY v2 header named.  For a connection
+	 * refused because the unproven budget (.unproven_limit_wsi) is spent,
+	 * the sa46 is empty (family 0): its address is only hearsay, and must
+	 * not be acted on, eg, blocked.
 	 */
 	unsigned short ip_limit_ah;
-	/**< CONTEXT: max number of ah a single IP may use simultaneously
-	 *	      0 is no limit. This is a soft limit: if the limit is
-	 *	      reached, connections from that IP will wait in the ah
-	 *	      waiting list and not be able to acquire an ah until
-	 *	      a connection belonging to the IP relinquishes one it
-	 *	      already has.
+	/**< CONTEXT: max number of ah a single host may use simultaneously
+	 *	      0 is no limit.  A host is as for .ip_limit_wsi.  This
+	 *	      is a soft limit: if the limit is reached, connections
+	 *	      from that host will wait in the ah waiting list and not
+	 *	      be able to acquire an ah until a connection belonging
+	 *	      to the host relinquishes one it already has.
 	 */
 	unsigned short ip_limit_wsi;
-	/**< CONTEXT: max number of wsi a single IP may use simultaneously.
-	 *	      0 is no limit.  This is a hard limit, connections from
-	 *	      the same IP will simply be dropped once it acquires the
-	 *	      amount of simultaneous wsi / accepted connections
-	 *	      given here.
+	/**< CONTEXT: max number of wsi a single host may use
+	 *	      simultaneously.  0 is no limit.  This is a hard limit,
+	 *	      connections from the same host will simply be dropped
+	 *	      once it acquires the amount of simultaneous wsi /
+	 *	      accepted connections given here.  A host is keyed as
+	 *	      lws_sa46_host_key() keys it: an IPv4 address, whether it
+	 *	      arrives as IPv4 or IPv4-mapped IPv6, or an IPv6 /64,
+	 *	      since one IPv6 host commands its whole /64 and could
+	 *	      otherwise use a fresh address, and budget, for every
+	 *	      connection.  A QUIC server connection counts against
+	 *	      .unproven_limit_wsi from its first Initial, and as one of
+	 *	      its peer's from when QUIC has validated its address; one
+	 *	      validated beyond the limit is closed with
+	 *	      CONNECTION_REFUSED.
 	 */
 
 #endif /* PEER_LIMITS */
@@ -872,7 +1169,9 @@ struct lws_context_creation_info {
 	lws_usec_t				smd_ttl_us;
 	/**< CONTEXT: SMD messages older than this many us are removed from the
 	 * queue and destroyed even if not fully delivered yet.  If zero,
-	 * defaults to 2 seconds (5 second for FREERTOS).
+	 * defaults to 2 seconds (5 second for FREERTOS).  Messages sent before
+	 * the context first services, eg, during context creation, only start
+	 * aging from then.
 	 */
 	uint16_t				smd_queue_depth;
 	/**< CONTEXT: Maximum queue depth, If zero defaults to 40
@@ -935,6 +1234,23 @@ struct lws_context_creation_info {
 	 * handle */
 #endif
 
+#if defined(LWS_WITH_CACHE_BLOB)
+	const char				*dlo_asset_cache_dir;
+	/**< CONTEXT: NULL for no file-backed document asset cache, else the
+	 * directory to use for a file-backed cache of assets fetched for html
+	 * documents (images).  Still-valid cached copies are used instead of
+	 * fetching again; fetched assets are written through to the cache.
+	 * The cache maintains itself under its size limit in the background. */
+#endif
+
+#if defined(LWS_WITH_DLO_ASSET_CACHE)
+	size_t					dlo_asset_cache_max_footprint;
+	/**< CONTEXT: with dlo_asset_cache_dir, 0 for a default limit, else the
+	 * max bytes the document asset cache may use on disk.  Without it, 0
+	 * for no document asset cache, else the max bytes of heap for an
+	 * in-memory only one, eg, for a device with no filesystem */
+#endif
+
 #if defined(LWS_WITH_SYS_ASYNC_DNS)
 	const char				**async_dns_servers;
 	/**< CONTEXT: NULL, or a pointer to an array of strings containing the
@@ -942,6 +1258,7 @@ struct lws_context_creation_info {
 	 * server to forcibly add.  If given, the list of strings must be
 	 * terminated with a NULL.
 	 */
+
 #endif
 
 #if defined(WIN32)
@@ -967,6 +1284,54 @@ struct lws_context_creation_info {
 	 * zero.
 	 */
 
+#if defined(LWS_WITH_NETWORK)
+	const char		*wol_if;
+	/**< CONTEXT: NULL, or interface name to bind outgoing WOL packet to */
+#endif
+
+	const char		*lws_stub;
+	/**< CONTEXT: if non-NULL, the name of the stub function requested
+	 * via --lws-stub=... commandline switch.  Filled in by
+	 * lws_cmdline_option_handle_builtin(). */
+	int			argc;
+	/**< CONTEXT: optionally pass the app commandline to the context, so we can use it
+	 * as part of lws_cmdline_option_cx() */
+	const char		**argv;
+	/**< CONTEXT: optionally pass the app commandline to the context, so we can use it
+	 * as part of lws_cmdline_option_cx() */
+
+#if defined(LWS_WITH_ASYNC_QUEUE)
+	uint8_t			count_async_threads;
+	/**< CONTEXT: Max number of separate worker threads allowed
+	 *   to be spawned for async operations like TLS accept and
+	 *   file serving.  0 means 1 thread maximum if the feature
+	 *   is enabled. */
+#endif
+
+	uint8_t			client_ssl_ctx_unshared;
+	/**< VHOST: 0 (default) lets this vhost's client tls ctx be shared with
+	 * other vhosts whose client tls configuration is identical (the
+	 * OpenSSL and OpenHiTLS backends do this, to save the memory of a
+	 * copy of the OS trust store per vhost).  Nonzero gives the vhost a
+	 * client tls ctx of its own.  Set it if you will add trust to the
+	 * vhost after creating it with lws_tls_client_vhost_extra_cert_mem(),
+	 * which refuses to add to a ctx that another vhost is sharing: the
+	 * other vhost would trust the cert too. */
+
+	unsigned int			http_response_stall_secs;
+	/**< VHOST: 0 for default (.timeout_secs, but at least 30), or the
+	 * seconds a server's response may go without any more of it being
+	 * sent, eg, because the peer stopped reading it, before it is given
+	 * up on.  It bounds the stall, not the response: each piece sent
+	 * starts it again, however long the whole response takes.
+	 *
+	 * A browser saving a big download to a slow device can stop reading
+	 * for minutes while it drains its cache, and so can the server side of
+	 * a proxy in front of us, while its own peer does that.  A larger
+	 * value lets those through, at the price of a peer that never reads
+	 * holding its connection, and eg, an open file, for that long.
+	 * Immortal streams (eg, long polls) are not limited. */
+
 	/* Add new things just above here ---^
 	 * This is part of the ABI, don't needlessly break compatibility
 	 *
@@ -975,7 +1340,258 @@ struct lws_context_creation_info {
 	 * was not built against the newer headers.
 	 */
 
-	void *_unused[2]; /**< dummy */
+	uint32_t			quic_mtu;
+	/**< VHOST: 0 for default (1280), or the desired QUIC MTU for the vhost */
+
+	lws_quic_tx_credit_cb_t		quic_tx_credit_cb;
+	/**< VHOST: Callback for dynamic QUIC TX credit window scaling. If NULL, defaults to 50% refill batched logic. */
+
+	const struct lws_cc_ops		*quic_cc_ops;
+	/**< CONTEXT: QUIC congestion control algorithm ops to use. If NULL, defaults to &lws_cc_ops_newreno. */
+
+	const char                      *quic_preferred_addresses;
+	/**< VHOST: Comma-separated list of IPv4 and/or IPv6 preferred addresses (e.g., "1.2.3.4:443,[2001:db8::1]:443")
+	 * to send to the client during the handshake to facilitate Connection Migration. */
+
+	uint32_t			quic_initial_cwnd;
+	/**< CONTEXT: 0 for default (10 * MTU), or the desired initial congestion window in bytes */
+
+	uint32_t			quic_0rtt_max_size;
+	/**< CONTEXT: 0 for default (16384), or the most early data a tls over
+	 * tcp server lets a client send as 0-RTT (gnutls).  A QUIC server
+	 * always advertises 0xffffffff, as RFC 9001 requires: QUIC's 0-RTT is
+	 * bounded by its flow control instead */
+
+	uint32_t			quic_rx_window;
+	/**< CONTEXT: 0 for default (1MB, or 32KB on FreeRTOS), or the receive
+	 * flow control window QUIC gives each stream and connection, up to
+	 * 16MB.  The peer may send all of it before we consume any, so on
+	 * small devices it should be small */
+
+	uint64_t			max_http_body_size;
+	/**< VHOST: 0 for default (100MB), or the desired max HTTP body size */
+
+	const struct lws_io_ops		*io_ops;
+	/**< CONTEXT: NULL for lws's own IO half, or the requests of IO
+	 * supplied by an embedder of the sansIO half (see lws-io-ops.h) */
+
+	const struct lws_plugin_protocol * const *plugins;
+	/**< CONTEXT: NULL, or a NULL-terminated array of protocol plugin
+	 * exports the application composed into itself, by building the
+	 * plugin's source in rather than having lws dlopen it or build it in.
+	 * lws treats them as it treats the plugins it finds itself: their
+	 * .init and .deinit are called once for the context, and a builtin or
+	 * dlopened plugin of the same hdr.name is not used at all, the
+	 * application's copy wins.  Their protocols are given to vhosts as
+	 * usual, in the vhost's info->pprotocols or info->protocols.  The
+	 * array and what it points to must outlive the context. */
+
+	const char *ss_proxy_perms;
+	/**< CONTEXT: for an SS proxy listening on a Unix Domain Socket
+	 * (lws_ss_proxy_create() with port 0), who may connect to it and use
+	 * it.
+	 *
+	 * NULL (the default): only the proxy's own user, a process whose
+	 * primary group is the proxy's group, or root.  The ids are .uid /
+	 * .gid (or .username / .groupname) if given, else the process's
+	 * effective ids.
+	 *
+	 * "user:group": only that user, a process whose primary group is that
+	 * group, or root.  A socket in the filesystem is also created owned
+	 * by user:group with mode 0660.
+	 *
+	 * "*": any local process.  Only use this if every process that can
+	 * reach the socket may use the proxy and its policy.
+	 *
+	 * A socket in the Linux abstract namespace, like the default
+	 * "@proxy.ss.lws", has no filesystem permissions, so the proxy checks
+	 * each client's credentials (SO_PEERCRED) against the above.  For a
+	 * socket in the filesystem, its permissions control access instead;
+	 * without "user:group" they are as for any lws Unix Domain Socket
+	 * vhost (see .unix_socket_perms).  A proxy listening on tcp has no
+	 * peer check at all, see .ss_proxy_tcp_allow_remote. */
+
+	uint32_t			tls_cert_grace_secs;
+	/**< VHOST: a tls server vhost whose cert and key are files
+	 * (.ssl_cert_filepath, .ssl_private_key_filepath) notices them being
+	 * renewed on disk, eg, by a symlink moving onto new files, and
+	 * switches to the new ones without disturbing its connections.  The
+	 * new pair is loaded as soon as it is seen: this is how long after the
+	 * new cert was issued or written, whichever is later, the vhost waits
+	 * before serving it.  0 serves it at once.  A cert published in DNS
+	 * for DANE should wait for the new record to have replaced cached
+	 * copies of the old one.  Renewals handed to lws_tls_cert_updated()
+	 * wait the same way.  A restart serves the newest pair at once. */
+
+	const char			*tls_passthrough;
+	/**< VHOST: NULL, or "host:port" ("[v6addr]:port" for an IPv6
+	 * literal) of a server this vhost's TLS connections are passed to as
+	 * they are, without being decrypted, so the server terminates the TLS
+	 * itself.  The vhost is chosen as usual by the SNI name in the
+	 * ClientHello, from the vhost names on the listener, and needs no
+	 * certificate, mounts or protocols of its own.  The connection's first
+	 * bytes are only looked at, not consumed, so a connection that is not
+	 * for such a vhost goes on to the listener's own TLS as if nothing
+	 * had happened.  Needs LWS_WITH_TLS_PASSTHROUGH. */
+
+	uint8_t				tls_passthrough_proxy_v2;
+	/**< VHOST: with .tls_passthrough, nonzero to tell the server who the
+	 * client is in a PROXY v2 header (see lws-proxy-v2.h) before its
+	 * bytes, along with the SNI name it asked for.  The server must then
+	 * expect one from us, eg, with .proxy_v2_trusted. */
+
+	const char			*proxy_v2_trusted;
+	/**< VHOST: NULL, or a comma-separated list of numeric addresses or
+	 * CIDR netblocks of proxies, eg, a tls passthrough, that send a PROXY
+	 * v2 header ahead of the connections they forward to this vhost's
+	 * listener.  A connection from one of them must start with exactly
+	 * one valid header, or it is dropped, and the client it names is then
+	 * the connection's peer address as lws reports it, eg, from
+	 * lws_get_peer_simple().  A connection from anywhere else is never
+	 * looked at for one, so nobody else can claim to be somebody they are
+	 * not.  That holds for TCP, whose handshake proves where a connection
+	 * is from.  A datagram's source is whatever its sender wrote, so on
+	 * a QUIC listener, a header in a datagram from a trusted address is
+	 * only hearsay: lws_peer_walk() shows the client as a
+	 * LWS_PEER_KIND_RELAY claim above the relay, both hearsay until the
+	 * client's QUIC connection validates its address through that relay,
+	 * and only that proves the relay.  Hearsay never moves a proven relay
+	 * nor pushes it out, but it can still make the listener spend work on
+	 * Initials and remember unproven clients, as anyone sending Initials
+	 * can, and it can disturb a client's handshake before it is proven:
+	 * prefer a path to the relay that its address cannot be spoofed on,
+	 * eg, loopback or a private link.  The list applies to every vhost
+	 * sharing the listener.  With
+	 * LWS_WITH_PEER_LIMITS, ip_limit_wsi and ip_limit_ah apply to the
+	 * client named too, and a LOCAL header's connection to the proxy
+	 * itself; until its header has been read, a proxy's connection counts
+	 * against nobody.  Needs LWS_WITH_TLS_PASSTHROUGH. */
+
+	uint32_t			quic_max_idle_timeout_ms;
+	/**< VHOST: 0 for default (30000), or the max_idle_timeout in ms this
+	 * vhost's QUIC connections advertise to their peer, as servers and as
+	 * clients.  A connection is closed silently (RFC 9000 10.1) once it
+	 * has been idle for the shorter of this and the peer's own value (but
+	 * at least three PTOs): nothing arrived from the peer, and we sent it
+	 * nothing it has to acknowledge, for that long.  It is a property of
+	 * the transport, whatever streams are open: a peer keeps a quiet
+	 * connection by sending something, eg, PING. */
+
+	unsigned int			max_http_header_pool_per_mux;
+	/**< CONTEXT: 0 for default, or how many of a thread's request header
+	 * tables (ahs, see .max_http_header_pool) the streams of one h2 or h3
+	 * server connection may hold at once while they wait on the peer.  A
+	 * stream holds one from its HEADERS until its request is dispatched,
+	 * or, for a request with a body, until all of its body has arrived.
+	 * Streams the peer has finished sending on, eg, GETs waiting to be
+	 * dispatched, don't count, and are never refused for it.  A new
+	 * stream with more to come over the limit is refused on its own, with
+	 * RST_STREAM REFUSED_STREAM on h2 or H3_REQUEST_REJECTED on h3, which
+	 * tell the client it may retry; the connection and its other streams
+	 * go on.  Without a limit, a few connections opening many streams
+	 * whose bodies never finish could hold the whole pool, and nobody
+	 * else's request could be read.
+	 *
+	 * The default is one less than the pool's ahs per fd of the thread,
+	 * but at least 8, since clients (lws' own among them) commonly send
+	 * several uploads on one connection at once and do not retry a
+	 * refused stream.  With the default pool, 4 ahs per fd, that is 8:
+	 * connections then need nearly half the fds to fill the pool, each
+	 * keeping 8 bodies coming at .http_body_min_rate.  3 or less makes
+	 * that need every fd, as on h1, at the price of refusing a fourth
+	 * concurrent upload on a connection. */
+
+	uint32_t			http_body_min_rate;
+	/**< VHOST: 0 for default (500), the slowest a request body may arrive
+	 * on average, in bytes per second, or LWS_HTTP_BODY_MIN_RATE_NONE for
+	 * no limit beyond .timeout_secs between its pieces.  The body has
+	 * .http_body_grace_secs from its request's headers, plus a second for
+	 * each .http_body_min_rate bytes of it taken so far: one falling
+	 * behind that is given up on as for a timeout, which resets an h2 or
+	 * h3 stream, giving back what it holds, or closes an h1 connection.
+	 * Each piece still has to come within .timeout_secs of the last.
+	 *
+	 * Without it, a peer trickling a byte of body every few seconds holds
+	 * its request, and its header table, for as long as it likes.  The
+	 * default, like Apache httpd's mod_reqtimeout MinRate, cuts no upload
+	 * of any size going faster than 4 kbit/s.  Time the server itself is
+	 * not taking the body counts too, eg, while rx flow control is off, or
+	 * a cgi or the onward connection of a proxy mount is slow to take it.
+	 * Immortal streams (eg, long polls) are not limited. */
+
+	uint16_t			http_body_grace_secs;
+	/**< VHOST: 0 for default (20), or the seconds a request body has
+	 * before .http_body_min_rate starts to count against it */
+
+	uint16_t			mux_reset_limit;
+	/**< VHOST: 0 for default (200), the most streams of one h2 or h3
+	 * server connection that may end before they are answered, on
+	 * average per .mux_reset_window_secs, or LWS_MUX_RESET_LIMIT_NONE for
+	 * no limit.  What counts is the peer resetting a stream we had not
+	 * finished answering (h2 RST_STREAM, h3 RESET_STREAM or STOP_SENDING
+	 * on a request stream), and us resetting one for any reason but
+	 * having answered it (eg, a protocol error on it, its body coming
+	 * too slowly, the app abandoning it), other than refusing it for
+	 * want of a header table (see .max_http_header_pool_per_mux).  A
+	 * burst of up to the limit is allowed, and room for more comes back
+	 * at the limit per window.  Going over it ends the connection, with
+	 * GOAWAY ENHANCE_YOUR_CALM on h2 or H3_EXCESSIVE_LOAD on h3.
+	 *
+	 * The concurrent stream limit counts only live streams, so without
+	 * this a peer that resets each request as soon as it is dispatched,
+	 * and sends the next, has requests dispatched, and their work
+	 * started, as fast as the server can read them ("rapid reset",
+	 * CVE-2023-44487).  Browsers reset streams too, eg, the requests of
+	 * a page left before it finished loading, but nothing like 200 every
+	 * 10s on one connection. */
+
+	uint16_t			mux_reset_window_secs;
+	/**< VHOST: 0 for default (10), the seconds .mux_reset_limit is per */
+
+	uint8_t				ss_proxy_tcp_allow_remote;
+	/**< CONTEXT: 0 (the default), or 1 to let an SS proxy listening on
+	 * tcp (lws_ss_proxy_create() with a port) bind to an address that is
+	 * not loopback, eg, for clients in containers or VMs.
+	 *
+	 * The tcp link has no client authentication: anybody who can reach
+	 * the port can create any client streamtype in the proxy's policy,
+	 * set its metadata and send payload, and the proxy fulfils it with
+	 * whatever the policy binds to it, the system auth token, client
+	 * certificates, signing keys, cookies.  So by default the listener
+	 * is bound to loopback (127.0.0.1, or ::1 without IPv4) when no
+	 * .ss_proxy_bind is given, and a bind that is not a numeric loopback
+	 * address is refused.  Only set this where the network the listener
+	 * is reachable from is itself trusted, eg, firewalled to the
+	 * intended clients; lws warns about it when the proxy starts. */
+
+#if defined(LWS_WITH_PEER_LIMITS)
+	unsigned int			unproven_limit_wsi;
+	/**< CONTEXT: max number of wsi all peers whose address is unproven
+	 * may use simultaneously, 0 is no limit.  A connection whose peer
+	 * address is only hearsay (lws_get_peer_host_key() gives
+	 * LWS_HOST_KEY_UNPROVEN), eg, a QUIC server connection before QUIC
+	 * validated its address, might have any source address the sender
+	 * chose to write, so it is not counted against that address's
+	 * .ip_limit_wsi, but in this one budget shared by every such
+	 * connection, until its address is proven and it moves to its own.
+	 * Size it for the connections still proving their address you expect
+	 * at once: a new one beyond it is dropped, eg, an unvalidated QUIC
+	 * Initial, while connections already proven are not affected.
+	 *
+	 * A nonzero limit trades availability for bounded unproven state: an
+	 * unvalidated QUIC connection lives until its handshake times out
+	 * (.timeout_secs), so a sender spoofing source addresses, who never
+	 * needs an answer, keeps the budget full with about
+	 * unproven_limit_wsi / timeout_secs Initials a second, and every new
+	 * QUIC client is refused meanwhile.  That is why the default is 0:
+	 * unvalidated QUIC connections are still bounded per service thread
+	 * by its half-open limit, which makes room for a new one by evicting
+	 * the oldest, so real clients still get in. */
+#endif
+
+#if !defined(__STRICT_ANSI__)
+	void *_unused[1]; /**< dummy */
+#endif
 };
 
 /**
@@ -1026,6 +1642,18 @@ lws_create_context(const struct lws_context_creation_info *info);
  */
 LWS_VISIBLE LWS_EXTERN void
 lws_context_destroy(struct lws_context *context);
+
+/**
+ * lws_tls_cleanup_process() - cleanup process-wide TLS allocations
+ *
+ *	This function can be called after the last context is destroyed to
+ *	cleanup process-wide TLS allocations. For example, for OpenSSL it
+ *	may call OPENSSL_cleanup() if supported.
+ *	You should only call this if you are absolutely sure you will not
+ *	reinitialize libwebsockets or the TLS library in this process.
+ */
+LWS_VISIBLE LWS_EXTERN void
+lws_tls_cleanup_process(void);
 
 typedef int (*lws_reload_func)(void);
 
@@ -1134,6 +1762,21 @@ LWS_VISIBLE LWS_EXTERN void
 lws_vhost_destroy(struct lws_vhost *vh);
 
 /**
+ * struct lws_lejp_conf_defs - carrier for install-wide JSON conf defines
+ *
+ * Zero the struct to initialize it, pass it to
+ * lwsws_get_config_globals_defs() and then to lwsws_get_config_vhosts_defs(),
+ * and destroy it with lwsac_free(&defs->ac) once all the config files have
+ * been walked.  Defines created in the "global" section of files walked by
+ * lwsws_get_config_globals_defs() accumulate here, and stay visible (but
+ * cannot be added to) in all files walked by lwsws_get_config_vhosts_defs().
+ */
+struct lws_lejp_conf_defs {
+	struct lwsac		*ac;
+	lws_dll2_owner_t	owner;
+};
+
+/**
  * lwsws_get_config_globals() - Parse a JSON server config file
  * \param info:		pointer to struct with parameters
  * \param d:		filepath of the config file
@@ -1145,11 +1788,52 @@ lws_vhost_destroy(struct lws_vhost *vh);
  * This function prepares a n lws_context_creation_info struct with global
  * settings from a file d.
  *
+ * If the config strings arena is too small for the parsed content, the
+ * parse fails and nonzero is returned.
+ *
+ * The JSON is preprocessed for scoped substitution defines: pairs whose
+ * name starts with '=' define a symbol scoped to the object they appear in
+ * (visible until the object closes, ie, defines at the root of the file
+ * apply for the rest of that file), and ${NAME} sequences in string values
+ * are expanded from the visible defines before the values are used.  It is
+ * a parse error to reference an undefined symbol, to use an invalid define
+ * name, or to give a define a non-string value.
+ *
+ * This variant parses with a fresh set of defines.  Use
+ * lwsws_get_config_globals_defs() if you want root defines to stay visible
+ * when the vhosts config is parsed later.
+ *
  * Requires CMake option LWS_WITH_LEJP_CONF to have been enabled
  */
 LWS_VISIBLE LWS_EXTERN int
 lwsws_get_config_globals(struct lws_context_creation_info *info, const char *d,
 			 char **config_strings, int *len);
+
+/**
+ * lwsws_get_config_globals_defs() - Parse a JSON server config file
+ * \param defs:		caller's install-wide defines container, zeroed to
+ * 			initialize; defines created in the "global" section of
+ * 			the walked files accumulate into it
+ * \param info:		pointer to struct with parameters
+ * \param d:		filepath of the config file
+ * \param config_strings: storage for the config strings extracted from JSON,
+ * 			  the pointer is incremented as strings are stored
+ * \param len:		pointer to the remaining length left in config_strings
+ *			  the value is decremented as strings are stored
+ *
+ * Behaves as lwsws_get_config_globals(), except that defines created in the
+ * "global" section of the walked files accumulate into \p defs, so they are
+ * visible in later walked files, and can be made visible to a later
+ * vhosts config walk by passing the same \p defs to
+ * lwsws_get_config_vhosts_defs().  Destroy \p defs with lwsac_free(&defs->ac)
+ * after the last config walk that uses it.
+ *
+ * Requires CMake option LWS_WITH_LEJP_CONF to have been enabled
+ */
+LWS_VISIBLE LWS_EXTERN int
+lwsws_get_config_globals_defs(struct lws_lejp_conf_defs *defs,
+			      struct lws_context_creation_info *info,
+			      const char *d, char **config_strings, int *len);
 
 /**
  * lwsws_get_config_vhosts() - Create vhosts from a JSON server config file
@@ -1164,12 +1848,51 @@ lwsws_get_config_globals(struct lws_context_creation_info *info, const char *d,
  * This function creates vhosts into a context according to the settings in
  *JSON files found in directory d.
  *
+ * If the config strings arena is too small for the parsed content, the
+ * parse fails and nonzero is returned.
+ *
+ * The JSON is preprocessed for scoped substitution defines as described at
+ * lwsws_get_config_globals().
+ *
+ * This variant parses each file with a fresh set of defines.  Use
+ * lwsws_get_config_vhosts_defs() with the same \p defs container filled by
+ * lwsws_get_config_globals_defs() to have the globals config defines stay
+ * visible in the vhost files.
+ *
  * Requires CMake option LWS_WITH_LEJP_CONF to have been enabled
  */
 LWS_VISIBLE LWS_EXTERN int
 lwsws_get_config_vhosts(struct lws_context *context,
 			struct lws_context_creation_info *info, const char *d,
 			char **config_strings, int *len);
+
+/**
+ * lwsws_get_config_vhosts_defs() - Create vhosts from a JSON server config
+ * file, with install-wide defines
+ * \param defs:		caller's install-wide defines container previously
+ * 			filled by lwsws_get_config_globals_defs(); the defines
+ * 			in it are visible (read-only) in every walked file
+ * \param context:	pointer to result of lws_create_context()
+ * \param info:		pointer to struct with parameters
+ * \param d:		filepath of the config file
+ * \param config_strings: storage for the config strings extracted from JSON,
+ * 			  the pointer is incremented as strings are stored
+ * \param len:		pointer to the remaining length left in config_strings
+ *			  the value is decremented as strings are stored
+ *
+ * Behaves as lwsws_get_config_vhosts(), except that the defines in \p defs
+ * are visible in every walked file, where file-local defines may shadow
+ * them.  Defines created in the walked files themselves remain scoped to
+ * the file they were created in.  Destroy \p defs with lwsac_free(&defs->ac)
+ * after this returns, when no further config walk will use it.
+ *
+ * Requires CMake option LWS_WITH_LEJP_CONF to have been enabled
+ */
+LWS_VISIBLE LWS_EXTERN int
+lwsws_get_config_vhosts_defs(struct lws_lejp_conf_defs *defs,
+			     struct lws_context *context,
+			     struct lws_context_creation_info *info,
+			     const char *d, char **config_strings, int *len);
 
 /**
  * lws_get_vhost() - return the vhost a wsi belongs to
@@ -1197,6 +1920,37 @@ lws_get_vhost_name(struct lws_vhost *vhost);
  */
 LWS_VISIBLE LWS_EXTERN struct lws_vhost *
 lws_get_vhost_by_name(struct lws_context *context, const char *name);
+
+/**
+ * lws_select_vhost_sni() - vhost for a TLS SNI name, or NULL to refuse him
+ *
+ * \param lv: the vhost that accepted the connection
+ * \param servername: the SNI name the peer sent, NUL-terminated
+ *
+ * The candidates are only the vhosts served by the listener the connection
+ * arrived on, ie, \p lv and the vhosts sharing its listen socket: the same
+ * port *and* interface.  A vhost on the same port but another interface is
+ * never selected, since its interface may be all that restricts who can
+ * reach it.
+ *
+ * Returns the candidate whose name matches \p servername exactly, or failing
+ * that the one that a *.name wildcard match resolves to, or failing that the
+ * one marked LWS_SERVER_OPTION_SNI_FALLBACK, if any, or failing that the only
+ * candidate, if there is just the one.
+ *
+ * Returns NULL if the name matches no vhost on the listener and no fallback
+ * vhost was nominated there.  In that case the caller must refuse the connection
+ * with a fatal unrecognized_name alert: continuing on an arbitrary vhost
+ * would let the peer choose which certificate he is shown, and which client
+ * certificate policy he meets, by naming something that does not exist.
+ *
+ * This is only for the TLS SNI decision.  Selecting a vhost from a Host:
+ * header after the connection is up is a different question with a different
+ * answer, since a server with a single vhost is reached by IP address all the
+ * time.
+ */
+LWS_VISIBLE LWS_EXTERN struct lws_vhost *
+lws_select_vhost_sni(struct lws_vhost *lv, const char *servername);
 
 /**
  * lws_get_vhost_port() - returns the port a vhost listens on, or -1
@@ -1248,10 +2002,49 @@ lws_context_user(struct lws_context *context);
 LWS_VISIBLE LWS_EXTERN const char *
 lws_vh_tag(struct lws_vhost *vh);
 
+/**
+ * lws_context_info_defaults() - zero and prepare a context creation info
+ *
+ * \param info: the creation info struct to initialize
+ * \param sspol: the Secure Streams JSON policy to use, or NULL
+ *
+ * Zeroes \p info and sets defaults suited to a small client: no listen port,
+ * LWS_SERVER_OPTION_EXPLICIT_VHOSTS, LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT,
+ * the policy (when Secure Streams are built) and the small fd lookup scheme
+ * with fd_limit_per_thread = LWS_FD_LIMIT_PER_THREAD_MIN + 6.
+ *
+ * That fds table, which also sizes the http header pool, is plenty for a
+ * client with a few connections, but a server started from these defaults
+ * stops accepting on all of its listeners once the table is full, until
+ * something closes: a handful of idle connections is enough.  After calling
+ * this, set info->fd_limit_per_thread to LWS_FD_LIMIT_PER_THREAD_MIN plus
+ * the number of connections you mean to have open, or to 0 to size the
+ * tables to the process fd limit, which is what a server wants.
+ */
 LWS_VISIBLE LWS_EXTERN void
 _lws_context_info_defaults(struct lws_context_creation_info *info,
 			   const char *sspol);
 
+/**
+ * lws_default_loop_exit() - ask lws_context_default_loop_run_destroy() to end
+ *
+ * \param cx: the lws context
+ *
+ * Safe to call from a signal handler or from any lws callback, and the
+ * recommended way for an app that owns its service loop to stop: lws_service()
+ * returns -1 afterwards, so the app leaves its loop and calls
+ * lws_context_destroy().  On the default poll loop nothing else happens until
+ * then.  On an event library's internal loop (eg, LWS_SERVER_OPTION_LIBUV
+ * without a foreign loop) it starts the context destroy from inside the
+ * service, which winds the loop down so that lws_service() returns -1, and
+ * the app's lws_context_destroy() finalizes it.  lws_context_default_loop_run_destroy()
+ * is that loop and final call in one helper.
+ *
+ * When lws is a guest on a foreign loop there is no lws loop to leave: the
+ * off-ramp there is lws_context_destroy(), which detaches from the loop
+ * asynchronously and clears info.pcontext when lws has gone, while the loop
+ * itself carries on.
+ */
 LWS_VISIBLE LWS_EXTERN void
 lws_default_loop_exit(struct lws_context *cx);
 
@@ -1325,6 +2118,10 @@ enum lws_mount_protocols {
 	LWSMPRO_REDIR_HTTPS	= 5, /**< redirect to https:// url */
 	LWSMPRO_CALLBACK	= 6, /**< handle by named protocol's callback */
 	LWSMPRO_NO_MOUNT        = 7, /**< matches fall back to no match processing */
+	LWSMPRO_CONNECT		= 8, /**< an h1 CONNECT to the authority
+				      * "host:port" in .mountpoint becomes a
+				      * raw connection bound to the protocol
+				      * named in .origin (or .protocol) */
 };
 
 /** enum lws_authentication_mode
@@ -1375,12 +2172,45 @@ struct lws_http_mount {
 	unsigned int cache_revalidate:1; /**< set if client cache should revalidate on use */
 	unsigned int cache_intermediaries:1; /**< set if intermediaries are allowed to cache */
 	unsigned int cache_no:1; /**< set if client should check cache always*/
+	unsigned int exact_match:1; /**< set if mountpoint must match exactly */
+	unsigned int append_path:1; /**< set if we should append the rest of the path during a redirect */
+	unsigned int no_ws_upgrades:1; /**< set to ignore this mount for ws upgrades */
 
 	unsigned char origin_protocol; /**< one of enum lws_mount_protocols */
 	unsigned char mountpoint_len; /**< length of mountpoint string */
 
 	const char *basic_auth_login_file;
 	/**<NULL, or filepath to use to check basic auth logins against. (requires LWSAUTHM_DEFAULT) */
+
+	const char *cgi_chroot_path;
+	/**< NULL, or chroot patch for child cgi process */
+
+	const char *cgi_wd;
+	/**< working directory to cd to after fork of a cgi process,
+	 * NULL defaults to /tmp
+	 */
+
+	const struct lws_protocol_vhost_options *headers;
+		/**< NULL, or pointer to optional linked list of
+		 * canned headers that are added to server responses.
+		 * If given, these override the headers given at
+		 * the vhost and are used instead of those when
+		 * the mountpoint matches.  This allows to control,
+		 * eg, CSP on a per-mount basis.
+		 */
+	unsigned int keepalive_timeout;
+		/**< 0 or seconds http stream should stay alive while
+		 * idle.  0 means use the vhost value for keepalive_timeout.
+		 */
+#if defined(LWS_WITH_JOSE)
+	const char *interceptor_path;
+	/**< NULL, or an alternative mount path to divert the connection to
+	 * if the protocol on that mount says we are not authorized.
+	 */
+#endif
+
+	uint64_t max_http_body_size;
+	/**< 0 for default (100MB), or the desired max HTTP body size */
 
 	/* Add new things just above here ---^
 	 * This is part of the ABI, don't needlessly break compatibility

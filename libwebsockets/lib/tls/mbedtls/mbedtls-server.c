@@ -1,7 +1,7 @@
 /*
  * libwebsockets - small server side websockets and web server implementation
  *
- * Copyright (C) 2010 - 2019 Andy Green <andy@warmcat.com>
+ * Copyright (C) 2010 - 2026 Andy Green <andy@warmcat.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to
@@ -23,80 +23,269 @@
  */
 
 #include "private-lib-core.h"
+#include "private-lib-tls-mbedtls.h"
 #include <mbedtls/x509_csr.h>
 #include <errno.h>
+
+extern int lws_plat_mbedtls_net_send(void *ctx, const unsigned char *buf, size_t len);
+extern int lws_plat_mbedtls_net_recv(void *ctx, unsigned char *buf, size_t len);
+
+/*
+ * The client cert authmode the vhost's options ask for.
+ *
+ * With LWS_SERVER_OPTION_MBEDTLS_VERIFY_CLIENT_CERT_POST_HANDSHAKE he wants
+ * the client cert collected and kept so he can decide about it himself after
+ * the handshake.  mbedtls only sends a CertificateRequest, and only parses and
+ * keeps what comes back, if the authmode is not VERIFY_NONE... and
+ * VERIFY_NONE is what mbedtls_ssl_config_defaults() leaves a server at.  So
+ * VERIFY_OPTIONAL is precisely what that option means: ask for the cert and
+ * keep it, but don't fail the handshake on it.
+ *
+ * The two options are orthogonal: asking to inspect the cert after the
+ * handshake must not quietly cancel an explicit "require a valid client
+ * cert".  VERIFY_REQUIRED keeps the peer cert around for inspection just the
+ * same, it only additionally refuses the ones that do not verify.
+ */
+
+static int
+lws_mbedtls_vhost_authmode(const struct lws_vhost *vh)
+{
+	int require = !!lws_check_opt(vh->options,
+			LWS_SERVER_OPTION_REQUIRE_VALID_OPENSSL_CLIENT_CERT);
+
+	if (require &&
+	    !lws_check_opt(vh->options, LWS_SERVER_OPTION_PEER_CERT_NOT_REQUIRED))
+		return MBEDTLS_SSL_VERIFY_REQUIRED;
+
+	if (require || lws_check_opt(vh->options,
+		LWS_SERVER_OPTION_MBEDTLS_VERIFY_CLIENT_CERT_POST_HANDSHAKE))
+		return MBEDTLS_SSL_VERIFY_OPTIONAL;
+
+	return MBEDTLS_SSL_VERIFY_NONE;
+}
+
+/*
+ * lws_tls_vhost_backend_create_ctx() already applied the authmode to the
+ * ctx, so that a ctx remade on a cert update has it too; this is the vhost
+ * init's chance to say what it is.
+ */
 
 int
 lws_tls_server_client_cert_verify_config(struct lws_vhost *vh)
 {
-	int verify_options = SSL_VERIFY_PEER;
+	int verify_options;
 
-	/* as a server, are we requiring clients to identify themselves? */
-	if (!lws_check_opt(vh->options,
-			  LWS_SERVER_OPTION_REQUIRE_VALID_OPENSSL_CLIENT_CERT)) {
+	/*
+	 * The vhost may legitimately have no ctx, eg, it was created with
+	 * LWS_SERVER_OPTION_IGNORE_MISSING_CERT and the cert has not arrived
+	 * yet... there is nothing to configure on then.
+	 */
+
+	if (!vh->tls.ssl_ctx)
+		return 0;
+
+	verify_options = lws_mbedtls_vhost_authmode(vh);
+
+	if (verify_options == MBEDTLS_SSL_VERIFY_NONE) {
 		lwsl_notice("no client cert required\n");
+
 		return 0;
 	}
 
-	if (!lws_check_opt(vh->options, LWS_SERVER_OPTION_PEER_CERT_NOT_REQUIRED))
-		verify_options = SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
+	if (lws_check_opt(vh->options,
+		LWS_SERVER_OPTION_MBEDTLS_VERIFY_CLIENT_CERT_POST_HANDSHAKE)) {
+		lwsl_notice("%s: vh %s can verify client cert post-handshake\n",
+				__func__, vh->name);
 
-	lwsl_notice("%s: vh %s requires client cert %d\n", __func__, vh->name,
+#if defined(MBEDTLS_VERSION_NUMBER) && MBEDTLS_VERSION_NUMBER >= 0x03000000 && \
+    !defined(MBEDTLS_SSL_KEEP_PEER_CERTIFICATE)
+		lwsl_warn("%s: mbedtls lacks MBEDTLS_SSL_KEEP_PEER_CERTIFICATE:"
+			  " the peer cert will not be readable after the "
+			  "handshake\n", __func__);
+#endif
+	}
+
+	lwsl_notice("%s: vh %s client cert authmode %d\n", __func__, vh->name,
 		    verify_options);
 
-	SSL_CTX_set_verify(vh->tls.ssl_ctx, verify_options, NULL);
+	mbedtls_ssl_conf_authmode(&vh->tls.ssl_ctx->conf, verify_options);
 
 	return 0;
+}
+
+/*
+ * mbedtls has no SSL_get_SSL_CTX(), so identify the listening vhost this
+ * handshake belongs to by the ctx its session was made from.  Not by the
+ * ssl's conf: a quic session runs on a private copy of the ctx's conf
+ * (lws_tls_quic_init()), which is no vhost's.  A vhost whose cert was
+ * hot-reloaded keeps the retired ctx alive for the connections still using
+ * it, so those have to be searched too... otherwise the caller cannot tell
+ * which listener the connection arrived on.
+ */
+
+static struct lws_vhost *
+lws_mbedtls_vhost_from_ctx(struct lws_context *context,
+			   const struct lws_tls_ctx *ctx)
+{
+	struct lws_vhost *vh = lws_vhost_first(context);
+
+	while (vh) {
+		if (vh->being_destroyed) {
+			vh = lws_vhost_next(vh);
+			continue;
+		}
+
+		if (ctx && vh->tls.ssl_ctx == ctx)
+			return vh;
+
+		lws_start_foreach_dll(struct lws_dll2 *, d,
+				lws_dll2_get_head(&vh->tls.retired_ctx_list)) {
+			struct lws_tls_ctx_ref *r = lws_container_of(d,
+						struct lws_tls_ctx_ref, list);
+
+			if (ctx && r->ctx == ctx)
+				return vh;
+		} lws_end_foreach_dll(d);
+
+		vh = lws_vhost_next(vh);
+	}
+
+	return NULL;
 }
 
 static int
 lws_mbedtls_sni_cb(void *arg, mbedtls_ssl_context *mbedtls_ctx,
 		   const unsigned char *servername, size_t len)
 {
-	SSL *ssl = SSL_SSL_from_mbedtls_ssl_context(mbedtls_ctx);
+	struct lws_tls_conn *conn = lws_container_of(mbedtls_ctx,
+						struct lws_tls_conn, ssl);
 	struct lws_context *context = (struct lws_context *)arg;
 	struct lws_vhost *vhost, *vh;
-
-	lwsl_notice("%s: %s\n", __func__, servername);
+	struct lws_tls_ctx_ref *ref;
+	struct lws_tls_ctx *ctx;
+	char sn_str[128];
 
 	/*
-	 * We can only get ssl accepted connections by using a vhost's ssl_ctx
-	 * find out which listening one took us and only match vhosts on the
-	 * same port.
+	 * mbedtls documents this as "not '\0'-terminated, use len"... it
+	 * points into the received ClientHello, so it must be copied out
+	 * bounded before it can go anywhere near a "%s".
 	 */
-	vh = context->vhost_list;
-	while (vh) {
-		if (!vh->being_destroyed &&
-		    vh->tls.ssl_ctx == SSL_get_SSL_CTX(ssl))
-			break;
-		vh = vh->vhost_next;
-	}
 
+	lws_strnncpy(sn_str, (const char *)servername, len, sizeof(sn_str));
+
+	lwsl_info("%s: SNI '%s'\n", __func__, sn_str);
+
+	/*
+	 * Find out which listening vhost took us, so we only match vhosts
+	 * sharing its listener (same port and interface).
+	 */
+
+	vh = lws_mbedtls_vhost_from_ctx(context, conn->ctx);
 	if (!vh) {
-		assert(vh); /* can't match the incoming vh? */
+		/*
+		 * We can't tell which listener this is... we must not borrow
+		 * an arbitrary TLS vhost's listen_port to search with, that
+		 * would let SNI select a vhost belonging to a different
+		 * listener.  Leave him on the vhost he arrived on.
+		 */
+		lwsl_info("%s: no vhost owns this tls ctx\n", __func__);
+
 		return 0;
 	}
 
-	vhost = lws_select_vhost(context, vh->listen_port,
-				 (const char *)servername);
+	vhost = lws_select_vhost_sni(vh, sn_str);
 	if (!vhost) {
-		lwsl_info("SNI: none: %s:%d\n", servername, vh->listen_port);
+		/*
+		 * He named something that is not served on this listener, and
+		 * no vhost there is the nominated sni-fallback.  Refuse him
+		 * rather than let him pick an arbitrary vhost's certificate
+		 * and client-certificate policy with an unknown name...
+		 * mbedtls turns a nonzero return from the SNI callback into a
+		 * fatal unrecognized_name alert and aborts the handshake.
+		 */
 
-		return 0;
+		lws_tls_server_sni_refused(vh->listen_port, sn_str);
+
+		return -1;
 	}
 
-	lwsl_info("SNI: Found: %s:%d at vhost '%s'\n", servername,
+	lwsl_info("SNI: Found: %s:%d at vhost '%s'\n", sn_str,
 					vh->listen_port, vhost->name);
 
-	if (!vhost->tls.ssl_ctx) {
-		lwsl_err("%s: vhost %s matches SNI but no valid cert\n",
-				__func__, vh->name);
+	/*
+	 * The handshake is going to use this vhost's cert, key and client CA
+	 * chain, which mbedtls only takes as pointers: hold a reference on
+	 * the ctx they belong to for as long as the session exists, or a
+	 * renewal of this vhost's cert while the peer sits on the handshake
+	 * frees them under it (C-674).  The listener's own ctx is held by
+	 * wsi->io->tls.ctx_ref, but this one may be another vhost's, or a
+	 * newer ctx of the listener than the session was set up with.
+	 *
+	 * The callback can come again for the same session, for the second
+	 * ClientHello after a HelloRetryRequest (or a renegotiation, if the
+	 * app enabled it).  The earlier selection's cert may still be on the
+	 * handshake's list then, so keep that reference, and refuse a client
+	 * that names another vhost this time: RFC 8446 4.1.2 does not let
+	 * the second ClientHello change the server_name anyway.
+	 */
 
-		return 1;
+	ref = conn->sni_ref;
+	if (ref) {
+		if (ref->vh != vhost) {
+			lwsl_notice("%s: SNI changed within the handshake\n",
+				    __func__);
+			return -1;
+		}
+	} else
+		ref = lws_tls_ctx_ref_get(vhost);
+
+	ctx = ref ? ref->ctx : NULL;
+	if (!ctx || !ctx->chain || !ctx->key) {
+		lwsl_err("%s: vhost %s matches SNI but no valid cert\n",
+				__func__, vhost->name);
+		if (ref != conn->sni_ref)
+			lws_tls_ctx_ref_unref(ref);
+
+		return -1;
 	}
 
-	/* select the ssl ctx from the selected vhost for this conn */
-	SSL_set_SSL_CTX(ssl, vhost->tls.ssl_ctx);
+	conn->sni_ref = ref;
+
+	mbedtls_ssl_set_hs_own_cert(mbedtls_ctx, ctx->chain, ctx->key);
+
+	/*
+	 * Unlike openssl's SSL_set_SSL_CTX(), ssl->conf still points at the
+	 * *listening* vhost's config for the rest of the handshake; these
+	 * per-handshake overrides are the only things that change.  So the CA
+	 * chain has to be set unconditionally, including to NULL: a vhost
+	 * that requires a client cert but configures no CA of its own would
+	 * otherwise raise the authmode to REQUIRED while still validating
+	 * against the listening vhost's trust store, ie, accept a client cert
+	 * issued by somebody else's CA.  (lws configures no CRL for mbedtls
+	 * anywhere, so NULL is what the non-SNI path uses too.)
+	 */
+
+	mbedtls_ssl_set_hs_ca_chain(mbedtls_ctx, ctx->ca_chain, NULL);
+	mbedtls_ssl_set_hs_authmode(mbedtls_ctx,
+				    ctx->conf.MBEDTLS_PRIVATE(authmode));
+
+	/*
+	 * Bind the wsi to the vhost that will actually serve him, now, on
+	 * every mbedtls version, and record whose CA store verifies his
+	 * client cert (C-318).  Otherwise he stays on the listening vhost
+	 * through the handshake, where the accept judges his cert by the
+	 * listener's options instead of those it was asked for under, and
+	 * nothing holds the selected vhost up while its cert, key and CA are
+	 * in use (lws_vhost_destroy() only waits for wsi bound to it).  This
+	 * used to rely on mbedtls_ssl_get_user_data_p(), which is 3.2+, so
+	 * on 2.x and 3.0 / 3.1 a cert from the selected vhost's CA was taken
+	 * as satisfying the listener's own mTLS requirement (C-670).
+	 * lws_vhost_bind_wsi_sni() gives back the count held on the listening
+	 * vhost and refuses a move onto a dying vhost.
+	 */
+
+	if (conn->wsi)
+		lws_tls_sni_bind(vhost, conn->wsi);
 
 	return 0;
 }
@@ -109,74 +298,188 @@ lws_tls_server_certs_load(struct lws_vhost *vhost, struct lws *wsi,
 {
 	lws_filepos_t flen;
 	uint8_t *p = NULL;
-	long err;
 	int n;
-
-	if ((!cert || !private_key) && (!mem_cert || !mem_privkey)) {
-		lwsl_notice("%s: no usable input\n", __func__);
-		return 0;
-	}
 
 	n = (int)lws_tls_generic_cert_checks(vhost, cert, private_key);
 
 	if (n == LWS_TLS_EXTANT_NO && (!mem_cert || !mem_privkey))
 		return 0;
 
-	/*
-	 * we can't read the root-privs files.  But if mem_cert is provided,
-	 * we should use that.
-	 */
 	if (n == LWS_TLS_EXTANT_NO)
 		n = LWS_TLS_EXTANT_ALTERNATIVE;
 
 	if (n == LWS_TLS_EXTANT_ALTERNATIVE && (!mem_cert || !mem_privkey))
-		return 1; /* no alternative */
+		return 1;
 
 	if (n == LWS_TLS_EXTANT_ALTERNATIVE) {
-		/*
-		 * Although we have prepared update certs, we no longer have
-		 * the rights to read our own cert + key we saved.
-		 *
-		 * If we were passed copies in memory buffers, use those
-		 * instead.
-		 *
-		 * The passed memory-buffer cert image is in DER, and the
-		 * memory-buffer private key image is PEM.
-		 */
 		cert = NULL;
 		private_key = NULL;
 	}
-	if (lws_tls_alloc_pem_to_der_file(vhost->context, cert, mem_cert,
-					  mem_cert_len, &p, &flen)) {
-		lwsl_err("couldn't load cert file %s\n", cert);
 
+	vhost->tls.ssl_ctx->chain = lws_zalloc(sizeof(*vhost->tls.ssl_ctx->chain), "chain");
+	vhost->tls.ssl_ctx->key = lws_zalloc(sizeof(*vhost->tls.ssl_ctx->key), "key");
+	if (!vhost->tls.ssl_ctx->chain || !vhost->tls.ssl_ctx->key)
 		return 1;
+
+	mbedtls_x509_crt_init(vhost->tls.ssl_ctx->chain);
+	mbedtls_pk_init(vhost->tls.ssl_ctx->key);
+
+	if (cert) {
+#if !defined(LWS_PLAT_OPTEE)
+		n = mbedtls_x509_crt_parse_file(vhost->tls.ssl_ctx->chain, cert);
+		if (n != 0) {
+			lwsl_err("problem loading cert %s: %d\n", cert, n);
+			return 1;
+		}
+#endif
+	} else {
+		if (lws_tls_alloc_pem_to_der_file(vhost->context, cert, mem_cert,
+						  mem_cert_len, &p, &flen)) {
+			lwsl_err("couldn't load mem cert\n");
+			return 1;
+		}
+		n = mbedtls_x509_crt_parse(vhost->tls.ssl_ctx->chain, p, (size_t)flen);
+		lws_free(p);
+		if (n != 0) {
+			lwsl_err("problem interpreting cert: %d\n", n);
+			return 1;
+		}
 	}
 
-	err = SSL_CTX_use_certificate_ASN1(vhost->tls.ssl_ctx, (int)flen, p);
-	lws_free_set_NULL(p);
-	if (!err) {
-		lwsl_err("Problem loading cert\n");
-		return 1;
+	if (private_key) {
+#if !defined(LWS_PLAT_OPTEE)
+#if defined(MBEDTLS_VERSION_MAJOR) && (MBEDTLS_VERSION_MAJOR >= 3)
+#if defined(MBEDTLS_VERSION_NUMBER) && MBEDTLS_VERSION_NUMBER >= 0x03000000 && !defined(LWS_HAVE_MBEDTLS_V4)
+		n = mbedtls_pk_parse_keyfile(vhost->tls.ssl_ctx->key, private_key, NULL, lws_gencrypto_mbedtls_rngf, vhost->context);
+#else
+		n = mbedtls_pk_parse_keyfile(vhost->tls.ssl_ctx->key, private_key, NULL);
+#endif
+#else
+		n = mbedtls_pk_parse_keyfile(vhost->tls.ssl_ctx->key, private_key, NULL);
+#endif
+		if (n != 0) {
+			lwsl_err("problem loading key %s: %d\n", private_key, n);
+			return 1;
+		}
+#endif
+	} else {
+		if (lws_tls_alloc_pem_to_der_file(vhost->context, private_key,
+						  (char *)mem_privkey, mem_privkey_len,
+						  &p, &flen)) {
+			lwsl_err("couldn't find private key\n");
+			return 1;
+		}
+#if defined(MBEDTLS_VERSION_MAJOR) && (MBEDTLS_VERSION_MAJOR >= 3)
+#if defined(MBEDTLS_VERSION_NUMBER) && MBEDTLS_VERSION_NUMBER >= 0x03000000 && !defined(LWS_HAVE_MBEDTLS_V4)
+		n = mbedtls_pk_parse_key(vhost->tls.ssl_ctx->key, p, (size_t)flen, NULL, 0, lws_gencrypto_mbedtls_rngf, vhost->context);
+#else
+		n = mbedtls_pk_parse_key(vhost->tls.ssl_ctx->key, p, (size_t)flen, NULL, 0);
+#endif
+#else
+		n = mbedtls_pk_parse_key(vhost->tls.ssl_ctx->key, p, (size_t)flen, NULL, 0);
+#endif
+		/* our DER copy of the private key is a secret too */
+		lws_explicit_bzero(p, (size_t)flen);
+		lws_free(p);
+		if (n != 0) {
+			lwsl_err("Problem loading mem key: %d\n", n);
+			return 1;
+		}
 	}
 
-	if (lws_tls_alloc_pem_to_der_file(vhost->context, private_key,
-					  (char *)mem_privkey, mem_privkey_len,
-					  &p, &flen)) {
-		lwsl_err("couldn't find private key\n");
-
-		return 1;
-	}
-
-	err = SSL_CTX_use_PrivateKey_ASN1(0, vhost->tls.ssl_ctx, p, (long)flen);
-	lws_free_set_NULL(p);
-	if (!err) {
-		lwsl_err("Problem loading key\n");
-
-		return 1;
-	}
+	mbedtls_ssl_conf_own_cert(&vhost->tls.ssl_ctx->conf, vhost->tls.ssl_ctx->chain, vhost->tls.ssl_ctx->key);
 
 	vhost->tls.skipped_certs = 0;
+
+	return 0;
+}
+
+int
+lws_tls_vhost_backend_create_ctx(struct lws_vhost *vhost)
+{
+	struct lws_tls_ctx *ctx;
+	int n;
+
+
+	ctx = lws_zalloc(sizeof(*ctx), "mbedtls server ctx");
+	if (!ctx)
+		return 1;
+
+	vhost->tls.ssl_ctx = ctx;
+
+	mbedtls_ssl_config_init(&ctx->conf);
+
+	if (mbedtls_ssl_config_defaults(&ctx->conf,
+					MBEDTLS_SSL_IS_SERVER,
+					MBEDTLS_SSL_TRANSPORT_STREAM,
+					MBEDTLS_SSL_PRESET_DEFAULT)) {
+		lwsl_err("mbedtls_ssl_config_defaults failed\n");
+		return 1;
+	}
+
+	/* TLS 1.2 floor + no peer-initiated renegotiation, see C-406.  The
+	 * override is vhost->tls.ssl_options_clear (info.ssl_options_clear) */
+	lws_mbedtls_conf_floor(&ctx->conf, vhost->tls.ssl_options_clear);
+
+	/*
+	 * Everything the vhost's config asks of its ctx is applied here rather
+	 * than in lws_tls_server_vhost_backend_init() or the generic vhost
+	 * init, so a ctx remade later by lws_tls_cert_updated() also gets it:
+	 * a renewed ctx without the SNI callback would serve every name this
+	 * vhost's cert and never refuse an unknown one (C-424), and one
+	 * without the authmode or ALPN would stop asking for client certs or
+	 * offering h2
+	 */
+
+	if (lws_mbedtls_conf_ciphers(ctx, vhost->name,
+				     vhost->tls.cfg_tls_ciphers_iana,
+				     vhost->tls.cfg_ssl_cipher_list,
+				     vhost->tls.cfg_tls1_3_plus_cipher_list))
+		return 1;
+
+	mbedtls_ssl_conf_sni(&ctx->conf, lws_mbedtls_sni_cb, vhost->context);
+	mbedtls_ssl_conf_authmode(&ctx->conf, lws_mbedtls_vhost_authmode(vhost));
+	{
+		char alpn_tcp[64];
+
+		/* what tcp connections may select, see lws_alpn_for_transport() */
+		if (lws_alpn_for_transport(vhost->tls.alpn ? vhost->tls.alpn :
+					   vhost->context->tls.alpn_default,
+					   alpn_tcp, sizeof(alpn_tcp), 0))
+			lws_mbedtls_set_alpn(ctx, alpn_tcp);
+	}
+
+#if !defined(LWS_HAVE_MBEDTLS_V4)
+	mbedtls_ssl_conf_rng(&ctx->conf, lws_gencrypto_mbedtls_rngf, vhost->context);
+#endif
+
+	if (vhost->tls.cfg_ssl_ca_filepath) {
+		ctx->ca_chain = lws_zalloc(sizeof(*ctx->ca_chain), "ca_chain");
+		if (!ctx->ca_chain)
+			return 1;
+		mbedtls_x509_crt_init(ctx->ca_chain);
+#if !defined(LWS_PLAT_OPTEE)
+		n = mbedtls_x509_crt_parse_file(ctx->ca_chain, vhost->tls.cfg_ssl_ca_filepath);
+		if (n != 0) {
+			lwsl_err("couldn't load CA file %s: %d\n", vhost->tls.cfg_ssl_ca_filepath, n);
+			return 1;
+		}
+		mbedtls_ssl_conf_ca_chain(&ctx->conf, ctx->ca_chain, NULL);
+#endif
+	} else if (vhost->tls.cfg_server_ssl_ca_mem && vhost->tls.cfg_server_ssl_ca_mem_len) {
+		ctx->ca_chain = lws_zalloc(sizeof(*ctx->ca_chain), "ca_chain");
+		if (!ctx->ca_chain)
+			return 1;
+		mbedtls_x509_crt_init(ctx->ca_chain);
+		n = lws_mbedtls_x509_crt_parse_mem(ctx->ca_chain,
+					vhost->tls.cfg_server_ssl_ca_mem,
+					vhost->tls.cfg_server_ssl_ca_mem_len);
+		if (n != 0) {
+			lwsl_err("%s: mem CA parse unhappy: %d\n", __func__, n);
+			return 1;
+		}
+		mbedtls_ssl_conf_ca_chain(&ctx->conf, ctx->ca_chain, NULL);
+	}
 
 	return 0;
 }
@@ -185,49 +488,31 @@ int
 lws_tls_server_vhost_backend_init(const struct lws_context_creation_info *info,
 				  struct lws_vhost *vhost, struct lws *wsi)
 {
-	const SSL_METHOD *method = TLS_server_method();
-	uint8_t *p;
-	lws_filepos_t flen;
 	int n;
 
-	vhost->tls.ssl_ctx = SSL_CTX_new(method, &vhost->context->mcdc);	/* create context */
-	if (!vhost->tls.ssl_ctx) {
-		lwsl_err("problem creating ssl context\n");
+	/*
+	 * The configured cipher lists, the SNI callback, the client cert
+	 * authmode and the ALPN list are all applied in
+	 * lws_tls_vhost_backend_create_ctx(), which fails if any cipher list
+	 * entry could not be mapped
+	 */
+
+	if (lws_tls_vhost_backend_create_ctx(vhost))
 		return 1;
-	}
 
 	if (!vhost->tls.use_ssl ||
 	    (!info->ssl_cert_filepath && !info->server_ssl_cert_mem))
 		return 0;
 
-	if (info->ssl_ca_filepath) {
-		lwsl_notice("%s: vh %s: loading CA filepath %s\n", __func__,
-			    vhost->name, info->ssl_ca_filepath);
-		if (lws_tls_alloc_pem_to_der_file(vhost->context,
-				info->ssl_ca_filepath, NULL, 0, &p, &flen)) {
-			lwsl_err("couldn't find client CA file %s\n",
-					info->ssl_ca_filepath);
+	n = (int)lws_tls_generic_cert_checks(vhost, info->ssl_cert_filepath,
+					     info->ssl_private_key_filepath);
 
-			return 1;
-		}
-
-		if (SSL_CTX_add_client_CA_ASN1(vhost->tls.ssl_ctx, (int)flen, p) != 1) {
-			lwsl_err("%s: SSL_CTX_add_client_CA_ASN1 unhappy\n",
-				 __func__);
-			free(p);
-			return 1;
-		}
-		free(p);
-	} else {
-		if (info->server_ssl_ca_mem && info->server_ssl_ca_mem_len &&
-		    SSL_CTX_add_client_CA_ASN1(vhost->tls.ssl_ctx,
-					       (int)info->server_ssl_ca_mem_len,
-					       info->server_ssl_ca_mem) != 1) {
-			lwsl_err("%s: mem SSL_CTX_add_client_CA_ASN1 unhappy\n",
-				 __func__);
-			return 1;
-		}
-		lwsl_notice("%s: vh %s: mem CA OK\n", __func__, vhost->name);
+	if (n == LWS_TLS_EXTANT_NO &&
+	    (vhost->options & LWS_SERVER_OPTION_IGNORE_MISSING_CERT)) {
+		lwsl_notice("No certs found, continuing without SSL_CTX\n");
+		lws_tls_vhost_backend_free_ctx(vhost->tls.ssl_ctx);
+		vhost->tls.ssl_ctx = NULL;
+		return 0;
 	}
 
 	n = lws_tls_server_certs_load(vhost, wsi, info->ssl_cert_filepath,
@@ -245,21 +530,35 @@ lws_tls_server_vhost_backend_init(const struct lws_context_creation_info *info,
 int
 lws_tls_server_new_nonblocking(struct lws *wsi, lws_sockfd_type accept_fd)
 {
-	errno = 0;
-	wsi->tls.ssl = SSL_new(wsi->a.vhost->tls.ssl_ctx);
-	if (wsi->tls.ssl == NULL) {
-		lwsl_err("SSL_new failed: errno %d\n", errno);
+	struct lws_tls_conn *conn;
 
-		lws_tls_err_describe_clear();
+	errno = 0;
+	wsi->io->tls.ctx_ref = lws_tls_ctx_ref_get(wsi->a.vhost);
+	if (!wsi->io->tls.ctx_ref && !wsi->a.vhost->tls.ssl_ctx) {
+		lwsl_err("No TLS context\n");
 		return 1;
 	}
 
-	SSL_set_fd(wsi->tls.ssl, (int)accept_fd);
+	conn = lws_zalloc(sizeof(*conn), "mbedtls server conn");
+	if (!conn)
+		return 1;
 
-	if (wsi->a.vhost->tls.ssl_info_event_mask)
-		SSL_set_info_callback(wsi->tls.ssl, lws_ssl_info_callback);
+	wsi->io->tls.ssl = (lws_tls_conn *)conn;
+	conn->wsi = wsi; /* so the SNI callback can find the wsi to bind */
+	conn->ctx = wsi->io->tls.ctx_ref ? wsi->io->tls.ctx_ref->ctx : wsi->a.vhost->tls.ssl_ctx;
 
-	SSL_set_sni_callback(wsi->tls.ssl, lws_mbedtls_sni_cb, wsi->a.context);
+	mbedtls_ssl_init(&conn->ssl);
+	mbedtls_net_init(&conn->net);
+
+	if (mbedtls_ssl_setup(&conn->ssl, &conn->ctx->conf)) {
+		mbedtls_ssl_free(&conn->ssl);
+		lws_free(conn);
+		wsi->io->tls.ssl = NULL;
+		return 1;
+	}
+
+	conn->net.MBEDTLS_PRIVATE_V30_ONLY(fd) = (int)accept_fd;
+	mbedtls_ssl_set_bio(&conn->ssl, &conn->net, lws_plat_mbedtls_net_send, lws_plat_mbedtls_net_recv, NULL);
 
 	return 0;
 }
@@ -267,80 +566,129 @@ lws_tls_server_new_nonblocking(struct lws *wsi, lws_sockfd_type accept_fd)
 enum lws_ssl_capable_status
 lws_tls_server_abort_connection(struct lws *wsi)
 {
-	if (wsi->tls.use_ssl)
+	if (wsi->use_ssl)
 		__lws_tls_shutdown(wsi);
 	
-	SSL_free(wsi->tls.ssl);
+#if defined(LWS_ROLE_QUIC)
+	mbedtls_quic_bio_free(wsi);
+#endif
+
+	lws_mbedtls_conn_destroy(wsi);
 
 	return 0;
 }
 
+/*
+ * A server handshake completed: does the client cert it presented satisfy
+ * the vhost's policy?  tcp's accept below and quic's handshake completion
+ * (lws_tls_quic_server_confirm_peer()) both ask.  0 if he may go on.
+ */
+int
+lws_tls_server_client_cert_check(struct lws *wsi)
+{
+	uint32_t f;
+	char vi[256];
+
+	if (!lws_check_opt(wsi->a.vhost->options,
+			   LWS_SERVER_OPTION_REQUIRE_VALID_OPENSSL_CLIENT_CERT))
+		return 0;
+
+	/*
+	 * With LWS_SERVER_OPTION_PEER_CERT_NOT_REQUIRED the authmode had to
+	 * stay VERIFY_OPTIONAL, and mbedtls completes the handshake under that
+	 * whatever the cert turned out to be, just recording the result here.
+	 *
+	 * openssl's SSL_VERIFY_PEER (which is what lws asks for there) means
+	 * "no cert is OK, a bad cert is not".  So tolerate only the absence of
+	 * a cert: anything that was presented and failed must fail the
+	 * accept, otherwise an app reading the CN or SAN afterwards to
+	 * authorize is reading an unvalidated identity.
+	 */
+
+	f = mbedtls_ssl_get_verify_result(&wsi->io->tls.ssl->ssl);
+	f &= ~((uint32_t)MBEDTLS_X509_BADCERT_MISSING |
+	       (uint32_t)MBEDTLS_X509_BADCERT_SKIP_VERIFY);
+	if (!f)
+		return 0;
+
+	mbedtls_x509_crt_verify_info(vi, sizeof(vi), "  ! ", f);
+	lwsl_notice("%s: %s: client cert rejected: %s\n", __func__,
+		    lws_wsi_tag(wsi), vi);
+
+	return 1;
+}
+
+#if defined(LWS_WITH_TCP_TLS)
 enum lws_ssl_capable_status
 lws_tls_server_accept(struct lws *wsi)
 {
 	union lws_tls_cert_info_results ir;
-	int m, n;
+#if (_LWS_ENABLED_LOGS & LLL_DEBUG)
+	int en;
+#endif
+	int n;
 
-	n = SSL_accept(wsi->tls.ssl);
+#if defined(LWS_WITH_LATENCY)
+	lws_usec_t _o_mbed_ssl_acc_start = lws_now_usecs();
+#endif
 
-	wsi->skip_fallback = 1;
-	if (n == 1) {
+	n = mbedtls_ssl_handshake(&wsi->io->tls.ssl->ssl);
 
-		if (strstr(wsi->a.vhost->name, ".invalid")) {
-			lwsl_notice("%s: vhost has .invalid, "
-				    "rejecting accept\n", __func__);
+#if defined(LWS_WITH_LATENCY)
+	{
+		unsigned int ms = (unsigned int)((lws_now_usecs() - _o_mbed_ssl_acc_start) / 1000);
+		if (ms > 2 && !wsi->io->tls.ssl_accept_in_bg)
+			lws_latency_note(&wsi->a.context->pt[(int)wsi->tsi], _o_mbed_ssl_acc_start, 2000, "ssl_accept:%dms", ms);
+	}
+#endif
 
+	wsi->io->skip_fallback = 1;
+	if (n == 0) {
+		if ((char *)strstr(wsi->a.vhost->name, ".invalid")) {
+			lwsl_notice("%s: vhost has .invalid, rejecting accept\n", __func__);
 			return LWS_SSL_CAPABLE_ERROR;
 		}
+
+		if (lws_tls_server_client_cert_check(wsi))
+			return LWS_SSL_CAPABLE_ERROR;
 
 		n = lws_tls_peer_cert_info(wsi, LWS_TLS_CERT_INFO_COMMON_NAME,
 					   &ir, sizeof(ir.ns.name));
 		if (!n)
-			lwsl_notice("%s: client cert CN '%s'\n",
-				    __func__, ir.ns.name);
+			lwsl_notice("%s: client cert CN '%s'\n", __func__, ir.ns.name);
 		else
-			lwsl_info("%s: couldn't get client cert CN\n",
-				  __func__);
+			lwsl_info("%s: couldn't get client cert CN\n", __func__);
+
 		return LWS_SSL_CAPABLE_DONE;
 	}
 
-	m = SSL_get_error(wsi->tls.ssl, n);
-	lwsl_debug("%s: %s: accept SSL_get_error %d errno %d\n", __func__,
-		    lws_wsi_tag(wsi), m, errno);
-
-	// mbedtls wrapper only
-	if (m == SSL_ERROR_SYSCALL && errno == 11)
-		return LWS_SSL_CAPABLE_MORE_SERVICE_READ;
-
-#if defined(__APPLE__)
-	if (m == SSL_ERROR_SYSCALL && errno == 35)
-		return LWS_SSL_CAPABLE_MORE_SERVICE_READ;
+#if (_LWS_ENABLED_LOGS & LLL_DEBUG)
+	en = errno;
+	lwsl_debug("%s: %s: accept mbedtls_ssl_handshake %d errno %d\n", __func__,
+		    lws_wsi_tag(wsi), n, en);
 #endif
 
-#if defined(WIN32)
-	if (m == SSL_ERROR_SYSCALL && errno == 0)
-		return LWS_SSL_CAPABLE_MORE_SERVICE_READ;
-#endif
-
-	if (m == SSL_ERROR_SYSCALL || m == SSL_ERROR_SSL)
-		return LWS_SSL_CAPABLE_ERROR;
-
-	if (m == SSL_ERROR_WANT_READ || SSL_want_read(wsi->tls.ssl)) {
-		if (lws_change_pollfd(wsi, 0, LWS_POLLIN)) {
-			lwsl_info("%s: WANT_READ change_pollfd failed\n",
-				  __func__);
+	if (n == MBEDTLS_ERR_SSL_WANT_READ) {
+		if (!wsi->io->tls.ssl_accept_in_bg && lws_change_pollfd(wsi, 0, LWS_POLLIN)) {
+			lwsl_info("%s: WANT_READ change_pollfd failed\n", __func__);
 			return LWS_SSL_CAPABLE_ERROR;
 		}
-
-		lwsl_info("SSL_ERROR_WANT_READ\n");
 		return LWS_SSL_CAPABLE_MORE_SERVICE_READ;
 	}
-	if (m == SSL_ERROR_WANT_WRITE || SSL_want_write(wsi->tls.ssl)) {
-		lwsl_debug("%s: WANT_WRITE\n", __func__);
 
-		if (lws_change_pollfd(wsi, 0, LWS_POLLOUT)) {
-			lwsl_info("%s: WANT_WRITE change_pollfd failed\n",
-				  __func__);
+#if defined(MBEDTLS_ERR_SSL_RECEIVED_NEW_SESSION_TICKET)
+	if (n == MBEDTLS_ERR_SSL_RECEIVED_NEW_SESSION_TICKET) {
+		if (!wsi->io->tls.ssl_accept_in_bg && lws_change_pollfd(wsi, 0, LWS_POLLIN)) {
+			lwsl_info("%s: WANT_READ change_pollfd failed\n", __func__);
+			return LWS_SSL_CAPABLE_ERROR;
+		}
+		return LWS_SSL_CAPABLE_MORE_SERVICE_READ;
+	}
+#endif
+
+	if (n == MBEDTLS_ERR_SSL_WANT_WRITE) {
+		if (!wsi->io->tls.ssl_accept_in_bg && lws_change_pollfd(wsi, 0, LWS_POLLOUT)) {
+			lwsl_info("%s: WANT_WRITE change_pollfd failed\n", __func__);
 			return LWS_SSL_CAPABLE_ERROR;
 		}
 		return LWS_SSL_CAPABLE_MORE_SERVICE_WRITE;
@@ -348,356 +696,33 @@ lws_tls_server_accept(struct lws *wsi)
 
 	return LWS_SSL_CAPABLE_ERROR;
 }
+#endif
 
 #if defined(LWS_WITH_ACME)
-/*
- * mbedtls doesn't support SAN for cert creation.  So we use a known-good
- * tls-sni-01 cert from OpenSSL that worked on Let's Encrypt, and just replace
- * the pubkey n part and the signature part.
- *
- * This will need redoing for tls-sni-02...
- */
-
-static uint8_t ss_cert_leadin[] = {
-	0x30, 0x82,
-	  0x05, 0x56, /* total length: LEN1 (+2 / +3) (correct for 513 + 512)*/
-
-	0x30, 0x82, /* length: LEN2  (+6 / +7) (correct for 513) */
-		0x03, 0x3e,
-
-	/* addition: v3 cert (+5 bytes)*/
-	0xa0, 0x03,
-		0x02, 0x01, 0x02,
-
-	0x02, 0x01, 0x01,
-	0x30, 0x0d, 0x06, 0x09, 0x2a,
-	0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x0b, 0x05, 0x00, 0x30, 0x3f,
-	0x31, 0x0b, 0x30, 0x09, 0x06, 0x03, 0x55, 0x04, 0x06, 0x13, 0x02, 0x47,
-	0x42, 0x31, 0x14, 0x30, 0x12, 0x06, 0x03, 0x55, 0x04, 0x0a, 0x0c, 0x0b,
-	0x73, 0x6f, 0x6d, 0x65, 0x63, 0x6f, 0x6d, 0x70, 0x61, 0x6e, 0x79, 0x31,
-	0x1a, 0x30, 0x18, 0x06, 0x03, 0x55, 0x04, 0x03, 0x0c, 0x11, 0x74, 0x65,
-	0x6d, 0x70, 0x2e, 0x61, 0x63, 0x6d, 0x65, 0x2e, 0x69, 0x6e, 0x76, 0x61,
-	0x6c, 0x69, 0x64, 0x30, 0x1e, 0x17, 0x0d,
-
-	/* from 2017-10-29 ... */
-	0x31, 0x37, 0x31, 0x30, 0x32, 0x39, 0x31, 0x31, 0x34, 0x39, 0x34, 0x35,
-	0x5a, 0x17, 0x0d,
-
-	/* thru 2049-10-29 we immediately discard the private key, no worries */
-	0x34, 0x39, 0x31, 0x30, 0x32, 0x39, 0x31, 0x32, 0x34, 0x39, 0x34, 0x35,
-	0x5a,
-
-	0x30, 0x3f, 0x31, 0x0b, 0x30, 0x09, 0x06, 0x03, 0x55, 0x04, 0x06, 0x13,
-	0x02, 0x47, 0x42, 0x31, 0x14, 0x30, 0x12, 0x06, 0x03, 0x55, 0x04, 0x0a,
-	0x0c, 0x0b, 0x73, 0x6f, 0x6d, 0x65, 0x63, 0x6f, 0x6d, 0x70, 0x61, 0x6e,
-	0x79, 0x31, 0x1a, 0x30, 0x18, 0x06, 0x03, 0x55, 0x04, 0x03, 0x0c, 0x11,
-	0x74, 0x65, 0x6d, 0x70, 0x2e, 0x61, 0x63, 0x6d, 0x65, 0x2e, 0x69, 0x6e,
-	0x76, 0x61, 0x6c, 0x69, 0x64, 0x30,
-
-	0x82,
-		0x02, 0x22, /* LEN3 (+C3 / C4) */
-	0x30, 0x0d, 0x06,
-	0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01, 0x05, 0x00,
-	0x03,
-
-	0x82,
-		0x02, 0x0f, /* LEN4 (+D6 / D7) */
-
-	0x00, 0x30, 0x82,
-
-		0x02, 0x0a, /* LEN5 (+ DB / DC) */
-
-	0x02, 0x82,
-
-	//0x02, 0x01, /* length of n in bytes (including leading 00 if any) */
-	},
-
-	/* 1 + (keybits / 8) bytes N */
-
-	ss_cert_san_leadin[] = {
-		/* e - fixed */
-		0x02, 0x03, 0x01, 0x00, 0x01,
-
-		0xa3, 0x5d, 0x30, 0x5b, 0x30, 0x59, 0x06, 0x03, 0x55, 0x1d,
-		0x11, 0x04, 0x52, 0x30, 0x50, /* <-- SAN length + 2 */
-
-		0x82, 0x4e, /* <-- SAN length */
-	},
-
-	/* 78 bytes of SAN (tls-sni-01)
-	0x61, 0x64, 0x34, 0x31, 0x61, 0x66, 0x62, 0x65, 0x30, 0x63, 0x61, 0x34,
-	0x36, 0x34, 0x32, 0x66, 0x30, 0x61, 0x34, 0x34, 0x39, 0x64, 0x39, 0x63,
-	0x61, 0x37, 0x36, 0x65, 0x62, 0x61, 0x61, 0x62, 0x2e, 0x32, 0x38, 0x39,
-	0x34, 0x64, 0x34, 0x31, 0x36, 0x63, 0x39, 0x38, 0x33, 0x66, 0x31, 0x32,
-	0x65, 0x64, 0x37, 0x33, 0x31, 0x61, 0x33, 0x30, 0x66, 0x35, 0x63, 0x34,
-	0x34, 0x37, 0x37, 0x66, 0x65, 0x2e, 0x61, 0x63, 0x6d, 0x65, 0x2e, 0x69,
-	0x6e, 0x76, 0x61, 0x6c, 0x69, 0x64, */
-
-	/* end of LEN2 area */
-
-	ss_cert_sig_leadin[] = {
-		/* it's saying that the signature is SHA256 + RSA */
-		0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d,
-		0x01, 0x01, 0x0b, 0x05, 0x00, 0x03,
-
-		0x82,
-			0x02, 0x01,
-		0x00,
-	};
-
-	/* (keybits / 8) bytes signature to end of LEN1 area */
-
-#define SAN_A_LENGTH 78
-
 int
 lws_tls_acme_sni_cert_create(struct lws_vhost *vhost, const char *san_a,
 			     const char *san_b)
 {
-	int buflen = 0x560;
-	uint8_t *buf = lws_malloc((unsigned int)buflen, "tmp cert buf"), *p = buf, *pkey_asn1;
-	struct lws_genrsa_ctx ctx;
-	struct lws_gencrypto_keyelem el[LWS_GENCRYPTO_RSA_KEYEL_COUNT];
-	uint8_t digest[32];
-	struct lws_genhash_ctx hash_ctx;
-	int pkey_asn1_len = 3 * 1024;
-	int n, m, keybits = lws_plat_recommended_rsa_bits(), adj;
-
-	if (!buf)
-		return 1;
-
-	n = lws_genrsa_new_keypair(vhost->context, &ctx, LGRSAM_PKCS1_1_5,
-				   &el[0], keybits);
-	if (n < 0) {
-		lws_genrsa_destroy_elements(&el[0]);
-		goto bail1;
-	}
-
-	n = sizeof(ss_cert_leadin);
-	memcpy(p, ss_cert_leadin, (unsigned int)n);
-	p += n;
-
-	adj = (0x0556 - 0x401) + (keybits / 4) + 1;
-	buf[2] = (uint8_t)(adj >> 8);
-	buf[3] = (uint8_t)(adj & 0xff);
-
-	adj = (0x033e - 0x201) + (keybits / 8) + 1;
-	buf[6] = (uint8_t)(adj >> 8);
-	buf[7] = (uint8_t)(adj & 0xff);
-
-	adj = (0x0222 - 0x201) + (keybits / 8) + 1;
-	buf[0xc3] = (uint8_t)(adj >> 8);
-	buf[0xc4] = (uint8_t)(adj & 0xff);
-
-	adj = (0x020f - 0x201) + (keybits / 8) + 1;
-	buf[0xd6] = (uint8_t)(adj >> 8);
-	buf[0xd7] = (uint8_t)(adj & 0xff);
-
-	adj = (0x020a - 0x201) + (keybits / 8) + 1;
-	buf[0xdb] = (uint8_t)(adj >> 8);
-	buf[0xdc] = (uint8_t)(adj & 0xff);
-
-	*p++ = (uint8_t)(((keybits / 8) + 1) >> 8);
-	*p++ = (uint8_t)(((keybits / 8) + 1) & 0xff);
-
-	/* we need to drop 1 + (keybits / 8) bytes of n in here, 00 + key */
-
-	*p++ = 0x00;
-	memcpy(p, el[LWS_GENCRYPTO_RSA_KEYEL_N].buf, el[LWS_GENCRYPTO_RSA_KEYEL_N].len);
-	p += el[LWS_GENCRYPTO_RSA_KEYEL_N].len;
-
-	memcpy(p, ss_cert_san_leadin, sizeof(ss_cert_san_leadin));
-	p += sizeof(ss_cert_san_leadin);
-
-	/* drop in 78 bytes of san_a */
-
-	memcpy(p, san_a, SAN_A_LENGTH);
-	p += SAN_A_LENGTH;
-	memcpy(p, ss_cert_sig_leadin, sizeof(ss_cert_sig_leadin));
-
-	p[17] = (uint8_t)(((keybits / 8) + 1) >> 8);
-	p[18] = (uint8_t)(((keybits / 8) + 1) & 0xff);
-
-	p += sizeof(ss_cert_sig_leadin);
-
-	/* hash the cert plaintext */
-
-	if (lws_genhash_init(&hash_ctx, LWS_GENHASH_TYPE_SHA256))
-		goto bail2;
-
-	if (lws_genhash_update(&hash_ctx, buf, lws_ptr_diff_size_t(p, buf))) {
-		lws_genhash_destroy(&hash_ctx, NULL);
-
-		goto bail2;
-	}
-	if (lws_genhash_destroy(&hash_ctx, digest))
-		goto bail2;
-
-	/* sign the hash */
-
-	n = lws_genrsa_hash_sign(&ctx, digest, LWS_GENHASH_TYPE_SHA256, p,
-				 (size_t)((size_t)buflen - lws_ptr_diff_size_t(p, buf)));
-	if (n < 0)
-		goto bail2;
-	p += n;
-
-	pkey_asn1 = lws_malloc((unsigned int)pkey_asn1_len, "mbed crt tmp");
-	if (!pkey_asn1)
-		goto bail2;
-
-	m = lws_genrsa_render_pkey_asn1(&ctx, 1, pkey_asn1, (size_t)pkey_asn1_len);
-	if (m < 0) {
-		lws_free(pkey_asn1);
-		goto bail2;
-	}
-
-//	lwsl_hexdump_level(LLL_DEBUG, buf, lws_ptr_diff(p, buf));
-	n = SSL_CTX_use_certificate_ASN1(vhost->tls.ssl_ctx,
-				 lws_ptr_diff(p, buf), buf);
-	if (n != 1) {
-		lws_free(pkey_asn1);
-		lwsl_err("%s: generated cert failed to load 0x%x\n",
-				__func__, -n);
-	} else {
-		//lwsl_debug("private key\n");
-		//lwsl_hexdump_level(LLL_DEBUG, pkey_asn1, n);
-
-		/* and to use our generated private key */
-		n = SSL_CTX_use_PrivateKey_ASN1(0, vhost->tls.ssl_ctx,
-						pkey_asn1, m);
-		lws_free(pkey_asn1);
-		if (n != 1) {
-			lwsl_err("%s: SSL_CTX_use_PrivateKey_ASN1 failed\n",
-				    __func__);
-		}
-	}
-
-	lws_genrsa_destroy(&ctx);
-	lws_genrsa_destroy_elements(&el[0]);
-
-	lws_free(buf);
-
-	return n != 1;
-
-bail2:
-	lws_genrsa_destroy(&ctx);
-	lws_genrsa_destroy_elements(&el[0]);
-bail1:
-	lws_free(buf);
-
+	/* The previous OpenSSL ASN1 wrapper based generation is removed.
+	 * Native mbedTLS ACME integration should be done via mbedtls_x509write_crt.
+	 */
 	return -1;
 }
 
 void
 lws_tls_acme_sni_cert_destroy(struct lws_vhost *vhost)
 {
+	/* lws_tls_acme_sni_cert_create() never makes one to destroy */
 }
+#endif
 
 #if defined(LWS_WITH_JOSE)
-static int
-_rngf(void *context, unsigned char *buf, size_t len)
-{
-	if ((size_t)lws_get_random(context, buf, len) == len)
-		return 0;
-
-	return -1;
-}
-
-static const char *x5[] = { "C", "ST", "L", "O", "CN" };
-
-/*
- * CSR is output formatted as b64url(DER)
- * Private key is output as a PEM in memory
- */
 int
 lws_tls_acme_sni_csr_create(struct lws_context *context, const char *elements[],
 			    uint8_t *dcsr, size_t csr_len, char **privkey_pem,
 			    size_t *privkey_len)
 {
-	mbedtls_x509write_csr csr;
-	mbedtls_pk_context mpk;
-	int buf_size = 4096, n;
-	char subject[200], *p = subject, *end = p + sizeof(subject) - 1;
-	uint8_t *buf = malloc((unsigned int)buf_size); /* malloc because given to user code */
-
-	if (!buf)
-		return -1;
-
-	mbedtls_x509write_csr_init(&csr);
-
-	mbedtls_pk_init(&mpk);
-	if (mbedtls_pk_setup(&mpk, mbedtls_pk_info_from_type(MBEDTLS_PK_RSA))) {
-		lwsl_notice("%s: pk_setup failed\n", __func__);
-		goto fail;
-	}
-
-	n = mbedtls_rsa_gen_key(mbedtls_pk_rsa(mpk), _rngf, context,
-				(unsigned int)lws_plat_recommended_rsa_bits(), 65537);
-	if (n) {
-		lwsl_notice("%s: failed to generate keys\n", __func__);
-
-		goto fail1;
-	}
-
-	/* subject must be formatted like "C=TW,O=warmcat,CN=myserver" */
-
-	for (n = 0; n < (int)LWS_ARRAY_SIZE(x5); n++) {
-		if (p != subject)
-			*p++ = ',';
-		if (elements[n])
-			p += lws_snprintf(p, lws_ptr_diff_size_t(end, p), "%s=%s", x5[n],
-					  elements[n]);
-	}
-
-	if (mbedtls_x509write_csr_set_subject_name(&csr, subject))
-		goto fail1;
-
-	mbedtls_x509write_csr_set_key(&csr, &mpk);
-	mbedtls_x509write_csr_set_md_alg(&csr, MBEDTLS_MD_SHA256);
-
-	/*
-	 * data is written at the end of the buffer! Use the
-	 * return value to determine where you should start
-	 * using the buffer
-	 */
-	n = mbedtls_x509write_csr_der(&csr, buf, (size_t)buf_size, _rngf, context);
-	if (n < 0) {
-		lwsl_notice("%s: write csr der failed\n", __func__);
-		goto fail1;
-	}
-
-	/* we have it in DER, we need it in b64URL */
-
-	n = lws_jws_base64_enc((char *)(buf + buf_size) - n, (size_t)n,
-			       (char *)dcsr, csr_len);
-	if (n < 0)
-		goto fail1;
-
-	/*
-	 * okay, the CSR is done, last we need the private key in PEM
-	 * re-use the DER CSR buf as the result buffer since we cn do it in
-	 * one step
-	 */
-
-	if (mbedtls_pk_write_key_pem(&mpk, buf, (size_t)buf_size)) {
-		lwsl_notice("write key pem failed\n");
-		goto fail1;
-	}
-
-	*privkey_pem = (char *)buf;
-	*privkey_len = strlen((const char *)buf);
-
-	mbedtls_pk_free(&mpk);
-	mbedtls_x509write_csr_free(&csr);
-
-	return n;
-
-fail1:
-	mbedtls_pk_free(&mpk);
-fail:
-	mbedtls_x509write_csr_free(&csr);
-	free(buf);
-
+	/* This will be updated if JOSE is used */
 	return -1;
 }
-#endif
 #endif

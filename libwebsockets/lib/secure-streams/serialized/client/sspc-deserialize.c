@@ -83,11 +83,78 @@ lws_ss_serialize_state_transition(lws_sspc_handle_t *h,
  */
 
 /* convert userdata ptr _pss to handle pointer, allowing for any layout in
- * userdata */
-#define client_pss_to_sspc_h(_pss, _ssi) (*((lws_sspc_handle_t **) \
-				     ((uint8_t *)_pss) + _ssi->handle_offset))
+ * userdata.  handle_offset is a *byte* offset (that's how lws_sspc_create()
+ * stores the handle), so the addition must be done on the uint8_t * */
+#define client_pss_to_sspc_h(_pss, _ssi) (*(lws_sspc_handle_t **) \
+				     (((uint8_t *)(_pss)) + (_ssi)->handle_offset))
 /* client pss to sspc userdata */
 #define client_pss_to_userdata(_pss) ((void *)_pss)
+
+/*
+ * Bound how much rx metadata a proxy can make us accumulate: entries are only
+ * removed when replaced by one with the same name, or at stream destroy, so
+ * an uncooperative proxy could otherwise grow this list without limit
+ */
+
+#define LWS_SSPC_RX_METADATA_MAX_ITEMS	16
+#define LWS_SSPC_RX_METADATA_MAX_TOTAL	(64 * 1024)
+
+/*
+ * The largest piece of rx payload we pass up, or stash in the dsh to
+ * reassemble, at once
+ */
+
+#define LWS_SSPC_RX_FRAG_MAX		1380
+
+/*
+ * The proxy recommends our dsh allocation in its CREATE_RESULT, as a signed
+ * be32 straight off the wire.  Bound what we will act on: 0 means "you
+ * choose", and anything negative or absurdly large is a hostile proxy.
+ *
+ * At the low end, when a fragment doesn't fit in what is stashed already, we
+ * flush the dsh and stash the fragment in the empty dsh, so it must be able
+ * to hold the largest fragment: that costs the dsh an object header for the
+ * free space and one for the object, and the object length is aligned.  A
+ * smaller recommendation is raised to that.
+ */
+
+#define LWS_SSPC_DSH_MAX		(4 * 1024 * 1024)
+#define LWS_SSPC_DSH_MIN		(LWS_SSPC_RX_FRAG_MAX + \
+					 (2 * sizeof(lws_dsh_obj_t)) + \
+					 sizeof(void *))
+#define LWS_SSPC_DSH_DEFAULT		32768
+
+/*
+ * The proxy chooses the tx credit adjustments, and they accumulate into a
+ * signed 32-bit counter that it can send as often as it likes... saturate
+ * rather than allow the signed overflow (UB) to wrap us permanently negative
+ */
+
+static void
+lws_sspc_txcr_add(struct lws_tx_credit *txc, int32_t bump)
+{
+	int64_t n = (int64_t)txc->tx_cr + (int64_t)bump;
+
+	if (n > (int64_t)INT32_MAX)
+		n = (int64_t)INT32_MAX;
+	if (n < (int64_t)INT32_MIN)
+		n = (int64_t)INT32_MIN;
+
+	txc->tx_cr = (int32_t)n;
+}
+
+/*
+ * The 32-bit fields arrive MSB first, a byte at a time, from the proxy.
+ * Accumulate them unsigned: shifting proxy bits into (or a negative leftover
+ * from the last field through) the sign bit of an int32_t is undefined
+ * behaviour.  The proxy side's parser does the same.
+ */
+
+static int32_t
+ser_acc32(int32_t acc, uint8_t c)
+{
+	return (int32_t)(((uint32_t)acc << 8) | c);
+}
 
 int
 lws_sspc_deserialize_parse(lws_sspc_handle_t *hh, const uint8_t *cp, size_t len,
@@ -99,6 +166,7 @@ lws_sspc_deserialize_parse(lws_sspc_handle_t *hh, const uint8_t *cp, size_t len,
 	lws_sspc_metadata_t *md;
 	lws_sspc_handle_t *h;
 	uint32_t flags;
+	size_t tot;
 	int n, r = 0;
 
 //	lwsl_notice("%s: len %u, par->ps %d, par->rem %d\n", __func__, (unsigned int)len, (int)par->ps, (int)par->rem);
@@ -194,6 +262,15 @@ lws_sspc_deserialize_parse(lws_sspc_handle_t *hh, const uint8_t *cp, size_t len,
 				break;
 
 			case LWSSS_SER_RXPRE_TXCR_UPDATE:
+				/*
+				 * It's a fixed-size TLV carrying a be32... a
+				 * length of anything else would leave us
+				 * resynchronizing on garbage
+				 */
+				if (par->rem != 4) {
+					lwsl_info("TXCRU1\n");
+					goto hangup;
+				}
 				par->ctr = 0;
 				par->ps = RPAR_RX_TXCR_UPDATE;
 				break;
@@ -284,6 +361,18 @@ lws_sspc_deserialize_parse(lws_sspc_handle_t *hh, const uint8_t *cp, size_t len,
 				lwsl_info("RPAR_RIDESHARE_LEN\n");
 				goto hangup;
 			}
+			/*
+			 * slen must leave room for the NUL, and it must not be
+			 * zero: RPAR_RIDESHARE terminates on ctr reaching slen,
+			 * and ctr only ever counts up from 1, so a zero slen
+			 * would never terminate inside the buffer
+			 */
+			if (!par->slen ||
+			    par->slen >= sizeof(par->rideshare)) {
+				lwsl_err("%s: rideshare slen %d >= buffer %zu\n",
+					 __func__, (unsigned)par->slen, sizeof(par->rideshare));
+				goto hangup;
+			}
 			break;
 
 		case RPAR_PERF:
@@ -328,13 +417,24 @@ lws_sspc_deserialize_parse(lws_sspc_handle_t *hh, const uint8_t *cp, size_t len,
 			break;
 
 		case RPAR_RIDESHARE:
+			/*
+			 * Bound the store itself, and terminate on >= rather
+			 * than != , so no combination of slen and ctr can walk
+			 * past the end of the buffer.  Leave room for the NUL,
+			 * lws_sspc_rideshare() hands this out as a string.
+			 */
+			if (par->ctr >= (int)sizeof(par->rideshare) - 1) {
+				lwsl_info("RS1\n");
+				goto hangup;
+			}
 			par->rideshare[par->ctr++] = (char)*cp++;
 			if (!par->rem--) {
 				lwsl_info("RS\n");
 				goto hangup;
 			}
-			if (par->ctr != par->slen)
+			if (par->ctr < par->slen)
 				break;
+			par->rideshare[par->ctr] = '\0';
 			par->ps = RPAR_PAYLOAD;
 			if (par->rem)
 				break;
@@ -350,8 +450,8 @@ payload_ff:
 
 			if (n > par->rem)
 				n = par->rem;
-			if (n > 1380)
-				n = 1380;
+			if (n > LWS_SSPC_RX_FRAG_MAX)
+				n = LWS_SSPC_RX_FRAG_MAX;
 
 			h = lws_container_of(par, lws_sspc_handle_t, parser);
 
@@ -359,9 +459,17 @@ payload_ff:
 			 * If the transport is passing up little pieces, use the
 			 * dsh to coalesce them to whole datagrams before giving
 			 * them to the application.
+			 *
+			 * A zero-length payload (only flags for the app) has
+			 * nothing to stash... stashing it used to leave a 0-byte
+			 * object at the head of the dsh that was taken for "no
+			 * stashed data" and never freed, so the earlier pieces
+			 * of every later payload that came in more than one
+			 * read were stashed behind it and lost.
 			 */
 
-			if (par->frag1 || n != par->rem) {
+			r = 0;
+			if (n && (par->frag1 || n != par->rem)) {
 //				lwsl_notice("%s: coalescing %d (par->rem %d)\n",
 //					__func__, n, (int)par->rem);
 				r = lws_dsh_alloc_tail(h->dsh, 0, cp, (size_t)n,
@@ -426,11 +534,12 @@ payload_ff:
 				size_t size;
 				int ret;
 
-				if (lws_dsh_get_head(h->dsh, 0, &vb, &size))
-					size = 0;
-				// lwsl_notice("%s: flush head says %d\n", __func__, (int)size);
+				/*
+				 * Whether anything is stashed is whether there
+				 * is a head object, not what size it is
+				 */
 
-				if (!size)
+				if (lws_dsh_get_head(h->dsh, 0, &vb, &size))
 					/* did not go through dsh */
 					ret = ssi->rx(client_pss_to_userdata(pss),
 					      (uint8_t *)cp, (unsigned int)n,
@@ -444,9 +553,8 @@ payload_ff:
 								(uint8_t *)vb, (unsigned int)size,
 								(int)flags);
 						lws_dsh_free(&vb);
-						if (lws_dsh_get_head(h->dsh, 0, &vb, &size))
-							size = 0;
-					} while (!ret && size);
+					} while (!ret && !lws_dsh_get_head(h->dsh, 0,
+								&vb, &size));
 
 					lws_dsh_empty(h->dsh);
 
@@ -454,11 +562,18 @@ payload_ff:
 						/*
 						 * Deal with stashing the new
 						 * data we couldn't fit before,
-						 * now we flushed the dsh
+						 * now we flushed the dsh...
+						 * the empty dsh is at least
+						 * LWS_SSPC_DSH_MIN, so this
+						 * can't fail, but if it does,
+						 * don't silently drop it
 						 */
 						r = lws_dsh_alloc_tail(h->dsh, 0, cp, (size_t)n,
 								       NULL, 0);
-						assert(!r);
+						if (r) {
+							lwsl_sspc_err(h, "unable to stash rx");
+							goto hangup;
+						}
 					}
 				}
 
@@ -501,7 +616,7 @@ payload_ff:
 				goto hangup;
 			}
 
-			par->temp32 = (par->temp32 << 8) | *cp++;
+			par->temp32 = ser_acc32(par->temp32, *cp++);
 			if (++par->ctr < 4)
 				break;
 
@@ -511,7 +626,7 @@ payload_ff:
 			 */
 
 			h = lws_container_of(par, lws_sspc_handle_t, parser);
-			h->txc.tx_cr += par->temp32;
+			lws_sspc_txcr_add(&h->txc, par->temp32);
 			lwsl_sspc_info(h, "RX_PEER_TXCR: %d", (int)par->temp32);
 			lws_sspc_request_tx(h); /* in case something waiting */
 			par->ctr = 0;
@@ -552,7 +667,7 @@ payload_ff:
 				goto hangup;
 			}
 
-			par->temp32 = (par->temp32 << 8) | *cp++;
+			par->temp32 = ser_acc32(par->temp32, *cp++);
 			if (++par->ctr < 4)
 				break;
 
@@ -567,7 +682,7 @@ payload_ff:
 				goto hangup;
 			}
 
-			par->temp32 = (par->temp32 << 8) | *cp++;
+			par->temp32 = ser_acc32(par->temp32, *cp++);
 			if (++par->ctr < 4)
 				break;
 
@@ -583,7 +698,7 @@ payload_ff:
 
 		case RPAR_TXCR0:
 
-			par->temp32 = (par->temp32 << 8) | *cp++;
+			par->temp32 = ser_acc32(par->temp32, *cp++);
 			if (++par->ctr < 4) {
 				if (!--par->rem) {
 					lwsl_info("TXCR0\n");
@@ -605,7 +720,7 @@ payload_ff:
 			 */
 			h = lws_container_of(par, lws_sspc_handle_t,
 					     parser);
-			h->txc.tx_cr += par->temp32;
+			lws_sspc_txcr_add(&h->txc, par->temp32);
 			lwsl_sspc_info(h, "client RX_PEER_TXCR: %d",
 				       (int)par->temp32);
 			/* in case something waiting */
@@ -626,7 +741,14 @@ payload_ff:
 				goto hangup;
 			}
 			par->slen = *cp++;
-			if (par->slen >= sizeof(par->metadata_name) - 1) {
+			/*
+			 * A zero-length metadata name is meaningless, and
+			 * RPAR_METADATA_NAME can only terminate on ctr
+			 * reaching slen, where ctr counts up from 1... so a
+			 * zero slen would never terminate inside the buffer
+			 */
+			if (!par->slen ||
+			    par->slen >= sizeof(par->metadata_name) - 1) {
 				lwsl_info("NL2\n");
 				goto hangup;
 			}
@@ -640,41 +762,78 @@ payload_ff:
 				lwsl_info("MDN\n");
 				goto hangup;
 			}
+			/* bound the store, and terminate on >= not != */
+			if (par->ctr >= (int)sizeof(par->metadata_name) - 1) {
+				lwsl_info("MDN1\n");
+				goto hangup;
+			}
 			par->metadata_name[par->ctr++] = (char)*cp++;
-			if (par->ctr != par->slen)
+			if (par->ctr < par->slen)
 				break;
 			par->metadata_name[par->ctr] = '\0';
 			par->ps = RPAR_METADATA_VALUE;
 
 			h = client_pss_to_sspc_h(pss, ssi);
+			if (!h) {
+				/*
+				 * We're about to walk and add to lists inside
+				 * the handle... it must be checked before,
+				 * not after, we use it
+				 */
+				lwsl_info("MDN2\n");
+				goto hangup;
+			}
 
 			/*
 			 * client side does not have access to policy
-			 * and any metadata are new to it each time,
-			 * we allocate them, removing any existing with
-			 * the same name first
+			 * and any metadata are new to it each time, we
+			 * allocate them, replacing any existing with the same
+			 * name.
+			 *
+			 * The proxy is not necessarily trustworthy, and rx
+			 * metadata is only reaped at stream destroy or when
+			 * replaced by the same name... so bound how much of
+			 * it we can be made to hold on to, counting what we
+			 * will hold once this value replaces any old one
 			 */
 
-			lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1,
-					lws_dll2_get_head(
-						&h->metadata_owner_rx)) {
+			tot = 0;
+			n = 0;
+			lws_start_foreach_dll(struct lws_dll2 *, d,
+				      lws_dll2_get_head(&h->metadata_owner_rx)) {
 				md = lws_container_of(d,
 					   lws_sspc_metadata_t, list);
 
-				if (!strcmp(md->name,
-					    par->metadata_name)) {
-					lws_dll2_remove(&md->list);
-					lws_free(md);
+				if (strcmp(md->name, par->metadata_name)) {
+					tot += md->len;
+					n++;
 				}
+			} lws_end_foreach_dll(d);
 
-			} lws_end_foreach_dll_safe(d, d1);
+			if (n >= LWS_SSPC_RX_METADATA_MAX_ITEMS ||
+			    tot + (size_t)par->rem >
+					LWS_SSPC_RX_METADATA_MAX_TOTAL) {
+				lwsl_sspc_err(h, "rx metadata cap exceeded");
+				goto hangup;
+			}
 
 			/*
-			 * Create the client's rx metadata entry
+			 * The value arrives a byte at a time, maybe over
+			 * several rx callbacks, and the link may go down
+			 * before all of it has come.  So stage the new entry
+			 * privately in the parser, and only list it, in place
+			 * of any old value, once it is complete: until then
+			 * lws_sspc_get_metadata() keeps returning whatever
+			 * complete value it had.
 			 */
 
+			if (par->rxmd) {
+				lws_free(par->rxmd);
+				par->rxmd = NULL;
+			}
+
 #if !defined(STANDALONE)
-			if (h && lws_fi(&h->fic, "sspc_rx_metadata_oom"))
+			if (lws_fi(&h->fic, "sspc_rx_metadata_oom"))
 				md = NULL;
 			else
 #endif
@@ -684,9 +843,6 @@ payload_ff:
 				lwsl_err("%s: OOM\n", __func__);
 				goto hangup;
 			}
-			if (!h)
-				/* coverity */
-				goto hangup;
 			memset(md, 0, sizeof(lws_sspc_metadata_t));
 
 			lws_strncpy(md->name, par->metadata_name,
@@ -700,21 +856,46 @@ payload_ff:
 			 * apis that's the most common usage
 			 */
 			par->rxmetaval[md->len] = '\0';
-			lws_dll2_add_tail(&md->list,
-					  &h->metadata_owner_rx);
+			par->rxmd = md;
 			par->ctr = 0;
 			break;
 
 		case RPAR_METADATA_VALUE:
 			/* both client and proxy */
 
+			if (!par->rxmd) {
+				/* nothing staged to take the value */
+				lwsl_info("MDV\n");
+				goto hangup;
+			}
+
 			*par->rxmetaval++ = *cp++;
 			if (--par->rem)
 				break;
 
-			/* we think we got all the value */
+			/*
+			 * We have all the value: it replaces any old value
+			 * with the same name
+			 */
 
 			h = lws_container_of(par, lws_sspc_handle_t, parser);
+
+			lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1,
+				      lws_dll2_get_head(&h->metadata_owner_rx)) {
+				md = lws_container_of(d,
+					   lws_sspc_metadata_t, list);
+
+				if (!strcmp(md->name, par->rxmd->name)) {
+					lws_dll2_remove(&md->list);
+					lws_free(md);
+				}
+			} lws_end_foreach_dll_safe(d, d1);
+
+			lws_dll2_add_tail(&par->rxmd->list,
+					  &h->metadata_owner_rx);
+			par->rxmd = NULL;
+			par->rxmetaval = NULL;
+
 			lwsl_sspc_notice(h, "RX METADATA %s", par->metadata_name);
 			par->ps = RPAR_TYPE;
 			break;
@@ -746,7 +927,7 @@ payload_ff:
 
 		case RPAR_RESULT_CREATION_DSH:
 
-			par->temp32 = (par->temp32 << 8) | (*cp++);
+			par->temp32 = ser_acc32(par->temp32, *cp++);
 			if (!par->rem--) {
 				lwsl_info("CDSH\n");
 				goto hangup;
@@ -798,20 +979,25 @@ payload_ff:
 							(struct lws *)NULL);
 #endif
 
-			if (!h->creating_cb_done) {
+			if (h->creating_cb_done) {
+				/*
+				 * We lost the proxy link and this is a new one
+				 * with a new stream at the proxy.  The user
+				 * code must not see CREATING again, so we
+				 * recreate the proxy stream's state for it.
+				 */
+				lws_sspc_relink_restore(h);
+			} else {
 				if (lws_ss_check_next_state_sspc(h,
 						&h->prev_ss_state,
 						LWSSSCS_CREATING))
 					return LWSSSSRET_DESTROY_ME;
 
-				h->prev_ss_state = (uint8_t)LWSSSCS_CREATING;
 				h->creating_cb_done = 1;
-			} else
-				h->prev_ss_state = LWSSSCS_DISCONNECTED;
 
-			if (ssi->state) {
-				n = ssi->state(client_pss_to_userdata(pss),
-					       NULL, h->prev_ss_state, 0);
+				n = ssi->state ? ssi->state(
+					client_pss_to_userdata(pss), NULL,
+					LWSSSCS_CREATING, 0) : LWSSSSRET_OK;
 				switch (n) {
 				case LWSSSSRET_OK:
 					break;
@@ -824,15 +1010,42 @@ payload_ff:
 				}
 			}
 
-			if (!h->dsh)
-				h->dsh = lws_dsh_create(NULL,
+			if (!h->dsh) {
 #if defined(STANDALONE)
-					2048,
+				size_t dsh_size = 2048;
 #else
-					(size_t)(par->temp32 ?
-						 par->temp32 : 32768),
+				size_t dsh_size;
+
+				/*
+				 * par->temp32 is chosen by the proxy: as a
+				 * signed int32 a negative value would
+				 * sign-extend into a huge size_t and wrap
+				 * lws_dsh_create()'s internal accounting, and
+				 * a large positive one is just a way to make
+				 * us allocate GBs.  Range-check it before it
+				 * can become an allocation size.
+				 */
+
+				if (par->temp32 < 0 ||
+				    par->temp32 > LWS_SSPC_DSH_MAX) {
+					lwsl_sspc_err(h, "proxy dsh size %d "
+						      "out of range",
+						      (int)par->temp32);
+					goto hangup;
+				}
+
+				dsh_size = (size_t)(par->temp32 ? par->temp32 :
+							LWS_SSPC_DSH_DEFAULT);
+				if (dsh_size < LWS_SSPC_DSH_MIN) {
+					lwsl_sspc_notice(h, "proxy dsh size %u "
+						"raised to %u", (unsigned int)dsh_size,
+						(unsigned int)LWS_SSPC_DSH_MIN);
+					dsh_size = LWS_SSPC_DSH_MIN;
+				}
 #endif
+				h->dsh = lws_dsh_create(NULL, dsh_size,
 					(int)(hh->txp_path.ops_onw->flags | 1u));
+			}
 			if (!h->dsh) {
 				lwsl_info("CDSH3\n");
 				goto hangup;
@@ -846,7 +1059,7 @@ payload_ff:
 			par->rsl_idx = 0;
 
 			memset(&h->rideshare_ofs[0], 0,
-			       sizeof(h->rideshare_ofs[0]));
+			       sizeof(h->rideshare_ofs));
 			h->rideshare_list[0] = '\0';
 			h->rsidx = 0;
 
@@ -867,25 +1080,38 @@ payload_ff:
 			if (*cp == ',') {
 				cp++;
 				h->rideshare_list[par->rsl_pos++] = '\0';
-				if (par->rsl_idx == LWS_ARRAY_SIZE(h->rideshare_ofs)) {
+				if (par->rsl_idx + 1 >= (int)LWS_ARRAY_SIZE(h->rideshare_ofs)) {
 					lwsl_info("CDSH5\n");
 					goto hangup;
 				}
 				h->rideshare_ofs[++par->rsl_idx] = par->rsl_pos;
 			} else
 				h->rideshare_list[par->rsl_pos++] = (char)*cp++;
-			if (!--par->rem)
+			if (!--par->rem) {
+				/*
+				 * The last element is not comma-terminated,
+				 * so NUL-terminate it ourselves... otherwise
+				 * a shorter list arriving after a longer one
+				 * (eg, on reconnect) would read on into the
+				 * tail of the previous list.  rem was capped
+				 * below sizeof(rideshare_list) above, so
+				 * rsl_pos is still inside the buffer here.
+				 */
+				h->rideshare_list[par->rsl_pos] = '\0';
 				par->ps = RPAR_TYPE;
+			}
 			break;
 
 		case RPAR_STATEINDEX:
-			par->ctr = (par->ctr << 8) | (*cp++);
+			/* the enum's integer type is up to the compiler */
+			par->ctr = (lws_ss_constate_t)
+				(((uint32_t)par->ctr << 8) | (*cp++));
 			if (--par->rem == 4)
 				par->ps = RPAR_ORD3;
 			break;
 
 		case RPAR_ORD3:
-			par->flags = (uint32_t)((*cp++) << 24);
+			par->flags = (uint32_t)(*cp++) << 24;
 			par->ps++;
 			break;
 
@@ -919,11 +1145,27 @@ payload_ff:
 
 			switch (par->ctr) {
 			case LWSSSCS_DISCONNECTED:
+				if (h->ss_dangling_connected)
+					/*
+					 * A completed connection ended, if the
+					 * proxy stream is going to reconnect
+					 * we'll hear CONNECTING from it
+					 */
+					h->onward_wanted = 0;
+				/* fallthru */
 			case LWSSSCS_UNREACHABLE:
 			case LWSSSCS_AUTH_FAILED:
 				lws_ss_serialize_state_transition(h, state,
 						LPCSCLI_LOCAL_CONNECTED);
 				h->conn_req_state = LWSSSPC_ONW_NONE;
+				break;
+
+			case LWSSSCS_CONNECTING:
+				h->onward_wanted = 1;
+				break;
+
+			case LWSSSCS_ALL_RETRIES_FAILED:
+				h->onward_wanted = 0;
 				break;
 
 			case LWSSSCS_CONNECTED:
@@ -934,7 +1176,7 @@ payload_ff:
 					 * Don't allow to see connected more
 					 * than once for one connection
 					 */
-					goto swallow;
+					goto swallow_l;
 
 				lws_ss_serialize_state_transition(h, state,
 							LPCSCLI_OPERATIONAL);
@@ -942,14 +1184,11 @@ payload_ff:
 				h->conn_req_state = LWSSSPC_ONW_CONN;
 				break;
 			case LWSSSCS_TIMEOUT:
+				/* it's one-shot, don't restore it on relink */
+				h->timeout_armed = 0;
 				break;
 			default:
 				break;
-			}
-
-			if (par->ctr < 0) {
-				lwsl_info("ORDA\n");
-				goto hangup;
 			}
 
 #if !defined(STANDALONE) && defined(_DEBUG)
@@ -960,14 +1199,15 @@ payload_ff:
 			if (par->ctr == LWSSSCS_CREATING) {
 				h = lws_container_of(par, lws_sspc_handle_t,
 						     parser);
-				if (h->creating_cb_done)
+				if (h->creating_cb_done) {
 					/*
 					 * We have told him he's CREATING when
 					 * we heard we had linked up to the
 					 * proxy, so suppress the remote
 					 * CREATING so that he only sees it once
 					 */
-				break;
+					break;
+				}
 
 				h->creating_cb_done = 1;
 			}
@@ -1007,7 +1247,7 @@ payload_ff:
 				}
 			}
 
-swallow:
+swallow_l:
 			break;
 
 		default:

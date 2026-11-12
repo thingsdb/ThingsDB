@@ -27,6 +27,30 @@
 #endif
 #include "private-lib-core.h"
 
+/*
+ * A client wsi racing connects is entered in the table once for each of its
+ * live racer sockets as well as for its primary one (connect3.c swaps the
+ * racer fd into desc while it inserts it), so a racer fd belongs to it too.
+ * Otherwise when a racer is the last fds entry moved into a freed slot, its
+ * owner isn't found and its position_in_fds_table goes stale.
+ */
+static int
+wsi_owns_fd(const struct lws *wsi, lws_sockfd_type fd)
+{
+	if (wsi->io->desc.sockfd == fd)
+		return 1;
+
+#if defined(LWS_WITH_CLIENT)
+	if (wsi->io->parallel_conns)
+		for (int n = 0; n < wsi->io->parallel_count; n++)
+			if (wsi->io->parallel_conns[n].is_valid &&
+			    wsi->io->parallel_conns[n].desc.sockfd == fd)
+				return 1;
+#endif
+
+	return 0;
+}
+
 struct lws *
 wsi_from_fd(const struct lws_context *context, lws_sockfd_type fd)
 {
@@ -34,7 +58,7 @@ wsi_from_fd(const struct lws_context *context, lws_sockfd_type fd)
 	int n = 0;
 
 	for (n = 0; n < context->fd_hashtable[h].length; n++)
-		if (context->fd_hashtable[h].wsi[n]->desc.sockfd == fd)
+		if (wsi_owns_fd(context->fd_hashtable[h].wsi[n], fd))
 			return context->fd_hashtable[h].wsi[n];
 
 	return NULL;
@@ -43,9 +67,15 @@ wsi_from_fd(const struct lws_context *context, lws_sockfd_type fd)
 int
 insert_wsi(struct lws_context *context, struct lws *wsi)
 {
-	int h = LWS_FD_HASH(wsi->desc.sockfd);
+	int h = LWS_FD_HASH(wsi->io->desc.sockfd);
 
-	if (context->fd_hashtable[h].length == (getdtablesize() - 1)) {
+	/*
+	 * The bucket is context->max_fds entries, and max_fds is reduced from
+	 * getdtablesize() if the user set info.fd_limit_per_thread... so the
+	 * bound has to come from the actual allocation
+	 */
+
+	if (context->fd_hashtable[h].length >= (int)context->max_fds) {
 		lwsl_err("hash table overflow\n");
 		return 1;
 	}
@@ -62,8 +92,13 @@ delete_from_fd(struct lws_context *context, lws_sockfd_type fd)
 	int n = 0;
 
 	for (n = 0; n < context->fd_hashtable[h].length; n++)
-		if (context->fd_hashtable[h].wsi[n]->desc.sockfd == fd) {
-			while (n < context->fd_hashtable[h].length) {
+		if (wsi_owns_fd(context->fd_hashtable[h].wsi[n], fd)) {
+			/*
+			 * Compaction must stop at the last live element...
+			 * going to length would read wsi[length], one past it
+			 */
+
+			while (n < context->fd_hashtable[h].length - 1) {
 				context->fd_hashtable[h].wsi[n] =
 					context->fd_hashtable[h].wsi[n + 1];
 				n++;

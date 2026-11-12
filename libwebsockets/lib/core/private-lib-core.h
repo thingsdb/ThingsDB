@@ -1,7 +1,7 @@
 /*
  * libwebsockets - small server side websockets and web server implementation
  *
- * Copyright (C) 2010 - 2019 Andy Green <andy@warmcat.com>
+ * Copyright (C) 2010 - 2025 Andy Green <andy@warmcat.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to
@@ -27,6 +27,17 @@
 
 #include "lws_config.h"
 #include "lws_config_private.h"
+
+/*
+ * Protocol plugins are available at runtime: either dlopenable .so files
+ * (LWS_WITH_PLUGINS) or compiled into the library (LWS_BUILTIN_PLUGIN_NAMES,
+ * ie, LWS_WITH_PLUGINS_BUILTIN).  Code paths that bind plugin protocols into
+ * vhosts should gate on this rather than on LWS_WITH_PLUGINS alone, so
+ * builtin-only builds work identically.
+ */
+#if defined(LWS_WITH_PLUGINS) || defined(LWS_BUILTIN_PLUGIN_NAMES)
+#define LWS_WITH_PROTOCOL_PLUGINS 1
+#endif
 
 
 #if defined(LWS_WITH_CGI) && defined(LWS_HAVE_VFORK) && \
@@ -69,7 +80,7 @@
  #include <sys/stat.h>
 #endif
 
-#if LWS_MAX_SMP > 1 || defined(LWS_WITH_SYS_SMD)
+#if LWS_MAX_SMP > 1 || (defined(LWS_WITH_SYS_SMD) && defined(LWS_HAVE_PTHREAD_H))
  /* https://stackoverflow.com/questions/33557506/timespec-redefinition-error */
  #define HAVE_STRUCT_TIMESPEC
  #include <pthread.h>
@@ -156,6 +167,7 @@
 typedef struct lws_dsh_obj_head {
 	lws_dll2_owner_t		owner;
 	size_t				total_size; /* for this kind in dsh */
+	uint32_t			flags; /* LWS_DSHFLAGs for this kind */
 	int				kind;
 } lws_dsh_obj_head_t;
 
@@ -177,7 +189,6 @@ typedef struct lws_dsh {
 	size_t				locally_in_use;
 	size_t				locally_free;
 	int				count_kinds;
-	uint32_t			flags;
 	uint8_t				being_destroyed;
 	/*
 	 * Overallocations at create:
@@ -209,6 +220,7 @@ typedef struct lws_lifecycle {
 	lws_dll2_t			list; /* group list membership */
 	uint64_t			us_creation; /* creation timestamp */
 	lws_log_cx_t			*log_cx;
+	uint8_t				recycle_len;
 } lws_lifecycle_t;
 
 void
@@ -227,6 +239,35 @@ lws_lc_tag(lws_lifecycle_t *lc);
 extern lws_log_cx_t log_cx;
 
 /*
+ * More than one thread may log, not only with SMP or the threadpool: the
+ * async queue's workers and the txpacer thread log from inside lws, and
+ * applications log from their own threads.  So wherever there are pthreads,
+ * except on the small embedded platforms where lws runs no threads of its
+ * own, we must assume it.
+ */
+
+#if defined(LWS_HAVE_PTHREAD_H) && \
+    (LWS_MAX_SMP > 1 || defined(LWS_WITH_THREADPOOL) || \
+     defined(LWS_WITH_ASYNC_QUEUE) || \
+     (!defined(LWS_PLAT_OPTEE) && !defined(LWS_PLAT_BAREMETAL) && \
+      !defined(LWS_PLAT_FREERTOS)))
+#define LWS_LOG_THREADED
+#endif
+
+#if defined(LWS_WITH_LOG_SHIP)
+/*
+ * Every log line that passes its cx's filter is shown to the log shipper, if
+ * there is one, see lib/misc/log-ship.  It may be called on any thread that
+ * logs, and never logs itself.
+ */
+void
+lws_log_ship_tap(int level, const char *line, size_t len);
+struct lws_vhost;
+void
+lws_log_ship_destroy_on_vhost(struct lws_vhost *vh);
+#endif
+
+/*
  * Generic bidi tx credit management
  */
 
@@ -240,6 +281,62 @@ struct lws_tx_credit {
 	uint8_t			manual;
 };
 
+/*
+ * Tx credit is held as int32, but a peer may grant much more than that: QUIC
+ * flow control limits are 62-bit absolute offsets.  Wherever peer-granted
+ * credit meets the int32, it saturates at INT32_MAX rather than wrapping.
+ * That's safe because saturated credit is always less than or equal to what
+ * the peer really granted, so we can never overrun it; the rest is relearned
+ * as we use it up and the peer grants again.
+ */
+
+/* the credit left under an absolute limit, given how much we used of it */
+static LWS_INLINE int32_t
+lws_txc_limit_to_cr(uint64_t limit, uint64_t used)
+{
+	if (limit <= used)
+		return 0;
+
+	limit -= used;
+
+	return limit > (uint64_t)INT32_MAX ? INT32_MAX : (int32_t)limit;
+}
+
+/* tx credit adjusted by add, saturated to the int32 range */
+static LWS_INLINE int32_t
+lws_txc_cr_add(int32_t cr, int64_t add)
+{
+	int64_t r;
+
+	if (add > (int64_t)INT32_MAX - (int64_t)INT32_MIN)
+		return INT32_MAX;
+	if (add < (int64_t)INT32_MIN - (int64_t)INT32_MAX)
+		return INT32_MIN;
+
+	r = (int64_t)cr + add;
+	if (r > INT32_MAX)
+		return INT32_MAX;
+	if (r < INT32_MIN)
+		return INT32_MIN;
+
+	return (int32_t)r;
+}
+
+/*
+ * How much a new absolute limit raises credit cr that is already held
+ * against it, for adding with lws_txc_cr_add(): 0 if it doesn't
+ */
+static LWS_INLINE int32_t
+lws_txc_limit_raise(int32_t cr, uint64_t limit, uint64_t used)
+{
+	int64_t d = (int64_t)lws_txc_limit_to_cr(limit, used) - (int64_t)cr;
+
+	if (d <= 0)
+		return 0;
+
+	return d > (int64_t)INT32_MAX ? INT32_MAX : (int32_t)d;
+}
+
 #ifdef LWS_WITH_IPV6
 #if defined(WIN32) || defined(_WIN32)
 #include <iphlpapi.h>
@@ -250,22 +347,9 @@ struct lws_tx_credit {
 
 #undef X509_NAME
 
-/*
- * All lws_tls...() functions must return this type, converting the
- * native backend result and doing the extra work to determine which one
- * as needed.
- *
- * Native TLS backend return codes are NOT ALLOWED outside the backend.
- *
- * Non-SSL mode also uses these types.
- */
-enum lws_ssl_capable_status {
-	LWS_SSL_CAPABLE_ERROR			= -1, /* it failed */
-	LWS_SSL_CAPABLE_DONE			= 0,  /* it succeeded */
-	LWS_SSL_CAPABLE_MORE_SERVICE_READ	= -2, /* retry WANT_READ */
-	LWS_SSL_CAPABLE_MORE_SERVICE_WRITE	= -3, /* retry WANT_WRITE */
-	LWS_SSL_CAPABLE_MORE_SERVICE		= -4, /* general retry */
-};
+ /*
+  * the rest is managed per-context, that includes
+  */
 
 enum lws_context_destroy {
 	LWSCD_NO_DESTROY,		/* running */
@@ -321,7 +405,9 @@ struct lws_ring {
 struct lws_protocols;
 struct lws;
 
+#if defined(LWS_WITH_SECURE_STREAMS)
 #include "private-lib-secure-streams.h"
+#endif
 
 #if defined(LWS_WITH_NETWORK) /* network */
 #include "private-lib-event-libs.h"
@@ -337,13 +423,24 @@ struct lws;
 #include "private-lib-system-metrics.h"
 
 struct lws_foreign_thread_pollfd {
-	struct lws_foreign_thread_pollfd *next;
+	/* member of pt->foreign_pfd_owner, under pt lock both sides */
+	lws_dll2_t list;
 	int fd_index;
 	int _and;
 	int _or;
 };
 
 #include "private-lib-core-net.h"
+/*
+ * The IO half's private prototypes are hidden from the sansIO sources, which
+ * compile with LWS_SANSIO_CHECK, so a sansIO file calling into IO past the
+ * seam fails to compile.  The seam, sansIO's spelling of its requests of
+ * IO, is included at the end, once the context is complete.  See
+ * READMEs/README.sans-io-split.md.
+ */
+#if !defined(LWS_SANSIO_CHECK)
+#include "private-lib-io.h"
+#endif
 #endif /* network */
 
 struct lws_system_blob {
@@ -377,7 +474,7 @@ enum {
 
 	LWSLCG_WSI_SERVER,		/* server wsi */
 
-#if defined(LWS_ROLE_H2) || defined(LWS_ROLE_MQTT)
+#if defined(LWS_ROLE_H2) || defined(LWS_ROLE_MQTT) || defined(LWS_ROLE_QUIC)
 	LWSLCG_WSI_MUX,			/* a mux child wsi */
 #endif
 
@@ -433,18 +530,68 @@ typedef struct lws_ss_sinks {
 #endif
 
 /*
+ * This is a deliberate hand-rolled singly-linked FIFO, not an lws_dll2
+ * conversion candidate: segments are only ever appended at the tail and
+ * consumed/destroyed at the head, so the mid-list mutation and stale
+ * cached-iterator problems lws_dll2 exists to prevent cannot arise here.
+ * An lws_dll2_t would add prev + owner pointers to every rx segment on
+ * the hot buffering path for features a FIFO queue does not use; see
+ * buflist2 for the dll2-backed variant used by newer code.
+ */
+typedef struct lws_buflist {
+	struct lws_buflist			*next;
+	size_t					len;
+	size_t					pos;
+	unsigned char				awaiting_eom;
+	unsigned char				src_channel;
+	void					*heap_alloc;
+} lws_buflist_t;
+
+typedef enum {
+	LWS_H3_STATE_UNKNOWN,
+	LWS_H3_STATE_HTTPS_RECORD_EXISTS,
+	LWS_H3_STATE_ALTSVC_EXISTS,
+	LWS_H3_STATE_KNOWN_GOOD,
+	LWS_H3_STATE_FAILED_IGNORE
+} lws_h3_state_t;
+
+#define LWS_QUIC_GRACE_DEFAULT_US 2000000
+#define LWS_QUIC_GRACE_MARGIN_US  200000
+
+typedef struct {
+	lws_h3_state_t state;
+	uint32_t latency_us;
+} lws_h3_cap_info_t;
+
+/*
  * the rest is managed per-context, that includes
  *
  *  - processwide single fd -> wsi lookup
  *  - contextwide headers pool
  */
 
+#if defined(LWS_WITH_DLO) && defined(LWS_WITH_SECURE_STREAMS) && \
+    defined(LWS_WITH_CLIENT) && defined(LWS_WITH_STRUCT_JSON)
+/* faces listed by a manifest on a server, see lws_fonts_register_manifest() */
+#define LWS_DLO_REMOTE_FONTS
+#endif
+
 struct lws_context {
+	const lws_io_ops_t		*io_ops; /* the requests of IO */
+	const struct lws_io_plumbing	*io_plumbing;
+	/**< requests of lws' own IO's features (the cgi, jit trust), which
+	 * are not part of io_ops' contract */
+	size_t				wsi_io_size;
+	/**< IO's half of each wsi, allocated after it: the adjunct and the
+	 * event library's per-wsi block */
+	struct lws_io_adjunct		*fake_io;
+	/**< the IO half of a wsi made up for a callback that has no real
+	 * one: no socket, no place in the poll set (rides after the context) */
  #if defined(LWS_WITH_SERVER)
 	char canonical_hostname[96];
  #endif
-#if defined(LWS_HAVE_SSL_CTX_set_keylog_callback) && \
-	defined(LWS_WITH_TLS) && defined(LWS_WITH_CLIENT)
+#if defined(LWS_WITH_TLS_KEYLOG) && defined(LWS_WITH_TLS) && \
+	(defined(LWS_WITH_CLIENT) || defined(LWS_WITH_SERVER))
 	char					keylog_file[96];
 #endif
 
@@ -469,8 +616,20 @@ struct lws_context {
 #if defined(LWS_WITH_DLO)
 	lws_dll2_owner_t			fonts;
 	lws_dll2_owner_t			dlo_file;
+#if defined(LWS_DLO_REMOTE_FONTS)
+	struct lws_fonts_remote			*fonts_remote;
+#endif
 #if defined(LWS_WITH_SECURE_STREAMS)
 	lws_dll2_owner_t			active_assets; /* dloss_t */
+	lws_dll2_owner_t			pending_assets; /* dloss_t, queued for a slot */
+	lws_dll2_owner_t			released_images; /* lws_dlo_refetch_t,
+						 * laid out, fetch given back
+						 * until the raster */
+#if defined(LWS_WITH_FOOTPRINT)
+	lws_footprint_t				fp_dlo_assets; /* both lists */
+#endif
+	lws_sorted_usec_list_t			sul_assets_kick; /* retry starting
+						* queued assets when fds are short */
 #endif
 #endif
 
@@ -482,16 +641,25 @@ struct lws_context {
 	lws_lifecycle_group_t			lcg[LWSLCG_COUNT];
 
 	const struct lws_protocols		*protocols_copy;
+#if defined(LWS_ROLE_WS)
+        const struct lws_extension		*extensions;
+#endif
 
-#if defined(LWS_WITH_NETLINK)
+#if defined(LWS_WITH_ROUTING)
 	lws_sorted_usec_list_t			sul_nl_coldplug;
 	/* process can only have one netlink socket, have to do it in ctx */
 	lws_dll2_owner_t			routing_table;
 	struct lws				*netlink;
+	/* the sequence number of our latest request for all the routes */
+	uint32_t				nl_dump_seq;
 #endif
 
 #if defined(LWS_PLAT_FREERTOS)
+#if defined(LWS_WITH_IPV4)
 	struct sockaddr_in			frt_pipe_si;
+#else
+	struct sockaddr_in6			frt_pipe_si;
+#endif
 #endif
 
 #if defined(LWS_WITH_HTTP2)
@@ -515,6 +683,12 @@ struct lws_context {
  */
 
 	lws_dll2_owner_t		owner_vh_being_destroyed;
+
+#if defined(LWS_WITH_STUB)
+	lws_dll2_owner_t		owner_stub_mgrs;
+	/**< lws_stub_manager tracking, so stubs can never outlive the
+	 *   context or the vhost they were spawned on */
+#endif
 
 	lws_metric_t			*mt_service; /* doing service */
 	const lws_metric_policy_t	*metrics_policies;
@@ -567,13 +741,42 @@ struct lws_context {
 	lws_async_dns_t			async_dns;
 #endif
 
+	lws_sockaddr46			ext_ip_src[LWS_EXTIP_SRC_COUNT][2];
+	/**< each source's view of our external address, [src][0: v4, 1: v6],
+	 * family 0 if that source has none */
+	lws_sockaddr46			ext_ip[2];
+	/**< the best of ext_ip_src for each family, as last broadcast */
+
 #if defined(LWS_WITH_SYS_FAULT_INJECTION)
 	lws_fi_ctx_t			fic;
 	/**< Toplevel Fault Injection ctx */
+	struct lws_xos			random_xos;
+	/**< lws_get_random()'s seeded PRNG, when random_prng is set: its own
+	 * stream, so other faults consuming fic.xos do not move it */
+#if defined(LWS_WITH_NETWORK) && LWS_MAX_SMP > 1
+	pthread_mutex_t			random_lock;
+	/**< a leaf lock for random_xos: callers may hold any other */
+#endif
+	uint8_t				random_prng;
+	/**< lws_get_random() comes from random_xos, not the platform */
 #endif
 
 #if defined(LWS_WITH_CACHE_NSCOOKIEJAR) && defined(LWS_WITH_CLIENT)
 	struct lws_cache_ttl_lru *l1, *nsc;
+#endif
+
+#if defined(LWS_WITH_CACHE_BLOB)
+	struct lws_cache_ttl_lru *dlo_asset_cache_blob;
+#endif
+#if defined(LWS_WITH_DLO_ASSET_CACHE)
+	struct lws_cache_ttl_lru *dlo_asset_l1;
+	size_t			dlo_asset_max_payload; /* bigger isn't cached */
+#endif
+
+#if defined(LWS_WITH_CLIENT)
+	struct lws_cache_ttl_lru *alpn_cache;
+	struct lws_cache_ttl_lru *h3_cap_cache;
+	struct lws_cache_ttl_lru *altsvc_cache;
 #endif
 
 #if defined(LWS_WITH_SYS_NTPCLIENT)
@@ -600,13 +803,24 @@ struct lws_context {
 	lws_dll2_owner_t		dhcpc_owner;
 					/**< list of ifaces with dhcpc */
 #endif
+#if defined(LWS_WITH_SYS_WHOIS)
+	lws_dll2_owner_t		whois_owner;
+					/**< whois queries in flight */
+#endif
 
 	/* pointers */
 
-	struct lws_vhost		*vhost_list;
-	struct lws_vhost		*no_listener_vhost_list;
-	struct lws_vhost		*vhost_pending_destruction_list;
 	struct lws_vhost		*vhost_system;
+
+	/* dll2 owners: the vhost_list node on struct lws_vhost is used for
+	 * the main list and, after removal from it, the pending-destruction
+	 * list; the no_listener_vlist node covers the independent
+	 * awaiting-a-listener list.  Use lws_vhost_first()/lws_vhost_next()
+	 * helpers to walk the main list.
+	 */
+	lws_dll2_owner_t		vhost_list_owner;
+	lws_dll2_owner_t		no_listener_vhost_owner;
+	lws_dll2_owner_t		vhost_pending_destruction_owner;
 
 #if defined(LWS_WITH_SERVER)
 	const char			*server_string;
@@ -619,21 +833,34 @@ struct lws_context {
 	const struct lws_tls_ops	*tls_ops;
 #endif
 
-#if defined(LWS_WITH_PLUGINS)
+#if defined(LWS_WITH_PROTOCOL_PLUGINS)
 	struct lws_plugin		*plugin_list;
 #endif
+	const struct lws_plugin_protocol * const *plugins_composed;
+	/* from info->plugins */
+	int				plugins_inited;
+	/* how many plugins, in lws_plugins_protocol_init() order, had their
+	 * .init done, so destroy deinits exactly those */
 #ifdef _WIN32
 /* different implementation between unix and windows */
 	struct lws_fd_hashtable fd_hashtable[FD_HASHTABLE_MODULUS];
 #else
 	struct lws **lws_lookup;
-
+#if defined(LWS_PLAT_UNIX) && defined(LWS_WITH_NETWORK)
+	struct lws_fd_slot *lws_lookup_slots;
+	/* the small lookup scheme's table instead, when
+	 * max_fds_unrelated_to_ulimit: see unix-fds.c */
+#endif
 #endif
 
 #if defined(LWS_WITH_OTA)
 	lws_sorted_usec_list_t		sul_ota_periodic;
 	lws_ss_handle_t			* ota_ss;	/* opaque to platform */
+	uint8_t				ota_noslot;	/* can't update */
 #endif
+
+	const char			*wol_if;
+	const char			*lws_stub;
 
 /*
  * <====== LWS_WITH_NETWORK end
@@ -647,12 +874,25 @@ struct lws_context {
 #if defined(LWS_WITH_SECURE_STREAMS_PROXY_API)
 	const char				*ss_proxy_bind;
 	const char				*ss_proxy_address;
+	const char				*ss_proxy_perms;
 
 	lws_txp_path_proxy_t			txp_ppath;
 	lws_txp_path_client_t			txp_cpath;
 
 	const void				*txp_ssproxy_info;
+#endif
 
+#if !defined(LWS_PLAT_FREERTOS) && !defined(LWS_PLAT_BAREMETAL)
+	int					argc;
+	const char				**argv;
+
+	int					stdin_argc;
+	const char				*stdin_argv[16];
+
+	struct lws_buflist			*stdin_buflist;
+	char					*stdin_linear;
+	size_t					stdin_linear_size;
+	unsigned int				stdin_flags;
 #endif
 
 #if defined(LWS_WITH_FILE_OPS)
@@ -664,18 +904,36 @@ struct lws_context {
 	const char *username, *groupname;
 #endif
 
-#if defined(LWS_WITH_MBEDTLS)
+#if defined(LWS_WITH_MBEDTLS) && !defined(LWS_MBEDTLS_PSA_RNG)
 	mbedtls_entropy_context mec;
 	mbedtls_ctr_drbg_context mcdc;
+#endif
+#if defined(LWS_WITH_MBEDTLS) && defined(LWS_WITH_FOOTPRINT)
+	lws_footprint_t			fp_mbedtls; /* mbedtls' own allocations */
 #endif
 
 #if defined(LWS_WITH_THREADPOOL) && defined(LWS_HAVE_PTHREAD_H)
 	struct lws_threadpool *tp_list_head;
 #endif
 
+#if defined(LWS_WITH_ASYNC_QUEUE)
+	lws_dll2_owner_t	async_worker_waiting;
+	lws_dll2_owner_t	async_worker_finished;
+	pthread_mutex_t		async_worker_mutex;
+	pthread_cond_t		async_worker_cond;
+	uint8_t			async_worker_threads_active;
+	uint8_t			async_worker_threads_idle;
+	uint8_t			count_async_threads;
+#endif
+
 #if defined(LWS_WITH_PEER_LIMITS)
-	struct lws_peer			**pl_hash_table;
-	struct lws_peer			*peer_wait_list;
+	lws_dll2_owner_t		*pl_hash_table; /* peer limits hash buckets */
+	lws_dll2_owner_t		peer_wait_owner;
+	/*
+	 * every connection whose peer is only hearsay counts against this
+	 * one, never hashed, never culled: lws_get_or_create_peer_wsi()
+	 */
+	struct lws_peer			peer_unproven;
 	lws_peer_limits_notify_t	pl_notify_cb;
 	time_t				next_cull;
 #endif
@@ -730,6 +988,12 @@ struct lws_context {
 	uint32_t last_free_heap;
 #endif
 
+#if defined(LWS_WITH_FOOTPRINT)
+	lws_dll2_owner_t		footprints; /* lws_footprint_t */
+	size_t				fp_baseline_free; /* free heap at creation */
+	unsigned int			fp_shed_pass;
+#endif
+
 	unsigned int max_fds;
 #if !defined(LWS_NO_DAEMONIZE)
 	pid_t started_with_parent;
@@ -750,6 +1014,8 @@ struct lws_context {
 	unsigned int pt_serv_buf_size;
 	unsigned int max_http_header_data;
 	unsigned int max_http_header_pool;
+	/* how many of the pool one mux connection's streams may hold */
+	unsigned int max_http_header_pool_per_mux;
 	int simultaneous_ssl_restriction;
 	int simultaneous_ssl;
 	int simultaneous_ssl_handshake_restriction;
@@ -758,21 +1024,32 @@ struct lws_context {
 	int		vh_idle_grace_ms;
 #endif
 #if defined(LWS_WITH_PEER_LIMITS)
+	uint8_t pl_hash_key[16];	/* random key of the peer bucket hash */
 	uint32_t pl_hash_elements;	/* protected by context->lock */
 	uint32_t count_peers;		/* protected by context->lock */
 	unsigned short ip_limit_ah;
 	unsigned short ip_limit_wsi;
+	unsigned int unproven_limit_wsi;
 #endif
 
 #if defined(LWS_WITH_SYS_SMD)
 	uint16_t smd_queue_depth;
 #endif
 
-#if defined(LWS_WITH_NETLINK) && defined(LWS_WITH_NETWORK)
+#if defined(LWS_WITH_ROUTING) && defined(LWS_WITH_NETWORK)
 	lws_route_uidx_t			route_uidx;
 #endif
 
 	char		tls_gate_accepts;
+
+	/*
+	 * Set under the context lock by lws_protocol_init(); bytes of their
+	 * own, so the unlocked "is it done yet" read on every service thread
+	 * never shares a word with flags other threads set, and setting them
+	 * can't lose another thread's write to a neighbouring bitfield
+	 */
+	uint8_t		protocol_init_done;
+	uint8_t		doing_protocol_init;
 
 	unsigned int deprecated:1;
 	unsigned int interrupted:1;
@@ -781,15 +1058,18 @@ struct lws_context {
 	unsigned int service_no_longer_possible:1;
 	unsigned int being_destroyed2:1;
 	unsigned int requested_stop_internal_loops:1;
-	unsigned int protocol_init_done:1;
-	unsigned int doing_protocol_init:1;
+	unsigned int privs_dropped:1;
 	unsigned int done_protocol_destroy_cb:1;
 	unsigned int evlib_finalize_destroy_after_int_loops_stop:1;
 	unsigned int max_fds_unrelated_to_ulimit:1;
 	unsigned int policy_updated:1;
-#if defined(LWS_WITH_NETLINK)
+#if defined(LWS_WITH_ROUTING)
 	unsigned int nl_initial_done:1;
+	/* a route dump was still running, ask again when it ends */
+	unsigned int nl_dump_again:1;
 #endif
+	/* some interface has acquired an IP, via SMD "ipacq" */
+	unsigned int ipacq_seen:1;
 
 	unsigned short count_threads;
 	unsigned short undestroyed_threads;
@@ -799,6 +1079,7 @@ struct lws_context {
 	unsigned short deprecation_pending_listen_close_count;
 #if defined(LWS_WITH_SECURE_STREAMS_PROXY_API)
 	uint16_t	ss_proxy_port;
+	uint8_t		ss_proxy_tcp_allow_remote;
 #endif
 	/* 0 if not known, else us resolution of the poll wait */
 	uint16_t us_wait_resolution;
@@ -808,9 +1089,74 @@ struct lws_context {
 	uint8_t captive_portal_detect_type;
 
 	uint8_t		destroy_state; /* enum lws_context_destroy */
+
+	lws_quic_tx_credit_cb_t quic_tx_credit_cb;
+	const struct lws_cc_ops *quic_cc_ops;
+#if defined(LWS_WITH_FUZZERS) && defined(LWS_ROLE_QUIC)
+	const lws_quic_fuzz_taps_t *quic_fuzz_taps;
+#endif
+#if defined(LWS_WITH_TLS_PASSTHROUGH) && defined(LWS_ROLE_QUIC)
+	/*
+	 * quic passthrough (lib/io/passthrough.c): on a front, the flows it
+	 * relays to a server and the Initials it is still reading the SNI of,
+	 * by DCID; on a server, the clients a trusted relay forwards, by
+	 * address, those only claimed (hearsay, least recently used first)
+	 * apart from those a connection's QUIC proved
+	 */
+	struct lws_map			*pt_qflows;
+	struct lws_map			*pt_qpending;
+	struct lws_map			*pt_relayed;
+	lws_dll2_owner_t		pt_qflow_owner;
+	lws_dll2_owner_t		pt_qpending_owner;
+	lws_dll2_owner_t		pt_relayed_owner;
+	lws_dll2_owner_t		pt_relayed_proven_owner;
+	lws_usec_t			pt_relayed_refused_log;
+	uint32_t			pt_relayed_refused;
+	lws_sorted_usec_list_t		sul_pt_sweep;
+	int				count_quic_passthrough;
+#endif
+	uint32_t quic_initial_cwnd;
+	uint32_t quic_0rtt_max_size;
+	uint32_t quic_rx_window;
+
+	uint8_t quic_retry_secret[16];
+	/* keys our QUIC Stateless Reset tokens, lws_quic_stateless_reset_token() */
+	uint8_t quic_sr_secret[32];
 };
 
-#define lws_get_context_protocol(ctx, x) ctx->vhost_list->protocols[x]
+#if defined(LWS_WITH_NETWORK)
+/*
+ * vhost list helpers (dll2-backed; see the owners on struct lws_context).
+ * Both are NULL-safe: NULL in / NULL out.
+ */
+static LWS_INLINE struct lws_vhost *
+lws_vhost_first(const struct lws_context *cx)
+{
+	struct lws_dll2 *d = lws_dll2_get_head(&cx->vhost_list_owner);
+
+	return d ? lws_container_of(d, struct lws_vhost, vhost_list) : NULL;
+}
+
+static LWS_INLINE struct lws_vhost *
+lws_vhost_next(const struct lws_vhost *vh)
+{
+	struct lws_dll2 *d = lws_dll2_get_next(&vh->vhost_list);
+
+	return d ? lws_container_of(d, struct lws_vhost, vhost_list) : NULL;
+}
+
+#define lws_start_foreach_vhost(___vh, ___cx) \
+	lws_start_foreach_dll(struct lws_dll2 *, ___vh ## _dll, \
+			      lws_dll2_get_head(&(___cx)->vhost_list_owner)) { \
+		struct lws_vhost *___vh = lws_container_of(___vh ## _dll, \
+					struct lws_vhost, vhost_list);
+
+#define lws_end_foreach_vhost(___vh) \
+	} lws_end_foreach_dll(___vh ## _dll)
+
+#define lws_get_context_protocol(ctx, x) lws_vhost_first(ctx)->protocols[x]
+#endif
+
 #define lws_get_vh_protocol(vh, x) vh->protocols[x]
 
 int
@@ -839,14 +1185,11 @@ int
 lws_system_do_attach(struct lws_context_per_thread *pt);
 #endif
 
-struct lws_buflist {
-	struct lws_buflist *next;
-	size_t len;
-	size_t pos;
-};
-
 char *
 lws_strdup(const char *s);
+
+int
+lws_environment_untrusted(void);
 
 int
 lws_b64_selftest(void);
@@ -920,6 +1263,9 @@ typedef enum {
 	UPNS_ID_BL_GB_GZIP_SKIP_COMMENT,
 	UPNS_ID_BL_GB_GZIP_SKIP_CRC,
 
+	UPNS_ID_BL_GB_GZIP_TRAILER,	/* CRC32 and ISIZE after final block */
+	UPNS_ID_BL_GB_END,		/* the stream is complete */
+
 } upng_inflate_states_t;
 
 typedef struct htree {
@@ -929,6 +1275,19 @@ typedef struct htree {
 	/*number of symbols in the alphabet = number of codes */
 	uint16_t		numcodes;
 } htree_t;
+
+/*
+ * The inflate window is reached through a table of 1KB pieces, so it doesn't
+ * have to be one allocation: a png's is up to 32.5KB, which a fragmented heap
+ * with much more than that free often can't give in one piece
+ */
+#define LWS_UPNG_WIN_UNIT_SHIFT	10
+#define LWS_UPNG_WIN_UNIT	(1u << LWS_UPNG_WIN_UNIT_SHIFT)
+#define LWS_UPNG_WIN_UNITS_MAX	33 /* the png's 32KB + 512, or gzip's 32KB */
+
+/* _i is evaluated twice */
+#define lws_upng_win(_inf, _i) ((_inf)->out_u[(_i) >> LWS_UPNG_WIN_UNIT_SHIFT] \
+				[(_i) & (LWS_UPNG_WIN_UNIT - 1)])
 
 typedef struct inflator_ctx {
 	unsigned int		clenc[NUM_CODE_LENGTH_CODES];
@@ -941,7 +1300,9 @@ typedef struct inflator_ctx {
 	lws_upng_t		*upng;
 
 	const uint8_t		*in;
-	uint8_t			*out;
+	uint8_t			*out_u[LWS_UPNG_WIN_UNITS_MAX]; /* lws_upng_win() */
+	lws_fragbuf_t		*out_fb; /* the png's window, in pieces */
+	uint8_t			*out_linear; /* gzip's, one piece for its ring */
 
 	htree_t			clct;
 	htree_t			ct;
@@ -984,11 +1345,15 @@ typedef struct inflator_ctx {
 
 	unsigned int		info_size;
 
+	uint32_t		crc32;	/* of the output so far, gzip only */
+
 	uint16_t		ctr;
+	uint8_t			trailer[8];
 	uint8_t			subsequent;
 	uint8_t			btype;
 	uint8_t			done;
 	uint8_t			gz_flags;
+	uint8_t			gzip;	/* gzip member, else PNG's zlib */
 
 	char			read_bits_ongoing;
 } inflator_ctx_t;
@@ -1016,18 +1381,122 @@ void lwsl_emit_stderr(int level, const char *line);
  #define lws_ssl_close(_a) (0)
  #define lws_ssl_context_destroy(_a)
  #define lws_ssl_SSL_CTX_destroy(_a)
+ #define lws_tls_ctx_ref_destroy_all(_a)
  #define lws_ssl_remove_wsi_from_buffered_list(_a)
  #define __lws_ssl_remove_wsi_from_buffered_list(_a)
  #define lws_context_init_ssl_library(_a, _b)
  #define lws_context_deinit_ssl_library(_a)
  #define lws_tls_check_all_cert_lifetimes(_a)
  #define lws_tls_acme_sni_cert_destroy(_a)
+ #define lws_tls_cert_watch_destroy(_a)
 #endif
 
 
 
-#if LWS_MAX_SMP > 1
+#if defined(LWS_PLAT_CALLERS)
+/*
+ * Fill pcs with up to max return addresses of the callers of the function
+ * calling this, after skipping skip of them, nearest first.  Returns how many
+ * it filled.  Cheap enough for diagnostics on every allocation of a subsystem,
+ * not for hot paths in normal builds.
+ */
+int
+lws_plat_callers(uintptr_t *pcs, int max, int skip);
+#endif
+
+#if defined(LWS_WITH_FOOTPRINT)
+void
+lws_footprint_context_init(struct lws_context *cx);
+void
+lws_footprint_alloc_failed(size_t size, const char *reason);
+void
+lws_footprint_context_destroy(struct lws_context *cx);
+
+#if defined(LWS_WITH_ALLOC_SITES) && defined(LWS_PLAT_ALLOC_SIZE)
+/*
+ * The heap block an lws_*alloc() pointer is in, which with alloc sites
+ * starts at the site's header in front of it
+ */
+size_t
+lws_alloc_site_block_size(void *p);
+#endif
+
+/*
+ * The heap an allocation holds, for participants working out what they hold
+ * on demand: what the platform says if it can, else the size that was asked
+ */
+static LWS_INLINE size_t
+lws_fp_heap(void *p, size_t asked)
+{
+	if (!p)
+		return 0;
+#if defined(LWS_PLAT_ALLOC_SIZE)
+	(void)asked;
+
+#if defined(LWS_WITH_ALLOC_SITES)
+	return lws_alloc_site_block_size(p);
+#else
+	return lws_plat_alloc_size(p);
+#endif
+#else
+	return asked;
+#endif
+}
+
+#if defined(LWS_WITH_ALLOC_SITES)
+void
+lws_alloc_sites_dump(struct lws_context *cx);
+#endif
+
+size_t
+lws_upng_heap(struct lws_upng_t *u);
+size_t
+lws_lhp_heap(struct lhp_ctx *ctx);
+size_t
+lws_gif_heap(struct lws_gif *g);
+size_t
+lws_svg_heap(struct lws_svg *s);
+#endif
+
+/*
+ * Lock order, when LWS_MAX_SMP > 1 makes these real: the context lock, then
+ * a pt lock, then a vhost lock.  A thread holding a pt lock never takes the
+ * context lock, and holds the locks of two pts only while it also holds the
+ * context lock, taking them in ascending order (vhost destroy does this).
+ * Every event loop services its pt's sul list under the context lock and
+ * then the pt lock, so a sul callback that closes a wsi or destroys a vhost
+ * (both context, then pt) is in order.
+ *
+ * A pt's sul lists are only ever changed holding that pt's lock, by every
+ * thread, the pt's own included: other threads schedule on to them (async dns
+ * finishing a query for its pt, the vhost idle grace kept on pt 0, ...), and
+ * the context lock does not keep the pt's own thread out.  lws_sul_schedule()
+ * and lws_sul_cancel() take the lock themselves (lws_sul_cancel() finds the
+ * pt from the list the sul is on), so they are safe from any thread; code
+ * using __lws_sul_insert_pt() / __lws_sul_insert_us() or lws_sul2_schedule()
+ * must hold it already, which debug SMP builds assert (G-638).  The mutexes
+ * are recursive, so taking one already held, in order, is fine (C-131).
+ *
+ * Peer limits accounting is under the context lock, so code that does it
+ * holding a pt lock takes the context lock before the pt one: eg, ah attach
+ * and detach, which hold the pt lock for the pt's ah pool (G-691).
+ */
+#if defined(LWS_WITH_NETWORK) && LWS_MAX_SMP > 1
+/*
+ * Debug builds check the order as the locks are taken, and assert on a
+ * thread taking the context lock while holding a pt lock (but not the context
+ * lock), or a second pt lock without the context lock
+ */
+struct lws_context_per_thread;
+LWS_VISIBLE LWS_EXTERN void
+lws_context_lock_checked(struct lws_context *cx, const char *reason);
+LWS_VISIBLE LWS_EXTERN void
+lws_pt_lock_checked(struct lws_context_per_thread *pt, const char *reason);
+#if defined(_DEBUG)
+#define lws_context_lock(c, reason) lws_context_lock_checked(c, reason)
+#else
 #define lws_context_lock(c, reason) lws_mutex_refcount_lock(&c->mr, reason)
+#endif
 #define lws_context_unlock(c) lws_mutex_refcount_unlock(&c->mr)
 #define lws_context_assert_lock_held(c) lws_mutex_refcount_assert_held(&c->mr)
 #define lws_vhost_assert_lock_held(v) lws_mutex_refcount_assert_held(&v->mr)
@@ -1077,6 +1546,9 @@ int
 lws_bind_protocol(struct lws *wsi, const struct lws_protocols *p,
 		  const char *reason);
 
+int
+lws_bind_protocol_assigned(struct lws *wsi);
+
 const struct lws_protocol_vhost_options *
 lws_vhost_protocol_options(struct lws_vhost *vh, const char *name);
 
@@ -1085,6 +1557,13 @@ lws_find_mount(struct lws *wsi, const char *uri_ptr, int uri_len);
 
 #ifdef LWS_WITH_HTTP2
 int lws_wsi_is_h2(struct lws *wsi);
+#else
+#define lws_wsi_is_h2(wsi) (0)
+#endif
+#ifdef LWS_ROLE_H3
+int lws_wsi_is_h3(struct lws *wsi);
+#else
+#define lws_wsi_is_h3(wsi) (0)
 #endif
 /*
  * custom allocator
@@ -1094,6 +1573,39 @@ lws_realloc(void *ptr, size_t size, const char *reason);
 
 void * LWS_WARN_UNUSED_RESULT
 lws_zalloc(size_t size, const char *reason);
+
+/*
+ * lws_zalloc_try() - lws_zalloc() for a caller with a fallback, eg, asking for
+ * less: when the heap can't give it at once, it is NULL, without reclaimable
+ * occupants being asked to evict for it, nor the footprint saying the heap
+ * ran out.  With an allocator set by lws_set_allocator(), as lws_zalloc().
+ */
+void * LWS_WARN_UNUSED_RESULT
+lws_zalloc_try(size_t size, const char *reason);
+
+/*
+ * Which heap new allocations should come from, where the platform has more
+ * than one.  The bulk arena is for the many, but slower to use, objects of a
+ * document, its layout and the images in it, eg, PSRAM on an ESP32, keeping
+ * the internal RAM free for what can only use that, eg, the wifi driver,
+ * lwip and DMA.  Elsewhere, both are the one heap.
+ */
+typedef enum {
+	LWS_ALLOC_ARENA_DEFAULT,
+	LWS_ALLOC_ARENA_BULK,
+} lws_alloc_arena_t;
+
+/*
+ * lws_alloc_arena_set() - choose the arena for new allocations from now
+ *
+ * Returns the arena that was set, for the caller to set back when it is done.
+ * Like lws_zalloc_try(), it's processwide: something on another thread that
+ * allocates meanwhile gets its memory from the same arena, which only changes
+ * where it lands.  A realloc keeps the block in the arena it is in.  With an
+ * allocator set by lws_set_allocator(), it does nothing.
+ */
+lws_alloc_arena_t
+lws_alloc_arena_set(lws_alloc_arena_t arena);
 
 #ifdef LWS_PLAT_OPTEE
 void *lws_malloc(size_t size, const char *reason);
@@ -1105,6 +1617,10 @@ void lws_free(void *p);
 #define lws_free_set_NULL(P)	do { lws_realloc(P, 0, "free"); (P) = NULL; } while(0)
 #endif
 
+/* replay and free anything a log spew left retained, eg, at context destroy */
+void
+lws_log_spew_flush(lws_log_cx_t *cx);
+
 int
 __lws_create_event_pipes(struct lws_context *context);
 
@@ -1115,14 +1631,47 @@ const struct lws_plat_file_ops *
 lws_vfs_select_fops(const struct lws_plat_file_ops *fops, const char *vfs_path,
 		    const char **vpath);
 
+#if defined(LWS_WITH_FILE_OPS) && (defined(WIN32) || defined(__APPLE__))
+/*
+ * The platform's filesystems find a file by more names than its own: case
+ * folds, and on windows trailing dots and spaces are dropped and 8.3 short
+ * names alias long ones.  So a path can only be compared with another after
+ * it is canonical: the file or directory's own name for every component,
+ * symlinks resolved.  0 and that in buf, or nonzero if it can't be had.
+ */
+#define LWS_PLAT_FS_FOLDS_NAMES
+int
+lws_plat_path_canonical(const char *path, char *buf, size_t len);
+#endif
+
 /* lws_plat_ */
 
+/* the platform's random source, behind lws_get_random() */
+size_t
+lws_plat_get_random(struct lws_context *context, void *buf, size_t len);
+#if defined(LWS_WITH_SYS_FAULT_INJECTION)
+/* the seeded PRNG in place of it goes with the context */
+void
+lws_fi_random_destroy(struct lws_context *cx);
+#endif
 int
 lws_plat_context_early_init(void);
 void
 lws_plat_context_early_destroy(struct lws_context *context);
 void
 lws_plat_context_late_destroy(struct lws_context *context);
+
+#if defined(LWS_WITH_DLO_ASSET_CACHE)
+/*
+ * Keep a copy of an asset's payload as it arrives, for writing it through to
+ * the context asset cache once it's all there.  Nonzero if it can't be cached
+ * after all, eg, it's grown bigger than the cache takes, and the copy so far
+ * is dropped.
+ */
+int
+lws_dlo_asset_cache_mirror(struct lws_context *cx, struct lws_buflist **bl,
+			   const uint8_t *buf, size_t len);
+#endif
 
 int
 lws_plat_init(struct lws_context *context,
@@ -1133,6 +1682,14 @@ lws_plat_drop_app_privileges(struct lws_context *context, int actually_drop);
 #if defined(LWS_WITH_UNIX_SOCK) && !defined(WIN32)
 int
 lws_plat_user_colon_group_to_ids(const char *u_colon_g, uid_t *puid, gid_t *pgid);
+
+/*
+ * The uid and gid of the process at the other end of a connected Unix Domain
+ * Socket, as the kernel recorded them at connect time.  Returns 0 if it could
+ * find them, nonzero if not, including on platforms where it's not supported.
+ */
+int
+lws_plat_unix_peer_ids(lws_sockfd_type fd, uid_t *puid, gid_t *pgid);
 #endif
 
 int
@@ -1146,8 +1703,6 @@ lws_plat_vhost_tls_client_ctx_init(struct lws_vhost *vhost);
 
 int
 lws_check_byte_utf8(unsigned char state, unsigned char c);
-int LWS_WARN_UNUSED_RESULT
-lws_check_utf8(unsigned char *state, unsigned char *buf, size_t len);
 int alloc_file(struct lws_context *context, const char *filename,
 			  uint8_t **buf, lws_filepos_t *amount);
 
@@ -1165,6 +1720,11 @@ void lws_msleep(unsigned int);
 void
 lws_context_destroy2(struct lws_context *context);
 
+#if defined(LWS_WITH_SYS_WHOIS)
+void
+lws_whois_destroy_all(struct lws_context *cx);
+#endif
+
 /* it's public extern const lws_transport_client_ops_t lws_txp_inside_sspc; */
 
 lws_transport_mux_ch_t *
@@ -1174,7 +1734,8 @@ lws_transport_mux_ch_t *
 lws_transport_mux_add_channel(lws_transport_mux_t *tm, lws_transport_priv_t priv);
 
 void
-lws_transport_mux_destroy_channel(lws_transport_mux_ch_t **_mc);
+lws_transport_mux_destroy_channel(lws_transport_mux_t *tm,
+				  lws_transport_mux_ch_t **_mc);
 
 lws_transport_mux_ch_t *
 lws_transport_mux_get_channel(lws_transport_mux_t *tm, lws_mux_ch_idx_t i);
@@ -1192,12 +1753,23 @@ void
 lws_klog_dump(const SSL *ssl, const char *line);
 #endif
 
-#if !defined(PRIu64)
-#define PRIu64 "llu"
+struct lws_plugin *
+lws_plugin_alloc(struct lws_plugin **pplugin);
+
+int
+lws_plugins_handle_builtin(struct lws_plugin **pplugin,
+			   each_plugin_cb_t each, void *each_user);
+
+#if defined(LWS_WITH_NETWORK)
+/*
+ * The sansIO half's requests of IO, as sansIO spells them: calls through the
+ * context's lws_io_ops_t, which need the context complete
+ */
+#include "private-lib-sansio-seam.h"
 #endif
 
-#if defined(LWS_WITH_ABSTRACT)
-#include "private-lib-abstract.h"
+#if !defined(PRIu64)
+#define PRIu64 "llu"
 #endif
 
 #ifdef __cplusplus

@@ -57,7 +57,49 @@ typedef struct lws_surface_info {
 	uint8_t				greyscale:1; /* line: 0 = RGBA, 1 = YA */
 	uint8_t				partial:1; /* can handle partial */
 	uint8_t				render_to_rgba:1; /* render to 32-bit RGBA, not 24-bit RGB */
+	uint8_t				round:1; /* only the circle inscribed
+						  * in the surface can be seen,
+						  * eg, a round LCD: the corners
+						  * of the framebuffer are not
+						  * there */
+	uint8_t				band:1; /* the blit can update a band
+						 * of whole lines, at least 2,
+						 * not only the whole surface:
+						 * a blit of the band's box
+						 * opens it, then its lines
+						 * follow, then a zero-height
+						 * blit ends it */
+	int16_t				round_top; /* with .round, the
+						    * surface is only the part
+						    * of the round display from
+						    * this line down to its
+						    * bottom, eg, below a title
+						    * strip: the circle is of
+						    * the whole display, which
+						    * is this much taller */
 } lws_surface_info_t;
+
+/**
+ * lws_surface_visible_span() - the columns that can be seen across a band
+ *
+ * \param ic: the surface
+ * \param y0: the first line of the band
+ * \param y1: one past the last line of the band
+ * \param x0: set to the first column visible on every line of the band
+ * \param x1: set to one past the last column visible on every line of it
+ *
+ * On a rectangular surface that is the whole width.  On a round one, it is
+ * the chord of the circle at the line of the band furthest from its middle,
+ * so whatever is laid out between x0 and x1 in the band can all be seen.  If
+ * the surface is only the lower part of the round display, .round_top, the
+ * circle is the display's.
+ *
+ * Returns 0, or nonzero if no column of the band can be seen on all its lines,
+ * eg, it is wholly or partly off the surface, when x0 == x1.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_surface_visible_span(const lws_surface_info_t *ic, int y0, int y1,
+			 int *x0, int *x1);
 
 typedef struct lws_greyscale_error {
 	int16_t				rgb[1];
@@ -85,6 +127,18 @@ LWS_VISIBLE LWS_EXTERN lws_display_palette_idx_t
 lws_display_palettize_col(const lws_surface_info_t *ic,
 			  const lws_display_colour_t *palette, size_t pdepth,
 			  lws_display_colour_t c, lws_colour_error_t *ectx);
+
+/**
+ * lws_display_565() - the RGB565 pixel for a colour
+ *
+ * \param c: the colour
+ *
+ * The pixel lws_display_palettize_col() gives for an LWSSURF_565 surface, the
+ * gamma-corrected colour truncated to 565, without its error diffusion:
+ * that doesn't change the pixel, so drivers for 565 surfaces needn't do it.
+ */
+LWS_VISIBLE LWS_EXTERN uint16_t
+lws_display_565(lws_display_colour_t c);
 
 /*
  * This is embedded in the actual display implementation object at the top,
@@ -122,6 +176,17 @@ typedef struct lws_display {
 	 * This is managed via a sul on the event loop, not blocking. */
 	uint16_t			latency_update_ms;
 	/**< nominal update latency in ms */
+	uint8_t				bistable:1;
+	/**< the display keeps showing what it was last updated with, with no
+	 * power, eg, an EPD.  What was left on it at the end is visible for
+	 * as long as it is stored, so it should be left white then */
+	uint8_t				anim_hz;
+	/**< 0, or the most times a second the display can usefully be
+	 * updated, to show something animated on it, eg, a spinner.  0 means
+	 * a display that isn't .bistable can be updated as often as it can be
+	 * drawn, and one that is can't show animation at all, eg, an EPD
+	 * taking seconds for each update, so nothing animated should be put
+	 * on it.  See lws_display_anim_interval() */
 } lws_display_t;
 
 /*
@@ -191,9 +256,9 @@ lws_display_state_init(lws_display_state_t *lds, struct lws_context *ctx,
  * lws_display_state_set_brightness() - gradually change the brightness
  *
  * \param lds: the display state we are changing
- * \param target: the target brightness to transition to
+ * \param pwmseq: the sequence definition to transition the brightness along
  *
- * Adjusts the brightness gradually twoards the target at 20Hz
+ * Adjusts the brightness gradually along the sequence at 20Hz
  */
 LWS_VISIBLE LWS_EXTERN void
 lws_display_state_set_brightness(lws_display_state_t *lds,
@@ -209,6 +274,20 @@ lws_display_state_set_brightness(lws_display_state_t *lds,
  */
 LWS_VISIBLE LWS_EXTERN void
 lws_display_state_active(lws_display_state_t *lds);
+
+/**
+ * lws_display_anim_interval() - how often to update a display to animate it
+ *
+ * \param disp: the display
+ * \param want: how often the caller would like to update it, in us
+ *
+ * Returns how often, in us, something animated on the display, eg, a spinner,
+ * should be moved on: \p want, or longer if the display can't usefully be
+ * updated that often, see .anim_hz.  Returns 0 if the display can't show
+ * animation at all, when nothing animated should be shown on it.
+ */
+LWS_VISIBLE LWS_EXTERN lws_usec_t
+lws_display_anim_interval(const lws_display_t *disp, lws_usec_t want);
 
 /*
  * lws_display_state_off() - turns off the related display

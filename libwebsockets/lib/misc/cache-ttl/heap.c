@@ -33,9 +33,6 @@ static void
 update_sul(lws_cache_ttl_lru_t_heap_t *cache);
 
 static int
-lws_cache_heap_invalidate(struct lws_cache_ttl_lru *_c, const char *key);
-
-static int
 sort_expiry(const lws_dll2_t *a, const lws_dll2_t *b)
 {
 	const lws_cache_ttl_item_heap_t
@@ -95,15 +92,22 @@ lws_cache_heap_item_destroy(lws_cache_ttl_lru_t_heap_t *cache,
 	 */
 
 	lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1,
-				   cache->items_lru.head) {
+				   lws_dll2_get_head(&cache->items_lru)) {
 		lws_cache_ttl_item_heap_t *i = lws_container_of(d,
 						lws_cache_ttl_item_heap_t,
 						list_lru);
-		const char *iname = ((const char *)&item[1]) + item->size;
-		uint8_t *pay = (uint8_t *)&item[1], *end = pay + item->size;
+		/*
+		 * ...these describe the meta item we are looking at, ie the
+		 * loop cursor i, not the item being destroyed.  Deriving them
+		 * from item made the test below always false (item is known
+		 * not to be a meta item by the early-out above), so no cached
+		 * result set naming the destroyed item was ever invalidated.
+		 */
+		const char *iname = ((const char *)&i[1]) + i->size;
+		uint8_t *pay = (uint8_t *)&i[1], *end = pay + i->size;
 
 		if (*iname == META_ITEM_LEADING) {
-			size_t taglen = strlen(iname);
+			size_t taglen = strlen(tag);
 
 			/*
 			 * If the item about to be destroyed makes an
@@ -111,11 +115,15 @@ lws_cache_heap_item_destroy(lws_cache_ttl_lru_t_heap_t *cache,
 			 * the meta result item to force recalc next time
 			 */
 
-			while (pay < end) {
+			while (pay + 8 <= end) {
 				uint32_t tlen = lws_ser_ru32be(pay + 4);
 
+				/* don't trust the serialization blindly */
+				if (pay + 8 + tlen + 1 > end)
+					break;
+
 				if (tlen == taglen &&
-				    !strcmp((const char *)pay + 8, iname)) {
+				    !strcmp((const char *)pay + 8, tag)) {
 #if defined(_DEBUG)
 					/*
 					 * Sanity check that the item tag is
@@ -131,16 +139,6 @@ lws_cache_heap_item_destroy(lws_cache_ttl_lru_t_heap_t *cache,
 				}
 				pay += 8 + tlen + 1;
 			}
-
-#if defined(_DEBUG)
-			/*
-			 * Sanity check that the item tag really isn't a match
-			 * for that meta results item
-			 */
-
-			assert (backing->info.ops->tag_match(backing, iname + 1,
-							  tag, 1));
-#endif
 		}
 
 	} lws_end_foreach_dll_safe(d, d1);
@@ -154,10 +152,16 @@ lws_cache_item_evict_lru(lws_cache_ttl_lru_t_heap_t *cache)
 {
 	lws_cache_ttl_item_heap_t *ei;
 
-	if (!cache->items_lru.head)
+	if(lws_dll2_is_empty(&cache->items_lru))
 		return;
 
-	ei = lws_container_of(cache->items_lru.head,
+	/*
+	 * New items are added at the head and a successful get() moves the
+	 * item to the head... so the head is the *most* recently used and the
+	 * least recently used one, the one we want to evict, is the tail
+	 */
+
+	ei = lws_container_of(lws_dll2_get_tail(&cache->items_lru),
 			      lws_cache_ttl_item_heap_t, list_lru);
 
 	lws_cache_heap_item_destroy(cache, ei, 0);
@@ -172,21 +176,33 @@ expiry_cb(lws_sorted_usec_list_t *sul)
 {
 	lws_cache_ttl_lru_t_heap_t *cache = lws_container_of(sul,
 					lws_cache_ttl_lru_t_heap_t, cache.sul);
-	lws_usec_t now = lws_now_usecs();
+	/* expiries are in the service thread's time (lws_service_set_now()) */
+	lws_usec_t now = lws_cx_now(cache->cache.info.cx,
+				    cache->cache.info.tsi);
 
 	lwsl_cache("%s: %s\n", __func__, cache->cache.info.name);
 
-	while (cache->items_expiry.head) {
+	lws_cache_lock(&cache->cache); /* ---------------------- cache { */
+
+	while(!lws_dll2_is_empty(&cache->items_expiry)) {
 		lws_cache_ttl_item_heap_t *item;
 
-		item = lws_container_of(cache->items_expiry.head,
+		item = lws_container_of(lws_dll2_get_head(&cache->items_expiry),
 					lws_cache_ttl_item_heap_t, list_expiry);
 
 		if (item->expiry > now)
-			return;
+			break;
 
 		lws_cache_heap_item_destroy(cache, item, 1);
 	}
+
+	/*
+	 * Always rearm for whatever is next, even if we destroyed nothing:
+	 * we may have run a little early
+	 */
+	update_sul(cache);
+
+	lws_cache_unlock(&cache->cache); /* --------------------- } cache */
 }
 
 /*
@@ -198,10 +214,10 @@ earliest_expiry(lws_cache_ttl_lru_t_heap_t *cache, lws_usec_t *pearliest)
 {
 	lws_cache_ttl_item_heap_t *item;
 
-	if (!cache->items_expiry.head)
+	if(lws_dll2_is_empty(&cache->items_expiry))
 		return 1;
 
-	item = lws_container_of(cache->items_expiry.head,
+	item = lws_container_of(lws_dll2_get_head(&cache->items_expiry),
 				lws_cache_ttl_item_heap_t, list_expiry);
 
 	*pearliest = item->expiry;
@@ -214,12 +230,17 @@ update_sul(lws_cache_ttl_lru_t_heap_t *cache)
 {
 	lws_usec_t earliest;
 
-	/* weed out any newly-expired */
-	expiry_cb(&cache->cache.sul);
+	/*
+	 * We are called from item destroy, which is itself reached from inside
+	 * *_foreach_safe() walks of items_lru.  So we must not sweep expired
+	 * items from here: that could free the walk's saved "next" cursor and
+	 * leave the caller iterating freed memory.  Just (re)arm the sul and
+	 * let expiry_cb() do the sweeping from the event loop.
+	 */
 
 	/* figure out the next soonest expiring item */
 	if (earliest_expiry(cache, &earliest)) {
-		lws_sul_cancel(&cache->cache.sul);
+		lws_cache_unschedule(&cache->cache);
 		return;
 	}
 
@@ -234,7 +255,7 @@ static lws_cache_ttl_item_heap_t *
 lws_cache_heap_specific(lws_cache_ttl_lru_t_heap_t *cache,
 			const char *specific_key)
 {
-	lws_start_foreach_dll(struct lws_dll2 *, d, cache->items_lru.head) {
+	lws_start_foreach_dll(struct lws_dll2 *, d, lws_dll2_get_head(&cache->items_lru)) {
 		lws_cache_ttl_item_heap_t *item = lws_container_of(d,
 						lws_cache_ttl_item_heap_t,
 						list_lru);
@@ -262,7 +283,7 @@ lws_cache_heap_lookup(struct lws_cache_ttl_lru *_c, const char *wildcard_key,
 	lws_cache_ttl_lru_t_heap_t *cache = (lws_cache_ttl_lru_t_heap_t *)_c;
 	size_t sklen = strlen(wildcard_key);
 
-	lws_start_foreach_dll(struct lws_dll2 *, d, cache->items_lru.head) {
+	lws_start_foreach_dll(struct lws_dll2 *, d, lws_dll2_get_head(&cache->items_lru)) {
 		lws_cache_ttl_item_heap_t *item = lws_container_of(d,
 						lws_cache_ttl_item_heap_t,
 						list_lru);
@@ -280,7 +301,7 @@ lws_cache_heap_lookup(struct lws_cache_ttl_lru *_c, const char *wildcard_key,
 			 */
 
 			lws_start_foreach_dll(struct lws_dll2 *, e,
-					results_owner->head) {
+					lws_dll2_get_head(results_owner)) {
 				lws_cache_match_t *i = lws_container_of(e,
 							lws_cache_match_t, list);
 				if (i->tag_size == ilen &&
@@ -305,7 +326,17 @@ lws_cache_heap_lookup(struct lws_cache_ttl_lru *_c, const char *wildcard_key,
 					return 1;
 				}
 
-				memset(&m->list, 0, sizeof(m->list));
+				/*
+				 * All of it: lws_cache_lookup() consumes
+				 * ->expiry as the meta result's TTL and
+				 * serialises ->payload_size into the result
+				 * blob it hands back to the caller, so leaving
+				 * either uninitialised both misdates the meta
+				 * entry and leaks heap content to the consumer
+				 */
+				memset(m, 0, sizeof(*m));
+				m->expiry = item->expiry;
+				m->payload_size = item->size;
 				m->tag_size = ilen;
 				memcpy(&m[1], iname, ilen + 1);
 
@@ -324,7 +355,6 @@ lws_cache_heap_write(struct lws_cache_ttl_lru *_c, const char *specific_key,
 		     void **ppvoid)
 {
 	lws_cache_ttl_lru_t_heap_t *cache = (lws_cache_ttl_lru_t_heap_t *)_c;
-	struct lws_cache_ttl_lru *backing = _c;
 	lws_cache_ttl_item_heap_t *item, *ei;
 	size_t kl = strlen(specific_key);
 	char *p;
@@ -332,59 +362,39 @@ lws_cache_heap_write(struct lws_cache_ttl_lru *_c, const char *specific_key,
 	lwsl_cache("%s: %s: len %d\n", __func__, _c->info.name, (int)size);
 
 	/*
-	 * Is this new tag going to invalidate any existing cached meta-results?
+	 * Cached lookup results the new item belongs in are not our business
+	 * here: this is also how an outer level fills L1 with an item it
+	 * already had, and how lookup results themselves are stored, and
+	 * neither changes what a lookup finds.  A new item is written by
+	 * lws_cache_write_through(), which invalidates them first.
 	 *
-	 * If so, let's destroy any of those first to recover the heap
+	 * Remove any existing entry of the same key (and so the lookup results
+	 * that named it)
 	 */
 
-	if (backing->info.parent)
-		backing = backing->info.parent;
-
-	lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1,
-				   cache->items_lru.head) {
-		lws_cache_ttl_item_heap_t *i = lws_container_of(d,
-						lws_cache_ttl_item_heap_t,
-						list_lru);
-		const char *iname = ((const char *)&i[1]) + i->size;
-
-		if (*iname == META_ITEM_LEADING) {
-
-			/*
-			 * If the item about to be added would match any cached
-			 * results from before it was added, we have to
-			 * invalidate them.  To check this, we have to use the
-			 * matching rules at the backing store level
-			 */
-
-			if (!strcmp(iname + 1, specific_key))
-				_lws_cache_heap_item_destroy(cache, i);
-		}
-
-	} lws_end_foreach_dll_safe(d, d1);
-
+	item = lws_cache_heap_specific(cache, specific_key);
+	if (item)
+		lws_cache_heap_item_destroy(cache, item, 0);
 
 	/*
 	 * Keep us under the limit if possible... note this will always allow
 	 * caching a single large item even if it is above the limits
 	 */
 
-	while ((cache->cache.info.max_footprint &&
+	while (((cache->cache.info.max_footprint &&
 	        cache->cache.current_footprint + size >
 					     cache->cache.info.max_footprint) ||
 	       (cache->cache.info.max_items &&
-		cache->items_lru.count + 1 > cache->cache.info.max_items))
+		lws_dll2_count(&cache->items_lru) + 1 > cache->cache.info.max_items)) &&
+	       lws_dll2_get_head(&cache->items_lru))
 		lws_cache_item_evict_lru(cache);
-
-	/* remove any existing entry of the same key */
-
-	lws_cache_heap_invalidate(&cache->cache, specific_key);
 
 	item = lws_fi(&_c->info.cx->fic, "cache_write_oom") ? NULL :
 			lws_malloc(sizeof(*item) + kl + 1u + size, __func__);
 	if (!item)
 		return 1;
 
-	cache->cache.current_footprint += item->size;
+	cache->cache.current_footprint += size;
 
 	/* only need to zero down our item object */
 	memset(item, 0, sizeof(*item));
@@ -408,7 +418,7 @@ lws_cache_heap_write(struct lws_cache_ttl_lru *_c, const char *specific_key,
 		/* adding to expiry is optional, on nonzero expiry */
 		lws_dll2_add_sorted(&item->list_expiry, &cache->items_expiry,
 				    sort_expiry);
-		ei = lws_container_of(cache->items_expiry.head,
+		ei = lws_container_of(lws_dll2_get_head(&cache->items_expiry),
 				      lws_cache_ttl_item_heap_t, list_expiry);
 		lwsl_debug("%s: setting exp %llu\n", __func__,
 						(unsigned long long)ei->expiry);
@@ -432,6 +442,16 @@ lws_cache_heap_get(struct lws_cache_ttl_lru *_c, const char *specific_key,
 	if (!item)
 		return 1;
 
+	/*
+	 * An item past its expiry is not usable, even if the expiry sul has
+	 * not got to it yet.  We leave destroying it to the sul, since
+	 * destroying an item also destroys the cached lookup results naming it,
+	 * which the caller may be walking.
+	 */
+	if (item->expiry &&
+	    item->expiry <= lws_cx_now(_c->info.cx, _c->info.tsi))
+		return 1;
+
 	/* we are using it, move it to lru head */
 	lws_dll2_remove(&item->list_lru);
 	lws_dll2_add_head(&item->list_lru, &cache->items_lru);
@@ -450,23 +470,19 @@ lws_cache_heap_invalidate(struct lws_cache_ttl_lru *_c, const char *specific_key
 	lws_cache_ttl_lru_t_heap_t *cache = (lws_cache_ttl_lru_t_heap_t *)_c;
 	struct lws_cache_ttl_lru *backing = _c;
 	lws_cache_ttl_item_heap_t *item;
-	const void *user;
-	size_t size;
-
-	if (lws_cache_heap_get(_c, specific_key, &user, &size))
-		return 0;
 
 	if (backing->info.parent)
 		backing = backing->info.parent;
 
-	item = (lws_cache_ttl_item_heap_t *)(((uint8_t *)user) - sizeof(*item));
-
 	/*
-	 * We must invalidate any cached results that would have included this
+	 * We must invalidate any cached lookup results that include, or would
+	 * include, an item with this key, whether or not we hold the item
+	 * itself: it may only be in an outer level, or be about to be written
+	 * by lws_cache_write_through()
 	 */
 
 	lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1,
-				   cache->items_lru.head) {
+				   lws_dll2_get_head(&cache->items_lru)) {
 		lws_cache_ttl_item_heap_t *i = lws_container_of(d,
 						lws_cache_ttl_item_heap_t,
 						list_lru);
@@ -488,10 +504,75 @@ lws_cache_heap_invalidate(struct lws_cache_ttl_lru *_c, const char *specific_key
 
 	} lws_end_foreach_dll_safe(d, d1);
 
-	lws_cache_heap_item_destroy(cache, item, 0);
+	/* even if it has expired: the expiry sweep may not have run yet */
+
+	item = lws_cache_heap_specific(cache, specific_key);
+	if (item)
+		lws_cache_heap_item_destroy(cache, item, 0);
 
 	return 0;
 }
+
+#if defined(LWS_WITH_FOOTPRINT)
+
+/*
+ * A heap cache holds its items, each with its key, until they expire or are
+ * evicted: eg, the dlo asset cache keeps whole fetched images and documents.
+ */
+
+static size_t
+heap_cache_item_heap(lws_cache_ttl_item_heap_t *item)
+{
+	return lws_fp_heap(item, sizeof(*item) + item->size + item->key_len + 1);
+}
+
+static void
+heap_cache_fp_report(lws_footprint_t *fp, lws_footprint_report_t *r)
+{
+	lws_cache_ttl_lru_t_heap_t *cache = lws_container_of(fp,
+					lws_cache_ttl_lru_t_heap_t, fp);
+	size_t b = lws_fp_heap(cache, sizeof(*cache));
+
+	lws_start_foreach_dll(struct lws_dll2 *, d,
+			      lws_dll2_get_head(&cache->items_lru)) {
+		b += heap_cache_item_heap(lws_container_of(d,
+					lws_cache_ttl_item_heap_t, list_lru));
+	} lws_end_foreach_dll(d);
+
+	r->count	= cache->items_lru.count;
+	r->bytes	= b;
+	if (b > fp->bytes_hwm)
+		fp->bytes_hwm = b;
+	r->bytes_hwm	= fp->bytes_hwm;
+}
+
+static void
+heap_cache_fp_dump(lws_footprint_t *fp)
+{
+	lws_cache_ttl_lru_t_heap_t *cache = lws_container_of(fp,
+					lws_cache_ttl_lru_t_heap_t, fp);
+
+	/* the items big enough to matter, by key */
+	lws_start_foreach_dll(struct lws_dll2 *, d,
+			      lws_dll2_get_head(&cache->items_lru)) {
+		lws_cache_ttl_item_heap_t *item = lws_container_of(d,
+					lws_cache_ttl_item_heap_t, list_lru);
+		size_t h = heap_cache_item_heap(item);
+
+		if (h >= 512)
+			lwsl_cx_notice(cache->cache.info.cx,
+				       "fp:     %-40.40s %7llu B",
+				       (const char *)&item[1] + item->size,
+				       (unsigned long long)h);
+	} lws_end_foreach_dll(d);
+}
+
+static const lws_footprint_ops_t heap_cache_fp_ops = {
+	.shed_class	= LWSFP_SHED_NONE,
+	.report		= heap_cache_fp_report,
+	.dump		= heap_cache_fp_dump,
+};
+#endif
 
 static struct lws_cache_ttl_lru *
 lws_cache_heap_create(const struct lws_cache_creation_info *info)
@@ -506,34 +587,45 @@ lws_cache_heap_create(const struct lws_cache_creation_info *info)
 	if (!cache)
 		return NULL;
 
-	cache->cache.info = *info;
+	lws_cache_base_init(&cache->cache, info);
 	if (info->parent)
 		info->parent->child = &cache->cache;
+
+#if defined(LWS_WITH_FOOTPRINT)
+	lws_footprint_register(info->cx, &cache->fp, "heap cache",
+			       &heap_cache_fp_ops);
+	lws_footprint_set_ident(&cache->fp, cache->cache.info.name);
+#endif
 
 	// lwsl_cache("%s: create %s\n", __func__, info->name);
 
 	return (struct lws_cache_ttl_lru *)cache;
 }
 
-static int
-destroy_dll(struct lws_dll2 *d, void *user)
+/*
+ * Everything goes, so there is no point checking which cached lookup results
+ * name each item: take the items off the head one at a time.
+ *
+ * This must not be a walk with a saved "next" cursor... destroying a normal
+ * item through lws_cache_heap_item_destroy() also destroys any meta result
+ * naming it, which may well be the saved next item, eg, after a lookup and
+ * then a get of its one result, items_lru is [item, meta].
+ */
+
+static void
+lws_cache_heap_drain(lws_cache_ttl_lru_t_heap_t *cache)
 {
-	lws_cache_ttl_lru_t *_c = (struct lws_cache_ttl_lru *)user;
-	lws_cache_ttl_lru_t_heap_t *cache = (lws_cache_ttl_lru_t_heap_t *)_c;
-	lws_cache_ttl_item_heap_t *item =
-		       lws_container_of(d, lws_cache_ttl_item_heap_t, list_lru);
+	lws_dll2_t *d;
 
-	lws_cache_heap_item_destroy(cache, item, 0);
-
-	return 0;
+	while ((d = lws_dll2_get_head(&cache->items_lru)))
+		_lws_cache_heap_item_destroy(cache, lws_container_of(d,
+					lws_cache_ttl_item_heap_t, list_lru));
 }
 
 static int
 lws_cache_heap_expunge(struct lws_cache_ttl_lru *_c)
 {
-	lws_cache_ttl_lru_t_heap_t *cache = (lws_cache_ttl_lru_t_heap_t *)_c;
-
-	lws_dll2_foreach_safe(&cache->items_lru, cache, destroy_dll);
+	lws_cache_heap_drain((lws_cache_ttl_lru_t_heap_t *)_c);
 
 	return 0;
 }
@@ -547,9 +639,13 @@ lws_cache_heap_destroy(struct lws_cache_ttl_lru **_cache)
 	if (!cache)
 		return;
 
-	lws_sul_cancel(&c->sul);
+#if defined(LWS_WITH_FOOTPRINT)
+	lws_footprint_unregister(&cache->fp);
+#endif
+	lws_cache_heap_drain(cache);
 
-	lws_dll2_foreach_safe(&cache->items_lru, cache, destroy_dll);
+	/* destroying items rearms the sul while any are left */
+	lws_sul_cancel(&c->sul);
 
 	lws_free_set_NULL(*_cache);
 }
@@ -577,14 +673,14 @@ lws_cache_heap_debug_dump(struct lws_cache_ttl_lru *_c)
 #if !defined(LWS_WITH_NO_LOGS)
 	lws_cache_ttl_item_heap_t *item = NULL;
 
-	lws_dll2_t *d = cache->items_expiry.head;
+	lws_dll2_t *d = lws_dll2_get_head(&cache->items_expiry);
 
 	if (d)
 		item = lws_container_of(d, lws_cache_ttl_item_heap_t,
 						list_expiry);
 
 	lwsl_cache("%s: %s: items %d, earliest %llu\n", __func__,
-			cache->cache.info.name, (int)cache->items_lru.count,
+			cache->cache.info.name, (int)lws_dll2_count(&cache->items_lru),
 			item ? (unsigned long long)item->expiry : 0ull);
 #endif
 

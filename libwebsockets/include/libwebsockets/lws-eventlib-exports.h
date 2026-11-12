@@ -25,8 +25,8 @@
  */
 
 enum lws_event_lib_ops_flags {
-	LELOF_ISPOLL				= (1 >> 0),
-	LELOF_DESTROY_FINAL			= (1 >> 1),
+	LELOF_ISPOLL				= (1 << 0),
+	LELOF_DESTROY_FINAL			= (1 << 1),
 };
 
 enum {
@@ -67,6 +67,17 @@ struct lws_event_loop_ops {
 	void (*destroy_wsi)(struct lws *wsi);
 	/* return nonzero if caller thread is not loop service thread  */
 	int (*foreign_thread)(struct lws_context *context, int tsi);
+	/* optional: custom implementation for faking POLLIN for buffered.
+	 *           return nonzero if any wsi faked */
+	int (*fake_POLLIN_override)(struct lws_context *context, int tsi);
+	/* init a racing parallel connect handle */
+	int (*sock_accept_parallel)(struct lws *wsi, lws_sockfd_type fd, int pidx);
+	/* control racing wsi active events */
+	void (*io_parallel)(struct lws *wsi, int pidx, unsigned int flags);
+	/* close racing handle manually */
+	void (*close_handle_manually_parallel)(struct lws *wsi, int pidx);
+	/* promote parallel handle to primary */
+	int (*promote_parallel)(struct lws *wsi, int pidx);
 
 	uint8_t	flags;
 
@@ -74,6 +85,15 @@ struct lws_event_loop_ops {
 	uint16_t	evlib_size_pt;
 	uint16_t	evlib_size_vh;
 	uint16_t	evlib_size_wsi;
+
+	/*
+	 * Move the evlib's per-wsi state from one wsi to another (the QUIC
+	 * ALPN migration hands a connection's fd to a new wsi): the evlib
+	 * re-homes whatever its watchers or callback arguments hold that
+	 * refers to the old block or the old wsi.  NULL means a raw copy of
+	 * the block is enough.
+	 */
+	int (*migrate_wsi)(struct lws *from, struct lws *to);
 };
 
 LWS_VISIBLE LWS_EXTERN void *

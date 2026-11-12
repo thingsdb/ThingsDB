@@ -94,10 +94,14 @@ lws_cose_sign_hashing(struct lws_cose_sign_context *csc,
 }
 
 /*
- * These chunks may be payload or application AAD being emitted into the
- * signed object somewhere else.  But we do not emit them ourselves here
- * (since other non-emitted things are also hashed by us) and so can always
- * deal with the whole in_len in one step.
+ * in / in_len is the caller's current chunk of the inline payload, the chunks
+ * adding up to info->inline_payload_len.
+ *
+ * AGAIN means the output buffer filled: the caller drains it, resets it with
+ * lws_lec_setbuf() and calls again with the *same* in / in_len, csc->along is
+ * how much of that chunk we already took.  FINISHED means we took all of the
+ * chunk: if payload is still due the caller calls again with its next chunk,
+ * otherwise the object is complete.
  */
 
 enum lws_lec_pctx_ret
@@ -111,6 +115,7 @@ lws_cose_sign_payload_chunk(struct lws_cose_sign_context *csc,
 	lws_cose_sig_alg_t *alg;
 	uint8_t c;
 	size_t s;
+	int n;
 
 	switch (csc->tli) {
 	case ST_UNKNOWN:
@@ -120,13 +125,13 @@ lws_cose_sign_payload_chunk(struct lws_cose_sign_context *csc,
 		 * and decide.
 		 */
 
-		if (!csc->algs.count) {
+		if (!lws_dll2_count(&csc->algs)) {
 			lwsl_err("%s: must add at least one signature\n", __func__);
-			return 1;
+			return LWS_LECPCTX_RET_FAIL;
 		}
 
 		csc->type = SIGTYPE_MULTI;
-		alg = lws_container_of(csc->algs.head, lws_cose_sig_alg_t, list);
+		alg = lws_container_of(lws_dll2_get_head(&csc->algs), lws_cose_sig_alg_t, list);
 
 		switch (alg->cose_alg) {
 		case LWSCOSE_WKAHMAC_256_64:
@@ -140,7 +145,7 @@ lws_cose_sign_payload_chunk(struct lws_cose_sign_context *csc,
 			break;
 		}
 
-		if (csc->algs.count == 1) {
+		if (lws_dll2_count(&csc->algs) == 1) {
 			if (!csc->info.sigtype && csc->type == SIGTYPE_MAC) {
 			    if (csc->info.flags & LCSC_FL_ADD_CBOR_PREFER_MAC0)
 				csc->type = SIGTYPE_MAC0;
@@ -204,7 +209,7 @@ lws_cose_sign_payload_chunk(struct lws_cose_sign_context *csc,
 		switch (csc->type) {
 		case SIGTYPE_SINGLE:
 		case SIGTYPE_MAC0:
-			alg = lws_container_of(csc->algs.head,
+			alg = lws_container_of(lws_dll2_get_head(&csc->algs),
 					       lws_cose_sig_alg_t, list);
 
 			lws_lec_init(&lec, lbuf, sizeof(lbuf));
@@ -217,6 +222,11 @@ lws_cose_sign_payload_chunk(struct lws_cose_sign_context *csc,
 
 			lws_lec_scratch(&lec);
 
+			/*
+			 * If the output fills, we are called again to resume
+			 * the bstr below... the bucket must only be hashed the
+			 * first time
+			 */
 			if (!csc->subsequent) {
 				lws_lec_init(&lec1, lb, sizeof(lb));
 				lws_lec_int(&lec1, LWS_CBOR_MAJTYP_BSTR, 0,
@@ -224,13 +234,13 @@ lws_cose_sign_payload_chunk(struct lws_cose_sign_context *csc,
 				lws_cose_sign_hashing(csc, lec1.scratch,
 							   lec1.scratch_len);
 				lws_cose_sign_hashing(csc, lec.start, lec.used);
-				ret = lws_lec_printf(csc->info.lec, "%.*b",
-						     (int)lec.used, lec.start);
-
-				if (ret != LWS_LECPCTX_RET_FINISHED)
-					return ret;
 				csc->subsequent = 1;
 			}
+
+			ret = lws_lec_printf(csc->info.lec, "%.*b",
+					     (int)lec.used, lec.start);
+			if (ret != LWS_LECPCTX_RET_FINISHED)
+				return ret;
 			break;
 		case SIGTYPE_MAC:
 		case SIGTYPE_MULTI:
@@ -261,7 +271,7 @@ lws_cose_sign_payload_chunk(struct lws_cose_sign_context *csc,
 		switch (csc->type) {
 		case SIGTYPE_SINGLE:
 		case SIGTYPE_MAC0:
-			alg = lws_container_of(csc->algs.head,
+			alg = lws_container_of(lws_dll2_get_head(&csc->algs),
 					       lws_cose_sig_alg_t, list);
 			ke = &alg->cose_key->meta[COSEKEY_META_KID];
 			if (ke->len) {
@@ -352,56 +362,81 @@ lws_cose_sign_payload_chunk(struct lws_cose_sign_context *csc,
 
 	case ST_OUTER_PAYLOAD:
 
-		if (csc->along) {
-			in += csc->along;
-			in_len -= csc->along;
-		}
+		/*
+		 * The payload bstr header may still be in scratch: it has to
+		 * go out before any payload byte does
+		 */
 
-		lws_lec_scratch(csc->info.lec);
+		n = lws_lec_scratch(csc->info.lec);
+		csc->info.lec->used = lws_ptr_diff_size_t(csc->info.lec->buf,
+							  csc->info.lec->start);
+		if (n)
+			/* the output is full */
+			return LWS_LECPCTX_RET_AGAIN;
 
 		if (csc->rem_pay) {
 
-			lws_cose_sign_hashing(csc, in, in_len);
+			if (csc->along > in_len ||
+			    in_len - csc->along > csc->rem_pay) {
+				lwsl_err("%s: payload chunks exceed "
+					 "inline_payload_len\n", __func__);
+
+				return LWS_LECPCTX_RET_FAIL;
+			}
+
+			in += csc->along;
+			in_len -= csc->along;
 
 			/*
-			 * in / in_len is the payload chunk
+			 * Hash exactly the bytes we emit: whatever did not fit
+			 * is presented again after the caller drained the
+			 * output
 			 */
 
 			s = lws_ptr_diff_size_t(csc->info.lec->end,
 						csc->info.lec->buf);
-			if (s > (size_t)csc->rem_pay)
-				s = (size_t)csc->rem_pay;
 			if (s > in_len)
 				s = in_len;
 
-			memcpy(csc->info.lec->buf, in, s);
-			csc->info.lec->buf += s;
-			csc->info.lec->used = lws_ptr_diff_size_t(
-					csc->info.lec->buf,
-					csc->info.lec->start);
-			csc->rem_pay -= s;
+			if (s) {
+				lws_cose_sign_hashing(csc, in, s);
 
-			csc->along = s;
+				memcpy(csc->info.lec->buf, in, s);
+				csc->info.lec->buf += s;
+				csc->info.lec->used = lws_ptr_diff_size_t(
+						csc->info.lec->buf,
+						csc->info.lec->start);
+				csc->rem_pay -= s;
+				csc->along += s;
+			}
 
-			return LWS_LECPCTX_RET_AGAIN;
+			if (s < in_len)
+				/* the output filled before the chunk was used */
+				return LWS_LECPCTX_RET_AGAIN;
+
+			/* all of this chunk is used, the next one starts at 0 */
+
+			csc->along = 0;
+
+			if (csc->rem_pay)
+				return LWS_LECPCTX_RET_FINISHED;
 		}
 
 		/* finished with rem_pay */
 
 		if (csc->type == SIGTYPE_MULTI) {
 
-			csc->alg = lws_container_of(csc->algs.head,
+			csc->alg = lws_container_of(lws_dll2_get_head(&csc->algs),
 						lws_cose_sig_alg_t, list);
 			lws_lec_init(&lec1, lb, sizeof(lb));
 			lws_lec_int(&lec1, LWS_CBOR_MAJTYP_ARRAY, 0,
-				    csc->algs.count);
+				    lws_dll2_count(&csc->algs));
 			lws_lec_int(csc->info.lec, LWS_CBOR_MAJTYP_ARRAY, 0,
-					csc->algs.count);
+					lws_dll2_count(&csc->algs));
 			csc->tli = ST_INNER_PROTECTED;
-			goto inner_protected;
+			goto inner_protected_l;
 		}
 		csc->tli = ST_OUTER_SIGN1_SIGNATURE;
-		csc->along = 0;
 
 		/* fallthru */
 
@@ -421,21 +456,21 @@ lws_cose_sign_payload_chunk(struct lws_cose_sign_context *csc,
 				return ret;
 
 		if (csc->type == SIGTYPE_MAC) {
-			csc->alg = lws_container_of(csc->algs.head,
+			csc->alg = lws_container_of(lws_dll2_get_head(&csc->algs),
 						lws_cose_sig_alg_t, list);
 			lws_lec_init(&lec1, lb, sizeof(lb));
 			lws_lec_int(&lec1, LWS_CBOR_MAJTYP_ARRAY, 0,
-				    csc->algs.count);
+				    lws_dll2_count(&csc->algs));
 			lws_lec_int(csc->info.lec, LWS_CBOR_MAJTYP_ARRAY, 0,
-					csc->algs.count);
+					lws_dll2_count(&csc->algs));
 			csc->tli = ST_INNER_PROTECTED;
-			goto inner_protected;
+			goto inner_protected_l;
 		}
 
 		break;
 
 	case ST_INNER_PROTECTED:
-inner_protected:
+inner_protected_l:
 
 		/*
 		 * We need to list and emit any outer protected data as a map
@@ -445,10 +480,16 @@ inner_protected:
 		switch (csc->type) {
 		case SIGTYPE_MAC:
 		case SIGTYPE_MULTI:
-			lws_lec_init(&lec1, lb, sizeof(lb));
-			lws_lec_int(&lec1, LWS_CBOR_MAJTYP_ARRAY, 0, 3);
-
-			lws_lec_int(csc->info.lec, LWS_CBOR_MAJTYP_ARRAY, 0, 3);
+			/*
+			 * If the output fills, we are called again to resume
+			 * the bstr below... the element's array header must
+			 * only be queued the first time
+			 */
+			if (!csc->subsequent) {
+				lws_lec_int(csc->info.lec, LWS_CBOR_MAJTYP_ARRAY,
+					    0, 3);
+				csc->subsequent = 1;
+			}
 
 			lws_lec_init(&lec, lbuf, sizeof(lbuf));
 
@@ -456,13 +497,12 @@ inner_protected:
 			lws_lec_printf(&lec, "{1:%lld}",
 					     (long long)csc->alg->cose_alg);
 
-			lws_lec_init(&lec1, lb, sizeof(lb));
-			lws_lec_int(&lec1, LWS_CBOR_MAJTYP_BSTR, 0,
-					lec.used);
-			if (lws_lec_printf(csc->info.lec, "{1:%lld}",
-					     (long long)csc->alg->cose_alg) != LWS_LECPCTX_RET_FINISHED)
-				/* coverity */
-				return 0;
+			lws_lec_scratch(&lec);
+
+			ret = lws_lec_printf(csc->info.lec, "%.*b",
+					     (int)lec.used, lec.start);
+			if (ret != LWS_LECPCTX_RET_FINISHED)
+				return ret;
 			break;
 		default:
 			lec.used = 0;
@@ -471,6 +511,7 @@ inner_protected:
 
 
 		csc->tli = ST_INNER_UNPROTECTED;
+		csc->subsequent = 0;
 
 		/* fallthru */
 
@@ -478,8 +519,8 @@ inner_protected:
 
 		switch (csc->type) {
 		case SIGTYPE_MULTI:
-			alg = lws_container_of(csc->algs.head,
-					       lws_cose_sig_alg_t, list);
+			/* this signature's key, not the first signer's */
+			alg = csc->alg;
 			ke = &alg->cose_key->meta[COSEKEY_META_KID];
 			if (ke->len) {
 				ret = lws_lec_printf(csc->info.lec, "{%d:%.*b}",
@@ -511,9 +552,18 @@ inner_protected:
 		if (ret != LWS_LECPCTX_RET_FINISHED)
 			return ret;
 
-		if (csc->alg->list.next) {
-			csc->alg = (lws_cose_sig_alg_t *)csc->alg->list.next;
+		if (lws_dll2_get_next(&csc->alg->list)) {
+			/*
+			 * The signatures array header promised the caller's
+			 * reader all of them: go on with the next signer now,
+			 * rather than returning FINISHED with the object
+			 * incomplete
+			 */
+			csc->alg = lws_container_of(
+					lws_dll2_get_next(&csc->alg->list),
+					lws_cose_sig_alg_t, list);
 			csc->tli = ST_INNER_PROTECTED;
+			goto inner_protected_l;
 		}
 		break;
 

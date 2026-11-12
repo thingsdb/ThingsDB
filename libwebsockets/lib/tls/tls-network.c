@@ -37,15 +37,28 @@ lws_tls_fake_POLLIN_for_buffered(struct lws_context_per_thread *pt)
 
 	lws_start_foreach_dll_safe(struct lws_dll2 *, p, p1,
 			lws_dll2_get_head(&pt->tls.dll_pending_tls_owner)) {
-		struct lws *wsi = lws_container_of(p, struct lws,
-						   tls.dll_pending_tls);
+		struct lws *wsi = lws_container_of(p, struct lws_io_adjunct,
+						   tls.dll_pending_tls)->wsi;
 
-		if (wsi->position_in_fds_table >= 0) {
+		/*
+		 * ... allow custom event loop to override our POLLIN-setting
+		 * implementation if it knows how to do it better for its case
+		 */
+					   
+		if (pt->context->event_loop_ops &&
+		    pt->context->event_loop_ops->fake_POLLIN_override)
+			pt->context->event_loop_ops->fake_POLLIN_override(
+							pt->context, pt->tid);
+		else {					
+			if (wsi->io->position_in_fds_table >= 0) {
 
-			pt->fds[wsi->position_in_fds_table].revents = (short)
-				(pt->fds[wsi->position_in_fds_table].revents |
-				 (pt->fds[wsi->position_in_fds_table].events & LWS_POLLIN));
-			ret |= pt->fds[wsi->position_in_fds_table].revents & LWS_POLLIN;
+				pt->fds[wsi->io->position_in_fds_table].revents = (short)
+					(pt->fds[wsi->io->position_in_fds_table].revents |
+					 (pt->fds[wsi->io->position_in_fds_table].events & LWS_POLLIN));
+				ret |= pt->fds[wsi->io->position_in_fds_table].revents & LWS_POLLIN;
+
+				// lwsl_notice("%s: faked POLLIN for %s, revents=0x%x\n", __func__, lws_wsi_tag(wsi), pt->fds[wsi->io->position_in_fds_table].revents);
+			}
 		}
 
 	} lws_end_foreach_dll_safe(p, p1);
@@ -56,7 +69,7 @@ lws_tls_fake_POLLIN_for_buffered(struct lws_context_per_thread *pt)
 void
 __lws_ssl_remove_wsi_from_buffered_list(struct lws *wsi)
 {
-	lws_dll2_remove(&wsi->tls.dll_pending_tls);
+	lws_dll2_remove(&wsi->io->tls.dll_pending_tls);
 }
 
 void
@@ -68,6 +81,176 @@ lws_ssl_remove_wsi_from_buffered_list(struct lws *wsi)
 	__lws_ssl_remove_wsi_from_buffered_list(wsi);
 	lws_pt_unlock(pt);
 }
+
+/*
+ * The connection goes on as another wsi (the h1 keep-warm hand-off, a quic
+ * netconn re-homing): its tls session moves from `from` to `to`.
+ *
+ * The session outlives `from`, which is freed shortly after, and the tls
+ * library can call back into lws on it at any time, eg, a TLS 1.3
+ * NewSessionTicket arriving long after the handshake makes openssl call the
+ * session cache callback with whatever wsi the SSL was told about.  So every
+ * reference the backend holds to the owning wsi must follow the session, and
+ * `from` must be left with no tls state at all, so that its close cannot
+ * touch what is now `to`'s.
+ */
+void
+lws_tls_transfer_wsi(struct lws *from, struct lws *to)
+{
+	struct lws_context_per_thread *pt = &from->a.context->pt[(int)from->tsi];
+	lws_dll2_owner_t *own;
+
+#if defined(LWS_TLS_SYNTHESIZE_CB)
+	/*
+	 * A synthetic session harvest still pending belongs to `from`'s timer
+	 * list: take it off that and do the harvest now, while the session
+	 * still has the wsi it was made for, rather than copy a linked sul
+	 */
+	if (!lws_dll2_is_detached(&from->io->tls.sul_cb_synth.list)) {
+		lws_sul_cancel(&from->io->tls.sul_cb_synth);
+		if (from->io->tls.ssl)
+			lws_sess_cache_synth_cb(&from->io->tls.sul_cb_synth);
+	}
+#endif
+
+	/*
+	 * The struct copy would take the pending-tls list node with it by
+	 * value: if `from` is on the pt's list (the tls layer holds more
+	 * decrypted bytes than the last read took), both would claim the
+	 * same slot and the list would hold a node inside a wsi about to be
+	 * freed.  Move the membership, not the node.
+	 */
+
+	lws_pt_lock(pt, __func__);
+
+	own = lws_dll2_owner(&from->io->tls.dll_pending_tls);
+	__lws_ssl_remove_wsi_from_buffered_list(from);
+
+	to->io->tls = from->io->tls;
+	memset(&from->io->tls, 0, sizeof(from->io->tls));
+	lws_dll2_clear(&to->io->tls.dll_pending_tls);
+
+	if (own)
+		lws_dll2_add_head(&to->io->tls.dll_pending_tls, own);
+
+	lws_pt_unlock(pt);
+
+	/*
+	 * The simultaneous tls restriction counts the session, so its slot
+	 * goes with it: the backends give it back when the session is closed,
+	 * which is now on `to`, and `from` must not try to (C-688).  If `to`
+	 * somehow holds a slot of his own already, one session needs only one.
+	 */
+	if (to->io->tls_borrowed || to->io->tls_borrowed_hs)
+		lws_tls_restrict_return(from);
+	else {
+		to->io->tls_borrowed = from->io->tls_borrowed;
+		to->io->tls_borrowed_hs = from->io->tls_borrowed_hs;
+		from->io->tls_borrowed = 0;
+		from->io->tls_borrowed_hs = 0;
+	}
+
+	if (to->io->tls.ssl)
+		lws_tls_conn_set_wsi(to);
+}
+
+struct lws_tls_ctx_ref *
+lws_tls_ctx_ref_create(struct lws_vhost *vh, lws_tls_ctx *ctx)
+{
+	struct lws_tls_ctx_ref *ref;
+
+	if (!ctx)
+		return NULL;
+
+	ref = lws_zalloc(sizeof(*ref), "ctx_ref");
+	if (!ref)
+		return NULL;
+
+	ref->cx = vh->context;
+	ref->vh = vh;
+	ref->ctx = ctx;
+	ref->refcount = 1;
+
+	return ref;
+}
+
+struct lws_tls_ctx_ref *
+lws_tls_ctx_ref_get(struct lws_vhost *vh)
+{
+	struct lws_tls_ctx_ref *ref;
+
+	lws_context_lock(vh->context, __func__); /* ------------- cx { */
+	ref = vh->tls.active_ctx_ref;
+	if (ref)
+		ref->refcount++;
+	lws_context_unlock(vh->context); /* } cx ------------- */
+
+	return ref;
+}
+
+void
+lws_tls_ctx_ref_unref(struct lws_tls_ctx_ref *ref)
+{
+	struct lws_context *cx;
+
+	if (!ref)
+		return;
+
+	cx = ref->cx;
+	lws_context_lock(cx, __func__); /* ------------- cx { */
+	if (--ref->refcount == 0) {
+		/* off its vhost's retired list, if it is on one */
+		lws_dll2_remove(&ref->list);
+		lws_tls_vhost_backend_free_ctx(ref->ctx);
+		lws_free(ref);
+	}
+	lws_context_unlock(cx); /* } cx ------------- */
+}
+
+/*
+ * The vhost is going: it lets go of its active ctx and of the retired ones.
+ * The vhost's destruction only waits for the connections bound to it, and a
+ * connection holding one of its ctx can be bound elsewhere by now (a Host:
+ * rebind), its session still using the ctx.  So a ref is only freed with its
+ * last holder: the ones connections still hold are left to them (C-669).
+ */
+void
+lws_tls_ctx_ref_destroy_all(struct lws_vhost *vhost)
+{
+	lws_context_lock(vhost->context, __func__); /* ------------- cx { */
+
+	if (vhost->tls.active_ctx_ref) {
+		/* the connections holding it, if any, no longer have a vhost */
+		vhost->tls.active_ctx_ref->vh = NULL;
+		lws_tls_ctx_ref_unref(vhost->tls.active_ctx_ref);
+		vhost->tls.active_ctx_ref = NULL;
+		vhost->tls.ssl_ctx = NULL;
+	}
+
+#if defined(LWS_TLS_CERT_WATCH)
+	/* a renewal still waiting for its grace period was never served */
+	if (vhost->tls.pending.ref) {
+		lws_tls_ctx_ref_unref(vhost->tls.pending.ref);
+		vhost->tls.pending.ref = NULL;
+	}
+#endif
+
+	/* a retired ref is only still listed while connections hold it */
+
+	lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1,
+				   lws_dll2_get_head(&vhost->tls.retired_ctx_list)) {
+		struct lws_tls_ctx_ref *r = lws_container_of(d,
+						struct lws_tls_ctx_ref, list);
+
+		lwsl_vhost_info(vhost, "retired ctx still held by %d",
+				r->refcount);
+		lws_dll2_remove(&r->list);
+		r->vh = NULL;
+	} lws_end_foreach_dll_safe(d, d1);
+
+	lws_context_unlock(vhost->context); /* } cx ------------- */
+}
+
 
 #if defined(LWS_WITH_SERVER)
 int
@@ -106,12 +289,12 @@ lws_tls_check_cert_lifetime(struct lws_vhost *v)
 int
 lws_tls_check_all_cert_lifetimes(struct lws_context *context)
 {
-	struct lws_vhost *v = context->vhost_list;
+	struct lws_vhost *v = lws_vhost_first(context);
 
 	while (v) {
 		if (lws_tls_check_cert_lifetime(v) < 0)
 			return -1;
-		v = v->vhost_next;
+		v = lws_vhost_next(v);
 	}
 
 	return 0;
@@ -165,6 +348,164 @@ lws_tls_generic_cert_checks(struct lws_vhost *vhost, const char *cert,
 }
 
 /*
+ * Make the vhost a new tls ctx with its renewed cert and key, set up like its
+ * first one, but don't serve it yet: lws_tls_vhost_cert_commit() does that.
+ * The vhost goes on serving the ctx it has either way.
+ *
+ * The cert and key are the copies in memory if given, eg, by a renewer that
+ * we can't read the files of after dropping our privileges, else the
+ * configured files.  Returns 0 with n->ref set, or nonzero.
+ */
+
+int
+lws_tls_vhost_cert_prepare(struct lws_vhost *v,
+			   const char *mem_cert, size_t len_mem_cert,
+			   const char *mem_privkey, size_t len_mem_privkey,
+			   struct lws_tls_vhost_cert_new *n)
+{
+	const char *cert = v->tls.cfg_alloc_cert_path,
+		   *key = v->tls.cfg_key_path;
+	lws_tls_ctx *active = v->tls.ssl_ctx;
+	unsigned int skipped = v->tls.skipped_certs;
+	struct lws wsi;
+	int ret = 1;
+
+	memset(n, 0, sizeof(*n));
+
+	/*
+	 * This is handed to lws_tls_server_certs_load() and from there to the
+	 * app's protocol[0] callback... every member other than the ones we
+	 * set below would otherwise be stack garbage for the callback to trip
+	 * over
+	 */
+
+	memset(&wsi, 0, sizeof(wsi));
+	wsi.a.context = v->context;
+	wsi.a.vhost = v; /* not a real bound wsi */
+	wsi.io = v->context->fake_io;
+
+#if defined(LWS_TLS_CERT_WATCH)
+	/*
+	 * Before the load: if the files change while we load them, what we
+	 * record is older than what we loaded, and the watch loads again.
+	 * Taken after, it could be newer, and the change would be missed.
+	 */
+	lws_tls_cert_file_id_get(cert, &n->cert);
+	lws_tls_cert_file_id_get(key, &n->key);
+#endif
+
+	if (mem_cert && mem_privkey) {
+		/* what we were handed is the renewal, whatever is on disk */
+		cert = key = NULL;
+		n->from_mem = 1;
+	}
+
+	/*
+	 * The backend makes, loads and sets up the vhost's ssl_ctx: it is
+	 * the new one only until we take it back out below
+	 */
+
+	if (lws_tls_vhost_backend_create_ctx(v)) {
+		lwsl_vhost_err(v, "Failed to recreate SSL_CTX");
+		goto out;
+	}
+
+	if (lws_tls_server_certs_load(v, &wsi, cert, key,
+				      mem_cert, len_mem_cert,
+				      mem_privkey, len_mem_privkey)) {
+		lwsl_vhost_err(v, "Failed to load updated certs");
+		goto bail;
+	}
+
+	/*
+	 * The new ctx needs what the first one got after its certs, or eg, on
+	 * openssl, the vhost would lose its client-cert policy and its alpn
+	 * with the renewal
+	 */
+	if (lws_tls_server_vhost_ctx_setup(v, &wsi)) {
+		lwsl_vhost_err(v, "Failed to set up updated ctx");
+		goto bail;
+	}
+
+	n->ref = lws_tls_ctx_ref_create(v, v->tls.ssl_ctx);
+	if (!n->ref)
+		goto bail;
+
+	n->skipped_certs = (uint8_t)v->tls.skipped_certs;
+	ret = 0;
+	goto out;
+
+bail:
+	if (v->tls.ssl_ctx)
+		lws_tls_vhost_backend_free_ctx(v->tls.ssl_ctx);
+out:
+	v->tls.ssl_ctx = active;
+	v->tls.skipped_certs = !!skipped;
+
+	return ret;
+}
+
+/*
+ * The vhost serves the ctx lws_tls_vhost_cert_prepare() made from now on.
+ * Its old ctx is retired, staying alive for the connections that handshaked
+ * under it until the last of them goes.
+ */
+
+void
+lws_tls_vhost_cert_commit(struct lws_vhost *v, struct lws_tls_vhost_cert_new *n)
+{
+	struct lws_tls_ctx_ref *old_ref = v->tls.active_ctx_ref;
+
+	v->tls.ssl_ctx = n->ref->ctx;
+	v->tls.active_ctx_ref = n->ref;
+	v->tls.skipped_certs = !!n->skipped_certs;
+	n->ref = NULL;
+
+	if (old_ref) {
+		lws_dll2_add_tail(&old_ref->list, &v->tls.retired_ctx_list);
+		lws_tls_ctx_ref_unref(old_ref);
+	}
+
+#if defined(LWS_TLS_CERT_WATCH)
+	v->tls.watch_cert = n->cert;
+	v->tls.watch_key = n->key;
+#endif
+
+	if (v->tls.skipped_certs)
+		lwsl_vhost_notice(v, "vhost %s: cert unset", v->name);
+	else if (n->not_after)
+		lwsl_vhost_notice(v, "vhost %s: serving the new cert %s, valid "
+				  "for %lld more days", v->name,
+				  v->tls.cfg_alloc_cert_path,
+				  (long long)((n->not_after -
+					(time_t)lws_now_secs()) / 86400));
+	else
+		lwsl_vhost_notice(v, "vhost %s: serving the new cert %s",
+				  v->name, v->tls.cfg_alloc_cert_path);
+}
+
+/*
+ * Give the vhost a new tls ctx with its renewed cert and key, and serve it at
+ * once.  On failure the vhost keeps the ctx it had.
+ */
+
+int
+lws_tls_vhost_cert_reload(struct lws_vhost *v,
+			  const char *mem_cert, size_t len_mem_cert,
+			  const char *mem_privkey, size_t len_mem_privkey)
+{
+	struct lws_tls_vhost_cert_new n;
+
+	if (lws_tls_vhost_cert_prepare(v, mem_cert, len_mem_cert, mem_privkey,
+				       len_mem_privkey, &n))
+		return 1;
+
+	lws_tls_vhost_cert_commit(v, &n);
+
+	return 0;
+}
+
+/*
  * update the cert for every vhost using the given path
  */
 
@@ -174,31 +515,54 @@ lws_tls_cert_updated(struct lws_context *context, const char *certpath,
 		     const char *mem_cert, size_t len_mem_cert,
 		     const char *mem_privkey, size_t len_mem_privkey)
 {
-	struct lws wsi;
+	int matched = 0, failed = 0;
 
-	wsi.a.context = context;
-
-	lws_start_foreach_ll(struct lws_vhost *, v, context->vhost_list) {
-		wsi.a.vhost = v; /* not a real bound wsi */
-		if (v->tls.alloc_cert_path && v->tls.key_path &&
-		    !strcmp(v->tls.alloc_cert_path, certpath) &&
-		    !strcmp(v->tls.key_path, keypath)) {
-			lws_tls_server_certs_load(v, &wsi, certpath, keypath,
-						  mem_cert, len_mem_cert,
-						  mem_privkey, len_mem_privkey);
-
-			if (v->tls.skipped_certs)
-				lwsl_vhost_notice(v, "vhost %s: cert unset", v->name);
+	lws_start_foreach_vhost(v, context) {
+		if (v->tls.cfg_alloc_cert_path && v->tls.cfg_key_path &&
+		    !strcmp(v->tls.cfg_alloc_cert_path, certpath) &&
+		    !strcmp(v->tls.cfg_key_path, keypath)) {
+			matched++;
+#if defined(LWS_TLS_CERT_WATCH)
+			/* served after the vhost's grace period, if any */
+			if (lws_tls_cert_watch_updated(v, mem_cert, len_mem_cert,
+						       mem_privkey,
+						       len_mem_privkey))
+#else
+			if (lws_tls_vhost_cert_reload(v, mem_cert, len_mem_cert,
+						      mem_privkey,
+						      len_mem_privkey))
+#endif
+			{
+				lwsl_vhost_err(v, "vhost %s: unable to load the "
+					       "new cert %s, still serving the "
+					       "old one", v->name, certpath);
+				failed++;
+			}
 		}
-	} lws_end_foreach_ll(v, vhost_next);
+	} lws_end_foreach_vhost(v);
 
-	return 0;
+	/*
+	 * Whoever renewed it expects it to be served: a vhost meant to serve
+	 * it whose config names the files any other way never will be
+	 */
+	if (!matched)
+		lwsl_cx_warn(context, "no vhost has cert %s and key %s, nothing "
+			     "moves onto them", certpath, keypath);
+
+	return !!failed;
 }
 
+/*
+ * The tls restriction was reached (on), or is no longer: tls vhosts' stream
+ * listeners stop, or start again, taking new connections.  Only those: see
+ * lws_accept_listener_open() for why the udp listeners on the list are left
+ * alone, and how this and the fds table pause agree.
+ */
 int
 lws_gate_accepts(struct lws_context *context, int on)
 {
-	struct lws_vhost *v = context->vhost_list;
+	struct lws_vhost *v = lws_vhost_first(context);
+	int open;
 
 	if (context->tls_gate_accepts == (char)on)
 		return 0;
@@ -214,17 +578,83 @@ lws_gate_accepts(struct lws_context *context, int on)
 							   listen_list);
 
 			if (v->tls.use_ssl &&
-			    lws_change_pollfd(wsi, on ? LWS_POLLIN : 0,
-						   on ? 0 : LWS_POLLIN))
+			    (open = lws_accept_listener_open(wsi)) >= 0 &&
+			    lws_change_pollfd(wsi, open ? 0 : LWS_POLLIN,
+						   open ? LWS_POLLIN : 0))
 				lwsl_cx_notice(context, "Unable to set POLLIN %d", on);
 		} lws_end_foreach_dll(d);
 
-		v = v->vhost_next;
+		v = lws_vhost_next(v);
 	}
 
 	return 0;
 }
 #endif
+
+/*
+ * Is this alpn one that the other transport carries?  The h1 / h2 role alpns
+ * are only serviced on top of tcp, and h3, or a draft of it, only on quic: a
+ * connection that negotiated one on the wrong transport would migrate to a
+ * role that can never make progress on it.  Other alpns, eg, lws' own
+ * "lws-quic", are left to the user.
+ */
+int
+lws_alpn_wrong_transport(const char *e, size_t el, int quic)
+{
+	if (quic)
+		return (el == 2 && !memcmp(e, "h2", 2)) ||
+		       (el == 8 && !memcmp(e, "http/1.1", 8));
+
+	return (el == 2 && !memcmp(e, "h3", 2)) ||
+	       (el > 3 && !memcmp(e, "h3-", 3));
+}
+
+/*
+ * Copy the comma-separated alpn list in to out, leaving out the alpns the
+ * transport, quic or tcp, can't carry.  Returns the length of the list in out,
+ * 0 if nothing in it can be offered or selected on that transport.
+ */
+size_t
+lws_alpn_for_transport(const char *in, char *out, size_t len, int quic)
+{
+	char *o = out;
+	const char *e;
+	size_t el;
+
+	if (!len)
+		return 0;
+
+	*out = '\0';
+	if (!in)
+		return 0;
+
+	while (*in) {
+		while (*in == ' ' || *in == ',')
+			in++;
+		e = in;
+		while (*in && *in != ',')
+			in++;
+		el = lws_ptr_diff_size_t(in, e);
+		while (el && e[el - 1] == ' ')
+			el--;
+
+		if (!el || lws_alpn_wrong_transport(e, el, quic))
+			continue;
+
+		/* room for a comma, the alpn and the NUL */
+		if (lws_ptr_diff_size_t(out + len, o) < el + 2)
+			break;
+
+		if (o != out)
+			*o++ = ',';
+		memcpy(o, e, el);
+		o += el;
+	}
+
+	*o = '\0';
+
+	return lws_ptr_diff_size_t(o, out);
+}
 
 /* comma-separated alpn list, like "h2,http/1.1" to openssl alpn format */
 
@@ -236,12 +666,14 @@ lws_alpn_comma_to_openssl(const char *comma, uint8_t *os, int len)
 	if (!comma)
 		return 0;
 
-	while (*comma && len > 2) {
+	while (*comma && len > 0) {
 		if (!plen && *comma == ' ') {
 			comma++;
 			continue;
 		}
 		if (!plen) {
+			if (len < 2)
+				break;
 			plen = os++;
 			len--;
 		}
@@ -266,3 +698,27 @@ lws_alpn_comma_to_openssl(const char *comma, uint8_t *os, int len)
 
 
 
+
+void
+lws_tls_cleanup_process(void)
+{
+#if defined(LWS_WITH_MBEDTLS)
+	if (tls_ops_mbedtls.process_cleanup)
+		tls_ops_mbedtls.process_cleanup();
+#elif defined(LWS_WITH_SCHANNEL)
+	if (tls_ops_schannel.process_cleanup)
+		tls_ops_schannel.process_cleanup();
+#elif defined(LWS_WITH_GNUTLS)
+	if (tls_ops_gnutls.process_cleanup)
+		tls_ops_gnutls.process_cleanup();
+#elif defined(LWS_WITH_BEARSSL)
+	if (tls_ops_bearssl.process_cleanup)
+		tls_ops_bearssl.process_cleanup();
+#elif defined(LWS_WITH_OPENHITLS)
+	if (tls_ops_openhitls.process_cleanup)
+		tls_ops_openhitls.process_cleanup();
+#else
+	if (tls_ops_openssl.process_cleanup)
+		tls_ops_openssl.process_cleanup();
+#endif
+}

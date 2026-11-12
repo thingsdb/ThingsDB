@@ -99,9 +99,95 @@ lws_sspc_serialize_metadata(lws_sspc_handle_t *h, lws_sspc_metadata_t *md,
 	}
 
 	lws_dll2_remove(&md->list);
-	lws_free(md);
+
+	if (md->name[0] == '\0') {
+		lws_free(md);
+
+		return n;
+	}
+
+	/*
+	 * Keep the latest value of each named metadata the proxy side stream
+	 * has been told about, so we can recreate it if the proxy link drops
+	 */
+
+	lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1,
+			lws_dll2_get_head(&h->metadata_owner_synced)) {
+		lws_sspc_metadata_t *old = lws_container_of(d,
+						lws_sspc_metadata_t, list);
+
+		if (!strcmp(old->name, md->name)) {
+			lws_dll2_remove(&old->list);
+			lws_free(old);
+			break;
+		}
+	} lws_end_foreach_dll_safe(d, d1);
+
+	lws_dll2_add_tail(&md->list, &h->metadata_owner_synced);
 
 	return n;
+}
+
+/*
+ * The proxy link was lost and we have linked up again, with a fresh stream
+ * created at the proxy.  The user code already had its one CREATING and
+ * whatever else happened since, so it's not going to set things up again...
+ * we have to recreate the proxy side stream's state for it.
+ */
+
+void
+lws_sspc_relink_restore(lws_sspc_handle_t *h)
+{
+	lws_sspc_metadata_t *md, *pend;
+	int found;
+
+	lwsl_sspc_notice(h, "restoring stream state on new proxy link");
+
+	/* requeue synced metadata unless a newer value is already pending */
+
+	lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1,
+			lws_dll2_get_head(&h->metadata_owner_synced)) {
+		md = lws_container_of(d, lws_sspc_metadata_t, list);
+		found = 0;
+
+		lws_start_foreach_dll(struct lws_dll2 *, d2,
+				lws_dll2_get_head(&h->metadata_owner)) {
+			pend = lws_container_of(d2, lws_sspc_metadata_t, list);
+			if (!strcmp(pend->name, md->name)) {
+				found = 1;
+				break;
+			}
+		} lws_end_foreach_dll(d2);
+
+		lws_dll2_remove(&md->list);
+		if (found)
+			lws_free(md);
+		else
+			lws_dll2_add_tail(&md->list, &h->metadata_owner);
+
+	} lws_end_foreach_dll_safe(d, d1);
+
+	/* a user timeout that didn't fire yet gets what's left of it */
+
+	if (h->timeout_armed) {
+		if (h->timeout_ms) {
+			/* 0 means "use the policy timeout", leave it as it is */
+			uint64_t el = (uint64_t)(lws_now_usecs() -
+					h->us_timeout_set) / LWS_US_PER_MS;
+
+			h->timeout_ms = el >= h->timeout_ms ? 1 :
+					(uint32_t)(h->timeout_ms - el);
+		}
+		h->us_timeout_set = lws_now_usecs();
+		h->pending_timeout_update = 1;
+	}
+
+	/* ask for the onward connection again if we were still after it */
+
+	if (h->onward_wanted)
+		h->conn_req_state = LWSSSPC_ONW_REQ;
+
+	h->txp_path.ops_onw->req_write(h->txp_path.priv_onw);
 }
 
 /*
@@ -146,10 +232,42 @@ lws_sspc_txp_connect_disposition(lws_sspc_handle_t *h, int disposition)
 	r = h->ssi.state(lws_sspc_to_user_object(h), NULL,
 			 LWSSSCS_UPSTREAM_LINK_RETRY, (uint32_t)i);
 
-	if (r == LWSSSSRET_DESTROY_ME)
-		lws_sspc_destroy(&h);
+	if (r == LWSSSSRET_DESTROY_ME) {
+		/*
+		 * The user code gave up on the link... but we can't destroy
+		 * the handle from here.  Whoever reported the failure is still
+		 * using it after we return: the transport's retry_connect(),
+		 * perhaps from inside lws_client_connect_via_info() that
+		 * delivered the connection error synchronously, then the retry
+		 * sul that called that, which reschedules h->sul_retry, and
+		 * lws_sspc_create() that called that; or the mux, destroying
+		 * the channel the peer refused.  Destroying it here used to
+		 * leave all of those using the freed handle.
+		 *
+		 * So destroy it from the retry sul, when nothing else holds it.
+		 */
+		h->destroy_pending = 1;
+		lws_sul_schedule(h->context, 0, &h->sul_retry,
+				 lws_sspc_sul_retry_cb, 1);
+	}
 
 	return LWSSSSRET_OK;
+}
+
+/*
+ * Try to connect to the proxy, or have the retry sul try again later.  The
+ * user code may give up on the link from inside here, see
+ * lws_sspc_txp_connect_disposition(): then destroy_pending is set and the
+ * retry sul is already scheduled to do the destroy.
+ */
+
+void
+lws_sspc_connect_attempt(lws_sspc_handle_t *h)
+{
+	if (h->txp_path.ops_onw->event_retry_connect(&h->txp_path, h) &&
+	    !h->destroy_pending)
+		lws_sul_schedule(h->context, 0, &h->sul_retry,
+				 lws_sspc_sul_retry_cb, LWS_US_PER_SEC);
 }
 
 void
@@ -158,9 +276,13 @@ lws_sspc_sul_retry_cb(lws_sorted_usec_list_t *sul)
 	lws_sspc_handle_t *h = lws_container_of(sul, lws_sspc_handle_t,
 						sul_retry);
 
-	if (h->txp_path.ops_onw->event_retry_connect(&h->txp_path, h))
-		lws_sul_schedule(h->context, 0, &h->sul_retry,
-				 lws_sspc_sul_retry_cb, LWS_US_PER_SEC);
+	if (h->destroy_pending) {
+		lws_sspc_destroy(&h);
+
+		return;
+	}
+
+	lws_sspc_connect_attempt(h);
 }
 
 /*
@@ -179,6 +301,12 @@ lws_sspc_txp_event_closed(lws_transport_priv_t priv)
 	}
 
 	h->parser.ps = RPAR_TYPE;
+	/* a metadata value cut off with the link is never listed */
+	if (h->parser.rxmd) {
+		lws_free(h->parser.rxmd);
+		h->parser.rxmd = NULL;
+	}
+	h->parser.rxmetaval = NULL;
 
 	lws_dsh_empty(h->dsh);
 	h->txp_path.priv_onw = NULL;
@@ -191,6 +319,12 @@ lws_sspc_txp_event_closed(lws_transport_priv_t priv)
 		r = h->ssi.state(ss_to_userobj(h), NULL,
 					 LWSSSCS_DISCONNECTED, 0);
 	}
+	/*
+	 * The proxy side stream is gone with the link, but our stream isn't
+	 * and user code saw CREATING already: when we link up again we'll
+	 * recreate it without showing CREATING again, see
+	 * lws_sspc_relink_restore()
+	 */
 	if (r != LWSSSSRET_DESTROY_ME)
 		/*
 		 * schedule a reconnect in 1s
@@ -237,11 +371,14 @@ lws_sspc_txp_tx(lws_sspc_handle_t *h, size_t metadata_limit)
 	int flags;
 
 	/*
-	 * Management of ss timeout can happen any time and doesn't
-	 * depend on wsi existence or state
+	 * Management of ss timeout can happen any time and doesn't depend on
+	 * the onward connection state, but the proxy side stream must exist
+	 * to take it, so it waits pending until the proxy created it
 	 */
 
-	if (h->pending_timeout_update) {
+	if (h->pending_timeout_update &&
+	    (h->state == LPCSCLI_LOCAL_CONNECTED ||
+	     h->state == LPCSCLI_OPERATIONAL)) {
 		cp = s;
 		*s = LWSSS_SER_TXPRE_TIMEOUT_UPDATE;
 		*(s + 1) = 0;
@@ -273,7 +410,38 @@ lws_sspc_txp_tx(lws_sspc_handle_t *h, size_t metadata_limit)
 		 * streamtype
 		 */
 		// lwsl_sspc_notice(h, "LPCSCLI_SENDING_INITIAL_TX");
+
+		/*
+		 * The streamtype must fit in the scratch buffer after the
+		 * 12-byte header (3-byte txpreamble + 9 fixed bytes), or the
+		 * length prefix would describe more than we actually composed
+		 */
+
+		if (strlen(h->ssi.streamtype) >
+				(sizeof(_s) - LWS_PRE) - 12 - 1) {
+			lwsl_sspc_err(h, "streamtype too long");
+			goto hangup;
+		}
+
 		txl = strlen(h->ssi.streamtype) + 1 + 4 + 4;
+
+		/*
+		 * The new proxy side stream takes its initial peer tx credit
+		 * from the estimate we send here, which already includes any
+		 * tx credit adjustments still queued... they must not be sent
+		 * again on top of it
+		 */
+
+		lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1,
+				lws_dll2_get_head(&h->metadata_owner)) {
+			lws_sspc_metadata_t *md = lws_container_of(d,
+						lws_sspc_metadata_t, list);
+
+			if (!md->name[0]) {
+				lws_dll2_remove(&md->list);
+				lws_free(md);
+			}
+		} lws_end_foreach_dll_safe(d, d1);
 
 		cp = s;
 		*s = LWSSS_SER_TXPRE_STREAMTYPE;
@@ -301,7 +469,7 @@ lws_sspc_txp_tx(lws_sspc_handle_t *h, size_t metadata_limit)
 		 * changes?
 		 */
 
-		if (h->metadata_owner.count) {
+		if (lws_dll2_count(&h->metadata_owner)) {
 			lws_sspc_metadata_t *md = lws_container_of(
 				lws_dll2_get_tail(&h->metadata_owner),
 				lws_sspc_metadata_t, list);
@@ -336,9 +504,10 @@ lws_sspc_txp_tx(lws_sspc_handle_t *h, size_t metadata_limit)
 			goto req_write_and_issue;
 		}
 
-		if (h->conn_req_state >= LWSSSPC_ONW_ONGOING) {
-			lwsl_sspc_info(h, "conn_req_state %d",
-					h->conn_req_state);
+		if (h->conn_req_state != LWSSSPC_ONW_REQ) {
+			if (h->conn_req_state == LWSSSPC_ONW_ONGOING)
+				lwsl_sspc_info(h, "conn_req_state %d",
+						h->conn_req_state);
 			break;
 		}
 
@@ -371,7 +540,7 @@ lws_sspc_txp_tx(lws_sspc_handle_t *h, size_t metadata_limit)
 		cp = p = pkt + LWS_PRE;
 		end = p + metadata_limit;
 
-		if (h->metadata_owner.count) {
+		if (lws_dll2_count(&h->metadata_owner)) {
 			lws_sspc_metadata_t *md = lws_container_of(
 				lws_dll2_get_tail(&h->metadata_owner),
 				lws_sspc_metadata_t, list);

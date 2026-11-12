@@ -1,7 +1,7 @@
 #
 # libwebsockets - small server side websockets and web server implementation
 #
-# Copyright (C) 2010 - 2021 Andy Green <andy@warmcat.com>
+# Copyright (C) 2010 - 2026 Andy Green <andy@warmcat.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to
@@ -23,10 +23,24 @@
 #
 
 include_directories(.)
+include(LwsCheckRequirements)
 
 if (DEFINED LIB_LIST_AT_END)
 link_libraries(${LIB_LIST_AT_END})
 endif()
+
+MACRO(SUBDIRLIST result curdir)
+  FILE(GLOB children RELATIVE ${curdir} ${curdir}/*)
+  SET(dirlist "")
+
+  FOREACH(child ${children})
+    IF (IS_DIRECTORY ${curdir}/${child})
+	LIST(APPEND dirlist ${child})
+    ENDIF()
+  ENDFOREACH()
+
+  SET(${result} ${dirlist})
+ENDMACRO()
 
 if ((LWS_WITH_PLUGINS AND LWS_WITH_SHARED) OR LWS_WITH_PLUGINS_BUILTIN)
 
@@ -36,17 +50,62 @@ if ((LWS_WITH_PLUGINS AND LWS_WITH_SHARED) OR LWS_WITH_PLUGINS_BUILTIN)
 	#
 
 	macro(create_plugin PLUGIN_NAME PLUGIN_INCLUDE MAIN_SRC S2 S3)
+		set(PLUGIN_REJECTED 0)
+
+		if (NOT "${LWS_WITH_PLUGIN_FILTER_NO}" STREQUAL "")
+			string(REPLACE "," ";" NO_LIST "${LWS_WITH_PLUGIN_FILTER_NO}")
+			foreach(P ${NO_LIST})
+				if ("${PLUGIN_NAME}" MATCHES "${P}")
+					set(PLUGIN_REJECTED 1)
+				endif()
+			endforeach()
+		endif()
+
+		if (NOT PLUGIN_REJECTED AND NOT "${LWS_WITH_PLUGIN_FILTER_YES}" STREQUAL "")
+			set(FOUND_YES 0)
+			string(REPLACE "," ";" YES_LIST "${LWS_WITH_PLUGIN_FILTER_YES}")
+			foreach(P ${YES_LIST})
+				if ("${PLUGIN_NAME}" MATCHES "${P}")
+					set(FOUND_YES 1)
+				endif()
+			endforeach()
+			if (NOT FOUND_YES)
+				set(PLUGIN_REJECTED 1)
+			endif()
+		endif()
+
+		if (PLUGIN_REJECTED)
+			message(STATUS "Skipping plugin ${PLUGIN_NAME} due to filter")
+			return()
+		endif()
 
 		if (NOT LWS_WITH_PLUGINS_BUILTIN)
-			set(PLUGIN_SRCS ${MAIN_SRC})
+			set(PLUGIN_SRCS "")
+			foreach(A ${MAIN_SRC})
+				if (IS_ABSOLUTE ${A})
+					list(APPEND PLUGIN_SRCS ${A})
+				else()
+					list(APPEND PLUGIN_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/${A})
+				endif()
+			endforeach()
 
-			if ("${S2}" STREQUAL "")
-			else()
-				list(APPEND PLUGIN_SRCS ${S2})
+			if (NOT "${S2}" STREQUAL "")
+				foreach(A ${S2})
+					if (IS_ABSOLUTE ${A})
+						list(APPEND PLUGIN_SRCS ${A})
+					else()
+						list(APPEND PLUGIN_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/${A})
+					endif()
+				endforeach()
 			endif()
-			if ("${S3}" STREQUAL "")
-			else()
-				list(APPEND PLUGIN_SRCS ${S3})
+			if (NOT "${S3}" STREQUAL "")
+				foreach(A ${S3})
+					if (IS_ABSOLUTE ${A})
+						list(APPEND PLUGIN_SRCS ${A})
+					else()
+						list(APPEND PLUGIN_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/${A})
+					endif()
+				endforeach()
 			endif()
 
 			if (WIN32)
@@ -64,6 +123,7 @@ if ((LWS_WITH_PLUGINS AND LWS_WITH_SHARED) OR LWS_WITH_PLUGINS_BUILTIN)
 
 			source_group("Headers Private"   FILES ${PLUGIN_HDR})
 			source_group("Sources"   FILES ${PLUGIN_SRCS})
+			message("CREATING PLUGIN ${PLUGIN_NAME}")
 			add_library(${PLUGIN_NAME} SHARED ${PLUGIN_SRCS} ${PLUGIN_HDR})
 			target_link_libraries(${PLUGIN_NAME} websockets_shared)
 			add_dependencies(${PLUGIN_NAME} websockets_shared)
@@ -73,12 +133,13 @@ if ((LWS_WITH_PLUGINS AND LWS_WITH_SHARED) OR LWS_WITH_PLUGINS_BUILTIN)
 			target_include_directories(${PLUGIN_NAME} PRIVATE ${PLUGIN_INCLUDE}
 									  ${LWS_LIB_BUILD_INC_PATHS})
 			set_property(TARGET ${PLUGIN_NAME}
-				     PROPERTY COMPILE_DEFINITIONS
+				     APPEND PROPERTY COMPILE_DEFINITIONS
 				     INSTALL_DATADIR="${CMAKE_INSTALL_PREFIX}/plugins"
 			)
 
 			set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 			list(APPEND PLUGINS_LIST ${PLUGIN_NAME})
+			set(PLUGINS_LIST ${PLUGINS_LIST} PARENT_SCOPE)
 		else()
 			# let's just build the things into the lib
 
@@ -86,138 +147,67 @@ if ((LWS_WITH_PLUGINS AND LWS_WITH_SHARED) OR LWS_WITH_PLUGINS_BUILTIN)
 			list(APPEND LWS_BUILTIN_PLUGIN_NAMES "${PLUGIN_NAME}")
 			set(LWS_BUILTIN_PLUGIN_NAMES ${LWS_BUILTIN_PLUGIN_NAMES} PARENT_SCOPE)
 
-			if ("${PLUGIN_INCLUDE}" STREQUAL "")
-			else()
-				list(APPEND LWS_LIB_BUILD_INC_PATHS ../plugins/${PLUGIN_INCLUDE})
+			#
+			# if the plugin needs extra libs when built into the
+			# library itself, the plugin sets PLUGIN_LINK_LIBS before
+			# calling us and we forward them to the lib's link list
+			#
+
+			if (NOT "${PLUGIN_LINK_LIBS}" STREQUAL "")
+				list(APPEND LWS_PLUGIN_BUILTIN_LIBS ${PLUGIN_LINK_LIBS})
+				set(LWS_PLUGIN_BUILTIN_LIBS ${LWS_PLUGIN_BUILTIN_LIBS} PARENT_SCOPE)
 			endif()
 
-			if ("${MAIN_SRC}" STREQUAL "")
-			else()
+			if (NOT "${PLUGIN_INCLUDE}" STREQUAL "")
+				foreach(_inc ${PLUGIN_INCLUDE})
+					if (IS_ABSOLUTE ${_inc})
+						list(APPEND LWS_LIB_BUILD_INC_PATHS ${_inc})
+					else()
+						list(APPEND LWS_LIB_BUILD_INC_PATHS ${CMAKE_CURRENT_SOURCE_DIR}/${_inc})
+					endif()
+				endforeach()
+				set(LWS_LIB_BUILD_INC_PATHS ${LWS_LIB_BUILD_INC_PATHS} PARENT_SCOPE)
+			endif()
+
+			if (NOT "${MAIN_SRC}" STREQUAL "")
 				foreach(A ${MAIN_SRC})
-					list(APPEND SOURCES ../plugins/${A})
+					if (IS_ABSOLUTE ${A})
+						list(APPEND SOURCES ${A})
+					else()
+						list(APPEND SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/${A})
+					endif()
 				endforeach()
 			endif()
-			if ("${S2}" STREQUAL "")
-			else()
+			if (NOT "${S2}" STREQUAL "")
 				foreach(A ${S2})
-					list(APPEND SOURCES ../plugins/${A})
+					if (IS_ABSOLUTE ${A})
+						list(APPEND SOURCES ${A})
+					else()
+						list(APPEND SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/${A})
+					endif()
 				endforeach()
 			endif()
-			if ("${S3}" STREQUAL "")
-			else()
+			if (NOT "${S3}" STREQUAL "")
 				foreach(A ${S3})
-					list(APPEND SOURCES ../plugins/${A})
+					if (IS_ABSOLUTE ${A})
+						list(APPEND SOURCES ${A})
+					else()
+						list(APPEND SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/${A})
+					endif()
 				endforeach()
 			endif()
 
+			set(SOURCES ${SOURCES} PARENT_SCOPE)
 		endif(NOT LWS_WITH_PLUGINS_BUILTIN)
 	endmacro()
-		
-if (LWS_ROLE_WS)
-		create_plugin(protocol_dumb_increment ""
-			      "protocol_dumb_increment.c" "" "")
-		if (NOT LWS_WITH_PLUGINS_BUILTIN)
-			target_compile_definitions(protocol_dumb_increment PRIVATE LWS_BUILDING_SHARED)
+
+	SUBDIRLIST(SUBDIRS "${CMAKE_CURRENT_SOURCE_DIR}")
+	FOREACH(subdir ${SUBDIRS})
+		if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${subdir}/CMakeLists.txt")
+			message("Processing ${CMAKE_CURRENT_SOURCE_DIR}/${subdir}")
+			add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/${subdir}")
 		endif()
-
-		create_plugin(protocol_lws_mirror ""
-			      "protocol_lws_mirror.c" "" "")
-		if (NOT LWS_WITH_PLUGINS_BUILTIN)
-			target_compile_definitions(protocol_lws_mirror PRIVATE LWS_BUILDING_SHARED)
-		endif()
-
-		create_plugin(protocol_lws_status ""
-			      "protocol_lws_status.c" "" "")
-		if (NOT LWS_WITH_PLUGINS_BUILTIN)
-			target_compile_definitions(protocol_lws_status PRIVATE LWS_BUILDING_SHARED)
-		endif()
-
-		if (NOT WIN32)
-			create_plugin(protocol_lws_raw_test ""
-			      "protocol_lws_raw_test.c" "" "")
-			if (NOT LWS_WITH_PLUGINS_BUILTIN)
-				target_compile_definitions(protocol_lws_raw_test PRIVATE LWS_BUILDING_SHARED)
-			endif()
-
-
-		      if (UNIX AND LWS_HAVE_PTHREAD_H)
-				create_plugin(protocol_deaddrop ""
-				      "deaddrop/protocol_lws_deaddrop.c" "" "")
-				if (NOT LWS_WITH_PLUGINS_BUILTIN)
-					target_compile_definitions(protocol_deaddrop PRIVATE LWS_BUILDING_SHARED)
-				endif()
-			endif()
-		endif()
-
-	if (LWS_WITH_SYS_METRICS)
-			create_plugin(protocol_lws_openmetrics_export ""
-				      "protocol_lws_openmetrics_export.c" "" "")
-			if (NOT LWS_WITH_PLUGINS_BUILTIN)
-				target_compile_definitions(protocol_lws_openmetrics_export PRIVATE LWS_BUILDING_SHARED)
-			endif()
-	endif()
-
-	if (NOT LWS_WITHOUT_CLIENT)
-			create_plugin(protocol_client_loopback_test ""
-        	                      "protocol_client_loopback_test.c" "" "")
-			if (NOT LWS_WITH_PLUGINS_BUILTIN)
-				target_compile_definitions(protocol_client_loopback_test PRIVATE LWS_BUILDING_SHARED)
-			endif()
-
-	endif()
-
-endif(LWS_ROLE_WS)
-
-	create_plugin(protocol_post_demo ""
-		      "protocol_post_demo.c" "" "")
-	if (NOT LWS_WITH_PLUGINS_BUILTIN)
-		target_compile_definitions(protocol_post_demo PRIVATE LWS_BUILDING_SHARED)
-	endif()
-
-
-if (LWS_ROLE_RAW_PROXY)
-	create_plugin(protocol_lws_raw_proxy ""
-		      "raw-proxy/protocol_lws_raw_proxy.c" "" "")
-	if (NOT LWS_WITH_PLUGINS_BUILTIN)
-		target_compile_definitions(protocol_lws_raw_proxy PRIVATE LWS_BUILDING_SHARED)
-	endif()
-
-endif()
-
-if (LWS_WITH_FTS)
-	create_plugin(protocol_fulltext_demo ""
-		      "protocol_fulltext_demo.c" "" "")
-	if (NOT LWS_WITH_PLUGINS_BUILTIN)
-		target_compile_definitions(protocol_fulltext_demo PRIVATE LWS_BUILDING_SHARED)
-	endif()
-
-endif()
-
-
-if (LWS_WITH_SSL)
-	create_plugin(protocol_lws_ssh_base "ssh-base/include"
-		      "ssh-base/sshd.c;ssh-base/telnet.c;ssh-base/kex-25519.c" "ssh-base/crypto/chacha.c;ssh-base/crypto/ed25519.c;ssh-base/crypto/fe25519.c;ssh-base/crypto/ge25519.c;ssh-base/crypto/poly1305.c;ssh-base/crypto/sc25519.c;ssh-base/crypto/smult_curve25519_ref.c" "")
-	if (NOT LWS_WITH_PLUGINS_BUILTIN)
-		target_compile_definitions(protocol_lws_ssh_base PRIVATE LWS_BUILDING_SHARED)
-	endif()
-
-	create_plugin(protocol_lws_sshd_demo "ssh-base/include" "protocol_lws_sshd_demo.c" "" "")
-	if (NOT LWS_WITH_PLUGINS_BUILTIN)
-		target_compile_definitions(protocol_lws_sshd_demo PRIVATE LWS_BUILDING_SHARED)
-	endif()
-
-	include_directories("${PROJECT_SOURCE_DIR}/plugins/ssh-base/include")
-endif()
-
-
-
-if (LWS_WITH_ACME)
-	create_plugin(protocol_lws_acme_client ""
-		      "acme-client/protocol_lws_acme_client.c" "" "")
-	if (NOT LWS_WITH_PLUGINS_BUILTIN)
-		target_compile_definitions(protocol_lws_acme_client PRIVATE LWS_BUILDING_SHARED)
-	endif()
-endif()
+	ENDFOREACH()
 
 endif((LWS_WITH_PLUGINS AND LWS_WITH_SHARED) OR LWS_WITH_PLUGINS_BUILTIN)
 
@@ -225,20 +215,14 @@ endif((LWS_WITH_PLUGINS AND LWS_WITH_SHARED) OR LWS_WITH_PLUGINS_BUILTIN)
 # plugins
 
 if (LWS_WITH_PLUGINS AND NOT LWS_WITH_PLUGINS_BUILTIN)
-
-	install(TARGETS ${PLUGINS_LIST}
-		PERMISSIONS  OWNER_WRITE OWNER_EXECUTE GROUP_EXECUTE WORLD_EXECUTE OWNER_READ GROUP_READ WORLD_READ
-		DESTINATION share/libwebsockets-test-server/plugins
-		COMPONENT plugins)
-
-	if (NOT WIN32)
-		install(FILES deaddrop/assets/index.html;deaddrop/assets/deaddrop.js;deaddrop/assets/deaddrop.css;deaddrop/assets/drop.svg
-			DESTINATION share/libwebsockets-test-server/deaddrop
+	if (PLUGINS_LIST)
+		install(TARGETS ${PLUGINS_LIST}
+			PERMISSIONS  OWNER_WRITE OWNER_EXECUTE GROUP_EXECUTE WORLD_EXECUTE OWNER_READ GROUP_READ WORLD_READ
+			DESTINATION "${LWS_INSTALL_PLUGIN_DIR}"
 			COMPONENT plugins)
 	endif()
-
-
 endif()
 
 export_to_parent_intermediate()
-
+set(LWS_BUILTIN_PLUGIN_NAMES ${LWS_BUILTIN_PLUGIN_NAMES} PARENT_SCOPE)
+set(LWS_PLUGIN_BUILTIN_LIBS ${LWS_PLUGIN_BUILTIN_LIBS} PARENT_SCOPE)

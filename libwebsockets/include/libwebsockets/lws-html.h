@@ -26,13 +26,105 @@
  */
 
 #if !defined(LHP_MAX_ELEMS_NEST)
-#define LHP_MAX_ELEMS_NEST		32
+#define LHP_MAX_ELEMS_NEST		128
 #endif
 #if !defined(LHP_MAX_DEPTH)
-#define LHP_MAX_DEPTH			12
+#define LHP_MAX_DEPTH			64
 #endif
 #if !defined(LHP_STRING_CHUNK)
-#define LHP_STRING_CHUNK		254
+#define LHP_STRING_CHUNK		2048
+#endif
+/*
+ * Longest absolute url (including the NUL) for a document or an asset it
+ * refers to.  Real pages use urls well over 256 chars, and file:// urls carry
+ * the whole local path.  A url that does not fit is refused, with a warning.
+ */
+#if !defined(LHP_URL_LEN)
+#define LHP_URL_LEN			512
+#endif
+/*
+ * How many of an element's closed earlier siblings are remembered (their
+ * attributes) so that the ~ and + selector combinators and :first-child can
+ * be evaluated.  Costs the attribute storage of that many elements per open
+ * level.
+ */
+#if !defined(LHP_SIBLING_HISTORY)
+#if defined(LWS_PLAT_FREERTOS) || defined(LWS_PLAT_BAREMETAL)
+#define LHP_SIBLING_HISTORY		2
+#else
+#define LHP_SIBLING_HISTORY		8
+#endif
+#endif
+
+/*
+ * Most selectors (each selector of a selector list counts) and custom
+ * properties the document's own css may declare; the user-agent and filter
+ * sheets don't count.  Past either, the rest are dropped with a warning.
+ * Cascading each element visits a share of the selectors, and keeps an index
+ * of the declarations that apply to it including custom properties, so these
+ * bound the work and heap a page's css can make each element cost.
+ */
+#if !defined(LHP_MAX_CSS_SELECTORS)
+#if defined(LWS_PLAT_FREERTOS) || defined(LWS_PLAT_BAREMETAL)
+#define LHP_MAX_CSS_SELECTORS		4096
+#else
+#define LHP_MAX_CSS_SELECTORS		32768
+#endif
+#endif
+#if !defined(LHP_MAX_CSS_VARS)
+#if defined(LWS_PLAT_FREERTOS) || defined(LWS_PLAT_BAREMETAL)
+#define LHP_MAX_CSS_VARS		512
+#else
+#define LHP_MAX_CSS_VARS		4096
+#endif
+#endif
+
+/*
+ * Most steps of css work (ctx->cascade_ops) a document may cost: parsing
+ * its css, style="" attributes included, indexing the selectors and
+ * cascading its elements all count.  The limits above bound what one element
+ * can cost, but not the document: css whose selectors all match every
+ * element costs that much again for every element.  Once a document has used
+ * this much, its own css (stylesheets and style="" attributes) is ignored for
+ * the rest of its elements, with a warning, and they get only the user-agent
+ * and filter css; any more of it is not kept either.  A large real page
+ * (slashdot's front page) costs about 0.5M.
+ */
+#if !defined(LHP_MAX_CSS_CASCADE_OPS)
+#if defined(LWS_PLAT_FREERTOS) || defined(LWS_PLAT_BAREMETAL)
+#define LHP_MAX_CSS_CASCADE_OPS		2000000
+#else
+#define LHP_MAX_CSS_CASCADE_OPS		16000000
+#endif
+#endif
+
+/*
+ * Most heap the open elements of a document may hold for their css at once
+ * (ctx->css_level_heap): each keeps an index of the declarations that win for
+ * it, and its parsed style="" attribute, so css that gives every element many
+ * declarations, such as custom properties on *, costs that again for every
+ * level of nesting.  Once a document's open elements hold this much, its own
+ * css is ignored for the rest of the document as for LHP_MAX_CSS_CASCADE_OPS.
+ * A large real page (slashdot's front page) holds under 3KB at most.
+ */
+#if !defined(LHP_MAX_CSS_LEVEL_HEAP)
+#if defined(LWS_PLAT_FREERTOS) || defined(LWS_PLAT_BAREMETAL)
+#define LHP_MAX_CSS_LEVEL_HEAP		(64 * 1024)
+#else
+#define LHP_MAX_CSS_LEVEL_HEAP		(1024 * 1024)
+#endif
+#endif
+
+/*
+ * Most values one css declaration keeps, eg the terms of a shorthand or the
+ * fonts of a font-family list; past it, the rest are ignored with a warning.
+ * Every lookup of a property lists all the values of the declaration that
+ * wins (ctx->active_atr), and inherited properties are looked up from every
+ * element, so this bounds what a lookup costs.  Real css needs a few dozen
+ * at most.
+ */
+#if !defined(LHP_MAX_CSS_DECL_VALUES)
+#define LHP_MAX_CSS_DECL_VALUES		64
 #endif
 
 enum lhp_callbacks {
@@ -52,7 +144,8 @@ enum lhp_callbacks {
 	LHPCB_ELEMENT_START		= 4,	/* reported at end of <> */
 	LHPCB_ELEMENT_END		= 5,
 
-	LHPCB_CONTENT			= 6,
+	LHPCB_CONTENT			= 6,	/* may return LWS_SRET_AWAIT_RETRY
+						 * when .content_can_wait */
 
 	LHPCB_COMMENT			= 7,
 };
@@ -70,6 +163,7 @@ typedef enum lcsp_props {
 	LCSP_PROP_BACKGROUND_IMAGE,
 	LCSP_PROP_BACKGROUND_POSITION,
 	LCSP_PROP_BACKGROUND_REPEAT,
+	LCSP_PROP_BACKGROUND_SIZE,
 	LCSP_PROP_BACKGROUND,
 	LCSP_PROP_BORDER_COLLAPSE,
 	LCSP_PROP_BORDER_COLOR,
@@ -99,6 +193,7 @@ typedef enum lcsp_props {
 	LCSP_PROP_BORDER_RADIUS,
 	LCSP_PROP_BORDER,
 	LCSP_PROP_BOTTOM,
+	LCSP_PROP_BOX_SIZING,
 	LCSP_PROP_CAPTION_SIDE,
 	LCSP_PROP_CLEAR,
 	LCSP_PROP_CLIP,
@@ -185,6 +280,42 @@ typedef enum lcsp_props {
 	LCSP_PROP_WORD_SPACING,
 	LCSP_PROP_Z_INDEX,
 
+	/* appended: the lextable index is the enum value */
+	LCSP_PROP_OPACITY,
+	LCSP_PROP_FLEX,
+	LCSP_PROP_FLEX_DIRECTION,
+	LCSP_PROP_FLEX_GROW,
+	LCSP_PROP_FLEX_SHRINK,
+	LCSP_PROP_FLEX_BASIS,
+	LCSP_PROP_FLEX_WRAP,
+	LCSP_PROP_ALIGN_ITEMS,
+	LCSP_PROP_ALIGN_SELF,
+	LCSP_PROP_JUSTIFY_CONTENT,
+	LCSP_PROP_GAP,
+	LCSP_PROP_COLUMN_GAP,
+	LCSP_PROP_ROW_GAP,
+
+	/* logical properties, mapped to the physical sides (ltr, horizontal) */
+	LCSP_PROP_MARGIN_INLINE,
+	LCSP_PROP_MARGIN_INLINE_START,
+	LCSP_PROP_MARGIN_INLINE_END,
+	LCSP_PROP_MARGIN_BLOCK,
+	LCSP_PROP_MARGIN_BLOCK_START,
+	LCSP_PROP_MARGIN_BLOCK_END,
+	LCSP_PROP_PADDING_INLINE,
+	LCSP_PROP_PADDING_INLINE_START,
+	LCSP_PROP_PADDING_INLINE_END,
+	LCSP_PROP_PADDING_BLOCK,
+	LCSP_PROP_PADDING_BLOCK_START,
+	LCSP_PROP_PADDING_BLOCK_END,
+	LCSP_PROP_INSET,
+	LCSP_PROP_INSET_INLINE,
+	LCSP_PROP_INSET_INLINE_START,
+	LCSP_PROP_INSET_INLINE_END,
+	LCSP_PROP_INSET_BLOCK,
+	LCSP_PROP_INSET_BLOCK_START,
+	LCSP_PROP_INSET_BLOCK_END,
+
 	LCSP_PROP__COUNT /* always last */
 } lcsp_props_t;
 
@@ -207,6 +338,7 @@ typedef enum {
 	LCSP_PROPVAL_BLOCK,
 	LCSP_PROPVAL_BOLD,
 	LCSP_PROPVAL_BOLDER,
+	LCSP_PROPVAL_BORDER_BOX,
 	LCSP_PROPVAL_BOTH,
 	LCSP_PROPVAL_BOTTOM,
 	LCSP_PROPVAL_CAPITALIZE,
@@ -216,6 +348,7 @@ typedef enum {
 	LCSP_PROPVAL_CLOSE_QUOTE,
 	LCSP_PROPVAL_CODE,
 	LCSP_PROPVAL_COLLAPSE,
+	LCSP_PROPVAL_CONTENT_BOX,
 	LCSP_PROPVAL_CONTINUOUS,
 	LCSP_PROPVAL_CROSSHAIR,
 	LCSP_PROPVAL_DECIMAL_LEADING_ZERO,
@@ -319,6 +452,25 @@ typedef enum {
 	LCSP_PROPVAL_WAIT,
 	LCSP_PROPVAL_W_RESIZE,
 
+	/* appended: the lextable index is the enum value */
+	LCSP_PROPVAL_FLEX,
+	LCSP_PROPVAL_INLINE_FLEX,
+	LCSP_PROPVAL_ROW,
+	LCSP_PROPVAL_COLUMN,
+	LCSP_PROPVAL_SPACE_BETWEEN,
+	LCSP_PROPVAL_SPACE_AROUND,
+	LCSP_PROPVAL_SPACE_EVENLY,
+	LCSP_PROPVAL_FLEX_START,
+	LCSP_PROPVAL_FLEX_END,
+	LCSP_PROPVAL_STRETCH,
+	LCSP_PROPVAL_WRAP,
+	LCSP_PROPVAL_START,
+	LCSP_PROPVAL_END,
+	LCSP_PROPVAL_COVER,
+	LCSP_PROPVAL_CONTAIN,
+	LCSP_PROPVAL_NOT_ALLOWED,
+	LCSP_PROPVAL_DEFAULT,
+
 	LCSP_PROPVAL__COUNT /* always last */
 } lcsp_propvals_t;
 
@@ -334,6 +486,35 @@ typedef struct lhp_atr {
 
 	/* name+NUL then value+NUL follow */
 } lhp_atr_t;
+
+/*
+ * An element's attributes as its selectors see them: its tag, and the rest
+ * sorted by the hash of their name ignoring case, then by length and name,
+ * the first of a repeated name first, so a selector finds one by comparing
+ * hashes and then usually a single name.  Kept along with the element's
+ * attribute list, private to lhp.c
+ */
+
+typedef struct lhp_atr_ent {
+	const lhp_atr_t		*a;
+	uint32_t		h;	/* hash of its name ignoring case */
+} lhp_atr_ent_t;
+
+typedef struct lhp_atr_idx {
+	const lhp_atr_t		*tag;	/* NULL until the tag is parsed */
+	lhp_atr_ent_t		*a;	/* the attributes, sorted */
+	uint32_t		tag_h;	/* hash of the tag ignoring case */
+	uint8_t			count;
+	uint8_t			alloc;
+} lhp_atr_idx_t;
+
+/* a closed element remembered on its parent for sibling selectors */
+
+typedef struct lhp_sib {
+	lws_dll2_t		list;	/* parent's sibs, newest last */
+	lws_dll2_owner_t	atr;	/* lhp_atr_t moved from the level */
+	lhp_atr_idx_t		atr_idx; /* and their index, private */
+} lhp_sib_t;
 
 /*
  * In order to lay out the table, we have to incrementally adjust all foregoing
@@ -354,10 +535,14 @@ typedef struct {
 
 	lws_dll2_owner_t		col_dlos; /* lws_dlo_t in column */
 
-	lws_fx_t			width; /* currently computed column width */
+	lws_fx_t			width; /* computed column width */
+	lws_fx_t			min_w; /* widest min-content cell */
+	lws_fx_t			max_w; /* widest max-content cell */
 } lhp_table_col_t;
 
 struct lcsp_atr;
+struct lcsp_match;
+struct lhp_decl;
 
 #define CCPAS_TOP 0
 #define CCPAS_RIGHT 1
@@ -372,16 +557,52 @@ typedef struct lhp_pstack {
 	/* static: x,y: offset from parent, w,h: surface size of this object */
 	lws_box_t			drt;
 
-	/* dynamic cursor inside drt for progressive child placement */
+	/*
+	 * Layout state for an element that is a block container (has a dlo
+	 * and lays its children out inside it).  Coordinates are relative to
+	 * our dlo box: the content area starts at (ox, oy) and is cw wide;
+	 * (curx, cury) is the inline cursor inside it, cury being the top of
+	 * the line being built.
+	 */
+	lws_fx_t			ox;
+	lws_fx_t			oy;
+	lws_fx_t			cw;
+	lws_fx_t			abs_h; /* an absolute box's percentage
+						* height, resolved against its
+						* positioned ancestor's padding
+						* box at open */
+	lws_fx_t			abs_bot; /* an absolute box anchored by
+						  * bottom: the y of its bottom
+						  * margin edge */
 	lws_fx_t			curx;
 	lws_fx_t			cury;
-	lws_fx_t			widest;
-	lws_fx_t			deepest;
 
-	lws_dlo_t			*dlo_set_curx;
-	lws_dlo_t			*dlo_set_cury;
+	lws_fx_t			line_h;	 /* tallest non-text item on line */
+	lws_dlo_t			*line_first; /* first dlo of the open line */
+	int16_t				line_asc; /* max ascent above baseline on line */
+	int16_t				line_desc; /* max descent below baseline on line */
+	int16_t				last_base; /* baseline of our last line, from
+						    * our box top (valid if has_base) */
+
+	lws_fx_t			maxc;	 /* max-content width so far */
+	lws_fx_t			minc;	 /* min-content width so far */
+	lws_fx_t			nowrap;	 /* width of current line if unwrapped */
+	lws_fx_t			rfloat_w; /* width taken by right floats on line */
+	lws_fx_t			pend_mb; /* last block child's bottom margin */
+	int32_t				abs_y;	 /* approx surface y of our box top */
+	uint16_t			idx;	 /* list item / table cell counter */
+	/*
+	 * A table cell: its column.  A table row: the column of its last cell
+	 * so far, so the next cell takes the one after it without a walk
+	 */
+	lhp_table_col_t			*table_col;
 
 	lws_dll2_owner_t		atr; /* lhp_atr_t */
+	lhp_atr_idx_t			atr_idx; /* atr by name, private */
+	lws_dll2_owner_t		sibs; /* lhp_sib_t: our closed children */
+	struct lhp_pstack		*parent_elem; /* once css_resolved: the
+						       * nearest level above
+						       * with a tag, private */
 
 	const lws_display_font_t	*f;
 
@@ -392,27 +613,115 @@ typedef struct lhp_pstack {
 	const struct lcsp_atr		*css_display;
 	const struct lcsp_atr		*css_width;
 	const struct lcsp_atr		*css_height;
+	const struct lcsp_atr		*css_text_indent;
+	const struct lcsp_atr		*css_box_sizing;
+
+	/*
+	 * Stanzas whose selector matched this element with a :before / :after
+	 * pseudo-element suffix: a generated box for each is added when the
+	 * element closes
+	 */
+	struct lcsp_stanza		*pseudo_before;
+	struct lcsp_stanza		*pseudo_after;
 
 	const struct lcsp_atr		*css_border_radius[4];
 
 	const struct lcsp_atr		*css_pos[4];
 	const struct lcsp_atr		*css_margin[4];
 	const struct lcsp_atr		*css_padding[4];
+	/* the border width on each side, NULL if there's none there, and
+	 * its colour, NULL for currentColor */
+	const struct lcsp_atr		*css_border_width[4];
+	const struct lcsp_atr		*css_border_color[4];
 
-	uint16_t			tr_idx; /* in table */
-	uint16_t			td_idx; /* in current tr */
+	/*
+	 * css resolution for this element: the stanzas whose selectors matched
+	 * it, lowest precedence first, plus the parsed style="" attribute (in
+	 * styleac) as the highest.  Properties absent here are looked up on
+	 * the parent if the property inherits, else take their initial value.
+	 */
+	struct lcsp_match		*matched;
+	struct lwsac			*styleac;
+	/*
+	 * The stanza parsed from our style="" (in styleac), once it has been
+	 * parsed: cascading us again reuses it rather than parsing it again,
+	 * private
+	 */
+	struct lcsp_stanza		*style_stz;
+	/*
+	 * The declaration that wins for each property (and custom property)
+	 * among the matched stanzas, sorted for lookup, made when first
+	 * needed after the matched stanzas change; private to lhp.c
+	 */
+	struct lhp_decl			*decl;
+	uint32_t			ndecl;
+	uint32_t			css_heap; /* bytes of matched, decl and
+						   * styleac counted in the
+						   * ctx's css_level_heap,
+						   * private */
+	lws_fx_t			font_size; /* computed font-size, px */
+	uint16_t			nmatched;
 
-	uint8_t				is_block:1; /* children use space in our drt */
+	uint8_t				is_block:1; /* we are a block container */
 	uint8_t				is_table:1;
+	uint8_t				is_row:1;
+	uint8_t				is_cell:1;
+	uint8_t				is_inline:1; /* style scope only, no box */
+	uint8_t				is_ilevel:1; /* inline-level box (inline-block) */
+	uint8_t				is_abs:1;    /* absolutely positioned */
+	uint8_t				is_float:1;
+	uint8_t				is_float_right:1;
+	uint8_t				is_flex:1;   /* row flex container */
+	uint8_t				is_flex_item:1;
+	uint8_t				flex_wrap:1;
+	uint8_t				shrink:1;    /* width decided by content at close */
+	uint8_t				in_shrink:1; /* auto width inside a shrinking container */
+	uint8_t				has_line:1;  /* a line is being built */
+	uint8_t				has_base:1;  /* last_base is valid */
+	uint8_t				last_space:1; /* line so far ends with a space */
+	uint8_t				explicit_w:1;
+	uint8_t				explicit_h:1;
+	uint8_t				abs_h_set:1; /* abs_h is the resolved
+						      * percentage height */
+	uint8_t				abs_minh_set:1; /* ... or min-height */
+	uint8_t				abs_bot_set:1; /* abs_bot places us at
+							* close */
+	uint8_t				abs_stretch_set:1; /* top + bottom stretch,
+							    * abs_bot the bottom
+							    * offset, sized when
+							    * the ancestor closes */
+	uint8_t				css_resolved:1;
+	uint8_t				decl_valid:1; /* decl reflects matched */
+	uint8_t				in_body:1;
+	uint8_t				hidden:1; /* display: none on us or an ancestor */
+	uint8_t				suspicious:1; /* our class or id could not
+						       * be held as given, or an
+						       * attribute value had a
+						       * NUL: a cosmetic filter
+						       * hides us */
+	uint8_t				ti_done:1; /* applied our text-indent already */
+	uint8_t				opacity_inv; /* 255 - our css opacity
+						      * as alpha: 0 is opaque */
 
 	/* user layout owns these after initial values set */
 
 	lws_dlo_t			*dlo;
 	const lws_display_font_t	*font;
-	int				oi[4];
-	int				positioned[4];
-	int				rel_layout_cursor[4];
-	uint8_t				runon; /* continues same line */
+	uint8_t				font_pinned; /* we hold font resident */
+	uint8_t				font_waits; /* retries waiting for it */
+	uint8_t				page_waits; /* retries waiting for
+						     * pages of it for text */
+	uint8_t				reclaimed; /* counted for reclaim_elems */
+
+	/*
+	 * A css background-image on this element: its dlo is created when
+	 * the element is parsed, before the layout has made the element's
+	 * own dlo, so it is parked on the parent block and then moved into
+	 * the element's dlo at (bg_ox, bg_oy) when that exists
+	 */
+	lws_dlo_t			*bg_dlo;
+	lws_fx_t			bg_ox;
+	lws_fx_t			bg_oy;
 
 } lhp_pstack_t;
 
@@ -430,6 +739,13 @@ typedef enum lcsp_css_units {
 	LCSP_UNIT_LENGTH_PC,		/* u.i */
 	LCSP_UNIT_LENGTH_PX,		/* u.i */
 	LCSP_UNIT_LENGTH_PERCENT,	/* u.i */
+	LCSP_UNIT_LENGTH_REM,		/* u.i */
+	LCSP_UNIT_LENGTH_VW,		/* u.i, 1vw is 1% of surface width */
+	LCSP_UNIT_LENGTH_VH,		/* u.i, 1vh is 1% of surface height */
+	LCSP_UNIT_LENGTH_VMIN,		/* u.i, smaller of vw / vh */
+	LCSP_UNIT_LENGTH_VMAX,		/* u.i, larger of vw / vh */
+
+	LCSP_UNIT_CALC,			/* u.i is index in string chunk */
 
 	LCSP_UNIT_ANGLE_ABS_DEG,	/* u.i */
 	LCSP_UNIT_ANGLE_REL_DEG,	/* u.i */
@@ -447,18 +763,21 @@ typedef enum lcsp_css_units {
 typedef struct lcsp_atr {
 	lws_dll2_t		list;
 
-	int			propval; /* lcsp_propvals_t LCSP_PROPVAL_ */
-
-	size_t			value_len;	/* for string . url */
-	lcsp_css_units_t	unit;
-
 	union {
 		lws_fx_t	i;
 		uint32_t 	rgba;	/* for colours */
 	} u;
 
-	lws_fx_t		r;
+	/*
+	 * A page's cascade is thousands of these: the enums and the length
+	 * are all small, and stored as int / size_t they cost 8 bytes an
+	 * attribute that a small target has better uses for
+	 */
 
+	uint16_t		propval; /* lcsp_propvals_t LCSP_PROPVAL_ */
+	uint16_t		value_len;	/* for string . url */
+
+	uint8_t			unit;	/* lcsp_css_units_t LCSP_UNIT_ */
 	uint8_t			op;
 
 	/* .value_len bytes follow (for strings and blobs) */
@@ -468,14 +787,43 @@ typedef struct lcsp_atr {
 typedef struct lcsp_defs {
 	lws_dll2_t		list;
 	lws_dll2_owner_t	atrs;		/* lcsp_atr_t */
-	lcsp_props_t		prop;		/* lcsp_props_t, LCSP_PROP_* */
+	struct lhp_css_var	*var;		/* if prop == LCSP_PROP__COUNT:
+						 * the --name this declares */
+	uint16_t		prop;		/* lcsp_props_t, LCSP_PROP_* */
+	uint8_t			important;	/* declared !important */
 } lcsp_defs_t;
+
+/*
+ * One selector of a stanza's selector list, eg, "div.x > p" from
+ * "div.x > p, .y { ... }".  Stored normalized: a single space is the
+ * descendant combinator, no spaces around '>', '+', '~' or inside [...].
+ *
+ * The program it is compiled into, and the members compiled with it, are
+ * private to lhp.c, but the user-agent sheet's are generated into
+ * lhp-ua-css.h by lhp-ua-gen: bump this with any change to them, and
+ * regenerate that header.
+ */
+
+#define LHP_SEL_PROG_FORMAT	1
 
 typedef struct lcsp_names {
 	lws_dll2_t		list;
-	size_t			name_len;
+	uint32_t		specificity;	/* (layer << 18) | (ids << 12) |
+						 * (classes << 6) | tags */
+	uint32_t		key_h;		/* the selector index hash of
+						 * the key, computed once */
+	uint16_t		name_len;
+	uint16_t		key_ofs;	/* rightmost compound's most
+						 * selective simple selector,
+						 * for the cascade prefilter */
+	uint16_t		key_len;
+	uint16_t		prog_len;	/* the selector compiled for
+						 * matching, private to lhp.c */
+	uint8_t			key_kind;	/* LHP_SELKEY_ */
+	uint8_t			pseudo_elem;	/* LHP_PSEUDO_ELEM_: a trailing
+						 * :before or :after */
 
-	/* name + NUL follow */
+	/* name + NUL, then prog_len bytes of compiled selector follow */
 } lcsp_names_t;
 
 typedef struct lcsp_stanza { /* css stanza, with names and defs */
@@ -484,7 +832,30 @@ typedef struct lcsp_stanza { /* css stanza, with names and defs */
 	lws_dll2_owner_t	names; /* lcsp_names_t */
 	lws_dll2_owner_t	defs; /* lcsp_defs_t */
 
+	uint32_t		seq;	/* source order, for cascade ties */
+
+	/*
+	 * Nothing else is written to a stanza after the parse that created
+	 * it.  Keeping it that way is what lets a stylesheet be immutable,
+	 * and so live in flash instead of costing heap... the cascade's
+	 * per-pass "have I taken this one already, and at what specificity"
+	 * lives on ctx->hits instead
+	 */
 } lcsp_stanza_t;
+
+/*
+ * The selector index: every selector of every stanza, bucketed by its key
+ * (see lhp_sel_key()), so the cascade for an element only visits the
+ * selectors whose key it can satisfy plus the keyless ones
+ */
+
+typedef struct lhp_selidx {
+	struct lhp_selidx	*next;
+	lcsp_names_t		*nm;
+	lcsp_stanza_t		*stz;
+} lhp_selidx_t;
+
+#define LHP_SELIDX_BUCKETS	64
 
 /*
  * A list of stanza references can easily have to bring in the same stanza
@@ -507,7 +878,69 @@ typedef struct lcsp_atr_ptr {
 	lcsp_atr_t		*atr;
 } lcsp_atr_ptr_t;
 
+/*
+ * A stanza that matched an element, with the specificity of the best selector
+ * that matched.  Each open element keeps a sorted array of these; the last
+ * entry has the highest precedence.
+ */
+
+typedef struct lcsp_match {
+	lcsp_stanza_t		*stz;
+	uint32_t		specificity;
+} lcsp_match_t;
+
+typedef struct lhp_css_var {
+	lws_dll2_t list;
+	size_t name_len;
+	lcsp_defs_t *def;
+	/* name+NUL follows */
+} lhp_css_var_t;
+
+/*
+ * A cascade layer (@layer): its position in css_layers is its order in the
+ * cascade, with the first-declared layer the weakest.  Unlayered rules beat
+ * every layer.
+ */
+
+typedef struct lhp_css_layer {
+	lws_dll2_t list;
+	size_t len; /* name length, the name may contain NUL bytes */
+	/* name+NUL follows (empty for an anonymous layer) */
+} lhp_css_layer_t;
+
+enum {
+	LHP_SELKEY_NONE,
+	LHP_SELKEY_TAG,
+	LHP_SELKEY_CLASS,
+	LHP_SELKEY_ID
+};
+
+enum {
+	LHP_PSEUDO_ELEM_NONE,
+	LHP_PSEUDO_ELEM_BEFORE,
+	LHP_PSEUDO_ELEM_AFTER
+};
+
+/* layer indexes are 1-based, this is the unlayered ("strongest") value */
+#define LHP_CSS_LAYER_NONE	63
+
 #define LHP_FLAG_DOCUMENT_END					(1 << 0)
+
+/*
+ * One URL block rule prepared by lws_lhp_set_filter(): a lowercased copy of
+ * the rule text, with host_anchor set if it was "||host..." form.  Allocated
+ * in ctx->blockac, on ctx->block_rules.
+ */
+typedef struct lhp_block_rule {
+	lws_dll2_t		list;
+	size_t			len;
+	uint8_t			host_anchor:1;
+
+	/* lowercased rule text + NUL follows */
+} lhp_block_rule_t;
+
+struct lhp_cls_tok;
+struct lhp_hits_slot;
 
 typedef struct lhp_ctx {
 	lws_dll2_owner_t	stack; /* lhp_pstack_t */
@@ -520,6 +953,24 @@ typedef struct lhp_ctx {
 	lws_dll2_owner_t	*ids;
 
 	lws_fx_t		tf;
+
+	/*
+	 * Somewhere for lws_csp_px_base() to compute a resolved length into
+	 * and hand back a pointer to.  It used to use a slot on the attribute
+	 * itself, which made every attribute 8 bytes bigger and, worse, made
+	 * a stylesheet something the layout writes to... callers all consume
+	 * the result immediately, so a small ring is plenty
+	 */
+	lws_fx_t		fxs[8];
+	uint8_t			fxsi;
+	uint8_t			cb_depth; /* containing blocks being resolved
+					   * for a %, see
+					   * lws_css_compute_cascaded_length() */
+	uint8_t			calc_nest; /* lws_csp_calc() in progress,
+					    * including those a % term drives */
+	int32_t			calc_budget; /* calc() steps left for the
+					      * outermost lws_csp_calc() */
+
 	lcsp_css_units_t	unit;
 	lcsp_stanza_t		*stz; /* current stanza getting properties */
 	lcsp_defs_t		*def; /* current property getting values */
@@ -529,6 +980,72 @@ typedef struct lhp_ctx {
 	lws_dll2_owner_t	active_atr; /* lcsp_atr_ptr_t allocated in
 					     * propatrac */
 
+	lws_dll2_owner_t	css_vars; /* lhp_css_var_t allocated in cssac */
+	lws_dll2_owner_t	css_layers; /* lhp_css_layer_t allocated in
+					     * cascade order */
+
+	struct lwsac		*idxac; /* selector index allocations */
+	lhp_selidx_t		*selidx[LHP_SELIDX_BUCKETS];
+	lhp_selidx_t		*selidx_nokey; /* selectors without a key */
+	struct lcsp_match	*hits; /* stanzas hit in the current pass,
+					* with the best specificity among the
+					* selectors of theirs that matched */
+	uint32_t		hits_alloc;
+	uint32_t		hits_count;
+	struct lhp_hits_slot	*hits_hash; /* stanza -> hits index for the
+					     * current pass, private */
+	uint32_t		hits_hash_size; /* slots, a power of 2 */
+	uint32_t		hits_gen; /* current pass, for hits_hash */
+	uint64_t		layout_ops; /* steps of table layout work
+					     * done for the document so far,
+					     * for tests to bound */
+	uint64_t		cascade_ops; /* steps of css work done for
+					      * the document so far: bytes of
+					      * its css parsed, stanzas and
+					      * selectors indexed, index
+					      * entries visited, declarations
+					      * indexed, lookup steps... what
+					      * LHP_MAX_CSS_CASCADE_OPS bounds,
+					      * and for tests to bound */
+	uint64_t		sel_work; /* work selector matching really
+					   * did: compounds and simple
+					   * selectors visited, attribute
+					   * index entries probed, bytes of
+					   * names compared and of attribute
+					   * values scanned.  Counted where it
+					   * is done, apart from what is
+					   * charged to cascade_ops, so that
+					   * tests can bound the work itself */
+	uint32_t		css_doc_selectors; /* the document's selectors */
+	uint32_t		css_doc_vars; /* and custom properties */
+	uint8_t			css_doc_spent; /* LHP_MAX_CSS_CASCADE_OPS or
+						* LHP_MAX_CSS_LEVEL_HEAP was
+						* reached: the document's own
+						* css is no longer applied */
+	size_t			css_level_heap; /* bytes the open elements
+						 * hold for their css: their
+						 * matched stanzas and
+						 * declaration indexes */
+	uint8_t			css_values_capped; /* a declaration had more
+						    * than
+						    * LHP_MAX_CSS_DECL_VALUES
+						    * values: warned */
+	struct lhp_cls_tok	*ctok; /* the class tokens of the element
+					* being cascaded, private to lhp.c */
+	uint32_t		ctok_alloc;
+	int32_t			sel_budget; /* selector match steps left
+					     * for the element being
+					     * cascaded */
+	struct lws_dll2		*selidx_last; /* the last stanza in css
+					       * indexed, or NULL */
+	uint32_t		stz_seq;
+
+	/* ad / junk filtering, see lws_lhp_set_filter() */
+
+	char			*filter_css; /* strdup of cosmetic filter css */
+	lws_dll2_owner_t	block_rules; /* lhp_block_rule_t in blockac */
+	struct lwsac		*blockac;
+
 	lws_surface_info_t	ic;
 
 	const char		*base_url; /* strdup of https://x.com/y.html */
@@ -536,6 +1053,8 @@ typedef struct lhp_ctx {
 	lws_sorted_usec_list_t	*ssevsul; /* sul to use to resume rz */
 	sul_cb_t		sshtmlevcb; /* callback for more html parse */
 	lws_sorted_usec_list_t	*sshtmlevsul; /* sul for more html parse */
+	lws_font_waiter_t	font_wait; /* layout waiting for a font from
+					    * the server */
 
 	void			*user;
 	void			*user1;
@@ -545,12 +1064,19 @@ typedef struct lhp_ctx {
 	int			npos;
 	int			state; /* private */
 	int			state_css_comm; /* private */
+	uint16_t		reclaim_elems; /* from the render state */
+	uint16_t		reclaim_ctr; /* elements opened, mod the above */
 	int			nl_temp;
 	int			temp_count;
+	int			saved_state;
+	int			entity_start;
 
 	uint32_t		flags;
 	uint32_t		temp;
 	int32_t			window; /* 0, or ss item flow control limit */
+	int32_t			viewport_h; /* 0, or the css viewport height
+					     * when the surface is taller */
+	lws_fx_t		viewport_h_fx;
 
 	union {
 		uint32_t	s;
@@ -563,11 +1089,18 @@ typedef struct lhp_ctx {
 			uint32_t	tag_used:1;
 			uint32_t	arg:1;
 			uint32_t	default_css:1;
+			uint32_t	style_attr:1; /* nested parse of a style="" value: declarations only */
+			uint32_t	filter_css:1; /* parsing injected filter css */
 #define LHP_CSS_PROPVAL_INT_WHOLE	1
 #define LHP_CSS_PROPVAL_INT_FRAC	2
 #define LHP_CSS_PROPVAL_INT_UNIT	3
 			uint32_t	integer:2;
 			uint32_t	color:2;
+			uint32_t	infunc:1; /* inside name( ... ) value */
+			uint32_t	negval:1; /* '-' seen, number is negative */
+			uint32_t	sq:1; /* attribute value quoted with ' */
+			uint32_t	atr_drop:1; /* current attribute overflowed
+						* the chunk and is discarded */
 		} f;
 	} u;
 
@@ -576,10 +1109,39 @@ typedef struct lhp_ctx {
 	int16_t			css_state; /* private */
 	int16_t			cssval_state; /* private */
 
+	/*
+	 * The url of the stylesheet <link> the parse is waiting on, so
+	 * streams for stylesheets that are not the awaited one cannot
+	 * complete it early
+	 */
+	char			await_css_url[LHP_URL_LEN];
+
 	uint8_t			in_body:1;
 	uint8_t			finish_css:1;
 	uint8_t			is_css:1;
 	uint8_t			await_css_done:1;
+	uint8_t			await_assets:1; /* doc end deferred for dlo assets */
+	uint8_t			cancelled:1; /* document torn down: assets must
+					     * not resume the parse for it */
+	uint8_t			content_can_wait:1; /* the LHPCB_CONTENT cb
+						     * may return AWAIT_RETRY
+						     * to see the same text
+						     * again when resumed */
+	uint8_t			fonts_local:1; /* lay out in the faces
+						* built in only, from the
+						* render state */
+
+	uint8_t			css_block_depth; /* inside applicable @media */
+	uint8_t			css_skip_depth;  /* skipping unusable @-rule */
+	uint8_t			css_layer;	 /* 0: unlayered, else the
+						  * 1-based @layer index */
+	uint8_t			css_layer_depth; /* css_block_depth of the
+						  * open @layer block */
+	uint8_t			css_lhs_partial:1; /* stanza already created
+						    * for an overlong selector
+						    * list */
+	uint8_t			css_lhs_skip:1;	 /* selector too long: skip
+						  * its block */
 
 	/* at end so we can memset members above it in one go */
 
@@ -615,6 +1177,45 @@ LWS_VISIBLE LWS_EXTERN void
 lws_lhp_destruct(lhp_ctx_t *ctx);
 
 /**
+ * struct lws_lhp_filter - ad / junk filtering policy for lws_lhp_set_filter()
+ *
+ * \p cosmetic_css: css text hiding junk elements, or NULL for none.  It is
+ * applied with higher precedence than any document css, so plain
+ * ".junk { display: none; }" rules are already authoritative; "!important" is
+ * also available for grouping with other declarations.  Any selector the css
+ * engine understands can be used (classes, ids, [attr^=...] and so on).
+ * An element lhp can't see as a browser does, so can't match reliably, is
+ * hidden whenever there is cosmetic css: one whose class or id attribute is
+ * too long to hold (LHP_STRING_CHUNK), or with a NUL (raw or &#0;) in any
+ * attribute value.  Otherwise a page could hide junk from class / id keyed
+ * rules by padding or truncating its class.
+ *
+ * \p block_rules: newline-separated URL block rules, or NULL for none.
+ * Lines starting with '#' and empty lines are ignored; other lines are either
+ * "||host.tld" (matches any subdomain of host.tld) or a plain substring that
+ * matches anywhere in the resolved asset URL.  Matching is case-insensitive.
+ * A blocked asset is never fetched; the element is laid out without it.
+ */
+typedef struct lws_lhp_filter {
+	const char		*cosmetic_css;
+	const char		*block_rules;
+} lws_lhp_filter_t;
+
+/**
+ * lws_lhp_set_filter() - install an ad / junk filter on a prepared context
+ *
+ * \param ctx: the lhp context
+ * \param filter: the filtering policy, or NULL to remove any existing one
+ *
+ * Installs the filter described in \p filter.  The strings are copied, so the
+ * caller's storage only needs to stay valid for the call.  Must be called
+ * after lws_lhp_construct() and before the first lws_lhp_parse() on \p ctx;
+ * returns nonzero if called too late or on OOM, else 0.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_lhp_set_filter(lhp_ctx_t *ctx, const lws_lhp_filter_t *filter);
+
+/**
  * lws_lhp_ss_browse() - browse url using SS and parse via lhp to DLOs
  *
  * \param cx: the lws_context
@@ -638,6 +1239,41 @@ lws_lhp_ss_browse(struct lws_context *cx, lws_display_render_state_t *rs,
 		  const char *url, sul_cb_t render);
 
 /**
+ * lws_lhp_ss_browse_filter() - as lws_lhp_ss_browse(), with content filtering
+ *
+ * \param cx: the lws_context
+ * \param rs: the user's render state object
+ * \param url: the https://x.com/y.xyz URL to browse
+ * \param render: the user's linewise render callback (called from \p rs.sul)
+ * \param filter: ad / junk filter to apply, see lws_lhp_set_filter()
+ *
+ * Identical to lws_lhp_ss_browse() but applies \p filter (which may be NULL,
+ * giving the same result as lws_lhp_ss_browse()).
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_lhp_ss_browse_filter(struct lws_context *cx,
+				 lws_display_render_state_t *rs, const char *url,
+				 sul_cb_t render, const lws_lhp_filter_t *filter);
+
+/**
+ * lws_lhp_ss_cancel() - cancel and tear down the browse on a render state
+ *
+ * \param rs: the render state the document was browsed onto
+ *
+ * Stops the document bound to \p rs completely: destroys its html stream
+ * (including its lhp parse state), and stops any of its assets that are
+ * still fetching or queued.  Nothing further runs on \p rs for the old
+ * document; \p rs can be browsed again immediately afterwards.  It is
+ * meant for navigating away, or laying a document out again at a new size.
+ *
+ * Only the assets fetched for documents browsed into \p rs are stopped, see
+ * lws_dlo_ss_stop_rs(): documents browsed into other render states, eg,
+ * showing other parts of the display, carry on.
+ */
+LWS_VISIBLE LWS_EXTERN void
+lws_lhp_ss_cancel(lws_display_render_state_t *rs);
+
+/**
  * lws_lhp_parse() - parses a chunk of input HTML
  *
  * \p ctx: the parsing context
@@ -657,19 +1293,36 @@ LWS_VISIBLE LWS_EXTERN lws_stateful_ret_t
 lws_lhp_parse(lhp_ctx_t *ctx, const uint8_t **buf, size_t *len);
 
 /**
- * lws_css_cascade_get_prop_atr() - create active css atr list for property
+ * lws_css_cascade_get_prop_atr() - find the css declaration in effect for a property
  *
  * \p ctx: the parsing context
- * \p prop: the LCSP_PROP_ property to generate the attribute list for
+ * \p prop: the LCSP_PROP_ property to look up
  *
- * Returns NULL if no atr or OOM.
+ * Looks up \p prop for the element currently at the top of the parse stack.
+ * The winning declaration is the one from the highest-precedence stanza that
+ * matched the element (style="" attribute, then !important, then selector
+ * specificity, then source order).  If no matched stanza declares it, an
+ * inherited property (color, font-*, text-align, white-space...) is looked up
+ * on the ancestors in turn; a non-inherited one returns NULL, meaning "use
+ * the initial value".  A declared value of "inherit" also defers to the
+ * parent.
  *
- * Otherwise produces a list of active CSS property attributes walkable via
- * ctx->active_atr, and returns the tail one.  For simple attributes where the
- * last definition is the active one, this points to the last definition.
+ * Returns NULL if nothing applies or OOM.  Otherwise the values of the
+ * winning declaration are listed in ctx->active_atr (so shorthands like
+ * margin: 1px 2px can be walked) and the last value is returned.
  */
 LWS_VISIBLE LWS_EXTERN const lcsp_atr_t *
 lws_css_cascade_get_prop_atr(lhp_ctx_t *ctx, lcsp_props_t prop);
+
+/**
+ * lws_css_get_prop_atr_ps() - as lws_css_cascade_get_prop_atr() for any open element
+ *
+ * \p ctx: the parsing context
+ * \p ps: the open element (any level of the parse stack)
+ * \p prop: the LCSP_PROP_ property to look up
+ */
+LWS_VISIBLE LWS_EXTERN const lcsp_atr_t *
+lws_css_get_prop_atr_ps(lhp_ctx_t *ctx, lhp_pstack_t *ps, lcsp_props_t prop);
 
 /**
  * lws_http_rel_to_url() - make absolute url from base and relative
@@ -687,6 +1340,9 @@ lws_css_cascade_get_prop_atr(lhp_ctx_t *ctx, lcsp_props_t prop);
  *   ../b.html            -> https://x.com/b.html
  *   /c.html              -> https://x.com/c.html
  *   https://y.com/a.html -> https://y.com/a.html
+ *
+ * Returns 0 if dest holds the url, or nonzero if it could not be made or
+ * would not fit in len (dest is then not a usable url).
  */
 LWS_VISIBLE LWS_EXTERN int
 lws_http_rel_to_url(char *dest, size_t len, const char *base, const char *rel);
@@ -697,11 +1353,42 @@ lws_css_get_parent_block(lhp_ctx_t *ctx, lhp_pstack_t *ps);
 LWS_VISIBLE LWS_EXTERN const char *
 lws_css_pstack_name(lhp_pstack_t *ps);
 
+/*
+ * The value of element ps's attribute aname, whose name is matched ignoring
+ * (ascii) case as html attribute names are, or NULL if it has none
+ */
 LWS_VISIBLE LWS_EXTERN const char *
 lws_html_get_atr(lhp_pstack_t *ps, const char *aname, size_t aname_len);
 
 LWS_VISIBLE LWS_EXTERN const lws_fx_t *
 lws_csp_px(const lcsp_atr_t *a, lhp_pstack_t *ps);
+
+/*
+ * The winning declaration's value for one side (idx 0..3 = T R B L) of a
+ * shorthand-or-longhand property like border-width / border-color
+ */
+LWS_VISIBLE LWS_EXTERN const lcsp_atr_t *
+lws_css_get_side_atr_ps(lhp_pstack_t *ps, int longhand, int shorthand,
+			int idx, int radii);
+
+/*
+ * As lws_csp_px(), but lengths in calc() resolve their % terms against base
+ * (the containing block content width) when it is non-NULL
+ */
+/**
+ * lws_csp_calc() - evaluate a calc() attribute value
+ *
+ * \param a: the LCSP_UNIT_CALC atr
+ * \param ps: the element it is for
+ * \param base: the containing block length for %, or NULL
+ * \param unitless: NULL, or set nonzero if the result is a bare number
+ */
+LWS_VISIBLE LWS_EXTERN lws_fx_t
+lws_csp_calc(const lcsp_atr_t *a, lhp_pstack_t *ps, const lws_fx_t *base,
+	     int *unitless);
+
+LWS_VISIBLE LWS_EXTERN const lws_fx_t *
+lws_csp_px_base(const lcsp_atr_t *a, lhp_pstack_t *ps, const lws_fx_t *base);
 
 LWS_VISIBLE LWS_EXTERN void
 lws_lhp_tag_dlo_id(lhp_ctx_t *ctx, lhp_pstack_t *ps, lws_dlo_t *dlo);
@@ -715,3 +1402,9 @@ lhp_set_dlo_padding_margin(lhp_pstack_t *ps, lws_dlo_t *dlo);
 
 LWS_VISIBLE LWS_EXTERN int
 lhp_prop_axis(const lcsp_atr_t *a);
+
+LWS_VISIBLE LWS_EXTERN const lcsp_atr_t *
+lhp_resolve_var_color(lhp_ctx_t *ctx, const lcsp_atr_t *a);
+
+LWS_VISIBLE LWS_EXTERN const lcsp_atr_t *
+lhp_resolve_var(lhp_ctx_t *ctx, const lcsp_atr_t *a);

@@ -59,14 +59,14 @@ lws_plat_dlopen(struct lws_plugin **pplugin, const char *libpath,
 	m = lws_snprintf(sym, sizeof(sym) - 1, "%s", sofilename);
 	if (m < 4)
 		goto bail;
-	dot = strchr(sym, '.');
+	dot = (char *)strchr(sym, '.');
 	if (dot)
 		*dot = '\0'; /* snip the .so or .lib or what-have-you*/
 
 	if (uv_dlsym(&lib, sym, &v)) {
 		uv_dlerror(&lib);
 		lwsl_err("%s: Failed to get '%s' on %s: %s\n",
-			 __func__, path, libpath, lib.errmsg);
+			 __func__, sym, libpath, lib.errmsg);
 		goto bail;
 	}
 
@@ -108,6 +108,7 @@ lws_plat_dlopen(struct lws_plugin **pplugin, const char *libpath,
 
 	pin->u.lib = lib;
 	pin->hdr = hdr;
+	lws_strncpy(pin->basename, sofilename, sizeof(pin->basename));
 
 	if (each)
 		each(pin, each_user);
@@ -154,12 +155,15 @@ int
 lws_plat_plugins_init(struct lws_context *context, const char * const *d)
 {
 #if defined(LWS_WITH_PLUGINS) && (UV_VERSION_MAJOR > 0)
-	if (info->plugin_dirs) {
+	if (d) {
 		uv_loop_init(&context->uv.loop);
-		lws_plugins_init(&context->plugin_list, info->plugin_dirs,
+		lws_plugins_init(&context->plugin_list, d,
 				 "lws_protocol_plugin", NULL,
 				 protocol_plugin_cb, context);
 	}
+#else
+	(void)context;
+	(void)d;
 #endif
 
 	return 0;

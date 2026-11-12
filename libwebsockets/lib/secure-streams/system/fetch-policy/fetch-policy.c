@@ -34,6 +34,7 @@ typedef struct ss_fetch_policy {
 	lws_sorted_usec_list_t	sul;
 
 	uint8_t			partway;
+	uint8_t			complete; /* the policy JSON ended */
 } ss_fetch_policy_t;
 
 /* secure streams payload interface */
@@ -47,14 +48,50 @@ ss_fetch_policy_rx(void *userobj, const uint8_t *buf, size_t len, int flags)
 	if (flags & LWSSS_FLAG_SOM) {
 		if (lws_ss_policy_parse_begin(context, 0))
 			return LWSSSSRET_OK;
+		/* this policy JSON is coming from the network */
+		lws_ss_policy_parse_untrusted(context);
 		m->partway = 1;
+		m->complete = 0;
 	}
 
-	if (len && lws_ss_policy_parse(context, buf, len) < 0)
+	/* only feed, and finish, a parse this response began */
+	if (m->partway != 1)
 		return LWSSSSRET_OK;
 
-	if (flags & LWSSS_FLAG_EOM)
+	if (len) {
+		int n = lws_ss_policy_parse(context, buf, len);
+
+		if (n != LEJP_CONTINUE && n < 0) {
+			/*
+			 * The failed parse already abandoned for us... don't
+			 * let the DISCONNECTED handler abandon a second time
+			 * (context->pol_args is gone), and don't feed it any
+			 * more of the response either
+			 */
+			m->partway = 0;
+
+			return LWSSSSRET_DISCONNECT_ME;
+		}
+		if (n >= 0)
+			m->complete = 1;
+	}
+
+	if (flags & LWSSS_FLAG_EOM) {
+		if (!m->complete) {
+			/*
+			 * The response ended before the policy JSON did, eg,
+			 * a connection that was closed on us partway through
+			 * a body with no length.  Installing what we parsed
+			 * so far would apply a partial policy.
+			 */
+			lwsl_err("%s: policy truncated\n", __func__);
+			lws_ss_policy_parse_abandon(context);
+			m->partway = 0;
+
+			return LWSSSSRET_DISCONNECT_ME;
+		}
 		m->partway = 2;
+	}
 
 	return LWSSSSRET_OK;
 }
@@ -77,6 +114,7 @@ policy_set(lws_sorted_usec_list_t *sul)
 	 * ss connection close that was using the vhost from the old policy
 	 */
 
+	context->hss_fetch_policy = NULL;
 	lws_ss_destroy(&m->ss);
 
 	if (lws_ss_policy_set(context, "updated"))
@@ -97,7 +135,7 @@ ss_fetch_policy_state(void *userobj, void *sh, lws_ss_constate_t state,
 	ss_fetch_policy_t *m = (ss_fetch_policy_t *)userobj;
 	struct lws_context *context = (struct lws_context *)m->opaque_data;
 
-	lwsl_info("%s: %s, ord 0x%x\n", __func__, lws_ss_state_name((int)state),
+	lwsl_info("%s: %s, ord 0x%x\n", __func__, lws_ss_state_name(state),
 		  (unsigned int)ack);
 
 	switch (state) {
@@ -119,9 +157,25 @@ ss_fetch_policy_state(void *userobj, void *sh, lws_ss_constate_t state,
 	case LWSSSCS_DISCONNECTED:
 		if (m->partway == 1) {
 			lws_ss_policy_parse_abandon(context);
+			m->partway = 0;
 			break;
 		}
 		m->partway = 0;
+		break;
+
+	case LWSSSCS_DESTROYING:
+		/*
+		 * We can be destroyed from outside, eg, by a policy update...
+		 * don't leave the context back-pointer dangling, and don't
+		 * leave a half-done parse owning context->pol_args
+		 */
+		if (m->partway == 1) {
+			lws_ss_policy_parse_abandon(context);
+			m->partway = 0;
+		}
+		if (context->hss_fetch_policy == m->ss)
+			context->hss_fetch_policy = NULL;
+		lws_sul_cancel(&m->sul);
 		break;
 
 	default:

@@ -68,6 +68,10 @@ enum lws_write_protocol {
 	LWS_WRITE_HTTP_HEADERS_CONTINUATION			= 9,
 	/**< Continuation of http/2 headers
 	 */
+	LWS_WRITE_QUIC_DATAGRAM					= 10,
+	/**< Send a QUIC datagram (RFC 9221). The payload is sent as a single QUIC
+	 * DATAGRAM frame.
+	 */
 
 	/****** add new things just above ---^ ******/
 
@@ -90,9 +94,10 @@ enum lws_write_protocol {
 	 */
 
 	LWS_WRITE_CLIENT_IGNORE_XOR_MASK = 0x80
-	/**< client packet payload goes out on wire unmunged
-	 * only useful for security tests since normal servers cannot
-	 * decode the content if used */
+	/**< DEPRECATED and inert: ws client masking is decided by the role,
+	 * this flag has not been consulted since v4.x.  Note it is the same
+	 * bit as LWS_WRITE_H2_STREAM_END, so passing it on an h2 / h3 stream
+	 * will end the stream.  Do not use it in new code. */
 };
 
 /* used with LWS_CALLBACK_CHILD_WRITE_VIA_PARENT */
@@ -137,8 +142,9 @@ struct lws_write_passthru {
  * or sending on http/2... the send buffer has to have LWS_PRE bytes valid
  * BEFORE the buffer pointer you pass to lws_write().  Since you'll probably
  * want to use http/2 before too long, it's wise to just always do this with
- * lws_write buffers... LWS_PRE is typically 16 bytes it's not going to hurt
- * usually.
+ * lws_write buffers... LWS_PRE is 32 bytes on a 64-bit build and it's not
+ * going to hurt usually.  Always use the LWS_PRE macro rather than a literal:
+ * it is ABI-visible and has changed.
  *
  * start of alloc       ptr passed to lws_write      end of allocation
  *       |                         |                         |
@@ -162,8 +168,12 @@ struct lws_write_passthru {
  *   		return -1;
  *   }
  *
- * LWS_PRE is currently 16, which covers ws and h2 frame headers, and is
- * compatible with 32 and 64-bit alignment requirements.
+ * LWS_PRE is _LWS_PAD(4 + 10 + 2 + 9): the largest ws frame header (10) plus
+ * its client-side mask (4), plus 2 for lws-meta, plus the 9-byte h2 DATA frame
+ * header that is prepended in place when a ws stream is carried over h2
+ * (RFC 8441).  That pads to 32 on 64-bit and 28 on 32-bit.  It grew from 16 in
+ * v4.4; applications must be rebuilt against this header to get the headroom
+ * lws now writes into.
  *
  * (LWS_SEND_BUFFER_POST_PADDING is deprecated, it's now 0 and can be left off.)
  *
@@ -214,6 +224,41 @@ lws_write(struct lws *wsi, unsigned char *buf, size_t len,
 	lws_write(wsi, (unsigned char *)(buf), len, LWS_WRITE_HTTP)
 
 /**
+ * lws_finalize_write_http_header_flags() - finalize and write http headers with
+ *        caller-supplied write flags
+ *
+ * \param wsi: the connection the headers are for
+ * \param start: pointer to the start of the prepared headers in the buffer,
+ *		 eg &buf[LWS_PRE]
+ * \param p: pointer to current position in buffer pointer
+ * \param end: pointer to end of buffer
+ * \param flags: the write flags to pass to the internal lws_write(), typically
+ *		 LWS_WRITE_HTTP_HEADERS, or
+ *		 LWS_WRITE_HTTP_HEADERS | LWS_WRITE_H2_STREAM_END for a
+ *		 headers-only response
+ *
+ * Finalizes the prepared header buffer according to the protocol in use
+ * (h1 / h2 / h3) and writes it with the given write-protocol flags.
+ *
+ * For any response that sends headers and no body (eg a 302 redirect, or a
+ * status response with an empty body), you MUST pass
+ * LWS_WRITE_HTTP_HEADERS | LWS_WRITE_H2_STREAM_END: without
+ * LWS_WRITE_H2_STREAM_END, under h2 / h3 the HEADERS frame is emitted without
+ * END_STREAM, the stream never completes, the client waits indefinitely for a
+ * body that never comes, and lws has no timeout watching for it.  For responses
+ * that do send a body afterwards, pass plain LWS_WRITE_HTTP_HEADERS; END_STREAM
+ * then correctly goes on the final DATA frame.
+ *
+ * lws_finalize_write_http_header() (declared in lws-http.h) is a convenience
+ * wrapper that passes plain LWS_WRITE_HTTP_HEADERS.  Returns nonzero for error.
+ */
+LWS_VISIBLE LWS_EXTERN int LWS_WARN_UNUSED_RESULT
+lws_finalize_write_http_header_flags(struct lws *wsi, unsigned char *start,
+			                     unsigned char **p,
+			                     unsigned char *end,
+			             enum lws_write_protocol flags);
+
+/**
  * lws_write_ws_flags() - Helper for multi-frame ws message flags
  *
  * \param initial: the lws_write flag to use for the start fragment, eg,
@@ -224,18 +269,18 @@ lws_write(struct lws *wsi, unsigned char *buf, size_t len,
  * Returns the correct LWS_WRITE_ flag to use for each fragment of a message
  * in turn.
  */
-static LWS_INLINE int
+static LWS_INLINE enum lws_write_protocol
 lws_write_ws_flags(int initial, int is_start, int is_end)
 {
-	int r;
+	enum lws_write_protocol r;
 
 	if (is_start)
-		r = initial;
+		r = (enum lws_write_protocol)initial;
 	else
 		r = LWS_WRITE_CONTINUATION;
 
 	if (!is_end)
-		r |= LWS_WRITE_NO_FIN;
+		r = (enum lws_write_protocol)((int)r | (int)LWS_WRITE_NO_FIN);
 
 	return r;
 }

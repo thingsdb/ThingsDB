@@ -49,6 +49,21 @@
 #define LECP_STRING_CHUNK		254
 #endif
 
+/*
+ * These are tunable, but every index into the arrays they size is a uint8_t
+ * in struct lecp_ctx, so they are hard-capped: LECP_MAX_PATH, LECP_MAX_DEPTH,
+ * LECP_MAX_INDEX_DEPTH and LECP_MAX_PARSING_STACK_DEPTH must each be <= 255,
+ * and LECP_STRING_CHUNK <= 254.  Raising one past its cap does not overflow
+ * the array, but the bounds checks stop firing and the parser silently
+ * corrupts what it collected.
+ */
+
+#if LECP_MAX_PATH > 255 || LECP_MAX_DEPTH > 255 || \
+    LECP_MAX_INDEX_DEPTH > 255 || LECP_MAX_PARSING_STACK_DEPTH > 255 || \
+    LECP_STRING_CHUNK > 254
+#error "LECP_ size knob is larger than its uint8_t index can represent"
+#endif
+
 #define LECP_FLAG_CB_IS_VALUE 64
 
 /*
@@ -290,10 +305,12 @@ struct lecp_ctx {
 	uint8_t			pst_sp; /* parsing stack head */
 	uint8_t			outer_array;
 	uint8_t			cbor_pos;
+	uint8_t			cbor_len;
 	uint8_t			literal_cbor_report;
 	char			present; /* temp for cb reason to use */
 
 	uint8_t			be; /* big endian */
+	int8_t			failed; /* 0, or the LECP_... reject */
 
 	/* at end so we can memset the rest of it */
 
@@ -459,6 +476,20 @@ lws_lec_printf(lws_lec_pctx_t *ctx, const char *format, ...);
  * \param paths_count: how many paths in \p paths
  *
  * Prepares an LECP parser context for parsing.
+ *
+ * Text and byte string map keys are copied into ctx->path as they are, and
+ * ctx->path uses '.' for map nesting and "[]" for arrays.  So a key containing
+ * those characters synthesizes the same path as a different document shape:
+ * {"a.b": 1} gives the path ".a.b", exactly as {"a": {"b": 1}} does, and
+ * {"s[]": 1} looks like an array "s".  Unlike lejp, which can reject such keys
+ * with LEJP_FLAG_FEAT_STRICT_KEY_CHARS, lecp has no option to refuse them: a
+ * \p paths match alone can't tell those documents apart, so if it matters to
+ * you, check the shape yourself, eg, from the LECPCB_OBJECT_START /
+ * LECPCB_ARRAY_START events and lecp_parse_map_is_key().
+ *
+ * A key containing a NUL can't be represented in the path at all (everything
+ * after it, and everything nested under the key, would be hidden from path
+ * matching), so lecp_parse() always rejects one with LECP_REJECT_BAD_CODING.
  */
 LWS_VISIBLE LWS_EXTERN void
 lecp_construct(struct lecp_ctx *ctx, lecp_callback cb, void *user,

@@ -31,9 +31,9 @@ static const char *pcols[] = {
 	"https://",
 	"h2://",	/* LWSSSP_H2 */
 	"h2s://",
-	"ws://",	/* LWSSSP_WS */
+	"ws://",	/* LWSSSP_WS */ // NOSONAR
 	"wss://",
-	"mqtt://",	/* LWSSSP_MQTT */
+	"mqtt://",	/* LWSSSP_MQTT */ // NOSONAR
 	"mqtts://",
 	"raw://",	/* LWSSSP_RAW */
 	"raws://",
@@ -50,9 +50,8 @@ static const uint16_t pcols_port[] = {
 lss::lss(lws_ctx_t _ctx, std::string _uri, lsscomp_t _comp, bool _psh,
 	 lws_sscb_rx rx, lws_sscb_tx tx, lws_sscb_state state)
 {
-	const char *p, *urlpath;
 	lws_ss_info_t ssi;
-	int n, port;
+	int n;
 
 	memset(&ssi, 0, sizeof(ssi));
 	memset(&pol, 0, sizeof(pol));
@@ -61,6 +60,7 @@ lss::lss(lws_ctx_t _ctx, std::string _uri, lsscomp_t _comp, bool _psh,
 	comp		= _comp;
 	comp_done	= 0;
 	rxlen		= 0;
+	puri		= NULL;
 
 	/*
 	 * We have a common stub userdata, our "real" userdata is in the
@@ -68,8 +68,8 @@ lss::lss(lws_ctx_t _ctx, std::string _uri, lsscomp_t _comp, bool _psh,
 	 * lss itself.
 	 */
 
-	ssi.handle_offset	    = offsetof(lssPriv, lssPriv::m_ss);
-	ssi.opaque_user_data_offset = offsetof(lssPriv, lssPriv::m_plss);
+	ssi.handle_offset	    = offsetof(lssPriv, m_ss);
+	ssi.opaque_user_data_offset = offsetof(lssPriv, m_plss);
 
 	ssi.user_alloc	= sizeof(lssPriv);
 	ssi.rx		= rx;
@@ -82,28 +82,30 @@ lss::lss(lws_ctx_t _ctx, std::string _uri, lsscomp_t _comp, bool _psh,
 	 * deconstruct it into its policy implications
 	 */
 
-	uri = strdup(_uri.c_str());
+	uri = _uri;
 
-	for (n = 0; n < LWS_ARRAY_SIZE(pcols); n++)
-		if (!strncmp(uri, pcols[n], pcols_len[n]))
+	for (n = 0; n < (int)LWS_ARRAY_SIZE(pcols); n++)
+		if (!uri.compare(0, pcols_len[n], pcols[n]))
 			break;
 
-	if (n == LWS_ARRAY_SIZE(pcols))
+	if (n == (int)LWS_ARRAY_SIZE(pcols))
 		throw lssException("unknown uri protocol://");
 
-	pol.protocol = n >> 1;
+	pol.protocol = (uint8_t)(n >> 1);
 	if (n & 1)
 		pol.flags |= LWSSSPOLF_TLS;
 
 	n = pcols_port[n];
 
-	if (lws_parse_uri(uri, &p, &pol.endpoint, &n, &urlpath))
+	puri = lws_parse_uri_create(uri.c_str());
+	if (!puri)
 		throw lssException("unable to parse uri://");
 
-	pol.port = (uint16_t)n;
+	pol.endpoint = puri->host;
+	pol.port = puri->port ? puri->port : (uint16_t)n;
 
 	if (pol.protocol <= LWSSSP_WS) {
-		pol.u.http.url = urlpath;
+		pol.u.http.url = puri->path;
 
 		/*
 		 * These are workarounds for common h2 server noncompliances
@@ -120,23 +122,25 @@ lss::lss(lws_ctx_t _ctx, std::string _uri, lsscomp_t _comp, bool _psh,
 	us_start = lws_now_usecs();
 
 	if (lws_ss_create(ctx, 0, &ssi, (void *)this, &m_ss, NULL, NULL))
-		goto blow;
+		throw lssException("ss creation failed");
 
-	if (pol.protocol <= LWSSSP_WS)
-		lws_ss_client_connect(m_ss);
+	if (pol.protocol <= LWSSSP_WS) {
+		lws_ss_state_return_t r = lws_ss_client_connect(m_ss);
 
-	return;
-
-blow:
-	if (uri)
-		free(uri);
-	throw lssException("ss creation failed");
+		/*
+		 * A failed connect attempt reports itself asynchronously via
+		 * the state callback (ALL_RETRIES_FAILED / DESTROYING), and
+		 * the handle is released by ~lss(), so just note it here.
+		 */
+		if (r)
+			lwsl_ss_warn(m_ss, "connect returned %d", (int)r);
+	}
 }
 
 lss::~lss()
 {
-	if (uri)
-		free(uri);
+	if (puri)
+		lws_parse_uri_destroy(&puri);
 	if (m_ss)
 		lws_ss_destroy(&m_ss);
 }

@@ -31,21 +31,74 @@ macro(create_evlib_plugin PLUGIN_NAME MAIN_SRC PLUGIN_HDR EVLIB)
 	source_group("Headers Private"   FILES ${PLUGIN_HDR})
 	source_group("Sources"   FILES ${MAIN_SRC})
 	add_library(websockets-${PLUGIN_NAME} SHARED ${MAIN_SRC} ${PLUGIN_HDR})
+	if (LWS_HAVE_VISIBILITY)
+		set_target_properties(websockets-${PLUGIN_NAME} PROPERTIES
+			C_VISIBILITY_PRESET default)
+	endif()
 
 	if (APPLE)
 		set_property(TARGET websockets-${PLUGIN_NAME} PROPERTY MACOSX_RPATH YES)
 	endif()
 
-	foreach(libpath ${LWS_DEP_LIB_PATHS})
-		target_link_directories(${TEST_NAME} ${libpath})
+
+	set(STRIPPED_EVLIB "")
+	foreach(lib_path ${EVLIB})
+		if(IS_ABSOLUTE "${lib_path}" AND NOT "${lib_path}" MATCHES "^-")
+			if (APPLE)
+				list(APPEND STRIPPED_EVLIB "${lib_path}")
+			else()
+				get_filename_component(lib_name "${lib_path}" NAME)
+				string(REGEX REPLACE "^lib" "" lib_name "${lib_name}")
+				string(REGEX REPLACE "\\.so.*$" "" lib_name "${lib_name}")
+				string(REGEX REPLACE "\\.dylib.*$" "" lib_name "${lib_name}")
+				string(REGEX REPLACE "\\.a$" "" lib_name "${lib_name}")
+				list(APPEND STRIPPED_EVLIB "-l${lib_name}")
+				get_filename_component(lib_dir "${lib_path}" DIRECTORY)
+				target_link_directories(websockets-${PLUGIN_NAME} PRIVATE "${lib_dir}")
+			endif()
+		else()
+			list(APPEND STRIPPED_EVLIB "${lib_path}")
+		endif()
 	endforeach()
 
-	target_link_libraries(websockets-${PLUGIN_NAME} websockets_shared ${EVLIB})
+	target_link_libraries(websockets-${PLUGIN_NAME} websockets_shared ${STRIPPED_EVLIB})
 	add_dependencies(websockets-${PLUGIN_NAME} websockets_shared)
-	target_compile_definitions(websockets-${PLUGIN_NAME} PRIVATE LWS_BUILDING_SHARED)
+	target_compile_definitions(websockets-${PLUGIN_NAME} PRIVATE ${LWS_BUILDING_SHARED})
 
 	target_include_directories(websockets-${PLUGIN_NAME} PRIVATE
-			${PLUGIN_INCLUDE} ${LWS_LIB_BUILD_INC_PATHS})
+			${PLUGIN_INCLUDE} ${LWS_LIB_BUILD_INC_PATHS}
+			"${CMAKE_CURRENT_SOURCE_DIR}/../../core"
+			"${CMAKE_CURRENT_SOURCE_DIR}/../../sansio"
+			"${CMAKE_CURRENT_SOURCE_DIR}/../../io"
+			"${CMAKE_CURRENT_SOURCE_DIR}/../../sansio/http"
+			"${CMAKE_CURRENT_SOURCE_DIR}/../../sansio/h1"
+			"${CMAKE_CURRENT_SOURCE_DIR}/../../sansio/h2"
+			"${CMAKE_CURRENT_SOURCE_DIR}/../../sansio/http/compression"
+			"${CMAKE_CURRENT_SOURCE_DIR}/../../sansio/ws"
+			"${CMAKE_CURRENT_SOURCE_DIR}/../../io/cgi"
+			"${CMAKE_CURRENT_SOURCE_DIR}/../../io/listen"
+			"${CMAKE_CURRENT_SOURCE_DIR}/../../io/dbus"
+			"${CMAKE_CURRENT_SOURCE_DIR}/../../sansio/mqtt"
+			"${CMAKE_CURRENT_SOURCE_DIR}/../../sansio/raw-skt"
+			"${CMAKE_CURRENT_SOURCE_DIR}/../../io/raw-file"
+			"${CMAKE_CURRENT_SOURCE_DIR}/../../sansio/raw-proxy"
+			"${CMAKE_CURRENT_SOURCE_DIR}/../../core-net"
+			"${CMAKE_CURRENT_SOURCE_DIR}/../../tls"
+			"${CMAKE_CURRENT_SOURCE_DIR}/../../system/smd"
+			"${CMAKE_CURRENT_SOURCE_DIR}/../../system/metrics")
+
+
+
+	if (UNIX)
+		target_include_directories(websockets-${PLUGIN_NAME} PRIVATE
+					"${CMAKE_CURRENT_SOURCE_DIR}/../../plat/unix")
+	endif()
+	if (WINDOWS)
+		target_include_directories(websockets-${PLUGIN_NAME} PRIVATE
+					"${CMAKE_CURRENT_SOURCE_DIR}/../../plat/windows")
+	endif()
+
+
 
 	# Set test app specific defines.
 	#	set_property(TARGET ${PLUGIN_NAME}
@@ -57,7 +110,7 @@ macro(create_evlib_plugin PLUGIN_NAME MAIN_SRC PLUGIN_HDR EVLIB)
 
 	install(TARGETS websockets-${PLUGIN_NAME}
 		EXPORT LibwebsocketsTargets
-		LIBRARY DESTINATION "${LWS_INSTALL_LIB_DIR}${LIB_SUFFIX}"
+		LIBRARY DESTINATION "${LWS_INSTALL_LIB_DIR}"
 		COMPONENT ${PLUGIN_NAME})
 		
 	list(APPEND EVLIB_PLUGINS_LIST websockets-${PLUGIN_NAME})
@@ -69,41 +122,50 @@ endmacro()
 #
 
 if (LWS_WITH_POLL)
-	add_subdir_include_directories(poll)
+	add_subdir_include_directories_local(poll)
 endif()
 
-if (LWS_WITH_LIBUV OR LWS_WITH_LIBUV_INTERNAL)
-	add_subdir_include_directories(libuv)
+if (LWS_WITH_NETWORK AND (LWS_WITH_LIBUV OR LWS_WITH_LIBUV_INTERNAL))
+	list(APPEND _CMAKE_INC_LIST "${CMAKE_CURRENT_SOURCE_DIR}/../core")
+	add_subdir_include_directories_local(libuv)
 	set(LWS_HAVE_UV_VERSION_H ${LWS_HAVE_UV_VERSION_H} PARENT_SCOPE)
 	set(LWS_HAVE_NEW_UV_VERSION_H ${LWS_HAVE_NEW_UV_VERSION_H} PARENT_SCOPE)
 endif()
 
-if (LWS_WITH_LIBEVENT)
-	add_subdir_include_directories(libevent)
+if (LWS_WITH_NETWORK AND LWS_WITH_LIBEVENT)
+	add_subdir_include_directories_local(libevent)
 endif()
 
-if (LWS_WITH_GLIB)
-	add_subdir_include_directories(glib)
+if (LWS_WITH_NETWORK AND LWS_WITH_GLIB)
+	add_subdir_include_directories_local(glib)
 endif()
 
-if (LWS_WITH_LIBEV)
-	add_subdir_include_directories(libev)
+if (LWS_WITH_NETWORK AND LWS_WITH_LIBEV)
+	add_subdir_include_directories_local(libev)
 	set(LWS_HAVE_EVBACKEND_LINUXAIO ${LWS_HAVE_EVBACKEND_LINUXAIO} PARENT_SCOPE)
 	set(LWS_HAVE_EVBACKEND_IOURING ${LWS_HAVE_EVBACKEND_IOURING} PARENT_SCOPE)
 endif()
 
-if (LWS_WITH_SDEVENT)
-	add_subdir_include_directories(sdevent)
+if (LWS_WITH_NETWORK AND LWS_WITH_SDEVENT)
+	add_subdir_include_directories_local(sdevent)
 endif()
 
-if (LWS_WITH_ULOOP)
-	add_subdir_include_directories(uloop)
+if (LWS_WITH_NETWORK AND LWS_WITH_ULOOP)
+	add_subdir_include_directories_local(uloop)
 endif()
+
+add_subdir_include_directories_local_end()
 
 #
 # Keep explicit parent scope exports at end
 #
 
 export_to_parent_intermediate()
+if (LIBUV_INCLUDE_DIRS)
+	set(LWS_PUBLIC_INCLUDES ${LWS_PUBLIC_INCLUDES} "${LIBUV_INCLUDE_DIRS}")
+endif()
+if (LWS_PUBLIC_INCLUDES)
+	set(LWS_PUBLIC_INCLUDES ${LWS_PUBLIC_INCLUDES} PARENT_SCOPE)
+endif()
 set(EVLIB_PLUGINS_LIST ${EVLIB_PLUGINS_LIST} PARENT_SCOPE)
 

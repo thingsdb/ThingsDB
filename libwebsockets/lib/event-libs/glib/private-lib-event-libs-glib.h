@@ -43,6 +43,12 @@ struct lws_io_watcher_glib_subclass {
 	GSource		base;
 	struct lws	*wsi;
 	gpointer	tag;
+	/*
+	 * the fd this source watches: a parallel connect racer's is not
+	 * wsi->io->desc.sockfd, and the primary's may be invalid while a QUIC
+	 * race is parked on the racer
+	 */
+	lws_sockfd_type	fd;
 };
 
 /*
@@ -57,5 +63,8 @@ struct lws_io_watcher_glib {
 
 struct lws_wsi_eventlibs_glib {
 	struct lws_io_watcher_glib w_read;
+#if defined(LWS_WITH_CLIENT)
+	struct lws_io_watcher_glib racing[LWS_MAX_PARALLEL_CONNS];
+#endif
 };
 

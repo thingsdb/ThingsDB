@@ -26,11 +26,26 @@
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 #endif
 #include "private-lib-core.h"
+#if defined(_DEBUG) && defined(_MSC_VER)
+#include <crtdbg.h>
+#endif
 
 int
 lws_plat_drop_app_privileges(struct lws_context *context, int actually_set)
 {
 	return 0;
+}
+
+int
+lws_plat_user_to_uid(const char *username, uid_t *puid)
+{
+	return 1;
+}
+
+int
+lws_plat_group_to_gid(const char *groupname, gid_t *pgid)
+{
+	return 1;
 }
 
 int
@@ -42,6 +57,40 @@ lws_plat_context_early_init(void)
 
 	/* Use the MAKEWORD(lowbyte, highbyte) macro from Windef.h */
 	wVersionRequested = MAKEWORD(2, 2);
+
+#if defined(_DEBUG) && defined(_MSC_VER)
+	/*
+	 * The Debug CRT reports a failed assert(), a CRT error or an abort()
+	 * by putting up a modal message box and waiting for someone to click
+	 * it.  Nobody ever does for an unattended process (ctest on a CI
+	 * builder, a service), the report never reaches stderr, and what is
+	 * a one-line failure everywhere else becomes a silent hang until some
+	 * external timeout kills the process with its output cut off wherever
+	 * it happened to be.  Send the reports to stderr and let the process
+	 * die the same way it does on other platforms; likewise don't hand a
+	 * crash to WER to sit in a dialog.
+	 *
+	 * Also copy the reports to the debugger channel (OutputDebugString),
+	 * so a service, whose stderr goes nowhere, still shows the assert text
+	 * in DebugView or a debugger's output window, rather than just dying
+	 * with abort()'s exit code 3.
+	 *
+	 * None of this applies when a debugger is attached: then the default
+	 * assert dialog and abort()'s report-fault are exactly what lets the
+	 * person at the debugger see where it happened, so leave them alone.
+	 */
+	if (!IsDebuggerPresent()) {
+		_CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE |
+					       _CRTDBG_MODE_DEBUG);
+		_CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
+		_CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_FILE |
+					      _CRTDBG_MODE_DEBUG);
+		_CrtSetReportFile(_CRT_ERROR, _CRTDBG_FILE_STDERR);
+		_set_abort_behavior(0, _CALL_REPORTFAULT);
+		SetErrorMode(SetErrorMode(0) | SEM_FAILCRITICALERRORS |
+			     SEM_NOGPFAULTERRORBOX);
+	}
+#endif
 
 	err = WSAStartup(wVersionRequested, &wsaData);
 	if (!err)
@@ -55,7 +104,7 @@ lws_plat_context_early_init(void)
 	return 1;
 }
 
-#if defined(LWS_WITH_PLUGINS)
+#if defined(LWS_WITH_PROTOCOL_PLUGINS)
 static int
 protocol_plugin_cb(struct lws_plugin *pin, void *each_user)
 {
@@ -81,6 +130,7 @@ lws_plat_init(struct lws_context *context,
 	{
 		int n;
 
+#if !defined(LWS_MBEDTLS_PSA_RNG)
 		/* initialize platform random through mbedtls */
 		mbedtls_entropy_init(&context->mec);
 		mbedtls_ctr_drbg_init(&context->mcdc);
@@ -90,21 +140,17 @@ lws_plat_init(struct lws_context *context,
 		if (n)
 			lwsl_err("%s: mbedtls_ctr_drbg_seed() returned 0x%x\n",
 				 __func__, n);
-#if 0
-		else {
-			uint8_t rtest[16];
-			lwsl_notice("%s: started drbg\n", __func__);
-			if (mbedtls_ctr_drbg_random(&context->mcdc, rtest,
-							sizeof(rtest)))
-				lwsl_err("%s: get random failed\n", __func__);
-			else
-				lwsl_hexdump_notice(rtest, sizeof(rtest));
-		}
+#else
+		/* no DRBG of ours to seed: the RNG is PSA's */
+		n = psa_crypto_init();
+		if (n != 0)
+			lwsl_err("%s: psa_crypto_init() returned 0x%x\n",
+				 __func__, n);
 #endif
 	}
 #endif
 
-#if defined(LWS_HAVE_SSL_CTX_set_keylog_callback) && \
+#if defined(LWS_WITH_TLS_KEYLOG) && \
 		defined(LWS_WITH_TLS) && defined(LWS_WITH_CLIENT)
 	{
 		char *klf_env = getenv("SSLKEYLOGFILE");
@@ -150,7 +196,7 @@ lws_plat_init(struct lws_context *context,
 void
 lws_plat_context_early_destroy(struct lws_context *context)
 {
-
+	/* windows handles are closed in late_destroy */
 }
 
 void
@@ -167,6 +213,11 @@ lws_plat_context_late_destroy(struct lws_context *context)
 		if (context->fd_hashtable[n].wsi)
 			lws_free(context->fd_hashtable[n].wsi);
 	}
+
+#if defined(LWS_WITH_MBEDTLS) && !defined(LWS_MBEDTLS_PSA_RNG)
+	mbedtls_entropy_free(&context->mec);
+	mbedtls_ctr_drbg_free(&context->mcdc);
+#endif
 
 	WSACleanup();
 }

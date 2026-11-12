@@ -34,6 +34,7 @@ if (NOT LWS_ONLY_SSPC)
 list(APPEND SOURCES
 	misc/base64-decode.c
 	misc/prng.c
+	misc/lws-crc32.c
 	misc/lws-ring.c)
 
 if (LWS_WITH_NETWORK)
@@ -45,6 +46,11 @@ if (LWS_WITH_NETWORK)
 	if (LWS_WITH_CACHE_NSCOOKIEJAR)
 		list(APPEND SOURCES
 			misc/cache-ttl/file.c)
+	endif()
+
+	if (LWS_WITH_CACHE_BLOB)
+		list(APPEND SOURCES
+			misc/cache-ttl/blob.c)
 	endif()
 
 endif()
@@ -73,18 +79,55 @@ if (LWS_WITH_JPEG)
 	list(APPEND SOURCES
 		misc/jpeg.c)
 endif()
+if (LWS_WITH_SVG)
+	list(APPEND SOURCES
+		misc/svg.c
+		misc/svg-anim.c
+		misc/svg-raster.c)
+endif()
+if (LWS_WITH_GIF)
+	list(APPEND SOURCES
+		misc/gif.c)
+endif()
+if (LWS_WITH_DHT)
+	list(APPEND SOURCES
+		misc/dht/dht.c
+		misc/dht/dht-id.c
+		misc/dht/dht-bencode.c
+		misc/dht/dht-extvote.c
+		misc/dht/dht-tx.c)
+endif()
+
+if (LWS_WITH_LOG_SHIP)
+	list(APPEND SOURCES
+		misc/log-ship/log-ship.c)
+endif()
+
+if (LWS_WITH_DHT_BACKEND)
+	list(APPEND SOURCES
+		misc/dht/dht-backend.c
+		misc/dht/dht-backend-bucket.c
+		misc/dht/dht-backend-search.c
+		misc/dht/dht-backend-storage.c
+		misc/dht/dht-backend-rpc.c)
+endif()
 
 
 if (LWS_WITH_DLO)
 	list(APPEND SOURCES
 		misc/dlo/dlo.c
 		misc/dlo/dlo-rect.c
+		misc/dlo/dlo-hit.c
 		misc/dlo/dlo-font-mcufont.c
 		misc/dlo/dlo-text.c)
 
 	if (LWS_WITH_SECURE_STREAMS AND LWS_WITH_CLIENT)
 		list(APPEND SOURCES
 			misc/dlo/dlo-ss.c)
+		if (LWS_WITH_STRUCT_JSON)
+			list(APPEND SOURCES
+				misc/dlo/dlo-font-remote.c)
+		endif()
 	endif()
 
 	if (LWS_WITH_UPNG)
@@ -97,17 +140,33 @@ if (LWS_WITH_DLO)
 			misc/dlo/dlo-jpeg.c)
 	endif()
 
+	if (LWS_WITH_SVG)
+		list(APPEND SOURCES
+			misc/dlo/dlo-svg.c)
+	endif()
+
+	if (LWS_WITH_GIF)
+		list(APPEND SOURCES
+			misc/dlo/dlo-gif.c)
+	endif()
+
 	if (LWS_WITH_LHP)
 		list(APPEND SOURCES
 			misc/dlo/dlo-lhp.c
 		)
+		if (LWS_WITH_SECURE_STREAMS AND LWS_WITH_CLIENT)
+			# the strip ui lays its html out with lws_lhp_ss_browse()
+			list(APPEND SOURCES
+				misc/dlo/dlo-ui.c)
+		endif()
 	endif()
 
 endif()  #dlo
 
 # this is an older, standalone hashed disk cache
-# implementation unrelated to lws-cache-ttl
-if (LWS_WITH_DISKCACHE)
+# implementation unrelated to lws-cache-ttl... except the blob cache
+# level is a thin lws-cache-ttl wrapper on top of it
+if (LWS_WITH_DISKCACHE OR LWS_WITH_CACHE_BLOB)
 	list(APPEND SOURCES
 		misc/diskcache.c)
 endif()
@@ -134,6 +193,10 @@ endif()
 
 if (LWS_WITH_DIR AND NOT LWS_PLAT_BAREMETAL)
 	list(APPEND SOURCES misc/dir.c)
+endif()
+
+if (LWS_WITH_DIR AND NOT LWS_PLAT_BAREMETAL)
+	list(APPEND SOURCES misc/dir-notify/dir-notify.c)
 endif()
 
 if (LWS_WITH_THREADPOOL AND LWS_HAVE_PTHREAD_H)
@@ -182,6 +245,33 @@ if (LWS_WITH_LHP)
 
 endif()
 
+if (LWS_WITH_HL)
+	list(APPEND SOURCES
+		misc/hl.c
+		misc/hl-html.c)
+
+	if (LWS_WITH_HL_LANG_C)
+		list(APPEND SOURCES
+			misc/hl-c.c)
+	endif()
+
+	if (LWS_WITH_HL_LANG_DIFF)
+		list(APPEND SOURCES
+			misc/hl-diff.c)
+	endif()
+endif()
+
+if (LWS_WITH_MD)
+	list(APPEND SOURCES
+		misc/md.c
+		misc/md-html.c)
+endif()
+
+if (LWS_WITH_MNEMONIC)
+	list(APPEND SOURCES
+		misc/mnemonic.c)
+endif()
+
 if (UNIX)
 	if (NOT LWS_HAVE_GETIFADDRS)
 		list(APPEND HDR_PRIVATE misc/getifaddrs.h)
@@ -195,6 +285,12 @@ if (NOT WIN32 AND NOT LWS_WITHOUT_DAEMONIZE)
 endif()
 
 endif()
+
+if (LWS_WITH_QRCODEGEN)
+	list(APPEND SOURCES
+		misc/qrcodegen.c)
+endif()
+
 #
 # Keep explicit parent scope exports at end
 #

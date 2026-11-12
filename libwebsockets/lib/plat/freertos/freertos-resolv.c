@@ -25,30 +25,76 @@
 #include "private-lib-core.h"
 #include "private-lib-async-dns.h"
 
+#if defined(LWS_WITH_ESP32)
+#include <lwip/dns.h>
+#endif
+
 #if defined(LWS_WITH_SYS_ASYNC_DNS)
-lws_async_dns_server_check_t
-lws_plat_asyncdns_init(struct lws_context *context, lws_async_dns_t *dns)
+int
+lws_plat_asyncdns_get_server(struct lws_context *context, int index,
+			     lws_sockaddr46 *sa46)
 {
-	lws_sockaddr46 sa46t;
+#if defined(LWS_WITH_ESP32)
+	const ip_addr_t *dns;
+#else
 	uint32_t ipv4;
-	lws_async_dns_server_check_t s = LADNS_CONF_SERVER_SAME;
-	lws_async_dns_server_t *dsrv;
+#endif
+
+#if defined(LWS_WITH_ESP32)
+	if (index > 2)
+		return -1;
+
+	dns = dns_getserver(index);
+	if (!dns || ip_addr_isany(dns))
+		return -1;
+
+	memset(sa46, 0, sizeof(*sa46));
+#if defined(LWIP_IPV6) && LWIP_IPV6
+#if defined(LWS_WITH_IPV6)
+	if (IP_IS_V6(dns)) {
+		sa46->sa4.sin_family = AF_INET6;
+		memcpy(&sa46->sa6.sin6_addr, ip_2_ip6(dns)->addr, 16);
+	} else
+#endif
+	{
+		sa46->sa4.sin_family = AF_INET;
+		sa46->sa4.sin_addr.s_addr = ip_2_ip4(dns)->addr;
+	}
+#else
+	sa46->sa4.sin_family = AF_INET;
+	sa46->sa4.sin_addr.s_addr = dns->addr;
+#endif
+
+	return 0;
+#else
+	if (index > 0)
+		return -1;
 
 	FreeRTOS_GetAddressConfiguration(NULL, NULL, NULL, &ipv4);
 
-	memset(&sa46t, 0, sizeof(sa46t));
+	memset(sa46, 0, sizeof(*sa46));
+	sa46->sa4.sin_family = AF_INET;
+	sa46->sa4.sin_addr.s_addr = ipv4;
 
-	sa46t.sa4.sin_family = AF_INET;
-	sa46t.sa4.sin_addr.s_addr = ipv4;
-
-	dsrv = __lws_async_dns_server_find(dns, &sa46t);
-	if (!dsrv) {
-		__lws_async_dns_server_add(dns, &sa46t);
-		s = LADNS_CONF_SERVER_CHANGED;
-	}
-
-	return s;
+	return 0;
+#endif
 }
+
+/* the lwip and FreeRTOS+TCP stacks have no resolver search list */
+
+int
+lws_plat_asyncdns_get_search(struct lws_context *context, char *buf,
+			     size_t len, int *ndots)
+{
+	(void)context;
+
+	*ndots = 1;
+	if (len)
+		buf[0] = '\0';
+
+	return 0;
+}
+
 #endif
 
 int

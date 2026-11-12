@@ -53,13 +53,21 @@
 #include "private-lib-tls-mbedtls.h"
 #include <mbedtls/oid.h>
 #include <mbedtls/x509.h>
+#include <mbedtls/platform.h>
 
 /*
  * This section from mbedtls oid.c
  */
 
 typedef struct {
-    mbedtls_oid_descriptor_t    descriptor;
+    const char *asn1;
+    size_t asn1_len;
+    const char *name;
+    const char *description;
+} lws_oid_descriptor_t;
+
+typedef struct {
+    lws_oid_descriptor_t    descriptor;
     int                 	ext_type;
 } oid_x509_ext_t;
 
@@ -97,26 +105,26 @@ static const oid_x509_ext_t oid_x509_ext[] = {
 
 #define FN_OID_TYPED_FROM_ASN1( TYPE_T, NAME, LIST )                    \
     static const TYPE_T * oid_ ## NAME ## _from_asn1(                   \
-                                      const mbedtls_asn1_buf *oid )     \
+                                      const mbedtls_x509_buf *oid )     \
     {                                                                   \
         const TYPE_T *p = (LIST);                                       \
-        const mbedtls_oid_descriptor_t *cur =                           \
-            (const mbedtls_oid_descriptor_t *) p;                       \
+        const lws_oid_descriptor_t *cur =                           \
+            (const lws_oid_descriptor_t *) p;                       \
         if( p == NULL || oid == NULL ) return( NULL );                  \
-        while( cur->MBEDTLS_PRIVATE(asn1) != NULL ) {                          \
-            if( cur->MBEDTLS_PRIVATE(asn1_len) == oid->MBEDTLS_PRIVATE_V30_ONLY(len) && \
-                memcmp( cur->MBEDTLS_PRIVATE(asn1), oid->MBEDTLS_PRIVATE_V30_ONLY(p), oid->MBEDTLS_PRIVATE_V30_ONLY(len) ) == 0 ) {          \
+        while( cur->asn1 != NULL ) {                          \
+            if( cur->asn1_len == oid->MBEDTLS_PRIVATE_V30_ONLY(len) && \
+                memcmp( cur->asn1, oid->MBEDTLS_PRIVATE_V30_ONLY(p), oid->MBEDTLS_PRIVATE_V30_ONLY(len) ) == 0 ) {          \
                 return( p );                                            \
             }                                                           \
             p++;                                                        \
-            cur = (const mbedtls_oid_descriptor_t *) p;                 \
+            cur = (const lws_oid_descriptor_t *) p;                 \
         }                                                               \
         return( NULL );                                                 \
     }
 
 
 #define FN_OID_GET_ATTR1(FN_NAME, TYPE_T, TYPE_NAME, ATTR1_TYPE, ATTR1) \
-int FN_NAME( const mbedtls_asn1_buf *oid, ATTR1_TYPE * ATTR1 )                  \
+int FN_NAME( const mbedtls_x509_buf *oid, ATTR1_TYPE * ATTR1 )                  \
 {                                                                       \
     const TYPE_T *data = oid_ ## TYPE_NAME ## _from_asn1( oid );        \
     if (!data) return 1;            \
@@ -206,9 +214,14 @@ lws_x509_clean_name(mbedtls_x509_name *name)
 
 	n1 = name->MBEDTLS_PRIVATE_V30_ONLY(next);
 
+	/*
+	 * mbedtls_x509_get_name() made these with mbedtls_calloc(), which is
+	 * not libc's allocator on a platform that gave mbedtls its own
+	 */
+
 	while (n1) {
 		name = n1->MBEDTLS_PRIVATE_V30_ONLY(next);
-		free(n1);
+		mbedtls_free(n1);
 		n1 = name;
 	}
 }
@@ -256,6 +269,17 @@ lws_mbedtls_x509_parse_general_name(const mbedtls_x509_buf *name_buf,
 			return ret;
 		}
 
+		/*
+		 * mbedtls_x509_get_name() allocates one mbedtls_x509_name per
+		 * RDN after the first and chains them on .next; the caller
+		 * only ever reads the head we copy out, and nothing else knows
+		 * about the tail, so it has to go here or a crafted cert leaks
+		 * one allocation per RDN per directoryName entry.
+		 */
+
+		lws_x509_clean_name(&rfc822Name);
+		rfc822Name.MBEDTLS_PRIVATE_V30_ONLY(next) = NULL;
+
 		memset(name, 0, sizeof(*name));
 		name->type = LWS_MBEDTLS_X509_SAN_OTHER_NAME;
 		memcpy(&name->san.other_name,
@@ -281,8 +305,8 @@ static int
 lws_x509_get_general_names(uint8_t **p, const uint8_t *end,
 			   mbedtls_x509_sequence *name )
 {
-	mbedtls_asn1_sequence *cur = name;
-	mbedtls_asn1_buf *buf;
+	mbedtls_x509_sequence *cur = name;
+	mbedtls_x509_buf *buf;
 	size_t len, tag_len;
 	unsigned char tag;
 	int r;
@@ -296,7 +320,7 @@ lws_x509_get_general_names(uint8_t **p, const uint8_t *end,
 	if (*p + len != end)
 		return 1;
 
-	while (*p < end) {
+	while (*p && *p < end) {
 		lws_mbedtls_x509_subject_alternative_name dnb;
 		memset(&dnb, 0, sizeof(dnb));
 
@@ -307,6 +331,13 @@ lws_x509_get_general_names(uint8_t **p, const uint8_t *end,
 		if (r)
 		    return r;
 
+		/* the extents of the entry have to fit inside the extents we
+		 * were given; asn1_get_len() should ensure it, but these are
+		 * attacker-controlled so fence it explicitly rather than rely
+		 * on the helper's postconditions */
+		if (tag_len > (size_t)(end - *p))
+			return 1;
+
 		/* Tag shall be CONTEXT_SPECIFIC or SET */
 		if ((tag & LWS_MBEDTLS_ASN1_TAG_CLASS_MASK) !=
 					        MBEDTLS_ASN1_CONTEXT_SPECIFIC &&
@@ -314,11 +345,17 @@ lws_x509_get_general_names(uint8_t **p, const uint8_t *end,
 			   (MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE))
 			return 1;
 
+		/* bind this entry's tag and extents to the list slot
+		 * before they are used, eg, by parse_general_name() */
+		buf = &(cur->MBEDTLS_PRIVATE_V30_ONLY(buf));
+		buf->MBEDTLS_PRIVATE_V30_ONLY(tag) = tag;
+		buf->MBEDTLS_PRIVATE_V30_ONLY(p) = *p;
+		buf->MBEDTLS_PRIVATE_V30_ONLY(len) = tag_len;
+
 		/*
 		 * Check that the name is structured correctly.
 		 */
-		r = lws_mbedtls_x509_parse_general_name(
-					&cur->MBEDTLS_PRIVATE_V30_ONLY(buf), &dnb);
+		r = lws_mbedtls_x509_parse_general_name(buf, &dnb);
 		/*
 		 * In case the extension is malformed, return an error,
 		 * and clear the allocated sequences.
@@ -353,12 +390,10 @@ lws_x509_get_general_names(uint8_t **p, const uint8_t *end,
 			cur = cur->MBEDTLS_PRIVATE_V30_ONLY(next);
 		}
 
-		buf = &(cur->MBEDTLS_PRIVATE_V30_ONLY(buf));
-		buf->MBEDTLS_PRIVATE_V30_ONLY(tag) = tag;
-		buf->MBEDTLS_PRIVATE_V30_ONLY(p) = *p;
-		buf->MBEDTLS_PRIVATE_V30_ONLY(len) = tag_len;
-
-		*p += buf->MBEDTLS_PRIVATE_V30_ONLY(len);
+		/* tag_len == buf->len here; the helper takes buf as const, and
+		 * using the bounded local keeps us clear of the list slot that
+		 * cur may have advanced away from */
+		*p += tag_len;
 	}
 
 	/* Set final sequence entry's next pointer to NULL */
@@ -406,6 +441,8 @@ x509_get_akid(uint8_t **p, uint8_t *end, lws_mbedtls_x509_authority *akid)
 			 * so "len" shall be used */
 			r = lws_x509_get_general_names(p, (*p + len),
 						    &akid->authorityCertIssuer);
+			if (r)
+				return(r);
 		}
 	}
 

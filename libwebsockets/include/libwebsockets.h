@@ -44,8 +44,18 @@ extern "C" {
 #if defined(LWS_HAVE_NET_ETHERNET_H)
 #include <net/ethernet.h>
 #endif
-#if defined(_WIN32) && !defined(ETHER_ADDR_LEN)
+/* NetBSD */
+#if defined(LWS_HAVE_NET_IF_ETHER_H)
+#include <net/if_ether.h>
+#endif
+#if (defined(_WIN32) || defined(__QNX__)) && !defined(ETHER_ADDR_LEN)
 #define ETHER_ADDR_LEN 6
+#endif
+#if defined (__sun)
+	#include <sys/ethernet.h>
+	#if !defined(ETHER_ADDR_LEN) && defined(ETHERADDRL)
+		#define ETHER_ADDR_LEN ETHERADDRL
+	#endif
 #endif
 #define LWS_ETHER_ADDR_LEN ETHER_ADDR_LEN
 
@@ -102,8 +112,8 @@ typedef unsigned long long lws_intptr_t;
 #define O_RDONLY	_O_RDONLY
 #endif
 
-typedef int uid_t;
-typedef int gid_t;
+typedef unsigned int uid_t;
+typedef unsigned int gid_t;
 typedef unsigned short sa_family_t;
 #if !defined(LWS_HAVE_SUSECONDS_T)
 typedef unsigned int useconds_t;
@@ -115,6 +125,44 @@ typedef int suseconds_t;
 #define LWS_WARN_UNUSED_RESULT
 #define LWS_WARN_DEPRECATED
 #define LWS_FORMAT(string_index)
+
+#if defined(LWS_HAVE_PTHREAD_H)
+/*
+ * pthreads-win32 defines its own struct timespec unless told the CRT has one
+ * https://stackoverflow.com/questions/33557506/timespec-redefinition-error
+ */
+#if !defined(HAVE_STRUCT_TIMESPEC)
+#define HAVE_STRUCT_TIMESPEC
+#endif
+#include <pthread.h>
+
+#define lws_mutex_t		pthread_mutex_t
+#define lws_mutex_init(x)	pthread_mutex_init(&(x), NULL)
+#define lws_mutex_destroy(x)	pthread_mutex_destroy(&(x))
+#define lws_mutex_lock(x)	pthread_mutex_lock(&(x))
+#define lws_mutex_unlock(x)	pthread_mutex_unlock(&(x))
+
+#define lws_tid_t		pthread_t
+#define lws_thread_is(x)	pthread_equal(x, pthread_self())
+#define lws_thread_id()		pthread_self()
+
+#else
+/*
+ * Native win32 without an external pthreads: use the win32 slim
+ * reader/writer lock, which is header-only, needs no destroy, and lets
+ * SMD and async-dns build without pthreads.  Lock must evaluate to 0 on
+ * success like the pthreads and freertos flavours.
+ */
+#define lws_mutex_t		SRWLOCK
+#define lws_mutex_init(x)	InitializeSRWLock(&(x))
+#define lws_mutex_destroy(x)	((void)(x))
+#define lws_mutex_lock(x)	(AcquireSRWLockExclusive(&(x)), 0)
+#define lws_mutex_unlock(x)	ReleaseSRWLockExclusive(&(x))
+
+#define lws_tid_t		DWORD
+#define lws_thread_is(x)	((x) == GetCurrentThreadId())
+#define lws_thread_id()		GetCurrentThreadId()
+#endif
 
 #if !defined(LWS_EXTERN) && defined(LWS_BUILDING_SHARED)
 #ifdef LWS_DLL
@@ -142,12 +190,69 @@ typedef int suseconds_t;
 #define LWS_O_CREAT _O_CREAT
 #define LWS_O_TRUNC _O_TRUNC
 
-#ifndef __func__
+#if (__STDC_VERSION__ < 199901L) && !defined(__func__)
 #define __func__ __FUNCTION__
 #endif
 
+#define LWS_POSIX_LENGTH_CAST(x) (unsigned int)(x)
+
 #else /* NOT WIN32 */
 #include <unistd.h>
+
+#if defined (LWS_PLAT_FREERTOS)
+#if defined(LWS_AMAZON_RTOS)
+#include <FreeRTOS.h>
+#include <semphr.h>
+#include <task.h>
+#else
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
+#include <freertos/task.h>
+#endif
+
+typedef SemaphoreHandle_t lws_mutex_t;
+#define lws_mutex_init(x)	x = xSemaphoreCreateMutex()
+#define lws_mutex_destroy(x)	vSemaphoreDelete(x)
+#define lws_mutex_lock(x)	(!xSemaphoreTake(x, portMAX_DELAY)) /*0 = OK */
+#define lws_mutex_unlock(x)	xSemaphoreGive(x)
+
+#define lws_tid_t		TaskHandle_t
+#define lws_thread_is(x)	(x == xTaskGetCurrentTaskHandle())
+#define lws_thread_id()		xTaskGetCurrentTaskHandle()
+#else
+
+#if defined(LWS_HAVE_PTHREAD_H)
+#include <pthread.h>
+#include <sys/types.h>
+
+typedef pthread_mutex_t lws_mutex_t;
+#define lws_mutex_init(x)	pthread_mutex_init(&(x), NULL)
+#define lws_mutex_destroy(x)	pthread_mutex_destroy(&(x))
+#define lws_mutex_lock(x)	pthread_mutex_lock(&(x))
+#define lws_mutex_unlock(x)	pthread_mutex_unlock(&(x))
+
+#define lws_tid_t		pthread_t
+#define lws_thread_is(x)	pthread_equal(x, pthread_self())
+#define lws_thread_id()		pthread_self()
+#else
+/*
+ * No threading support on this platform: the lws_mutex_t apis become
+ * no-ops so single-threaded builds of SMD and async-dns still work.
+ * Lock must evaluate to 0 on success like the other flavours.
+ */
+typedef char lws_mutex_t;
+#define lws_mutex_init(x)	((void)(x))
+#define lws_mutex_destroy(x)	((void)(x))
+#define lws_mutex_lock(x)	((void)(x), 0)
+#define lws_mutex_unlock(x)	((void)(x))
+
+#define lws_tid_t		int
+#define lws_thread_is(x)	((void)(x), 1)
+#define lws_thread_id()		0
+#endif
+#endif /* freertos */
+
+#define LWS_POSIX_LENGTH_CAST(x) ((size_t)(x))
 
 #if defined(LWS_HAVE_SYS_CAPABILITY_H) && defined(LWS_HAVE_LIBCAP)
 #include <sys/capability.h>
@@ -156,6 +261,12 @@ typedef int suseconds_t;
 #if defined(__NetBSD__) || defined(__FreeBSD__) || defined(__QNX__) || defined(__OpenBSD__) || defined(__NuttX__)
 #include <sys/socket.h>
 #include <netinet/in.h>
+#endif
+
+/* Find ETHER_ADDR_LEN on OpenBSD */
+#if defined(__OpenBSD__)
+#include <net/if_arp.h>
+#include <netinet/if_ether.h>
 #endif
 
 #define LWS_INLINE inline
@@ -226,11 +337,24 @@ typedef int suseconds_t;
 #endif
 #endif
 
-
 #if defined(__ANDROID__)
 #include <netinet/in.h>
 #include <unistd.h>
 #endif
+#endif
+
+#if defined(_WIN32)
+#if defined(LWS_DLL)
+#if defined(LWS_INTERNAL)
+#define LWS_EXTERN_FOR_DATA extern __declspec(dllexport)
+#else
+#define LWS_EXTERN_FOR_DATA extern __declspec(dllimport)
+#endif
+#else
+#define LWS_EXTERN_FOR_DATA extern
+#endif
+#else
+#define LWS_EXTERN_FOR_DATA extern
 #endif
 
 #ifdef _WIN32
@@ -255,6 +379,35 @@ typedef int suseconds_t;
 #endif
 
 #if defined(LWS_WITH_TLS)
+
+#if defined(LWS_WITH_SCHANNEL)
+typedef struct lws_tls_schannel_conn SSL;
+typedef struct lws_tls_schannel_ctx SSL_CTX;
+typedef struct lws_tls_schannel_bio BIO;
+typedef struct lws_tls_schannel_x509 X509;
+
+/*
+ * These are needed for lws-gen* and other headers that assume OpenSSL types
+ * when LWS_WITH_TLS is defined. SChannel implementation of these APIs
+ * will need to map these to Windows CryptoAPI/CNG types internally,
+ * or we can just treat them as opaque handles here.
+ */
+typedef void EVP_PKEY_CTX;
+typedef void EVP_MD;
+typedef void EVP_MD_CTX;
+typedef void HMAC_CTX;
+typedef void EVP_CIPHER_CTX;
+typedef void EVP_CIPHER;
+typedef void ENGINE;
+typedef void RSA;
+typedef void BIGNUM;
+typedef void EC_KEY;
+typedef void EC_POINT;
+typedef void EC_GROUP;
+typedef void X509_STORE_CTX;
+typedef void X509_VERIFY_PARAM;
+
+#else
 
 #ifdef USE_WOLFSSL
 #ifdef USE_OLD_CYASSL
@@ -298,8 +451,10 @@ typedef int suseconds_t;
 
 #if defined(LWS_WITH_TLS)
 #include <mbedtls/ssl.h>
+#if !defined(LWS_HAVE_MBEDTLS_V4)
 #include <mbedtls/entropy.h>
 #include <mbedtls/ctr_drbg.h>
+#endif
 #include <mbedtls/version.h>
 
 #if !defined(MBEDTLS_PRIVATE)
@@ -313,6 +468,26 @@ typedef int suseconds_t;
 #endif
 
 #endif
+#elif defined(LWS_WITH_GNUTLS)
+#include <gnutls/gnutls.h>
+#include <gnutls/crypto.h>
+#include <gnutls/abstract.h>
+#include <gnutls/x509.h>
+#include <netinet/in.h>
+#include <unistd.h>
+typedef struct gnutls_session_int SSL;
+typedef struct lws_tls_gnutls_ctx SSL_CTX;
+typedef void BIO;
+typedef struct gnutls_x509_crt_int X509;
+#elif defined(LWS_WITH_OPENHITLS)
+#include <hitls_type.h>
+#include <hitls_cert_type.h>
+#include <hitls_pki_cert.h>
+typedef HITLS_Ctx SSL;
+typedef HITLS_Config SSL_CTX;
+typedef void BIO;
+typedef HITLS_X509_Cert X509;
+typedef HITLS_CERT_StoreCtx X509_STORE_CTX;
 #else
 #include <openssl/ssl.h>
 #if !defined(LWS_WITH_MBEDTLS)
@@ -320,6 +495,7 @@ typedef int suseconds_t;
 #endif
 #endif
 #endif /* not USE_WOLFSSL */
+#endif /* not SCHANNEL */
 #endif
 
 /*
@@ -406,11 +582,7 @@ struct lws;
 #if defined(_WIN32)
 #if !defined(LWS_WIN32_HANDLE_TYPES)
 typedef SOCKET lws_sockfd_type;
-#if defined(__MINGW32__)
-typedef int lws_filefd_type;
-#else
 typedef HANDLE lws_filefd_type;
-#endif
 #endif
 
 
@@ -477,7 +649,14 @@ int getsockopt(int sockfd, int level, int optname,
 int connect(int sockfd, const struct sockaddr *addr,
                    socklen_t addrlen);
 
+#if defined(ESP_PLATFORM)
+/* IDF v6 (picolibc) makes errno thread-local; a plain "extern int errno" makes
+ * lws objects reference it non-TLS and fail to link ("TLS definition ...
+ * mismatches non-TLS reference"). Use the platform's real errno. */
+#include <errno.h>
+#else
 extern int errno;
+#endif
 
 uint16_t ntohs(uint16_t netshort);
 uint16_t htons(uint16_t hostshort);
@@ -600,8 +779,15 @@ struct lws_pollargs {
 #endif
 #define _LWS_PAD(n) (((n) % _LWS_PAD_SIZE) ? \
 		((n) + (_LWS_PAD_SIZE - ((n) % _LWS_PAD_SIZE))) : (n))
-/* last 2 is for lws-meta */
-#define LWS_PRE _LWS_PAD(4 + 10 + 2)
+/*
+ * Headroom lws needs before a buffer passed to lws_write(): the largest ws
+ * frame header (10) plus its client-side mask (4), plus 2 for lws-meta, plus
+ * the 9-byte h2 DATA frame header that is prepended in place when a ws
+ * stream is carried over h2 (RFC 8441).  Without the last term a ws-over-h2
+ * frame of 126+ bytes (client) or 64KB+ (server) wrote up to 7 bytes before
+ * the caller's buffer.  Pads to 32 on 64-bit.
+ */
+#define LWS_PRE _LWS_PAD(4 + 10 + 2 + 9)
 /* used prior to 1.7 and retained for backward compatibility */
 #define LWS_SEND_BUFFER_PRE_PADDING LWS_PRE
 #define LWS_SEND_BUFFER_POST_PADDING 0
@@ -629,22 +815,57 @@ typedef enum {
 	LWS_SRET_YIELD          = (1 << 22), /* return to the event loop and continue */
 } lws_stateful_ret_t;
 
+/*
+ * lws_fx_t is sign-magnitude decimal fixed point: the value is
+ * |whole| + |frac| / LWS_FX_FRACTION_MSD, negative if either part is.  In the
+ * canonical form that the lws_fx_ apis produce, and that lws_fx_set() makes,
+ * a negative value has the sign on both parts, eg, -1.5 is { -1, -50000000 }
+ * and -0.5 is { 0, -50000000 }.  lws_fx_mul() and lws_fx_comp() need that
+ * form for their operands, so code filling in the parts directly must keep to
+ * it.  The apis saturate whole at +/-INT32_MAX rather than overflow.
+ */
+
 typedef struct lws_fixed3232 {
-	int32_t		whole;	/* signed 32-bit int */
-	int32_t		frac;	/* signed frac proportion from 0 to (100M - 1) */
+	int32_t		whole;	/* signed integer part */
+	int32_t		frac;	/* fraction in 1e-8 units, magnitude 0 to
+				 * (LWS_FX_FRACTION_MSD - 1), with the same
+				 * sign as the value */
 } lws_fx_t;
 
 #define LWS_FX_FRACTION_MSD 100000000
 #define lws_neg(a) (a->whole < 0 || a->frac < 0)
 #define lws_fx_set(a, x, y) { a.whole = x; a.frac = x < 0 ? -y : y; }
-#define lws_fix64(a) (((int64_t)a->whole << 32) + \
-		(((1ll << 32) * (a->frac < 0 ? -a->frac : a->frac)) / LWS_FX_FRACTION_MSD))
-#define lws_fix64_abs(a) \
-	((((int64_t)(a->whole < 0 ? (-a->whole) : a->whole) << 32) + \
-			(((1ll << 32) * (a->frac < 0 ? -a->frac : a->frac)) / LWS_FX_FRACTION_MSD)))
 
-#define lws_fix3232(a, a64) { a->whole = (int32_t)(a64 >> 32); \
-			      a->frac = (int32_t)((100000000 * (a64 & 0xffffffff)) >> 32); }
+/* the magnitude of an lws_fx_t, and its signed value, as binary 32.32 */
+#define lws_fix64_abs(a) \
+	((((int64_t)a->whole < 0 ? -(int64_t)a->whole : (int64_t)a->whole) << 32) + \
+	 (((1ll << 32) * (a->frac < 0 ? -(int64_t)a->frac : (int64_t)a->frac)) / \
+						LWS_FX_FRACTION_MSD))
+#define lws_fix64(a) (lws_neg(a) ? -lws_fix64_abs(a) : lws_fix64_abs(a))
+
+/*
+ * a signed binary 32.32 back to a canonical lws_fx_t, its fraction rounded to
+ * the nearest 1e-8 and its whole saturated at +/-INT32_MAX
+ */
+#define lws_fix3232(a, a64) do { \
+		uint64_t _m = (a64) < 0 ? 0ull - (uint64_t)(a64) : \
+					  (uint64_t)(a64); \
+		uint64_t _w = _m >> 32; \
+		int32_t _f = (int32_t)(((uint64_t)LWS_FX_FRACTION_MSD * \
+				(_m & 0xffffffffull) + (1ull << 31)) >> 32); \
+		if (_f == LWS_FX_FRACTION_MSD) { \
+			_f = 0; \
+			_w++; \
+		} \
+		if (_w > (uint64_t)INT32_MAX) \
+			_w = (uint64_t)INT32_MAX; \
+		a->whole = (int32_t)_w; \
+		a->frac = _f; \
+		if ((a64) < 0) { \
+			a->whole = -a->whole; \
+			a->frac = -a->frac; \
+		} \
+	} while (0)
 
 LWS_VISIBLE LWS_EXTERN const lws_fx_t *
 lws_fx_add(lws_fx_t *r, const lws_fx_t *a, const lws_fx_t *b);
@@ -661,6 +882,57 @@ lws_fx_div(lws_fx_t *r, const lws_fx_t *a, const lws_fx_t *b);
 LWS_VISIBLE LWS_EXTERN const lws_fx_t *
 lws_fx_sqrt(lws_fx_t *r, const lws_fx_t *a);
 
+/**
+ * lws_fx_sin() - get the sine of a fixed-point angle
+ *
+ * \param r: result
+ * \param a: the angle, in radians
+ *
+ * Computes sin(\p a) in pure integer arithmetic, so it is usable on targets
+ * with no FPU and produces identical results on all platforms.  Accuracy is
+ * a few units of the fraction (around 1e-8) for arguments of modest size,
+ * degrading slowly with very large angle magnitudes.
+ */
+LWS_VISIBLE LWS_EXTERN const lws_fx_t *
+lws_fx_sin(lws_fx_t *r, const lws_fx_t *a);
+
+/**
+ * lws_fx_cos() - get the cosine of a fixed-point angle
+ *
+ * \param r: result
+ * \param a: the angle, in radians
+ *
+ * As lws_fx_sin(), but cos(\p a).
+ */
+LWS_VISIBLE LWS_EXTERN const lws_fx_t *
+lws_fx_cos(lws_fx_t *r, const lws_fx_t *a);
+
+/**
+ * lws_fx_tan() - get the tangent of a fixed-point angle
+ *
+ * \param r: result
+ * \param a: the angle, in radians
+ *
+ * As lws_fx_sin(), but tan(\p a).  Near the poles (odd multiples of π/2) the
+ * result is clamped to the largest representable lws_fx_t magnitude.
+ */
+LWS_VISIBLE LWS_EXTERN const lws_fx_t *
+lws_fx_tan(lws_fx_t *r, const lws_fx_t *a);
+
+/**
+ * lws_fx_atan2() - get the angle of a fixed-point vector
+ *
+ * \param r: result
+ * \param y: vector y component
+ * \param x: vector x component
+ *
+ * Computes atan2(\p y, \p x) in radians in the range [-π, π], in pure
+ * integer arithmetic as described at lws_fx_sin().  For the undefined case
+ * both components are zero, returns 0.
+ */
+LWS_VISIBLE LWS_EXTERN const lws_fx_t *
+lws_fx_atan2(lws_fx_t *r, const lws_fx_t *y, const lws_fx_t *x);
+
 LWS_VISIBLE LWS_EXTERN int
 lws_fx_comp(const lws_fx_t *a, const lws_fx_t *b);
 
@@ -673,136 +945,19 @@ lws_fx_rounddown(const lws_fx_t *a);
 LWS_VISIBLE LWS_EXTERN const char *
 lws_fx_string(const lws_fx_t *a, char *buf, size_t size);
 
-#include <libwebsockets/lws-dll2.h>
-#include <libwebsockets/lws-map.h>
-
-#include <libwebsockets/lws-fault-injection.h>
-#include <libwebsockets/lws-backtrace.h>
-#include <libwebsockets/lws-timeout-timer.h>
-#include <libwebsockets/lws-cache-ttl.h>
-#if defined(LWS_WITH_SYS_SMD)
-#include <libwebsockets/lws-smd.h>
-#endif
-#include <libwebsockets/lws-state.h>
-#include <libwebsockets/lws-retry.h>
-#if defined(LWS_WITH_NETWORK)
-#include <libwebsockets/lws-adopt.h>
-#include <libwebsockets/lws-network-helper.h>
-#include <libwebsockets/lws-metrics.h>
-#endif
-
-#include <libwebsockets/lws-ota.h>
-#include <libwebsockets/lws-system.h>
-#if defined(LWS_WITH_NETWORK)
-#include <libwebsockets/lws-ws-close.h>
-#include <libwebsockets/lws-callbacks.h>
-#include <libwebsockets/lws-ws-state.h>
-#include <libwebsockets/lws-ws-ext.h>
-#include <libwebsockets/lws-protocols-plugins.h>
-#endif
-#include <libwebsockets/lws-context-vhost.h>
-
-#if defined(LWS_WITH_NETWORK)
-#if defined(LWS_WITH_CONMON)
-#include <libwebsockets/lws-conmon.h>
-#endif
-
-#if defined(LWS_ROLE_MQTT)
-#include <libwebsockets/lws-mqtt.h>
-#endif
-#include <libwebsockets/lws-client.h>
-#include <libwebsockets/lws-http.h>
-#include <libwebsockets/lws-spa.h>
-#endif
-#include <libwebsockets/lws-purify.h>
-#include <libwebsockets/lws-misc.h>
-#include <libwebsockets/lws-dsh.h>
-#if defined(LWS_WITH_NETWORK)
-#include <libwebsockets/lws-service.h>
-#include <libwebsockets/lws-write.h>
-#include <libwebsockets/lws-writeable.h>
-#endif
-#include <libwebsockets/lws-ring.h>
-#include <libwebsockets/lws-sha1-base64.h>
-#include <libwebsockets/lws-x509.h>
-#if defined(LWS_WITH_NETWORK)
-#include <libwebsockets/lws-cgi.h>
-#endif
-#if defined(LWS_WITH_FILE_OPS)
-#include <libwebsockets/lws-vfs.h>
-#endif
-#include <libwebsockets/lws-gencrypto.h>
-
-#include <libwebsockets/lws-lejp.h>
-#include <libwebsockets/lws-lecp.h>
-#include <libwebsockets/lws-cose.h>
-#include <libwebsockets/lws-struct.h>
-#include <libwebsockets/lws-threadpool.h>
-#include <libwebsockets/lws-tokenize.h>
-#include <libwebsockets/lws-lwsac.h>
-#include <libwebsockets/lws-fts.h>
-#include <libwebsockets/lws-diskcache.h>
-#include <libwebsockets/lws-secure-streams.h>
-#include <libwebsockets/lws-secure-streams-serialization.h>
-#include <libwebsockets/lws-secure-streams-policy.h>
-#include <libwebsockets/lws-secure-streams-client.h>
-#include <libwebsockets/lws-secure-streams-transport-proxy.h>
-#include <libwebsockets/lws-jrpc.h>
-
-#include <libwebsockets/lws-async-dns.h>
-
-#if defined(LWS_WITH_TLS)
-
-#include <libwebsockets/lws-tls-sessions.h>
-
-#if defined(LWS_WITH_MBEDTLS)
-#include <mbedtls/md5.h>
-#include <mbedtls/sha1.h>
-#include <mbedtls/sha256.h>
-#include <mbedtls/sha512.h>
-#endif
-
-#include <libwebsockets/lws-genhash.h>
-#include <libwebsockets/lws-genrsa.h>
-#include <libwebsockets/lws-genaes.h>
-#include <libwebsockets/lws-genec.h>
-
-#include <libwebsockets/lws-jwk.h>
-#include <libwebsockets/lws-jose.h>
-#include <libwebsockets/lws-jws.h>
-#include <libwebsockets/lws-jwe.h>
-
-#endif
-
-#if defined(LWS_WITH_NETWORK)
-#include <libwebsockets/lws-eventlib-exports.h>
-#endif
-#include <libwebsockets/lws-i2c.h>
-#include <libwebsockets/lws-spi.h>
-#if defined(LWS_ESP_PLATFORM)
-#include <libwebsockets/lws-esp32-spi.h>
-#endif
-#include <libwebsockets/lws-gpio.h>
-#include <libwebsockets/lws-bb-i2c.h>
-#include <libwebsockets/lws-bb-spi.h>
-#include <libwebsockets/lws-button.h>
-#include <libwebsockets/lws-led.h>
-#include <libwebsockets/lws-pwm.h>
-#include <libwebsockets/lws-upng.h>
-#include <libwebsockets/lws-jpeg.h>
-#include <libwebsockets/lws-display.h>
-#include <libwebsockets/lws-dlo.h>
-#include <libwebsockets/lws-ssd1306-i2c.h>
-#include <libwebsockets/lws-ili9341-spi.h>
-#include <libwebsockets/lws-spd1656-spi.h>
-#include <libwebsockets/lws-uc8176-spi.h>
-#include <libwebsockets/lws-ssd1675b-spi.h>
-#include <libwebsockets/lws-settings.h>
-#if defined(LWS_WITH_NETWORK)
-#include <libwebsockets/lws-netdev.h>
-#endif
-
-#include <libwebsockets/lws-html.h>
+/*
+ * The public api in three tiers, each a meta-header: the substrate both
+ * halves stand on, the protocol half, the transport half.  See
+ * READMEs/README.sans-io-split.md, "The headers".
+ */
+#include <libwebsockets/lws-core.h>
+#include <libwebsockets/lws-sansio.h>
+#include <libwebsockets/lws-io.h>
+/*
+ * The interface between the halves, the requests sansIO makes of IO: it
+ * names types of both, so it comes after them
+ */
+#include <libwebsockets/lws-io-ops.h>
 
 #ifdef __cplusplus
 }

@@ -1,7 +1,7 @@
 /*
  * libwebsockets web server application
  *
- * Written in 2010-2020 by Andy Green <andy@warmcat.com>
+ * Written in 2010-2026 by Andy Green <andy@warmcat.com>
  *
  * This file is made available under the Creative Commons CC0 1.0
  * Universal Public Domain Dedication.
@@ -35,6 +35,9 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#if defined(__linux__) || defined(__APPLE__)
+#include <execinfo.h>
+#endif
 #else
 #include <io.h>
 #include "gettimeofday.h"
@@ -57,10 +60,10 @@ int fork(void)
 
 static struct lws_context *context;
 static lws_sorted_usec_list_t sul_lwsws;
-static char config_dir[128], default_plugin_path = 1;
+static char config_dir[256], default_plugin_path = 1;
 static int opts = 0, do_reload = 1;
 static uv_loop_t loop;
-static uv_signal_t signal_outer[2];
+static uv_signal_t signal_outer[3];
 static int pids[32];
 void lwsl_emit_stderr(int level, const char *line);
 
@@ -79,7 +82,7 @@ static const struct lws_extension exts[] = {
 
 #if defined(LWS_WITH_PLUGINS)
 static const char * const plugin_dirs[] = {
-	INSTALL_DATADIR"/libwebsockets-test-server/plugins/",
+	LWS_PLUGIN_DIR "/",
 	NULL
 };
 #endif
@@ -96,13 +99,15 @@ static struct option options[] = {
 
 void signal_cb(uv_signal_t *watcher, int signum)
 {
+	int n;
+
 	switch (watcher->signum) {
 	case SIGTERM:
 	case SIGINT:
 		break;
 
 	case SIGHUP:
-		if (lws_context_is_deprecated(context))
+		if (!context || lws_context_is_deprecated(context))
 			return;
 		lwsl_notice("Dropping listen sockets\n");
 		lws_context_deprecate(context, NULL);
@@ -114,8 +119,23 @@ void signal_cb(uv_signal_t *watcher, int signum)
 		break;
 	}
 	lwsl_err("Signal %d caught\n", watcher->signum);
-	uv_signal_stop(watcher);
-	uv_signal_stop(&signal_outer[1]);
+
+	/*
+	 * These are our own watchers on our own foreign loop: lws will never
+	 * uv_stop() a foreign loop, so if we leave any of them started, uv_run()
+	 * can never return and the drained worker lingers forever
+	 */
+
+	for (n = 0; n < (int)LWS_ARRAY_SIZE(signal_outer); n++)
+		uv_signal_stop(&signal_outer[n]);
+
+	/*
+	 * Unlink our sul from the pt sul list while the context that owns that
+	 * list is still allocated
+	 */
+
+	lws_sul_cancel(&sul_lwsws);
+
 	lws_context_destroy(context);
 }
 
@@ -132,10 +152,11 @@ lwsws_min(lws_sorted_usec_list_t *sul)
 }
 
 static int
-context_creation(void)
+context_creation(int argc, const char **argv)
 {
 	int cs_len = LWSWS_CONFIG_STRING_SIZE - 1;
 	struct lws_context_creation_info info;
+	struct lws_lejp_conf_defs defs;
 	char *cs, *config_strings;
 	void *foreign_loops[1];
 
@@ -146,6 +167,7 @@ context_creation(void)
 	}
 
 	memset(&info, 0, sizeof(info));
+	memset(&defs, 0, sizeof(defs));
 
 	info.external_baggage_free_on_destroy = config_strings;
 	info.pt_serv_buf_size = 8192;
@@ -160,19 +182,63 @@ context_creation(void)
 	lwsl_notice("Using config dir: \"%s\"\n", config_dir);
 
 	/*
-	 *  first go through the config for creating the outer context
+	 * first go through the config for creating the outer context.  Root
+	 * defines from the globals config files accumulate into defs, and
+	 * stay visible in the vhost config files below
 	 */
-	if (lwsws_get_config_globals(&info, config_dir, &cs, &cs_len))
+	if (lwsws_get_config_globals_defs(&defs, &info, config_dir, &cs, &cs_len))
 		goto init_failed;
+
+	const char *stub = lws_cmdline_option(argc, argv, "--lws-stub");
+	if (lws_cmdline_option(argc, argv, "--lws-dht-dnssec-monitor-root") || stub) {
+		const char *p;
+		/* a numeric id or a name, anything else is refused */
+		if ((p = lws_cmdline_option(argc, argv, "--uid")) &&
+		    lws_plat_user_to_uid(p, &info.uid)) {
+			lwsl_err("--uid: unknown user '%s'\n", p);
+			goto init_failed;
+		}
+		if ((p = lws_cmdline_option(argc, argv, "--gid")) &&
+		    lws_plat_group_to_gid(p, &info.gid)) {
+			lwsl_err("--gid: unknown group '%s'\n", p);
+			goto init_failed;
+		}
+
+		info.lws_stub = stub ? stub : "dnssec-monitor";
+		/* Root monitor / stubs make outbound TLS probes but skip user vhosts, force global TLS init */
+		info.options |= LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT | LWS_SERVER_OPTION_VH_SKIP_PRIV_DROP;
+	}
 
 	foreign_loops[0] = &loop;
 	info.foreign_loops = foreign_loops;
 	info.pcontext = &context;
+	info.argc = argc;
+	info.argv = argv;
+
+	lws_cmdline_option_handle_builtin(argc, argv, &info);
 
 	context = lws_create_context(&info);
 	if (context == NULL) {
 		lwsl_err("libwebsocket init failed\n");
 		goto init_failed;
+	}
+
+	if (lws_context_is_being_destroyed(context)) {
+		/*
+		 * Because we gave a foreign loop, a failure inside context
+		 * creation comes back as a non-NULL context that has already
+		 * had its destroy started, so we can run the loop to let the
+		 * deferred destroy complete.  It is not a usable context: we
+		 * must not create vhosts on it or arm suls on its pt.
+		 *
+		 * config_strings is owned by the context as external baggage
+		 * and freed when the deferred destroy finalizes, so we must
+		 * not free it here.
+		 */
+		lwsl_err("libwebsocket init failed (deferred destroy)\n");
+		lwsac_free(&defs.ac);
+
+		return 2;
 	}
 
 	/*
@@ -182,14 +248,21 @@ context_creation(void)
 
 	info.extensions = exts;
 
-	if (lwsws_get_config_vhosts(context, &info, config_dir, &cs, &cs_len))
+	if (lwsws_get_config_vhosts_defs(&defs, context, &info, config_dir,
+					 &cs, &cs_len)) {
+		lwsac_free(&defs.ac);
 		return 1;
+	}
+
+	/* the install-wide defines have been used by everything now */
+	lwsac_free(&defs.ac);
 
 	lws_sul_schedule(context, 0, &sul_lwsws, lwsws_min, 60 * LWS_US_PER_SEC);
 
 	return 0;
 
 init_failed:
+	lwsac_free(&defs.ac);
 	free(config_strings);
 
 	return 1;
@@ -200,50 +273,71 @@ init_failed:
  * root-level sighup handler
  */
 
+#if defined(__linux__) || defined(__APPLE__)
+static void
+crash_handler(int signum)
+{
+	static const char msg[] = "FATAL: lwsws caught a fatal signal, "
+				  "backtrace follows\n";
+	void *array[20];
+	int size;
+
+	/*
+	 * We typically get here because the heap is corrupt, which means the
+	 * allocator lock may be held and its metadata invalid.  So nothing here
+	 * may allocate or use stdio or the lws logs: backtrace_symbols_fd()
+	 * does neither, unlike backtrace_symbols().  Restore the default
+	 * disposition first, so a fault in here just kills us.
+	 */
+
+	signal(signum, SIG_DFL);
+
+	if (write(2, msg, sizeof(msg) - 1)) { }
+
+	size = backtrace(array, (int)LWS_ARRAY_SIZE(array));
+	backtrace_symbols_fd(array, size, 2);
+
+	raise(signum);
+}
+#endif
+
+/*
+ * root-level signal handler
+ *
+ * Async-signal-safety: this may only set flags, everything else (logging,
+ * sleeping, signalling and reaping the children) is done from the root loop
+ * below, which polls these.
+ */
+
+#ifndef _WIN32
+static volatile sig_atomic_t sig_reload, sig_terminate;
+
 static void
 reload_handler(int signum)
 {
-#ifndef _WIN32
-	int m;
-
 	switch (signum) {
-
 	case SIGHUP: /* reload */
-		fprintf(stderr, "root process receives reload\n");
-		if (!do_reload) {
-			fprintf(stderr, "passing HUP to child processes\n");
-			for (m = 0; m < (int)LWS_ARRAY_SIZE(pids); m++)
-				if (pids[m])
-					kill(pids[m], SIGHUP);
-			sleep(1);
-		}
-		do_reload = 1;
+		sig_reload = 1;
 		break;
 	case SIGINT:
 	case SIGTERM:
-	case SIGKILL:
-		fprintf(stderr, "parent process waiting 2s...\n");
-		sleep(2); /* give children a chance to deal with the signal */
-		fprintf(stderr, "killing service processes\n");
-		for (m = 0; m < (int)LWS_ARRAY_SIZE(pids); m++)
-			if (pids[m])
-				kill(pids[m], SIGTERM);
-		exit(0);
+		sig_terminate = 1;
+		break;
 	}
-#else
-	// kill() implementation needed for WIN32
-#endif
 }
+#endif
 
 int main(int argc, char **argv)
 {
-	int n = 0, budget = 100, debug_level = 1024 + 7;
+	int n = 0, budget = 100, debug_level = 1024 + 7, debug_given = 0, ret = 0;
 #ifndef _WIN32
 	int m;
 	int status;//, syslog_options = LOG_PID | LOG_PERROR;
 #endif
 
 	strcpy(config_dir, "/etc/lwsws");
+	extern int opterr;
+	opterr = 0;
 	while (n >= 0) {
 #if defined(LWS_HAS_GETOPT_LONG) || defined(WIN32)
 		n = getopt_long(argc, argv, "hd:c:n", options, NULL);
@@ -255,11 +349,19 @@ int main(int argc, char **argv)
 		switch (n) {
 		case 'd':
 			debug_level = atoi(optarg);
+			debug_given = 1;
 			break;
 		case 'n':
 			default_plugin_path = 0;
 			break;
 		case 'c':
+			/* truncated, it would name some other dir */
+			if (strlen(optarg) >= sizeof(config_dir)) {
+				fprintf(stderr, "config dir path longer than "
+						"%d chars\n",
+						(int)sizeof(config_dir) - 1);
+				exit(1);
+			}
 			lws_strncpy(config_dir, optarg, sizeof(config_dir));
 			break;
 		case 'h':
@@ -278,38 +380,104 @@ int main(int argc, char **argv)
 	 * the original one dies randomly.
 	 */
 
-	signal(SIGHUP, reload_handler);
-	signal(SIGINT, reload_handler);
-
-	fprintf(stderr, "Root process is %u\n", (unsigned int)getpid());
-
-	while (1) {
-		if (do_reload) {
-			do_reload = 0;
-			n = fork();
-			if (n == 0) /* new */
+	{
+		int is_stub = 0;
+		for (n = 1; n < argc; n++)
+			if (!strcmp(argv[n], "--lws-dht-dnssec-monitor-root") ||
+			    !strncmp(argv[n], "--lws-stub", 10)) {
+				is_stub = 1;
 				break;
-			/* old */
-			if (n > 0)
-				for (m = 0; m < (int)LWS_ARRAY_SIZE(pids); m++)
-					if (!pids[m]) {
-						pids[m] = n;
+			}
+
+		if (!is_stub) {
+			signal(SIGPIPE, SIG_IGN);
+			signal(SIGHUP, reload_handler);
+			signal(SIGINT, reload_handler);
+			signal(SIGTERM, reload_handler);
+
+			fprintf(stderr, "Root process is %u\n", (unsigned int)getpid());
+
+			while (1) {
+				if (do_reload) {
+					do_reload = 0;
+					n = fork();
+					if (n == 0) {
+						/*
+						 * We are the new worker: until
+						 * libuv installs its own
+						 * handlers below, we would
+						 * otherwise still act as the
+						 * root supervisor and signal
+						 * our siblings.  Go back to the
+						 * default dispositions and
+						 * forget the inherited pids.
+						 */
+						signal(SIGHUP, SIG_DFL);
+						signal(SIGINT, SIG_DFL);
+						signal(SIGTERM, SIG_DFL);
+						memset(pids, 0, sizeof(pids));
 						break;
 					}
-		}
+					/* old */
+					if (n > 0)
+						for (m = 0; m < (int)LWS_ARRAY_SIZE(pids); m++)
+							if (!pids[m]) {
+								pids[m] = n;
+								break;
+							}
+				}
 #ifndef _WIN32
-		sleep(2);
+				sleep(2); /* interrupted by our signals */
 
-		n = waitpid(-1, &status, WNOHANG);
-		if (n > 0)
-			for (m = 0; m < (int)LWS_ARRAY_SIZE(pids); m++)
-				if (pids[m] == n) {
-					pids[m] = 0;
-					break;
+				if (sig_terminate) {
+					fprintf(stderr, "parent process "
+							"waiting 2s...\n");
+					/* let the children see it first */
+					sleep(2);
+					fprintf(stderr, "killing service "
+							"processes\n");
+					for (m = 0; m < (int)LWS_ARRAY_SIZE(pids); m++)
+						if (pids[m])
+							kill(pids[m], SIGTERM);
+
+					return 0;
+				}
+
+				if (sig_reload) {
+					sig_reload = 0;
+					fprintf(stderr, "root process receives "
+							"reload\n");
+					if (!do_reload) {
+						fprintf(stderr, "passing HUP to "
+							"child processes\n");
+						for (m = 0; m < (int)LWS_ARRAY_SIZE(pids); m++)
+							if (pids[m])
+								kill(pids[m], SIGHUP);
+						sleep(1);
+					}
+					do_reload = 1;
+				}
+
+				n = waitpid(-1, &status, WNOHANG);
+				if (n > 0) {
+					if (WIFEXITED(status))
+						fprintf(stderr, "Child process %d exited with status %d\n", n, WEXITSTATUS(status));
+					else if (WIFSIGNALED(status))
+						fprintf(stderr, "Child process %d killed by signal %d (core: %d)\n", n, WTERMSIG(status), WCOREDUMP(status));
+					else if (WIFSTOPPED(status))
+						fprintf(stderr, "Child process %d stopped by signal %d\n", n, WSTOPSIG(status));
+
+					for (m = 0; m < (int)LWS_ARRAY_SIZE(pids); m++)
+						if (pids[m] == n) {
+							pids[m] = 0;
+							break;
+						}
 				}
 #else
 // !!! implemenation needed
 #endif
+			}
+		}
 	}
 #endif
 	/* child process */
@@ -317,7 +485,25 @@ int main(int argc, char **argv)
 	lws_set_log_level(debug_level, lwsl_emit_stderr_notimestamp);
 
 	lwsl_notice("lwsws libwebsockets web server - license CC0 + MIT\n");
-	lwsl_notice("(C) Copyright 2010-2020 Andy Green <andy@warmcat.com>\n");
+	lwsl_notice("(C) Copyright 2010-2026 Andy Green <andy@warmcat.com>\n");
+
+#if defined(__linux__) || defined(__APPLE__)
+	/*
+	 * Only when the operator explicitly asked for debug: by default we
+	 * prefer the default action (prompt death and a core dump), since the
+	 * resolved code addresses in a backtrace are an ASLR / text layout
+	 * disclosure to anyone who can read our stderr or the journal
+	 */
+
+	if (debug_given) {
+		signal(SIGSEGV, crash_handler);
+		signal(SIGABRT, crash_handler);
+		signal(SIGBUS, crash_handler);
+		signal(SIGILL, crash_handler);
+		signal(SIGFPE, crash_handler);
+	}
+#endif
+	(void)debug_given;
 
 #if (UV_VERSION_MAJOR > 0) // Travis...
 	uv_loop_init(&loop);
@@ -329,23 +515,69 @@ int main(int argc, char **argv)
 	uv_signal_start(&signal_outer[0], signal_cb, SIGINT);
 	uv_signal_init(&loop, &signal_outer[1]);
 	uv_signal_start(&signal_outer[1], signal_cb, SIGHUP);
+	uv_signal_init(&loop, &signal_outer[2]);
+	uv_signal_start(&signal_outer[2], signal_cb, SIGTERM);
 
-	if (context_creation()) {
+	/*
+	 * The loop is ours (lws is a guest on it and so deliberately never
+	 * uv_stop()s it).  Our signal watchers must not be what keeps it alive,
+	 * or uv_run() can never return once lws has closed its own handles.
+	 * They still fire normally while the loop runs.
+	 */
+
+	for (n = 0; n < (int)LWS_ARRAY_SIZE(signal_outer); n++)
+		uv_unref((uv_handle_t *)&signal_outer[n]);
+
+	n = context_creation(argc, (const char **)argv);
+	if (n) {
 		lwsl_err("Context creation failed\n");
-		return 1;
+		ret = 1;
+		if (n != 2)
+			return 1;
+
+		/*
+		 * n == 2 means we have a non-NULL context that is already being
+		 * destroyed... all we may do with it is run the loop until the
+		 * deferred destroy has completed
+		 */
 	}
 
-	lws_service(context, 0);
+	/*
+	 * With an event lib attached, lws_service() blocks in the loop's
+	 * run_pt and only returns when the loop is done.  But if we ended up
+	 * on poll ops (eg, the evlib plugin could not be loaded), run_pt is
+	 * NULL and one lws_service() call is a single poll round: we must
+	 * loop.  info.pcontext makes lws NULL `context` when the context has
+	 * really gone away, either way.
+	 */
+	while (context)
+		if (lws_service(context, 0) < 0)
+			break;
 
-	lwsl_err("%s: closing\n", __func__);
+	/*
+	 * If we fell out of the event loop unexpectedly, these show the state
+	 * that caused it; match them against the destroy-initiation logs in
+	 * the lib to find who started the exit
+	 */
+	lwsl_err("%s: closing (ctx %p, deprecated %d, uv loop alive %d)\n",
+			__func__, (void *)context,
+			context ? lws_context_is_deprecated(context) : 0,
+			uv_loop_alive(&loop));
 
-	for (n = 0; n < 2; n++) {
+	for (n = 0; n < (int)LWS_ARRAY_SIZE(signal_outer); n++) {
 		uv_signal_stop(&signal_outer[n]);
 		uv_close((uv_handle_t *)&signal_outer[n], NULL);
 	}
 
-	/* cancel the per-minute sul */
-	lws_sul_cancel(&sul_lwsws);
+	/*
+	 * Cancel the per-minute sul, but only while the context that owns the
+	 * pt sul list it is linked into still exists.  lws NULLs `context` via
+	 * info.pcontext only after it has freed the context, so unlinking from
+	 * that list afterwards would write into freed heap.
+	 */
+
+	if (context)
+		lws_sul_cancel(&sul_lwsws);
 
 	lws_context_destroy(context);
 	(void)budget;
@@ -362,5 +594,5 @@ int main(int argc, char **argv)
 
 	context = NULL;
 
-	return 0;
+	return ret;
 }

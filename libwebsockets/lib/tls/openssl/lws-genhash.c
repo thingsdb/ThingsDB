@@ -25,6 +25,7 @@
  *  same whether you are using openssl or mbedtls hash functions underneath.
  */
 #include <private-lib-core.h>
+#include "private-lib-tls-openssl.h"
 #include <openssl/obj_mac.h>
 #include <openssl/opensslv.h>
 /*
@@ -57,16 +58,25 @@ lws_genhash_init(struct lws_genhash_ctx *ctx, enum lws_genhash_types type)
 		ctx->evp_type = EVP_sha512();
 		break;
 	default:
-		return 1;
+		goto bail;
 	}
 
-	if (EVP_DigestInit_ex(ctx->mdctx, ctx->evp_type, NULL) != 1) {
-		EVP_MD_CTX_destroy(ctx->mdctx);
-
-		return 1;
-	}
+	if (EVP_DigestInit_ex(ctx->mdctx, ctx->evp_type, NULL) != 1)
+		goto bail;
 
 	return 0;
+
+bail:
+	/*
+	 * Callers follow the "destroy again on failure" idiom, so a failed
+	 * init must not leave the freed ctx behind for the second destroy to
+	 * free again (and the unknown-type arm must not leak it either)
+	 */
+
+	EVP_MD_CTX_destroy(ctx->mdctx);
+	ctx->mdctx = NULL;
+
+	return 1;
 }
 
 int
@@ -98,12 +108,13 @@ lws_genhash_destroy(struct lws_genhash_ctx *ctx, void *result)
 	return ret;
 }
 
-#if defined(LWS_HAVE_EVP_PKEY_new_raw_private_key)
+#if defined(LWS_HAVE_EVP_PKEY_new_raw_private_key) && !defined(LWS_WITH_BORINGSSL) && !defined(LWS_WITH_AWSLC)
 
 int
 lws_genhmac_init(struct lws_genhmac_ctx *ctx, enum lws_genhmac_types type,
 		 const uint8_t *key, size_t key_len)
 {
+	ctx->key = NULL;
 	ctx->ctx = EVP_MD_CTX_create();
 	if (!ctx->ctx)
 		return -1;
@@ -112,6 +123,9 @@ lws_genhmac_init(struct lws_genhmac_ctx *ctx, enum lws_genhmac_types type,
 	ctx->type = (uint8_t)type;
 
 	switch (type) {
+	case LWS_GENHMAC_TYPE_SHA1:
+		ctx->evp_type = EVP_sha1();
+		break;
 	case LWS_GENHMAC_TYPE_SHA256:
 		ctx->evp_type = EVP_sha256();
 		break;
@@ -137,8 +151,15 @@ lws_genhmac_init(struct lws_genhmac_ctx *ctx, enum lws_genhmac_types type,
 
 bail1:
 	EVP_PKEY_free(ctx->key);
+	ctx->key = NULL;
 bail:
+	/*
+	 * Callers follow the "destroy again on failure" idiom, so a failed
+	 * init must leave nothing dangling in the ctx for the second destroy
+	 */
+
 	EVP_MD_CTX_free(ctx->ctx);
+	ctx->ctx = NULL;
 
 	return -1;
 }
@@ -147,7 +168,11 @@ int
 lws_genhmac_update(struct lws_genhmac_ctx *ctx, const void *in, size_t len)
 {
 
+#if defined(USE_WOLFSSL)
+	if (EVP_DigestSignUpdate(ctx->ctx, in, (unsigned int)len) != 1)
+#else
 	if (EVP_DigestSignUpdate(ctx->ctx, in, len) != 1)
+#endif
 		return -1;
 
 	return 0;
@@ -157,11 +182,20 @@ int
 lws_genhmac_destroy(struct lws_genhmac_ctx *ctx, void *result)
 {
 	size_t size = (size_t)lws_genhmac_size(ctx->type);
-	int n;
+	int n = 1;
 
-	n = EVP_DigestSignFinal(ctx->ctx, result, &size);
+	/* idempotent: destroying an already-destroyed ctx is a NOP */
+
+	if (!ctx->ctx)
+		return 0;
+
+	if (result)
+		n = EVP_DigestSignFinal(ctx->ctx, result, &size);
+
 	EVP_MD_CTX_free(ctx->ctx);
+	ctx->ctx = NULL;
 	EVP_PKEY_free(ctx->key);
+	ctx->key = NULL;
 
 	if (n != 1)
 		return -1;
@@ -175,7 +209,7 @@ int
 lws_genhmac_init(struct lws_genhmac_ctx *ctx, enum lws_genhmac_types type,
 		 const uint8_t *key, size_t key_len)
 {
-#if defined(LWS_HAVE_HMAC_CTX_new)
+#if defined(LWS_HAVE_HMAC_CTX_new) || defined(OPENSSL_IS_BORINGSSL) || defined(OPENSSL_IS_AWSLC)
 	ctx->ctx = HMAC_CTX_new();
 	if (!ctx->ctx)
 		return -1;
@@ -187,6 +221,9 @@ lws_genhmac_init(struct lws_genhmac_ctx *ctx, enum lws_genhmac_types type,
 	ctx->type = (uint8_t)type;
 
 	switch (type) {
+	case LWS_GENHMAC_TYPE_SHA1:
+		ctx->evp_type = EVP_sha1();
+		break;
 	case LWS_GENHMAC_TYPE_SHA256:
 		ctx->evp_type = EVP_sha256();
 		break;
@@ -201,18 +238,25 @@ lws_genhmac_init(struct lws_genhmac_ctx *ctx, enum lws_genhmac_types type,
 		goto bail;
 	}
 
-#if defined(LWS_HAVE_HMAC_CTX_new)
-        if (HMAC_Init_ex(ctx->ctx, key, (int)key_len, ctx->evp_type, NULL) != 1)
+#if defined(LWS_HAVE_HMAC_CTX_new) || defined(OPENSSL_IS_BORINGSSL) || defined(OPENSSL_IS_AWSLC)
+        if (HMAC_Init_ex(ctx->ctx, key, 
+				SSL_SIZE_T_CAST(key_len), ctx->evp_type, NULL) != 1)
 #else
-        if (HMAC_Init_ex(&ctx->ctx, key, (int)key_len, ctx->evp_type, NULL) != 1)
+        if (HMAC_Init_ex(&ctx->ctx, key, SSL_SIZE_T_CAST(key_len), ctx->evp_type, NULL) != 1)
 #endif
         	goto bail;
 
 	return 0;
 
 bail:
-#if defined(LWS_HAVE_HMAC_CTX_new)
+	/*
+	 * Callers follow the "destroy again on failure" idiom, so a failed
+	 * init must leave nothing dangling in the ctx for the second destroy
+	 */
+
+#if defined(LWS_HAVE_HMAC_CTX_new) || defined(OPENSSL_IS_BORINGSSL) || defined(OPENSSL_IS_AWSLC)
 	HMAC_CTX_free(ctx->ctx);
+	ctx->ctx = NULL;
 #endif
 
 	return -1;
@@ -221,11 +265,11 @@ bail:
 int
 lws_genhmac_update(struct lws_genhmac_ctx *ctx, const void *in, size_t len)
 {
-#if defined(LWS_HAVE_HMAC_CTX_new)
+#if defined(LWS_HAVE_HMAC_CTX_new) || defined(OPENSSL_IS_BORINGSSL) || defined(OPENSSL_IS_AWSLC)
 #if defined(LIBRESSL_VERSION_NUMBER)
 	if (HMAC_Update(ctx->ctx, in, len) != 1)
 #else
-	if (HMAC_Update(ctx->ctx, in, (int)len) != 1)
+	if (HMAC_Update(ctx->ctx, in, SSL_SIZE_T_CAST(len)) != 1)
 #endif
 #else /* HMAC_CTX_new */
 	if (HMAC_Update(&ctx->ctx, in, len) != 1)
@@ -239,12 +283,28 @@ int
 lws_genhmac_destroy(struct lws_genhmac_ctx *ctx, void *result)
 {
 	unsigned int size = (unsigned int)lws_genhmac_size(ctx->type);
-#if defined(LWS_HAVE_HMAC_CTX_new)
-	int n = HMAC_Final(ctx->ctx, result, &size);
+	int n = 1;
+
+#if defined(LWS_HAVE_HMAC_CTX_new) || defined(OPENSSL_IS_BORINGSSL) || defined(OPENSSL_IS_AWSLC)
+
+	/* idempotent: destroying an already-destroyed ctx is a NOP */
+
+	if (!ctx->ctx)
+		return 0;
+
+	/*
+	 * HMAC_Final() has no size-query form, it would deref the NULL, so
+	 * only take the MAC if the caller actually wants it
+	 */
+
+	if (result)
+		n = HMAC_Final(ctx->ctx, result, &size);
 
 	HMAC_CTX_free(ctx->ctx);
+	ctx->ctx = NULL;
 #else
-	int n = HMAC_Final(&ctx->ctx, result, &size);
+	if (result)
+		n = HMAC_Final(&ctx->ctx, result, &size);
 #endif
 
 	if (n != 1)

@@ -94,9 +94,7 @@ enum {
 	LWSSSPOLF_AUTH_BEARER					= (1 << 6),
 	/**< for http, use lws_system auth token 0 in authentication: bearer */
 	LWSSSPOLF_HTTP_NO_CONTENT_LENGTH			= (1 << 7),
-	/**< don't add any content length even if we have it: over h1 the
-	 * body then goes with "Transfer-Encoding: chunked" instead, since a
-	 * request body with neither header has no end the server can know */
+	/**< don't add any content length even if we have it */
 	LWSSSPOLF_QUIRK_NGHTTP2_END_STREAM			= (1 << 8),
 	/**< set the client flag LCCSCF_H2_QUIRK_NGHTTP2_END_STREAM */
 	LWSSSPOLF_H2_QUIRK_OVERFLOWS_TXCR			= (1 << 9),
@@ -154,7 +152,6 @@ typedef struct lws_ss_trust_store {
 enum {
 	LWSSSP_H1,
 	LWSSSP_H2,
-	LWSSSP_H3,
 	LWSSSP_WS,
 	LWSSSP_MQTT,
 	LWSSSP_RAW,
@@ -185,13 +182,6 @@ typedef struct lws_ss_metadata {
 	uint8_t			name_on_lws_heap:1;  /* proxy metatadata does this */
 #endif
 	uint8_t			value_on_lws_heap:1; /* proxy + rx metadata does this */
-	uint8_t			value_from_outside:1;
-	/**< the value came from outside the process: an ss proxy client set
-	 * it, or it was captured from a response header.  It is used as
-	 * normal, except it may not make a ${} endpoint a file:// url or a
-	 * '+' unix socket address, and if the endpoint is more than one
-	 * "${name}", it may not contain url delimiters.  Setting it from the
-	 * app clears it. */
 #if defined(LWS_WITH_SECURE_STREAMS_PROXY_API)
 	uint8_t			pending_onward:1;
 #endif
@@ -252,7 +242,7 @@ typedef struct lws_ss_policy {
 
 	union {
 
-#if defined(LWS_ROLE_H1) || defined(LWS_ROLE_H2) || defined(LWS_ROLE_WS) || defined(LWS_ROLE_H3)
+#if defined(LWS_ROLE_H1) || defined(LWS_ROLE_H2) || defined(LWS_ROLE_WS)
 
 		/* details for http-related protocols... */
 
@@ -269,10 +259,6 @@ typedef struct lws_ss_policy {
 
 			const char	*blob_header[_LWSSS_HBI_COUNT];
 			const char	*auth_preamble;
-			const char	*redirect_creds_to;
-			/**< NULL, or comma-separated hosts a redirect may
-			 * take the stream's credentials to, as well as the
-			 * stream's own host, with their subdomains */
 
 			const lws_ss_http_respmap_t *respmap;
 
@@ -281,8 +267,6 @@ typedef struct lws_ss_policy {
 //				} h1;
 //				struct { /* LWSSSP_H2 */
 //				} h2;
-//				struct { /* LWSSSP_H3 */
-//				} h3;
 				struct { /* LWSSSP_WS */
 					const char	*subprotocol;
 					uint8_t		binary;

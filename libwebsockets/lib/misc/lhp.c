@@ -27,7 +27,6 @@
  */
 
 #include <private-lib-core.h>
-#include "dlo/private-lib-drivers-display-dlo.h"
 
 #define FAIL_CHAR 0x08
 static uint8_t css_lextable[] = { /* the css property names */
@@ -40,31 +39,6 @@ static uint8_t css_propconst_lextable[] = { /* the css property values */
 
 #define LHP_AC_GRANULE 512
 
-/*
- * lcsp_atr_t.value_len and lcsp_names_t.name_len are uint16_t: every css
- * value and selector is composed in ctx->buf first, so the chunk size is
- * what bounds them
- */
-
-typedef char lhp_chunk_fits_value_len[LHP_STRING_CHUNK <= 0xffff ? 1 : -1];
-
-/*
- * Largest whole part we will accumulate for a css number; any real length is
- * orders of magnitude smaller, and this keeps the int32_t lws_fx_t whole part
- * away from overflow no matter how many digits the document offers
- */
-#define LHP_CSS_MAX_WHOLE 1000000
-
-/*
- * Most attributes we will store for one element... the element stack is capped
- * by LHP_MAX_ELEMS_NEST, but without this an element with a huge number of
- * attributes can allocate without limit until its '>' arrives
- */
-#define LHP_MAX_ATR_PER_ELEM 64
-
-/* lhp_atr_idx_t counts them in a uint8_t */
-typedef char lhp_atr_idx_fits[LHP_MAX_ATR_PER_ELEM <= 0xff ? 1 : -1];
-
 enum {
 	/* html */
 
@@ -75,7 +49,6 @@ enum {
 	LHPS_BAD_TAG,
 	LHPS_DO_START_ELEM,
 	LHPS_ATTRIB,
-	LHPS_ATTRIB_AFTER_NAME,
 	LHPS_ATTRIB_VAL,
 	LHPS_AMP,
 	LHPS_AMPHASH,
@@ -103,13 +76,6 @@ enum {
 	LCSPS_ECOMMENT2,
 
 	LCSPS_CSS_STANZA,
-	LCSPS_CSS_SKIP_BLOCK,	/* @-rule block we can't use */
-
-	/* script */
-
-	LHPS_SCRIPT,
-	LHPS_SCRIPT_TAG1,
-	LHPS_SCRIPT_TAG2,
 };
 
 /*
@@ -148,323 +114,25 @@ static struct cols {
  */
 static const char * const void_elems[] = {
 	"area", "base", "br", "col", "command", "embed", "hr", "img",
-	"input", "keygen", "link", "meta", "param", "source", "track", "wbr",
-	"!doctype"
+	"input", "keygen", "link", "meta", "param", "source", "track", "wbr"
 };
 static const uint8_t void_elems_lens[] = /* lengths for the table above */
-	{ 4, 4, 2, 3, 7, 5, 2, 3, 5, 6, 4, 4, 5, 6, 5, 3, 8 };
-
-static const struct {
-	const char *name;
-	uint32_t val;
-} entities[] = {
-	{ "Tab", 9 },
-	{ "NewLine", 10 },
-	{ "quot", 34 },
-	{ "amp", 38 },
-	{ "apos", 39 },
-	{ "lt", 60 },
-	{ "gt", 62 },
-	{ "nbsp", 160 },
-	{ "copy", 169 },
-	{ "reg", 174 },
-	{ "deg", 176 },
-	{ "plusmn", 177 },
-	{ "sup2", 178 },
-	{ "sup3", 179 },
-	{ "micro", 181 },
-	{ "para", 182 },
-	{ "middot", 183 },
-	{ "cedil", 184 },
-	{ "sup1", 185 },
-	{ "ordm", 186 },
-	{ "raquo", 187 },
-	{ "frac14", 188 },
-	{ "frac12", 189 },
-	{ "frac34", 190 },
-	{ "iquest", 191 },
-	{ "times", 215 },
-	{ "divide", 247 },
-	{ "mdash", 8212 },
-	{ "ndash", 8211 },
-	{ "bull", 8226 },
-	{ "hellip", 8230 },
-	{ "prime", 8242 },
-	{ "Prime", 8243 },
-	{ "oline", 8254 },
-	{ "frasl", 8260 },
-	{ "weierp", 8472 },
-	{ "image", 8465 },
-	{ "real", 8476 },
-	{ "trade", 8482 },
-	{ "alefsym", 8501 },
-	{ "larr", 8592 },
-	{ "uarr", 8593 },
-	{ "rarr", 8594 },
-	{ "darr", 8595 },
-	{ "harr", 8596 },
-	{ "crarr", 8629 },
-	{ "lArr", 8656 },
-	{ "uArr", 8657 },
-	{ "rArr", 8658 },
-	{ "dArr", 8659 },
-	{ "hArr", 8660 },
-	{ "forall", 8704 },
-	{ "part", 8706 },
-	{ "exist", 8707 },
-	{ "empty", 8709 },
-	{ "nabla", 8711 },
-	{ "isin", 8712 },
-	{ "notin", 8713 },
-	{ "ni", 8715 },
-	{ "prod", 8719 },
-	{ "sum", 8721 },
-	{ "minus", 8722 },
-	{ "lowast", 8727 },
-	{ "radic", 8730 },
-	{ "prop", 8733 },
-	{ "infin", 8734 },
-	{ "ang", 8736 },
-	{ "and", 8743 },
-	{ "or", 8744 },
-	{ "cap", 8745 },
-	{ "cup", 8746 },
-	{ "int", 8747 },
-	{ "there4", 8756 },
-	{ "sim", 8764 },
-	{ "cong", 8773 },
-	{ "asymp", 8776 },
-	{ "ne", 8800 },
-	{ "equiv", 8801 },
-	{ "le", 8804 },
-	{ "ge", 8805 },
-	{ "sub", 8834 },
-	{ "sup", 8835 },
-	{ "nsub", 8836 },
-	{ "sube", 8838 },
-	{ "supe", 8839 },
-	{ "oplus", 8853 },
-	{ "otimes", 8855 },
-	{ "perp", 8869 },
-	{ "sdot", 8901 },
-	{ "lceil", 8968 },
-	{ "rceil", 8969 },
-	{ "lfloor", 8970 },
-	{ "rfloor", 8971 },
-	{ "lang", 9001 },
-	{ "rang", 9002 },
-	{ "loz", 9674 },
-	{ "spades", 9824 },
-	{ "clubs", 9827 },
-	{ "hearts", 9829 },
-	{ "diams", 9830 },
-
-	/* HTML 4.01 Latin-1 letters and symbols, Greek, and typography */
-
-	{ "iexcl", 161 },
-	{ "cent", 162 },
-	{ "pound", 163 },
-	{ "curren", 164 },
-	{ "yen", 165 },
-	{ "brvbar", 166 },
-	{ "sect", 167 },
-	{ "uml", 168 },
-	{ "ordf", 170 },
-	{ "laquo", 171 },
-	{ "not", 172 },
-	{ "shy", 173 },
-	{ "macr", 175 },
-	{ "acute", 180 },
-	{ "Agrave", 192 },
-	{ "Aacute", 193 },
-	{ "Acirc", 194 },
-	{ "Atilde", 195 },
-	{ "Auml", 196 },
-	{ "Aring", 197 },
-	{ "AElig", 198 },
-	{ "Ccedil", 199 },
-	{ "Egrave", 200 },
-	{ "Eacute", 201 },
-	{ "Ecirc", 202 },
-	{ "Euml", 203 },
-	{ "Igrave", 204 },
-	{ "Iacute", 205 },
-	{ "Icirc", 206 },
-	{ "Iuml", 207 },
-	{ "ETH", 208 },
-	{ "Ntilde", 209 },
-	{ "Ograve", 210 },
-	{ "Oacute", 211 },
-	{ "Ocirc", 212 },
-	{ "Otilde", 213 },
-	{ "Ouml", 214 },
-	{ "Oslash", 216 },
-	{ "Ugrave", 217 },
-	{ "Uacute", 218 },
-	{ "Ucirc", 219 },
-	{ "Uuml", 220 },
-	{ "Yacute", 221 },
-	{ "THORN", 222 },
-	{ "szlig", 223 },
-	{ "agrave", 224 },
-	{ "aacute", 225 },
-	{ "acirc", 226 },
-	{ "atilde", 227 },
-	{ "auml", 228 },
-	{ "aring", 229 },
-	{ "aelig", 230 },
-	{ "ccedil", 231 },
-	{ "egrave", 232 },
-	{ "eacute", 233 },
-	{ "ecirc", 234 },
-	{ "euml", 235 },
-	{ "igrave", 236 },
-	{ "iacute", 237 },
-	{ "icirc", 238 },
-	{ "iuml", 239 },
-	{ "eth", 240 },
-	{ "ntilde", 241 },
-	{ "ograve", 242 },
-	{ "oacute", 243 },
-	{ "ocirc", 244 },
-	{ "otilde", 245 },
-	{ "ouml", 246 },
-	{ "oslash", 248 },
-	{ "ugrave", 249 },
-	{ "uacute", 250 },
-	{ "ucirc", 251 },
-	{ "uuml", 252 },
-	{ "yacute", 253 },
-	{ "thorn", 254 },
-	{ "yuml", 255 },
-	{ "OElig", 338 },
-	{ "oelig", 339 },
-	{ "Scaron", 352 },
-	{ "scaron", 353 },
-	{ "Yuml", 376 },
-	{ "fnof", 402 },
-	{ "circ", 710 },
-	{ "tilde", 732 },
-	{ "Alpha", 913 },
-	{ "Beta", 914 },
-	{ "Gamma", 915 },
-	{ "Delta", 916 },
-	{ "Epsilon", 917 },
-	{ "Zeta", 918 },
-	{ "Eta", 919 },
-	{ "Theta", 920 },
-	{ "Iota", 921 },
-	{ "Kappa", 922 },
-	{ "Lambda", 923 },
-	{ "Mu", 924 },
-	{ "Nu", 925 },
-	{ "Xi", 926 },
-	{ "Omicron", 927 },
-	{ "Pi", 928 },
-	{ "Rho", 929 },
-	{ "Sigma", 931 },
-	{ "Tau", 932 },
-	{ "Upsilon", 933 },
-	{ "Phi", 934 },
-	{ "Chi", 935 },
-	{ "Psi", 936 },
-	{ "Omega", 937 },
-	{ "alpha", 945 },
-	{ "beta", 946 },
-	{ "gamma", 947 },
-	{ "delta", 948 },
-	{ "epsilon", 949 },
-	{ "zeta", 950 },
-	{ "eta", 951 },
-	{ "theta", 952 },
-	{ "iota", 953 },
-	{ "kappa", 954 },
-	{ "lambda", 955 },
-	{ "mu", 956 },
-	{ "nu", 957 },
-	{ "xi", 958 },
-	{ "omicron", 959 },
-	{ "pi", 960 },
-	{ "rho", 961 },
-	{ "sigmaf", 962 },
-	{ "sigma", 963 },
-	{ "tau", 964 },
-	{ "upsilon", 965 },
-	{ "phi", 966 },
-	{ "chi", 967 },
-	{ "psi", 968 },
-	{ "omega", 969 },
-	{ "thetasym", 977 },
-	{ "upsih", 978 },
-	{ "piv", 982 },
-	{ "ensp", 8194 },
-	{ "emsp", 8195 },
-	{ "thinsp", 8201 },
-	{ "zwnj", 8204 },
-	{ "zwj", 8205 },
-	{ "lrm", 8206 },
-	{ "rlm", 8207 },
-	{ "lsquo", 8216 },
-	{ "rsquo", 8217 },
-	{ "sbquo", 8218 },
-	{ "ldquo", 8220 },
-	{ "rdquo", 8221 },
-	{ "bdquo", 8222 },
-	{ "dagger", 8224 },
-	{ "Dagger", 8225 },
-	{ "permil", 8240 },
-	{ "lsaquo", 8249 },
-	{ "rsaquo", 8250 },
-	{ "euro", 8364 },
-	{ "dash", 8212 },
-};
-
-#if defined(LWS_WITH_LHP_UA_FLASH)
-
-/*
- * The default (user-agent) stylesheet as const tables, generated from the
- * default_css below by lhp-ua-gen.  Parsing that text cost ~19KB of cascade
- * arena on every page; as tables it costs flash and no heap at all.
- *
- * Regenerating it needs a lws built with LWS_WITH_LHP_UA_FLASH off, so that
- * it still parses default_css... see lhp-ua-gen.c.
- */
-
-#include "lhp-ua-css.h"
-
-/*
- * The header holds compiled selector programs: it must come from this
- * program format, see "CSS selectors" below
- */
-#if !defined(LHP_UA_SEL_PROG_FORMAT) || \
-    LHP_UA_SEL_PROG_FORMAT != LHP_SEL_PROG_FORMAT
-#error "lhp-ua-css.h is stale: regenerate it with lhp-ua-gen"
-#endif
-
-#else
+	{ 4, 4, 2, 3, 7, 5, 2, 3, 5, 6, 4, 4, 5, 6, 5, 3 };
 
 static const char *const default_css =
 	"/* lws_lhp default css */"
 	"html, address,blockquote, dd, div,dl, dt, fieldset, form, frame, "
 	"frameset, h1, h2, h3, h4, h5, h6, noframes, ol, p, ul, center, "
-	"dir, hr, menu, pre { unicode-bidi: embed; margin: 0;"
-	"padding: 0; position: static; width: auto; height: auto; }\n"
-	/* no color here: it inherits, a div's text takes its ancestor's colour
-	 * unless something between sets it; unset all the way up is black */
-
-	/* no top / right / bottom / left here: unlike the old positional-
-	 * attribute ua css, unset offsets on out-of-flow boxes have to stay
-	 * unset, so the boxes take their static position */
+	"dir, hr, menu, pre { top: 0px; right: 0px; bottom: 0px; left: 0px;"
+		" unicode-bidi: embed; color: #000;"
+		"padding-top: 2px; padding-left: 2px; padding-bottom: 2px; padding-right: 2px;"
+		"margin-top: 2px; margin-left: 2px; margin-bottom: 2px; margin-right: 2px;"
+		"position: static; width: auto; height: auto;"
+			    "}\n"
 	"div             { display: block; width: auto; }\n"
 	"body		 { display: block}\n"
-	"html, address, blockquote, dd, dl, dt, fieldset, form, h1, h2, h3, h4, "
-	"h5, h6, ol, p, ul, center, dir, hr, menu, pre, header, footer, main, "
-	"section, article, nav, aside, figure, figcaption, details, summary, "
-	"legend, optgroup, option { display: block }\n"
 	"li              { display: list-item }\n"
-	"head, script, style { display: none }\n"
-	/* vector / embedded content we can't draw: nothing inside it is text */
-	"svg, canvas, iframe, object, embed, template, video, audio { display: none }\n"
+	"head            { display: none }\n"
 	"table           { display: table;  }\n"
 	"tr              { display: table-row }\n"
 	"thead           { display: table-header-group }\n"
@@ -476,20 +144,14 @@ static const char *const default_css =
 	"caption         { display: table-caption }\n"
 	"th              { font-weight: bolder; text-align: center }\n"
 	"caption         { text-align: center }\n"
-	/*
-	 * The browser defaults, capped against the surface: on a display a
-	 * hundred pixels across, 8px of body margin and a 21px heading margin
-	 * are a quarter of the page.  The caps only bite below ~200px, so a
-	 * desktop-sized surface lays out exactly as a browser would.
-	 */
-	"body            { margin: min(8px,4vmin) }\n"
-	"h1              { font-size: 2em; margin: min(.67em,10vmin) 0 }\n"
-	"h2              { font-size: 1.5em; margin: min(.75em,10vmin) 0 }\n"
-	"h3              { font-size: 1.17em; margin: min(.83em,10vmin) 0 }\n"
+	"body            { margin: 8px }\n"
+	"h1              { font-size: 2em; margin: .67em 0 }\n"
+	"h2              { font-size: 1.5em; margin: .75em 0 }\n"
+	"h3              { font-size: 1.17em; margin: .83em 0 }\n"
 	"h4, p, blockquote, ul, fieldset, form, ol, dl, dir, menu "
-		"{ margin: min(1.12em,10vmin) 0 }\n"
-	"h5              { font-size: .83em; margin: min(1.5em,10vmin) 0 }\n"
-	"h6              { font-size: .75em; margin: min(1.67em,10vmin) 0 }\n"
+		"{ margin: 1.12em 0 }\n"
+	"h5              { font-size: .83em; margin: 1.5em 0 }\n"
+	"h6              { font-size: .75em; margin: 1.67em 0 }\n"
 	"h1, h2, h3, h4, h5, h6, b, strong          { font-weight: bolder }\n"
 	"blockquote      { margin-left: 40px; margin-right: 40px }\n"
 	"i, cite, em, var, address    { font-style: italic }\n"
@@ -500,10 +162,9 @@ static const char *const default_css =
 	"small, sub, sup { font-size: .83em }\n"
 	"sub             { vertical-align: sub }\n"
 	"sup             { vertical-align: super }\n"
-	"table           { border-spacing: 2px; margin: 0; padding: 0 }\n"
+	"table           { border-spacing: 2px; padding-top: 2px; padding-left: 2px; padding-bottom: 2px; padding-right: 2px; margin-top: 2px; margin-bottom: 2px; margin-left: 2px; margin-right: 2px }\n"
 	"thead, tbody, tfoot           { vertical-align: middle }\n"
-	"td, th, tr      { vertical-align: inherit; width: auto; margin: 0 }\n"
-	"td, th          { padding: 1px }\n"
+	"td, th, tr      { vertical-align: inherit; width: auto; padding-top: 2px; padding-left: 2px; padding-bottom: 2px; padding-right: 2px; margin-top: 2px; margin-bottom: 2px; margin-left: 2px; margin-right: 2px }\n"
 	"s, strike, del  { text-decoration: line-through }\n"
 	"hr              { border: 1px inset }\n"
 	"ol, ul, dir, menu, dd        { margin-left: 40px }\n"
@@ -512,8 +173,6 @@ static const char *const default_css =
 	"u, ins          { text-decoration: underline }\n"
 	"br:before       { content: \"A\"; white-space: pre-line }\n"
 	"center          { text-align: center }\n"
-	"nav             { text-align: left }\n"
-	"span, time, label, a, b, strong, i, em, code { display: inline }\n"
 	":link, :visited { text-decoration: underline }\n"
 	":focus          { outline: thin dotted invert }\n"
 
@@ -530,8 +189,6 @@ static const char *const default_css =
 	"}\n"
 ;
 
-#endif
-
 
 
 static int
@@ -546,130 +203,13 @@ lhp_clean_atr(lws_dll2_t *d, void *user)
 }
 
 static void
-lhp_sib_free(lhp_sib_t *sib)
-{
-	lws_dll2_foreach_safe(&sib->atr, NULL, lhp_clean_atr);
-	lws_free(sib->atr_idx.a);
-	lws_dll2_remove(&sib->list);
-	lws_free(sib);
-}
-
-static int
-lhp_clean_sib(lws_dll2_t *d, void *user)
-{
-	lhp_sib_free(lws_container_of(d, lhp_sib_t, list));
-
-	return 0;
-}
-
-static void
 lhp_clean_level(lhp_pstack_t *ps)
 {
-	lhp_pstack_t *parent = NULL;
-
-	/* the layout kept the element's face resident while it was open */
-	if (ps->font_pinned && ps->font)
-		lws_font_unpin(ps->font);
-
-	if (lws_dll2_get_prev(&ps->list))
-		parent = lws_container_of(lws_dll2_get_prev(&ps->list),
-					  lhp_pstack_t, list);
-
-	/*
-	 * Keep this element's attributes on the parent as one of its recent
-	 * closed children, for the sibling combinators of later siblings
-	 */
-#if LHP_SIBLING_HISTORY > 0
-	if (parent && !lws_dll2_is_empty(&ps->atr) &&
-	    !lws_dll2_is_empty(&parent->atr)) {
-		lhp_sib_t *sib = lws_zalloc(sizeof(*sib), __func__);
-
-		if (sib) {
-			while (lws_dll2_get_head(&ps->atr)) {
-				lws_dll2_t *d = lws_dll2_get_head(&ps->atr);
-
-				lws_dll2_remove(d);
-				lws_dll2_add_tail(d, &sib->atr);
-			}
-			sib->atr_idx = ps->atr_idx;
-			memset(&ps->atr_idx, 0, sizeof(ps->atr_idx));
-			lws_dll2_add_tail(&sib->list, &parent->sibs);
-			while (lws_dll2_count(&parent->sibs) > LHP_SIBLING_HISTORY)
-				lhp_sib_free(lws_container_of(
-					lws_dll2_get_head(&parent->sibs),
-					lhp_sib_t, list));
-		}
-	}
-#endif
-
-	lws_dll2_foreach_safe(&ps->sibs, NULL, lhp_clean_sib);
 	lws_dll2_foreach_safe(&ps->atr, NULL, lhp_clean_atr);
-	lws_free(ps->atr_idx.a);
-
-	{
-		lhp_ctx_t *ctx = lws_dll2_owner_container(&ps->list, lhp_ctx_t,
-							  stack);
-
-		if (ctx)
-			ctx->css_level_heap -= ps->css_heap;
-	}
 	lws_dll2_remove(&ps->list);
-
-	if (ps->matched)
-		lws_free(ps->matched);
-	lws_free(ps->decl);
-	lwsac_free(&ps->styleac);
 
 	lws_free(ps);
 }
-
-/*
- * The buckets start out holding the default stylesheet's prebuilt chains (or
- * empty, if it is parsed at runtime instead).  Document selectors are
- * prepended to them as they are indexed, so what the cascade walks is the
- * document's own selectors followed by the ua sheet's... order does not
- * matter, the hits are sorted by stanza seq before use.
- */
-
-static void
-lhp_selidx_reset(lhp_ctx_t *ctx)
-{
-#if defined(LWS_WITH_LHP_UA_FLASH)
-	int n;
-
-	for (n = 0; n < LHP_SELIDX_BUCKETS; n++)
-		ctx->selidx[n] = (lhp_selidx_t *)lhp_ua_buckets[n];
-
-	ctx->selidx_nokey = (lhp_selidx_t *)lhp_ua_nokey;
-#else
-	memset(ctx->selidx, 0, sizeof(ctx->selidx));
-	ctx->selidx_nokey = NULL;
-#endif
-}
-
-#if defined(LWS_WITH_FOOTPRINT)
-size_t
-lws_lhp_heap(lhp_ctx_t *ctx)
-{
-	size_t b = (size_t)(lwsac_total_alloc(ctx->cssac) +
-			    lwsac_total_alloc(ctx->cascadeac) +
-			    lwsac_total_alloc(ctx->propatrac) +
-			    lwsac_total_alloc(ctx->idxac) +
-			    lwsac_total_alloc(ctx->blockac)) +
-		   ctx->css_level_heap +
-		   lws_fp_heap(ctx->hits, 0) + lws_fp_heap(ctx->hits_hash, 0) +
-		   lws_fp_heap(ctx->filter_css, 0);
-
-	/* the open elements */
-	lws_start_foreach_dll(struct lws_dll2 *, d,
-			      lws_dll2_get_head(&ctx->stack)) {
-		b += lws_fp_heap(lws_container_of(d, lhp_pstack_t, list),
-				 sizeof(lhp_pstack_t));
-	} lws_end_foreach_dll(d);
-
-	return b;
-}
-#endif
 
 int
 lws_lhp_construct(lhp_ctx_t *ctx, lhp_callback cb, void *user,
@@ -691,16 +231,7 @@ lws_lhp_construct(lhp_ctx_t *ctx, lhp_callback cb, void *user,
 	 */
 
 	ps->cb			= cb;
-	/* the document level: nothing to match, default font size */
-	ps->css_resolved	= 1;
-	lws_fx_set(ps->font_size, 16, 0);
 	lws_dll2_add_tail(&ps->list, &ctx->stack);
-
-	lhp_selidx_reset(ctx);
-#if defined(LWS_WITH_LHP_UA_FLASH)
-	/* the document's own stanzas carry on from where the ua sheet ended */
-	ctx->stz_seq		= LHP_UA_STZ_SEQ;
-#endif
 
 	return 0;
 }
@@ -714,157 +245,8 @@ lhp_clean_stack(lws_dll2_t *d, void *user)
 	return 0;
 }
 
-int
-lws_lhp_set_filter(lhp_ctx_t *ctx, const lws_lhp_filter_t *filter)
-{
-	if (ctx->state != LHPS_INIT)
-		/* the filter css can only be injected before any parsing */
-		return 1;
-
-	lws_free(ctx->filter_css);
-	ctx->filter_css = NULL;
-	lws_dll2_owner_clear(&ctx->block_rules);
-	lwsac_free(&ctx->blockac);
-
-	if (!filter)
-		return 0;
-
-	if (filter->cosmetic_css && *filter->cosmetic_css) {
-		size_t sl = strlen(filter->cosmetic_css) + 1;
-
-		ctx->filter_css = lws_malloc(sl, __func__);
-		if (!ctx->filter_css)
-			return 1;
-		memcpy(ctx->filter_css, filter->cosmetic_css, sl);
-	}
-
-	if (filter->block_rules && *filter->block_rules) {
-		const char *p = filter->block_rules;
-
-		while (*p) {
-			const char *line = p, *e = p;
-			lhp_block_rule_t *r;
-			size_t len, n;
-			uint8_t ha = 0;
-
-			/* isolate the next line */
-			while (*e && *e != '\n')
-				e++;
-			p = *e ? e + 1 : e;
-
-			/* skip comments and blank lines, trim whitespace */
-			while (line < e && (*line == ' ' || *line == '\t' ||
-					   *line == '\r'))
-				line++;
-			while (e > line && (e[-1] == ' ' || e[-1] == '\t' ||
-					    e[-1] == '\r'))
-				e--;
-			if (line == e || *line == '#')
-				continue;
-
-			len = (size_t)(e - line);
-			if (len > 2 && line[0] == '|' && line[1] == '|') {
-				/* host-anchored rule, like ||ads.example.com */
-				line += 2;
-				len -= 2;
-				ha = 1;
-			}
-
-			r = lwsac_use_zero(&ctx->blockac,
-					   sizeof(*r) + len + 1,
-					   LHP_AC_GRANULE);
-			if (!r) {
-				lws_dll2_owner_clear(&ctx->block_rules);
-				lwsac_free(&ctx->blockac);
-
-				return 1;
-			}
-
-			r->len		= len;
-			r->host_anchor	= !!ha;
-			for (n = 0; n < len; n++)
-				((char *)&r[1])[n] =
-					(char)tolower((int)line[n]);
-			lws_dll2_add_tail(&r->list, &ctx->block_rules);
-		}
-	}
-
-	return 0;
-}
-
-/*
- * Returns 1 if the asset url is covered by an installed block rule.  The rules
- * are stored lowercased, so the url is lowercased into scratch storage: it
- * must not be modified in place, it is still used for the fetch after this.
- */
-static int
-lhp_url_blocked(lhp_ctx_t *ctx, const char *url)
-{
-	char lbuf[LHP_URL_LEN];
-	const char *host = NULL;
-	size_t n, hostlen = 0, m;
-
-	n = strlen(url);
-	if (n >= sizeof(lbuf))
-		n = sizeof(lbuf) - 1;
-	for (m = 0; m < n; m++)
-		lbuf[m] = (char)tolower((int)url[m]);
-	lbuf[n] = '\0';
-
-	/* isolate the host part of the absolute url for host-anchor rules */
-
-	host = strstr(lbuf, "://");
-	if (host) {
-		const char *e = host += 3;
-
-		while (*e && *e != '/' && *e != '?' && *e != ':' && *e != '#')
-			e++;
-		hostlen = (size_t)(e - host);
-	}
-
-	lws_start_foreach_dll(struct lws_dll2 *, d,
-			      lws_dll2_get_head(&ctx->block_rules)) {
-		const lhp_block_rule_t *r = lws_container_of(d,
-						lhp_block_rule_t, list);
-		const char *rule = (const char *)&r[1];
-
-		if (!r->len || r->len > n)
-			continue;
-
-		if (r->host_anchor) {
-			if (host && ((hostlen == r->len &&
-				      !memcmp(host, rule, r->len)) ||
-				     (hostlen > r->len + 1 &&
-				      host[hostlen - r->len - 1] == '.' &&
-				      !memcmp(host + hostlen - r->len,
-					      rule, r->len))))
-				return 1;
-			continue;
-		}
-
-		if (strstr(lbuf, rule))
-			return 1;
-
-	} lws_end_foreach_dll(d);
-
-	return 0;
-}
-
 static const lws_fx_t c_254= { 2,54000000 }, c_10 = { 10,0 }, c_0 = { 0, 0 },
-			     c_72 = { 72,0 }, c_6 = { 6,0 }, c_100 = { 100,0 },
-			     lws_fx_2 = { 2, 0 }, lws_fx_3 = { 3, 0 },
-			     lws_fx_4 = { 4, 0 }, lws_fx_96 = { 96, 0 },
-			     lws_fx_254 = { 25, 40000000 },
-			     lws_fx_83 = { 83, 0 }, lws_fx_120 = { 120, 0 };
-
-/*
- * A % is of the containing block's length, and when that is a calc() with %
- * terms of its own, resolving it recurses to resolve the next block out, and
- * so on: the document's nesting decides how deep.  Follow at most this many
- * containing blocks at once; past that the length is unknown, taken as 0, as
- * when no containing block sets it at all
- */
-#define LHP_MAX_CB_RESOLVE_DEPTH 4
+			     c_72 = { 72,0 }, c_6 = { 6,0 }, c_100 = { 100,0 };
 
 /*
  * We need to go backward until we reach an absolute length for the reference
@@ -880,12 +262,6 @@ lws_css_compute_cascaded_length(lhp_ctx_t *ctx, int ref, lhp_pstack_t *ps,
 	const struct lcsp_atr *atrmap[20];
 	lws_fx_t t2;
 	int amp = 0;
-
-	if (ctx->cb_depth >= LHP_MAX_CB_RESOLVE_DEPTH)
-		/* the page's nesting: bound the recursion it can drive */
-		return 0;
-
-	ctx->cb_depth++;
 
 	do {
 		const struct lcsp_atr *a;
@@ -930,576 +306,68 @@ lws_css_compute_cascaded_length(lhp_ctx_t *ctx, int ref, lhp_pstack_t *ps,
 									&c_100);
 	}
 
-	ctx->cb_depth--;
-
 	return 0;
 }
 
-static void
-lhp_fx_parse(lws_fx_t *fx, const char *str, size_t len)
-{
-	const char *p = str, *end = str + len;
-	int32_t w = 0;
-	int neg = 0, i;
-
-	/*
-	 * The page's text: stay inside len (atoi() only stopped at a
-	 * non-digit, wherever that was), and stop accumulating the whole
-	 * part before it can overflow, as the css number parser does
-	 */
-
-	fx->whole = 0;
-	fx->frac = 0;
-
-	while (p < end && (*p == ' ' || *p == '\t'))
-		p++;
-	if (p < end && (*p == '-' || *p == '+'))
-		neg = *p++ == '-';
-
-	while (p < end && *p >= '0' && *p <= '9') {
-		if (w < LHP_CSS_MAX_WHOLE)
-			w = (w * 10) + (*p - '0');
-		p++;
-	}
-	fx->whole = neg ? -w : w;
-
-	if (p == end || *p != '.')
-		return;
-
-	p++;
-	i = 10000000;
-	while (p < end && *p >= '0' && *p <= '9' && i) {
-		fx->frac += ((*p++) - '0') * i;
-		i /= 10;
-	}
-
-	/*
-	 * lws_fx_t is sign-magnitude with the sign on both parts, and -0.5
-	 * has no sign in whole to carry it
-	 */
-	if (neg)
-		fx->frac = -fx->frac;
-}
-
-/*
- * calc() evaluation: a small recursive-descent evaluator over the text
- * inside the parens.
- *
- *   expr   := term (('+' | '-') term)*
- *   term   := factor (('*' | '/') factor)*
- *   factor := '(' expr ')' | calc '(' expr ')' | var '(' --name ')' |
- *             min / max / clamp '(' expr, ... ')' | number [ unit | % ]
- *
- * Lengths become px as they are read, so the result is px; a bare number
- * is a scalar, for the * and / that css allows.  var() takes the custom
- * property's value: a length, a number, or another calc() evaluated in
- * turn, with the fallback after the comma if it is not defined.
- *
- * The text is remote, and var() lets a short calc() expand into the same
- * long one again at every level: the nesting is bounded, but each level can
- * name a calc() property hundreds of times.  So every factor, wherever it is
- * reached from, draws on one LHP_CALC_BUDGET for the outermost
- * lws_csp_calc(), shared with any calc() a % term's containing block
- * resolution evaluates on the way.  A calc() that runs out is worth 0.
- */
-
-#define LHP_CALC_BUDGET 4096
-
-/*
- * The containing block length that the % terms are of, resolved on first use
- * and then shared by every % term of the calc(), including those reached
- * through var(): resolving it may evaluate the block's own calc(), so doing it
- * per term would multiply by the term count at every containing block out
- */
-
-struct lhp_calc_pct {
-	lws_fx_t		v;
-	char			resolved;
-};
-
-struct lhp_calc {
-	lhp_ctx_t		*ctx;
-	lhp_pstack_t		*ps;
-	const lws_fx_t		*base;
-	struct lhp_calc_pct	*pct;
-	const char		*p;
-	const char		*end;
-	int			ref;
-	int			depth;
-	int			paren; /* nesting of ( ) inside one calc() */
-	int			unitless; /* no length or % term was used */
-};
-
-static const lcsp_atr_t *
-lhp_find_var(lhp_ctx_t *ctx, lhp_pstack_t *ps, const char *name, size_t len);
-
-static lws_fx_t
-lhp_calc_expr(struct lhp_calc *cs);
-
-static void
-lhp_calc_ws(struct lhp_calc *cs)
-{
-	while (cs->p < cs->end && (*cs->p == ' ' || *cs->p == '\t' ||
-				   *cs->p == '\n'))
-		cs->p++;
-}
-
-static lws_fx_t
-lhp_calc_atr(struct lhp_calc *cs, const lcsp_atr_t *a)
-{
-	lws_fx_t v = { 0, 0 };
-
-	if (!a || cs->depth > 6)
-		return v;
-
-	switch (a->unit) {
-	case LCSP_UNIT_NUM:
-		return a->u.i;
-	case LCSP_UNIT_NONE:
-	case LCSP_UNIT_STRING:
-	case LCSP_UNIT_URL:
-	case LCSP_UNIT_RGBA:
-		return v;
-	case LCSP_UNIT_CALC:
-	{
-		struct lhp_calc cs1 = *cs;
-
-		cs1.p = (const char *)&a[1];
-		cs1.end = cs1.p + a->value_len;
-		cs1.depth++;
-
-		v = lhp_calc_expr(&cs1);
-		cs->unitless = cs1.unitless;
-
-		return v;
-	}
-	case LCSP_UNIT_LENGTH_PERCENT:
-		cs->unitless = 0;
-		if (cs->base) {
-			lws_fx_mul(&v, &a->u.i, cs->base);
-			lws_fx_div(&v, &v, &c_100);
-			return v;
-		}
-		/* fallthru */
-	default:
-		cs->unitless = 0;
-		return *lws_csp_px_base(a, cs->ps, cs->base);
-	}
-}
-
-static lws_fx_t
-lhp_calc_factor(struct lhp_calc *cs)
-{
-	lws_fx_t v = { 0, 0 }, v2;
-	const char *n;
-	size_t nl;
-	int neg = 0, fn_paren = 0;
-
-	if (--cs->ctx->calc_budget < 0) {
-		/* spent: stop evaluating, at every level */
-		cs->p = cs->end;
-
-		return v;
-	}
-
-	lhp_calc_ws(cs);
-
-	if (cs->p < cs->end && *cs->p == '-') {
-		neg = 1;
-		cs->p++;
-	}
-
-	if (cs->p < cs->end && *cs->p == '(') {
-		cs->p++;
-		/* the text is remote: bound the recursion it can drive */
-		if (cs->paren >= 16) {
-			cs->p = cs->end;
-			goto done;
-		}
-		cs->paren++;
-		v = lhp_calc_expr(cs);
-		cs->paren--;
-		lhp_calc_ws(cs);
-		if (cs->p < cs->end && *cs->p == ')')
-			cs->p++;
-		goto done;
-	}
-
-	/* a function name? */
-	n = cs->p;
-	while (cs->p < cs->end && ((*cs->p >= 'a' && *cs->p <= 'z') ||
-				   (*cs->p >= 'A' && *cs->p <= 'Z')))
-		cs->p++;
-	nl = (size_t)(cs->p - n);
-
-	if (nl && cs->p < cs->end && *cs->p == '(') {
-		cs->p++;
-
-		/* a function's ( recurses like a bare one: same bound (C-491) */
-		if (cs->paren >= 16) {
-			cs->p = cs->end;
-			goto done;
-		}
-		cs->paren++;
-		fn_paren = 1;
-
-		if (nl == 3 && !strncasecmp(n, "var", 3)) {
-			const char *vn;
-			size_t vl;
-			const lcsp_atr_t *a;
-
-			lhp_calc_ws(cs);
-			vn = cs->p;
-			while (cs->p < cs->end && *cs->p != ')' &&
-			       *cs->p != ',' && *cs->p != ' ')
-				cs->p++;
-			vl = (size_t)(cs->p - vn);
-			/* names are kept with their leading -- */
-			a = vl > 2 ? lhp_find_var(cs->ctx, cs->ps, vn, vl) :
-				     NULL;
-			lhp_calc_ws(cs);
-			if (cs->p < cs->end && *cs->p == ',') {
-				/* the fallback: used if the var is unset */
-				cs->p++;
-				if (a) {
-					int d = 1;
-
-					while (cs->p < cs->end && d) {
-						if (*cs->p == '(')
-							d++;
-						if (*cs->p == ')')
-							d--;
-						if (d)
-							cs->p++;
-					}
-				} else
-					v = lhp_calc_expr(cs);
-			}
-			if (a) {
-				cs->depth++;
-				v = lhp_calc_atr(cs, a);
-				cs->depth--;
-			}
-		} else if ((nl == 3 && !strncasecmp(n, "min", 3)) ||
-			   (nl == 3 && !strncasecmp(n, "max", 3)) ||
-			   (nl == 5 && !strncasecmp(n, "clamp", 5))) {
-			lws_fx_t args[3];
-			int na = 0;
-
-			do {
-				args[na] = lhp_calc_expr(cs);
-				na++;
-				lhp_calc_ws(cs);
-			} while (na < 3 && cs->p < cs->end && *cs->p == ',' &&
-				 cs->p++);
-
-			v = args[0];
-			if (nl == 3 && n[1] == 'i' && na > 1 &&
-			    lws_fx_comp(&args[1], &v) < 0)
-				v = args[1];
-			if (nl == 3 && n[1] == 'a' && na > 1 &&
-			    lws_fx_comp(&args[1], &v) > 0)
-				v = args[1];
-			if (nl == 5 && na == 3) {
-				v = args[1];
-				if (lws_fx_comp(&v, &args[0]) < 0)
-					v = args[0];
-				if (lws_fx_comp(&v, &args[2]) > 0)
-					v = args[2];
-			}
-		} else
-			/* calc(), or something we don't know: its value */
-			v = lhp_calc_expr(cs);
-
-		/* past the closing paren, skipping any unparsed remainder */
-		{
-			int d = 1;
-
-			while (cs->p < cs->end && d) {
-				if (*cs->p == '(')
-					d++;
-				if (*cs->p == ')')
-					d--;
-				cs->p++;
-			}
-		}
-		goto done;
-	}
-
-	cs->p = n;
-
-	/* a number, with a unit or % */
-	{
-		char buf[32], unit[8];
-		size_t bn = 0, un = 0;
-		lcsp_atr_t atr;
-
-		while (cs->p < cs->end && bn < sizeof(buf) - 1 &&
-		       ((*cs->p >= '0' && *cs->p <= '9') || *cs->p == '.')) {
-			buf[bn++] = *cs->p++;
-		}
-		buf[bn] = '\0';
-		if (!bn)
-			goto done;
-
-		memset(&atr, 0, sizeof(atr));
-		lhp_fx_parse(&atr.u.i, buf, bn);
-
-		while (cs->p < cs->end && un < sizeof(unit) - 1 &&
-		       *cs->p >= 'a' && *cs->p <= 'z')
-			unit[un++] = *cs->p++;
-		unit[un] = '\0';
-		if (cs->p < cs->end && *cs->p == '%') {
-			unit[0] = '%';
-			unit[1] = '\0';
-			cs->p++;
-		}
-
-		if (unit[0] == '%' && !unit[1]) {
-			lws_fx_t b = { 0, 0 };
-
-			cs->unitless = 0;
-			if (cs->base)
-				b = *cs->base;
-			else if (cs->ref != LWS_LHPREF_NONE) {
-				if (!cs->pct->resolved) {
-					lws_css_compute_cascaded_length(cs->ctx,
-						cs->ref, cs->ps, &cs->pct->v);
-					cs->pct->resolved = 1;
-				}
-				b = cs->pct->v;
-			}
-			lws_fx_mul(&v2, &atr.u.i, &b);
-			lws_fx_div(&v, &v2, &c_100);
-			goto done;
-		}
-
-		if (!unit[0]) {
-			/* a bare number: a scalar */
-			v = atr.u.i;
-			goto done;
-		}
-
-		cs->unitless = 0;
-		atr.unit = LCSP_UNIT_LENGTH_PX;
-		if (!strcmp(unit, "em")) atr.unit = LCSP_UNIT_LENGTH_EM;
-		if (!strcmp(unit, "ex")) atr.unit = LCSP_UNIT_LENGTH_EX;
-		if (!strcmp(unit, "rem")) atr.unit = LCSP_UNIT_LENGTH_REM;
-		if (!strcmp(unit, "in")) atr.unit = LCSP_UNIT_LENGTH_IN;
-		if (!strcmp(unit, "cm")) atr.unit = LCSP_UNIT_LENGTH_CM;
-		if (!strcmp(unit, "mm")) atr.unit = LCSP_UNIT_LENGTH_MM;
-		if (!strcmp(unit, "pt")) atr.unit = LCSP_UNIT_LENGTH_PT;
-		if (!strcmp(unit, "pc")) atr.unit = LCSP_UNIT_LENGTH_PC;
-		if (!strcmp(unit, "vw") || !strcmp(unit, "dvw") ||
-		    !strcmp(unit, "svw") || !strcmp(unit, "lvw"))
-			atr.unit = LCSP_UNIT_LENGTH_VW;
-		if (!strcmp(unit, "vh") || !strcmp(unit, "dvh") ||
-		    !strcmp(unit, "svh") || !strcmp(unit, "lvh"))
-			atr.unit = LCSP_UNIT_LENGTH_VH;
-		if (!strcmp(unit, "vmin")) atr.unit = LCSP_UNIT_LENGTH_VMIN;
-		if (!strcmp(unit, "vmax")) atr.unit = LCSP_UNIT_LENGTH_VMAX;
-
-		v = *lws_csp_px_base(&atr, cs->ps, NULL);
-	}
-
-done:
-	if (fn_paren)
-		cs->paren--;
-	if (neg) {
-		lws_fx_t z = { 0, 0 };
-
-		lws_fx_sub(&v, &z, &v);
-	}
-
-	return v;
-}
-
-static lws_fx_t
-lhp_calc_term(struct lhp_calc *cs)
-{
-	lws_fx_t v = lhp_calc_factor(cs), f;
-
-	for (;;) {
-		lhp_calc_ws(cs);
-		if (cs->p >= cs->end || (*cs->p != '*' && *cs->p != '/'))
-			return v;
-
-		if (*cs->p++ == '*') {
-			f = lhp_calc_factor(cs);
-			lws_fx_mul(&v, &v, &f);
-		} else {
-			f = lhp_calc_factor(cs);
-			if (f.whole || f.frac)
-				lws_fx_div(&v, &v, &f);
-		}
-	}
-}
-
-static lws_fx_t
-lhp_calc_expr(struct lhp_calc *cs)
-{
-	lws_fx_t v = lhp_calc_term(cs), t;
-
-	for (;;) {
-		lhp_calc_ws(cs);
-		if (cs->p >= cs->end || (*cs->p != '+' && *cs->p != '-'))
-			return v;
-
-		if (*cs->p++ == '+') {
-			t = lhp_calc_term(cs);
-			lws_fx_add(&v, &v, &t);
-		} else {
-			t = lhp_calc_term(cs);
-			lws_fx_sub(&v, &v, &t);
-		}
-	}
-}
-
-/*
- * Evaluate a LCSP_UNIT_CALC atr for ps.  *unitless is set if no length or
- * percentage term took part, ie, the result is a bare number (a line-height
- * multiplier, say) rather than px
- */
-
-lws_fx_t
-lws_csp_calc(const lcsp_atr_t *a, lhp_pstack_t *ps, const lws_fx_t *base,
-	     int *unitless)
-{
-	struct lhp_calc_pct pct;
-	struct lhp_calc cs;
-	lws_fx_t v;
-
-	memset(&pct, 0, sizeof(pct));
-
-	cs.ctx = lws_dll2_owner_container(&ps->list, lhp_ctx_t, stack);
-	cs.ps = ps;
-	cs.base = base;
-	cs.pct = &pct;
-	cs.ref = lhp_prop_axis(a);
-	cs.p = (const char *)&a[1];
-	cs.end = cs.p + a->value_len;
-	cs.depth = 0;
-	cs.paren = 0;
-	cs.unitless = 1;
-
-	if (!cs.ctx->calc_nest++)
-		cs.ctx->calc_budget = LHP_CALC_BUDGET;
-
-	v = lhp_calc_expr(&cs);
-
-	cs.ctx->calc_nest--;
-	if (cs.ctx->calc_budget < 0) {
-		/* a partial result means nothing */
-		v.whole = 0;
-		v.frac = 0;
-	}
-
-	if (unitless)
-		*unitless = cs.unitless;
-
-	return v;
-}
-
-static lws_fx_t *
-lhp_fx_scratch(lhp_ctx_t *ctx)
-{
-	ctx->fxsi = (uint8_t)((ctx->fxsi + 1) % LWS_ARRAY_SIZE(ctx->fxs));
-
-	return &ctx->fxs[ctx->fxsi];
-}
-
 const lws_fx_t *
-lws_csp_px_base(const lcsp_atr_t *a, lhp_pstack_t *ps, const lws_fx_t *base)
+lws_csp_px(const lcsp_atr_t *a, lhp_pstack_t *ps)
 {
 	lhp_ctx_t *ctx;
-	lws_fx_t *r;
 	const lws_display_font_t *f;
-	lws_fx_t t1, t2, t3, em, ex;
+	lws_fx_t t1, t2, t3;
 	int ref;
 
 	assert(ps);
 
 	if (!a)
-		/*
-		 * An absent attribute is normal (eg, no margins set); all
-		 * callers expect a dereferenceable result, so treat it as 0
-		 */
+		return NULL;
 
-		return &c_0;
-
-	ctx = lws_dll2_owner_container(&ps->list, lhp_ctx_t, stack);
-	r = lhp_fx_scratch(ctx);
+	ctx = lws_container_of(ps->list.owner, lhp_ctx_t, stack);
 	f = ps->font;
 
-	/*
-	 * em is the element's computed font size; the font actually chosen
-	 * may be a different size if no exact match was registered
-	 */
+       /*
+        * We rely on f being non-null, but if it happens to be
+        * NULL, let's return a constant 0
+        */
 
-	if (ps->font_size.whole || ps->font_size.frac) {
-		em = ps->font_size;
-		lws_fx_div(&ex, &em, &lws_fx_2);
-	} else if (f) {
-		em = f->em;
-		ex = f->ex;
-	} else {
-		*r = c_0;
-		return r;
-	}
+       if (!f) {
+               *(lws_fx_t *)&a->r = c_0;
+               return &a->r;
+       }
 
 	ref = lhp_prop_axis(a);
 
 	switch (a->unit) {
-	case LCSP_UNIT_LENGTH_REM:
-	{
-		/* relative to the root element's font size */
-		lws_dll2_t *d = lws_dll2_get_head(&ctx->stack);
-		lhp_pstack_t *root;
-
-		if (!d)
-			break;
-		if (lws_dll2_get_next(d))
-			d = lws_dll2_get_next(d);
-		root = lws_container_of(d, lhp_pstack_t, list);
-		if (!root->font_size.whole && !root->font_size.frac)
-			break;
-		return lws_fx_mul(r, &a->u.i, &root->font_size);
-	}
-
-	case LCSP_UNIT_CALC:
-		*r = lws_csp_calc(a, ps, base, NULL);
-		return r;
-
 	case LCSP_UNIT_LENGTH_EM:
-		return lws_fx_mul(r, &a->u.i, &em);
+		return lws_fx_mul((lws_fx_t *)&a->r, &a->u.i, &f->em);
 
 	case LCSP_UNIT_LENGTH_EX:
-		return lws_fx_mul(r, &a->u.i, &ex);
+		return lws_fx_mul((lws_fx_t *)&a->r, &a->u.i, &f->ex);
 
 	case LCSP_UNIT_LENGTH_IN:	/* (inches * 2.54 * hwmm) / hwpx */
 		if (ref == LWS_LHPREF_NONE)
 			break;
-		return lws_fx_div(r, lws_fx_mul(&t2,
+		return lws_fx_div((lws_fx_t *)&a->r, lws_fx_mul(&t2,
 			lws_fx_mul(&t3, &a->u.i, &c_254),
 				&ctx->ic.wh_mm[ref]), &ctx->ic.wh_px[ref]);
 
 	case LCSP_UNIT_LENGTH_CM:	/* (cm * 10 * hwmm) / hwpx */
 		if (ref == LWS_LHPREF_NONE)
 			break;
-		return lws_fx_div(r,
+		return lws_fx_div((lws_fx_t *)&a->r,
 				lws_fx_mul(&t2,
 					lws_fx_mul(&t3, &a->u.i, &c_10),
 					&ctx->ic.wh_mm[ref]), &ctx->ic.wh_px[ref]);
 	case LCSP_UNIT_LENGTH_MM:	/* (mm * hwmm) / hwpx */
 		if (ref == LWS_LHPREF_NONE)
 			break;
-		return lws_fx_div(r, lws_fx_mul(&t2,
+		return lws_fx_div((lws_fx_t *)&a->r, lws_fx_mul(&t2,
 				&a->u.i, &ctx->ic.wh_mm[ref]), &ctx->ic.wh_px[ref]);
 
 	case LCSP_UNIT_LENGTH_PT:	/* ((pt * 2.54 * hwmm) / hwpx ) / 72 */
 		if (ref == LWS_LHPREF_NONE)
 			break;
-		return lws_fx_div(r, lws_fx_div(&t1,
+		return lws_fx_div((lws_fx_t *)&a->r, lws_fx_div(&t1,
 			 lws_fx_mul(&t2, lws_fx_mul(&t3,
 					 &a->u.i, &c_254),
 					 &ctx->ic.wh_mm[ref]),
@@ -1508,39 +376,12 @@ lws_csp_px_base(const lcsp_atr_t *a, lhp_pstack_t *ps, const lws_fx_t *base)
 	case LCSP_UNIT_LENGTH_PC:	/* ((pc * 2.54 * hwmm) / hwpx ) / 6 */
 		if (ref == LWS_LHPREF_NONE)
 			break;
-		return lws_fx_div(r, lws_fx_div(&t1,
+		return lws_fx_div((lws_fx_t *)&a->r, lws_fx_div(&t1,
 				lws_fx_mul(&t2, lws_fx_mul(&t3,
 					&a->u.i, &c_254), &ctx->ic.wh_mm[ref]),
 						  &ctx->ic.wh_px[ref]), &c_6);
 	case LCSP_UNIT_LENGTH_PX:	/* px */
 		return &a->u.i;
-
-	case LCSP_UNIT_LENGTH_VW:
-	case LCSP_UNIT_LENGTH_VH:
-	case LCSP_UNIT_LENGTH_VMIN:
-	case LCSP_UNIT_LENGTH_VMAX:
-	{
-		const lws_fx_t *v = &ctx->ic.wh_px[LWS_LHPREF_WIDTH];
-
-		/*
-		 * Viewport units are against the surface (viewport) size,
-		 * not the containing block, so no ancestor walk is involved
-		 */
-
-		if (a->unit == LCSP_UNIT_LENGTH_VH)
-			v = lws_lhp_viewport_h(ctx);
-		else if (a->unit == LCSP_UNIT_LENGTH_VMIN &&
-			 lws_fx_comp(v, lws_lhp_viewport_h(ctx)) > 0)
-			v = lws_lhp_viewport_h(ctx);
-		else if (a->unit == LCSP_UNIT_LENGTH_VMAX &&
-			 lws_fx_comp(v, lws_lhp_viewport_h(ctx)) < 0)
-			v = lws_lhp_viewport_h(ctx);
-
-		/* the value is in 100ths of the viewport dimension */
-
-		return lws_fx_div(r,
-				  lws_fx_mul(&t2, &a->u.i, v), &c_100);
-	}
 
 	case LCSP_UNIT_LENGTH_PERCENT:	/* (percent * psb->w) / 100 */
 		if (ref == LWS_LHPREF_NONE)
@@ -1551,7 +392,7 @@ lws_csp_px_base(const lcsp_atr_t *a, lhp_pstack_t *ps, const lws_fx_t *base)
 
 		lws_css_compute_cascaded_length(ctx, ref, ps, &t1);
 
-		return lws_fx_div(r,
+		return lws_fx_div((lws_fx_t *)&a->r,
 				lws_fx_mul(&t2, &a->u.i, &t1), &c_100);
 
 	default:
@@ -1561,166 +402,34 @@ lws_csp_px_base(const lcsp_atr_t *a, lhp_pstack_t *ps, const lws_fx_t *base)
 	return &a->u.i;
 }
 
-const lws_fx_t *
-lws_csp_px(const lcsp_atr_t *a, lhp_pstack_t *ps)
-{
-	return lws_csp_px_base(a, ps, NULL);
-}
-
-/*
- * Attribute and tag names match ignoring (ascii) case.  An element's
- * attribute index and the compiled selectors carry this hash of each name, so
- * that almost every name that differs is told apart without comparing it
- */
-
-static uint32_t
-lhp_name_hash(const char *n, size_t len)
-{
-	uint32_t h = 2166136261u;
-
-	while (len--) {
-		uint8_t c = (uint8_t)*n++;
-
-		if (c >= 'A' && c <= 'Z')
-			c = (uint8_t)(c + 32);
-		h = (h ^ c) * 16777619u;
-	}
-
-	return h;
-}
-
-/*
- * Order two names of length len ignoring (ascii) case, adding the bytes it
- * had to look at to *work if given
- */
-
-static int
-lhp_name_cmp(const char *a, const char *b, size_t len, uint64_t *work)
-{
-	size_t n = 0;
-	int r = 0;
-
-	while (n < len) {
-		uint8_t ca = (uint8_t)a[n], cb = (uint8_t)b[n];
-
-		n++;
-		if (ca >= 'A' && ca <= 'Z')
-			ca = (uint8_t)(ca + 32);
-		if (cb >= 'A' && cb <= 'Z')
-			cb = (uint8_t)(cb + 32);
-		if (ca != cb) {
-			r = ca < cb ? -1 : 1;
-			break;
-		}
-	}
-
-	if (work)
-		*work += n;
-
-	return r;
-}
-
-/*
- * The order of an element's attribute index: by the hash of the name, then
- * by its length, then by the name ignoring case
- */
-
-static int
-lhp_atr_ent_cmp(uint32_t h, const char *n, size_t nl, const lhp_atr_ent_t *e)
-{
-	if (h != e->h)
-		return h < e->h ? -1 : 1;
-	if (nl != e->a->name_len)
-		return nl < e->a->name_len ? -1 : 1;
-
-	return lhp_name_cmp(n, (const char *)&e->a[1], nl, NULL);
-}
-
-/*
- * Add an attribute to its element's index, after any of the same name so the
- * first one stays first.  The caller made room for it
- */
-
-static void
-lhp_atr_idx_add(lhp_atr_idx_t *ai, const lhp_atr_t *a)
-{
-	uint32_t h = lhp_name_hash((const char *)&a[1], a->name_len);
-	unsigned int lo = 0, hi = ai->count;
-
-	if (!ai->tag) {
-		ai->tag = a;
-		ai->tag_h = h;
-		return;
-	}
-
-	while (lo < hi) {
-		unsigned int mid = lo + (hi - lo) / 2;
-
-		if (lhp_atr_ent_cmp(h, (const char *)&a[1], a->name_len,
-				    &ai->a[mid]) < 0)
-			hi = mid;
-		else
-			lo = mid + 1;
-	}
-
-	memmove(&ai->a[lo + 1], &ai->a[lo], (ai->count - lo) * sizeof(*ai->a));
-	ai->a[lo].a = a;
-	ai->a[lo].h = h;
-	ai->count++;
-}
-
 static lhp_atr_t *
 lhp_atr_new(lhp_ctx_t *ctx, size_t name_len, size_t value_len)
 {
-	lhp_pstack_t *ps = lws_container_of(lws_dll2_get_tail(&ctx->stack), lhp_pstack_t, list);
-	lhp_atr_t *a;
-	size_t n;
-
-	/*
-	 * Attributes are only freed when the element level is popped, ie, at
-	 * the '>'... so an element with an unbounded number of attributes can
-	 * allocate without bound before we ever get there
-	 */
-
-	if (lws_dll2_count(&ps->atr) >= LHP_MAX_ATR_PER_ELEM) {
-		lwsl_err("%s: too many attributes\n", __func__);
-		return NULL;
-	}
-
-	/*
-	 * Make room in the element's attribute index first, so that nothing
-	 * needs undoing after.  Each attribute but the tag has a slot, and
-	 * there are at most LHP_MAX_ATR_PER_ELEM of them
-	 */
-
-	if (ps->atr_idx.tag && ps->atr_idx.count == ps->atr_idx.alloc) {
-		unsigned int na = ps->atr_idx.alloc ?
-				  ps->atr_idx.alloc * 2u : 8u;
-		lhp_atr_ent_t *ia;
-
-		if (na > LHP_MAX_ATR_PER_ELEM)
-			na = LHP_MAX_ATR_PER_ELEM;
-		ia = lws_realloc(ps->atr_idx.a, na * sizeof(*ia), __func__);
-		if (!ia)
-			return NULL;
-		ps->atr_idx.a = ia;
-		ps->atr_idx.alloc = (uint8_t)na;
-	}
+	lhp_pstack_t *ps = lws_container_of(ctx->stack.tail, lhp_pstack_t, list);
 
 	/* create the element name attribute */
-	a = lws_malloc(sizeof(*a) + name_len + 1 + value_len + 1,
-		       "html_elem_atr");
+	lhp_atr_t *a = lws_malloc(sizeof(*a) + name_len + 1 + value_len + 1,
+				  "html_elem_atr");
+	size_t n;
 
 	if (!a)
 		return NULL;
 
-	if (!lws_dll2_count(&ps->atr)) {
+	if (!ps->atr.count) {
 		/* only check the tag string, not the attributes */
 		ctx->u.f.void_element = 0;
 
+		/*
+		 * mark ps that are elements that contain others for layout as
+		 * being the parent block
+		 */
+		if ((name_len == 4 && !strncmp(ctx->buf, "body", 4)) ||
+		    (name_len == 3 && !strncmp(ctx->buf, "div", 3)))
+			ps->is_block = 1;
+
 		for (n = 0; n < LWS_ARRAY_SIZE(void_elems); n++)
 			if (ctx->npos == void_elems_lens[n] &&
-			    !strncasecmp(void_elems[n], ctx->buf, (size_t)ctx->npos))
+			    !strncmp(void_elems[n], ctx->buf, (size_t)ctx->npos))
 				ctx->u.f.void_element = 1;
 	}
 
@@ -1730,52 +439,11 @@ lhp_atr_new(lhp_ctx_t *ctx, size_t name_len, size_t value_len)
 	ctx->buf[ctx->npos] = '\0';
 	memcpy(&a[1], ctx->buf, (unsigned int)ctx->npos + 1u);
 	*(((uint8_t *)&a[1]) + name_len) = '\0';
-	*(((uint8_t *)&a[1]) + name_len + 1 + value_len) = '\0';
 	lws_dll2_add_tail(&a->list, &ps->atr);
-	lhp_atr_idx_add(&ps->atr_idx, a);
 
 	ctx->npos = 0;
 
 	return a;
-}
-
-/*
- * The element whose attributes are being parsed can't be held as a browser
- * sees it: its class or id would be truncated or lost.  Selectors keyed on
- * those are how a cosmetic filter finds junk, so filtering on what we were
- * able to keep would hand the page a bypass: instead the element fails
- * closed, a cosmetic filter hides it (G-172)
- */
-
-static void
-lhp_elem_suspicious(lhp_ctx_t *ctx)
-{
-	lhp_pstack_t *ps = lws_container_of(lws_dll2_get_tail(&ctx->stack),
-					    lhp_pstack_t, list);
-
-	ps->suspicious = 1;
-}
-
-/*
- * The attribute value being collected doesn't fit in the chunk: the attribute
- * is discarded.  Oversize values are a real thing, eg inline data: URIs, so
- * that is fine for most attributes, but a class or id we can't hold makes the
- * element suspicious.  buf holds the name up to nl_temp, where the '=' is,
- * so this must be called before nl_temp is reset.
- */
-
-static void
-lhp_atr_val_overflow(lhp_ctx_t *ctx)
-{
-	if (ctx->u.f.atr_drop)
-		return;
-
-	lwsl_info("%s: overlong attribute discarded\n", __func__);
-	ctx->u.f.atr_drop = 1;
-
-	if ((ctx->nl_temp == 5 && !strncasecmp(ctx->buf, "class", 5)) ||
-	    (ctx->nl_temp == 2 && !strncasecmp(ctx->buf, "id", 2)))
-		lhp_elem_suspicious(ctx);
 }
 
 static int
@@ -1787,27 +455,6 @@ hspace(uint8_t c)
 void
 lhp_uni_emit(lhp_ctx_t *ctx)
 {
-	/*
-	 * We can emit up to 4 bytes, and we are called from places with
-	 * different npos preconditions (entity names are collected into buf
-	 * itself, so npos can be right at the end of buf when we are asked to
-	 * replace them by their expansion).  Refuse to emit at all unless the
-	 * worst case fits, leaving buf[LHP_STRING_CHUNK] free for the NUL that
-	 * various consumers add at buf[npos].
-	 */
-
-	if (ctx->npos < 0 || ctx->npos > LHP_STRING_CHUNK - 4)
-		return;
-
-	/*
-	 * As the html tokenizer does, a NUL, a surrogate or something beyond
-	 * unicode becomes U+FFFD: the strings we collect are used as C
-	 * strings, and must be valid UTF-8
-	 */
-	if (!ctx->temp || (ctx->temp >= 0xd800 && ctx->temp <= 0xdfff) ||
-	    ctx->temp > 0x10ffff)
-		ctx->temp = 0xfffd;
-
 	/* emit */
 	if (ctx->temp <= 0x7f) {
 		ctx->buf[ctx->npos++] = (char)(ctx->temp & 0x7f);
@@ -1831,64 +478,20 @@ a:
 	ctx->buf[ctx->npos++] = (char)(0x80 | ((uint8_t)(ctx->temp) & 0x3f));
 }
 
-/*
- * A new value, with extra bytes after it, added to the declaration being
- * parsed.  Every lookup of a property lists all the values of the winning
- * declaration (ctx->active_atr), and an inherited one is looked up from every
- * element, so a declaration keeps at most LHP_MAX_CSS_DECL_VALUES: past that,
- * NULL with *drop set, and the caller ignores the value.  NULL without *drop
- * is OOM.
- */
-
-static lcsp_atr_t *
-lcsp_atr_new(lhp_ctx_t *ctx, size_t extra, int *drop)
-{
-	lcsp_atr_t *atr;
-
-	*drop = 0;
-	if (!ctx->def ||
-	    lws_dll2_count(&ctx->def->atrs) >= LHP_MAX_CSS_DECL_VALUES) {
-		if (ctx->def && !ctx->css_values_capped) {
-			ctx->css_values_capped = 1;
-			lwsl_warn("%s: css declaration with over %d values, "
-				  "ignoring the rest of them\n", __func__,
-				  LHP_MAX_CSS_DECL_VALUES);
-		}
-		*drop = 1;
-
-		return NULL;
-	}
-
-	atr = lwsac_use_zero(&ctx->cssac, sizeof(*atr) + extra,
-			     LHP_AC_GRANULE);
-	if (atr)
-		lws_dll2_add_tail(&atr->list, &ctx->def->atrs);
-
-	return atr;
-}
-
 static int
 lcsp_append_cssval_int(lhp_ctx_t *ctx)
 {
-	int drop;
-	lcsp_atr_t *atr = lcsp_atr_new(ctx, 0, &drop);
-
+	lcsp_atr_t *atr = lwsac_use_zero(&ctx->cssac, sizeof(*atr), LHP_AC_GRANULE);
 	if (!atr)
-		return !drop;
+		return 1;
 
 	/* add this prop value atr to the def */
 
 	//lwsl_err("%s: tf %d.%u\n", __func__, ctx->tf.whole, ctx->tf.frac);
-
-	if (ctx->u.f.negval) {
-		ctx->tf.whole = -ctx->tf.whole;
-		ctx->tf.frac = -ctx->tf.frac;
-		ctx->u.f.negval = 0;
-	}
-
 	atr->u.i = ctx->tf;
-	/* a bare number: keep it distinct from keyword atrs (unit NONE) */
-	atr->unit = (uint8_t)(ctx->unit ? ctx->unit : LCSP_UNIT_NUM);
+	atr->unit = ctx->unit;
+
+	lws_dll2_add_tail(&atr->list, &ctx->def->atrs);
 
 	return 0;
 }
@@ -1896,16 +499,13 @@ lcsp_append_cssval_int(lhp_ctx_t *ctx)
 static int
 lcsp_append_cssval_color(lhp_ctx_t *ctx)
 {
+	lcsp_atr_t *atr = lwsac_use_zero(&ctx->cssac, sizeof(*atr), LHP_AC_GRANULE);
 	unsigned int r, g, b, a = 0xff;
-	lcsp_atr_t *atr;
-	int drop;
 
-	atr = lcsp_atr_new(ctx, 0, &drop);
-	if (!atr) {
-		if (!drop)
-			return 1;
-		goto done;
-	}
+	if (!atr)
+		return 1;
+
+	/* add this prop value atr to the def */
 
 	switch (ctx->temp_count) {
 	case 3:
@@ -1942,7 +542,8 @@ lcsp_append_cssval_color(lhp_ctx_t *ctx)
 
 	atr->unit = LCSP_UNIT_RGBA;
 
-done:
+	lws_dll2_add_tail(&atr->list, &ctx->def->atrs);
+
 	ctx->u.f.color = 0;
 	ctx->temp = 0;
 	ctx->temp_count = 0;
@@ -1950,327 +551,11 @@ done:
 	return 0;
 }
 
-static int lcsp_append_cssval_string(lhp_ctx_t *ctx);
-
-/* properties whose keyword values may be colour names */
-
-static int
-lcsp_prop_takes_colour(int prop)
-{
-	switch (prop) {
-	case LCSP_PROP_COLOR:
-	case LCSP_PROP_BACKGROUND_COLOR:
-	case LCSP_PROP_BACKGROUND:
-	case LCSP_PROP_BORDER_COLOR:
-	case LCSP_PROP_BORDER_TOP_COLOR:
-	case LCSP_PROP_BORDER_RIGHT_COLOR:
-	case LCSP_PROP_BORDER_BOTTOM_COLOR:
-	case LCSP_PROP_BORDER_LEFT_COLOR:
-	case LCSP_PROP_BORDER:
-	case LCSP_PROP_BORDER_TOP:
-	case LCSP_PROP_BORDER_RIGHT:
-	case LCSP_PROP_BORDER_BOTTOM:
-	case LCSP_PROP_BORDER_LEFT:
-	case LCSP_PROP_OUTLINE_COLOR:
-	case LCSP_PROP_OUTLINE:
-		return 1;
-	default:
-		return 0;
-	}
-}
-
-/* the CSS named colours pages actually use; value is 0xRRGGBB */
-
-static const struct {
-	const char	*name;
-	uint32_t	rgb;
-} lcsp_named_colours[] = {
-	{ "black",	0x000000 }, { "white",	0xffffff },
-	{ "red",	0xff0000 }, { "green",	0x008000 },
-	{ "blue",	0x0000ff }, { "yellow",	0xffff00 },
-	{ "gray",	0x808080 }, { "grey",	0x808080 },
-	{ "silver",	0xc0c0c0 }, { "maroon",	0x800000 },
-	{ "purple",	0x800080 }, { "fuchsia",	0xff00ff },
-	{ "magenta",	0xff00ff }, { "lime",	0x00ff00 },
-	{ "olive",	0x808000 }, { "navy",	0x000080 },
-	{ "teal",	0x008080 }, { "aqua",	0x00ffff },
-	{ "cyan",	0x00ffff }, { "orange",	0xffa500 },
-	{ "darkgray",	0xa9a9a9 }, { "darkgrey",	0xa9a9a9 },
-	{ "lightgray",	0xd3d3d3 }, { "lightgrey",	0xd3d3d3 },
-	{ "dimgray",	0x696969 }, { "dimgrey",	0x696969 },
-	{ "whitesmoke",	0xf5f5f5 }, { "gainsboro",	0xdcdcdc },
-	{ "darkgreen",	0x006400 }, { "darkblue",	0x00008b },
-	{ "darkred",	0x8b0000 }, { "lightblue",	0xadd8e6 },
-	{ "lightgreen",	0x90ee90 }, { "steelblue",	0x4682b4 },
-	{ "royalblue",	0x4169e1 }, { "dodgerblue",	0x1e90ff },
-	{ "skyblue",	0x87ceeb }, { "slategray",	0x708090 },
-	{ "slategrey",	0x708090 }, { "gold",	0xffd700 },
-	{ "pink",	0xffc0cb }, { "hotpink",	0xff69b4 },
-	{ "brown",	0xa52a2a }, { "tan",	0xd2b48c },
-	{ "beige",	0xf5f5dc }, { "ivory",	0xfffff0 },
-	{ "khaki",	0xf0e68c }, { "coral",	0xff7f50 },
-	{ "salmon",	0xfa8072 }, { "crimson",	0xdc143c },
-	{ "tomato",	0xff6347 }, { "orangered",	0xff4500 },
-	{ "indigo",	0x4b0082 }, { "violet",	0xee82ee },
-	{ "turquoise",	0x40e0d0 }, { "chocolate",	0xd2691e },
-	{ "firebrick",	0xb22222 }, { "forestgreen",	0x228b22 },
-	{ "seagreen",	0x2e8b57 }, { "midnightblue",	0x191970 },
-	{ "lavender",	0xe6e6fa }, { "linen",	0xfaf0e6 },
-	{ "snow",	0xfffafa }, { "aliceblue",	0xf0f8ff },
-};
-
-static int
-lcsp_append_rgba(lhp_ctx_t *ctx, uint32_t rgba)
-{
-	int drop;
-	lcsp_atr_t *atr = lcsp_atr_new(ctx, 0, &drop);
-
-	if (!atr)
-		return !drop;
-
-	atr->unit = LCSP_UNIT_RGBA;
-	atr->u.rgba = rgba;
-
-	return 0;
-}
-
-/* a number in a functional value, with optional % or deg; 0 if none */
-
-static int
-lcsp_func_num(const char **pp, const char *end, lws_fx_t *v, int *pct)
-{
-	const char *p = *pp, *s;
-
-	while (p < end && (*p == ' ' || *p == ',' || *p == '/'))
-		p++;
-	s = p;
-	while (p < end && ((*p >= '0' && *p <= '9') || *p == '.' || *p == '-'))
-		p++;
-	if (p == s) {
-		*pp = p;
-		return 0;
-	}
-	lhp_fx_parse(v, s, (size_t)(p - s));
-	*pct = p < end && *p == '%';
-	while (p < end && ((*p >= 'a' && *p <= 'z') || *p == '%'))
-		p++;
-	*pp = p;
-
-	return 1;
-}
-
-static uint32_t
-lcsp_chan(const lws_fx_t *v, int pct, int scale)
-{
-	lws_fx_t t, c255 = { 255, 0 }, c100 = { 100, 0 }, cs = { scale, 0 };
-	int32_t r;
-
-	if (pct)
-		lws_fx_div(&t, lws_fx_mul(&t, v, &c255), &c100);
-	else
-		lws_fx_mul(&t, v, &cs);
-
-	r = lws_fx_roundup(&t);
-	if (r < 0)
-		r = 0;
-	if (r > 255)
-		r = 255;
-
-	return (uint32_t)r;
-}
-
-/* hsl to rgb, h in degrees, s and l as 0..255 */
-
-static uint32_t
-lcsp_hsl_chan(int h, int s, int l, int n)
-{
-	/* CSS Color 4 algorithm with everything scaled by 255 */
-	int k = (n * 30 + h) % 360, a, v;
-
-	if (k < 0)
-		k += 360;
-	a = s * (l < 128 ? l : 255 - l) / 255;
-
-	/* min(k - 3, 9 - k, 1) in twelfths of a turn -> degrees */
-	v = k - 90;
-	if (270 - k < v)
-		v = 270 - k;
-	if (v > 30)
-		v = 30;
-	if (v < -30)
-		v = -30;
-
-	return (uint32_t)(l - a * v / 30);
-}
-
-/*
- * A complete name( ... ) value is in buf: turn it into the right kind of
- * attribute
- */
-
-static int
-lcsp_func_value(lhp_ctx_t *ctx)
-{
-	const char *b = ctx->buf, *p = strchr(b, '('), *end;
-	size_t nl;
-	int drop;
-
-	if (!p || !ctx->def)
-		return 0;
-
-	nl = (size_t)(p - b);
-	p++;
-	end = ctx->buf + ctx->npos - 1; /* the closing paren */
-
-	if (nl == 4 && !strncasecmp(b, "calc", 4)) {
-		lcsp_atr_t *atr = lcsp_atr_new(ctx, (size_t)(end - p) + 1,
-					       &drop);
-		if (!atr)
-			return !drop;
-
-		atr->unit = LCSP_UNIT_CALC;
-		atr->value_len = (uint16_t)(end - p);
-		memcpy(&atr[1], p, atr->value_len);
-		((char *)&atr[1])[atr->value_len] = '\0';
-
-		return 0;
-	}
-
-	/*
-	 * min(), max() and clamp() as a value are calc() expressions too:
-	 * keep the whole function text, the calc evaluator knows them
-	 */
-	if ((nl == 3 && !strncasecmp(b, "min", 3)) ||
-	    (nl == 3 && !strncasecmp(b, "max", 3)) ||
-	    (nl == 5 && !strncasecmp(b, "clamp", 5))) {
-		size_t fl = (size_t)(end - b) + 1;
-		lcsp_atr_t *atr = lcsp_atr_new(ctx, fl + 1, &drop);
-
-		if (!atr)
-			return !drop;
-
-		atr->unit = LCSP_UNIT_CALC;
-		atr->value_len = (uint16_t)fl;
-		memcpy(&atr[1], b, fl);
-		((char *)&atr[1])[fl] = '\0';
-
-		return 0;
-	}
-
-	if ((nl == 3 && !strncasecmp(b, "rgb", 3)) ||
-	    (nl == 4 && !strncasecmp(b, "rgba", 4))) {
-		lws_fx_t v[4];
-		int pct[4], n = 0;
-		uint32_t c[4] = { 0, 0, 0, 255 };
-
-		while (n < 4 && lcsp_func_num(&p, end, &v[n], &pct[n]))
-			n++;
-		if (n < 3)
-			return 0;
-		c[0] = lcsp_chan(&v[0], pct[0], 1);
-		c[1] = lcsp_chan(&v[1], pct[1], 1);
-		c[2] = lcsp_chan(&v[2], pct[2], 1);
-		if (n == 4)
-			c[3] = lcsp_chan(&v[3], pct[3], 255);
-
-		return lcsp_append_rgba(ctx, (c[3] << 24) | (c[2] << 16) |
-					     (c[1] << 8) | c[0]);
-	}
-
-	if ((nl == 3 && !strncasecmp(b, "hsl", 3)) ||
-	    (nl == 4 && !strncasecmp(b, "hsla", 4))) {
-		lws_fx_t v[4];
-		int pct[4], n = 0, h, sa, l;
-		uint32_t a = 255;
-
-		while (n < 4 && lcsp_func_num(&p, end, &v[n], &pct[n]))
-			n++;
-		if (n < 3)
-			return 0;
-		h = v[0].whole % 360;
-		if (h < 0)
-			h += 360;
-		sa = (int)lcsp_chan(&v[1], 1, 1);
-		l = (int)lcsp_chan(&v[2], 1, 1);
-		if (n == 4)
-			a = lcsp_chan(&v[3], pct[3], 255);
-
-		return lcsp_append_rgba(ctx, (a << 24) |
-				(lcsp_hsl_chan(h, sa, l, 4) << 16) |
-				(lcsp_hsl_chan(h, sa, l, 8) << 8) |
-				 lcsp_hsl_chan(h, sa, l, 0));
-	}
-
-	if (nl == 3 && !strncasecmp(b, "url", 3)) {
-		lcsp_atr_t *atr;
-		size_t vl;
-
-		/* the bare address: strip whitespace and quotes */
-		while (p < end && (*p == ' ' || *p == '"' || *p == '\''))
-			p++;
-		while (end > p && (end[-1] == ' ' || end[-1] == '"' ||
-				   end[-1] == '\''))
-			end--;
-		vl = (size_t)(end - p);
-
-		atr = lcsp_atr_new(ctx, vl + 1, &drop);
-		if (!atr)
-			return !drop;
-
-		atr->unit = LCSP_UNIT_URL;
-		atr->value_len = (uint16_t)vl;
-		memcpy(&atr[1], p, vl);
-		((char *)&atr[1])[vl] = '\0';
-
-		return 0;
-	}
-
-	/* var(--x), linear-gradient(...) etc: keep the text */
-
-	return lcsp_append_cssval_string(ctx);
-}
-
-/*
- * A delimiter arrived while a keyword value was being matched: the token
- * may be a complete keyword that is also the prefix of a longer one (eg,
- * "table" vs "table-row"), which the minilex only reports when asked with a
- * NUL.  Otherwise keep it as a string value.
- */
-
-static int
-lcsp_finish_cssval_keyword(lhp_ctx_t *ctx)
-{
-	int r;
-
-	if (!ctx->cssval_state || !ctx->def)
-		return 0;
-
-	r = 0;
-	if (ctx->cssval_state > 0 &&
-	    lws_minilex_parse(css_propconst_lextable, &ctx->cssval_state, 0,
-			      &ctx->propval) == LWS_MINILEX_MATCH) {
-		int drop;
-		lcsp_atr_t *atr = lcsp_atr_new(ctx, 0, &drop);
-
-		if (atr)
-			atr->propval = (uint16_t)ctx->propval;
-		else if (!drop)
-			return 1;
-	} else if (ctx->npos)
-		r = lcsp_append_cssval_string(ctx);
-
-	ctx->npos = 0;
-	ctx->cssval_state = 0;
-
-	return r;
-}
-
 static int
 lcsp_append_cssval_string(lhp_ctx_t *ctx)
 {
-	char *v, *c = &ctx->buf[0];
 	lcsp_atr_t *atr;
-	int drop;
+	char *v, *c = &ctx->buf[0];
 
 	if (c[0] == '\"' || c[0] == '\'') {
 		c++;
@@ -2279,3562 +564,74 @@ lcsp_append_cssval_string(lhp_ctx_t *ctx)
 	if (ctx->npos && (c[ctx->npos - 1] == '\"' || c[ctx->npos - 1] == '\''))
 		ctx->npos--;
 
-	if (ctx->npos == 10 && !strncasecmp(c, "!important", 10)) {
-		/* not a value: raise the precedence of the declaration */
-		if (ctx->def)
-			ctx->def->important = 1;
-		return 0;
-	}
-
-	if (ctx->def && lcsp_prop_takes_colour((int)ctx->def->prop)) {
-		size_t n;
-
-		if (ctx->npos == 11 && !strncasecmp(c, "transparent", 11))
-			return lcsp_append_rgba(ctx, 0);
-
-		for (n = 0; n < LWS_ARRAY_SIZE(lcsp_named_colours); n++)
-			if (strlen(lcsp_named_colours[n].name) == (size_t)ctx->npos &&
-			    !strncasecmp(c, lcsp_named_colours[n].name,
-					 (size_t)ctx->npos)) {
-				uint32_t rgb = lcsp_named_colours[n].rgb;
-
-				return lcsp_append_rgba(ctx, 0xff000000u |
-					((rgb & 0xff) << 16) | (rgb & 0xff00) |
-					(rgb >> 16));
-			}
-	}
-
-	atr = lcsp_atr_new(ctx, (size_t)ctx->npos + 1u, &drop);
+	atr = lwsac_use_zero(&ctx->cssac, sizeof(*atr) + (size_t)ctx->npos + 1u,
+			     LHP_AC_GRANULE);
 	if (!atr)
-		return !drop;
+		return 1;
 
 	v = (char *)&atr[1];
-	atr->value_len = (uint16_t)ctx->npos;
+	atr->value_len = (size_t)ctx->npos;
 	memcpy(v, c, (size_t)ctx->npos);
 	v[ctx->npos] = '\0';
-	atr->unit = LCSP_UNIT_STRING;
 
 	//lwsl_notice("%s: %s\n", __func__, v);
 
-	return 0;
-}
-
-const char *
-lws_html_get_atr(lhp_pstack_t *ps, const char *aname, size_t aname_len);
-
-/*
- * CSS selectors
- *
- * Selector text is kept as written, normalized so that a single space is the
- * descendant combinator, there are no spaces around '>', '+', '~', and none
- * inside [...].  A subject is an element's attribute index (its tag, and its
- * attributes by name) with the parse-stack level of its parent: that gives
- * the ancestors, and the parent's remembered closed children give the
- * earlier siblings.
- *
- * Each selector is compiled once, when its stanza is parsed, into a compact
- * program kept after its text (lcsp_names_t.prog_len), so that matching never
- * looks at the selector text again, however many elements, ancestors and
- * siblings it is tried against.  The program is bytes only, multi-byte
- * values little-endian, so the user-agent sheet's can be emitted as const
- * tables (lhp-ua-gen.c) for any target.
- *
- * A complex selector is its compounds right to left, the order matching
- * visits them, each one its simple selectors left to right, then
- *
- *	LHP_SC_END, comb
- *
- * where comb is the combinator to the compound's left (' ', '>', '~', '+'),
- * 0 if it is the leftmost, or LHP_SC_COMB_FAIL if there is nothing to the
- * left of the combinator.  A simple selector that can never match (one we
- * don't understand or support) is LHP_SC_NEVER, and nothing follows it, since
- * matching stops there.  The simple selectors are
- *
- *	LHP_SC_ANY				*
- *	LHP_SC_TAG, len, ofs, hash[4]		tag, its name in the text
- *	LHP_SC_CLASS, len, name[len]		.class, the name unescaped
- *	LHP_SC_ID, len, name[len]		#id, the name unescaped
- *	LHP_SC_ATTR, op, len, ofs, hash[4],	[name op value]: name and value
- *		vlen, vofs			  in the text, op 0 for [name]
- *	LHP_SC_PSEUDO, LHP_SCP_			:checked, :root, ...
- *	LHP_SC_IS, len[2], list			:is() and :where()
- *	LHP_SC_NOT, len[2], list		:not()
- *
- * where a list is its complex selectors, each len[2] then the selector.  The
- * hashes are lhp_name_hash() of the names, compared with the ones the
- * element's attribute index keeps before any name is compared.
- *
- * The user-agent sheet's programs are committed in lhp-ua-css.h, so any
- * change to this format, or to the lcsp_names_t members compiled with it,
- * must bump LHP_SEL_PROG_FORMAT (lws-html.h) and regenerate that header: a
- * header from another format fails the build.  The decoder still checks
- * each read against the program's length and each offset against the
- * selector text, so a program it doesn't understand fails to match rather
- * than read past its end.
- */
-
-enum {
-	LHP_SC_END = 1,
-	LHP_SC_NEVER,
-	LHP_SC_ANY,
-	LHP_SC_TAG,
-	LHP_SC_CLASS,
-	LHP_SC_ID,
-	LHP_SC_ATTR,
-	LHP_SC_PSEUDO,
-	LHP_SC_IS,
-	LHP_SC_NOT,
-};
-
-/* the comb of a combinator with nothing on its left: never matches */
-#define LHP_SC_COMB_FAIL	1
-
-enum {
-	LHP_SCP_CHECKED,
-	LHP_SCP_DISABLED,
-	LHP_SCP_ENABLED,
-	LHP_SCP_FIRST_CHILD,
-	LHP_SCP_ROOT,
-	LHP_SCP_LINK,
-};
-
-static size_t
-lhp_sc_rd16(const uint8_t *p)
-{
-	return (size_t)p[0] | ((size_t)p[1] << 8);
-}
-
-static uint32_t
-lhp_sc_rd32(const uint8_t *p)
-{
-	return (uint32_t)p[0] | ((uint32_t)p[1] << 8) |
-	       ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
-}
-
-/*
- * The state of one selector match: the steps it has left (see
- * LHP_SEL_MATCH_BUDGET), the work done since the last step charged for work
- * (see lhp_sel_work()), the text of the selector its program refers to and
- * the end of both, whether the program turned out malformed, and the ctx
- * whose sel_work counts the work it does
- */
-
-typedef struct lhp_selm {
-	lhp_ctx_t		*ctx;
-	const char		*text;
-	const uint8_t		*end;		/* of the program */
-	size_t			text_len;
-	size_t			work;
-	int			budget;
-	uint8_t			bad;
-} lhp_selm_t;
-
-/*
- * Does the program have n more bytes at c?  If not, it is malformed, and the
- * whole selector must not match: a failure inside :not() would otherwise
- * invert into a match
- */
-
-static int
-lhp_sc_has(lhp_selm_t *m, const uint8_t *c, size_t n)
-{
-	if (c <= m->end && (size_t)(m->end - c) >= n)
-		return 1;
-	m->bad = 1;
+	lws_dll2_add_tail(&atr->list, &ctx->def->atrs);
 
 	return 0;
 }
 
-/* is [ofs, ofs + len) inside the selector text?  If not, likewise */
-
 static int
-lhp_sc_in_text(lhp_selm_t *m, size_t ofs, size_t len)
+lws_css_cascade_atr_match(lhp_ctx_t *ctx, const char *tag, size_t tag_len)
 {
-	if (ofs <= m->text_len && len <= m->text_len - ofs)
-		return 1;
-	m->bad = 1;
-
-	return 0;
-}
-
-/*
- * Selector matching counts its work in ctx->sel_work where it is done: a unit
- * for each compound and simple selector visited and each attribute index
- * entry probed, and one for each byte of a name compared or of an attribute
- * value scanned.  The work also draws on the match's budget: each
- * LHP_SEL_STEP_WORK units cost a step, carried from one call to the next, so
- * that short scans are not free however many of them a match makes, and a
- * step stands for a bounded amount of work whatever kind of work it is
- */
-
-#define LHP_SEL_STEP_WORK		32
-
-static void
-lhp_sel_work(lhp_selm_t *m, size_t units)
-{
-	m->ctx->sel_work += units;
-	m->work += units;
-	if (m->work >= LHP_SEL_STEP_WORK) {
-		m->budget -= (int)(m->work / LHP_SEL_STEP_WORK);
-		m->work %= LHP_SEL_STEP_WORK;
-	}
-}
-
-/*
- * The value of the first of an element's attributes named [n, n + nl)
- * ignoring case, whose lhp_name_hash() is h, found in the element's
- * attribute index.  The binary search compares only hashes and lengths, so a
- * lookup compares at most one name, unless different names of the same
- * length share the hash.  A page can choose its names so that they do: in a
- * selector match (m not NULL), each name compared after the first costs a
- * step, so a step still compares at most one name, and the work, the first
- * name's bytes included, is charged by lhp_sel_work().  Otherwise the work
- * only counts in ctx->sel_work
- */
-
-static const char *
-lhp_atr_find(lhp_ctx_t *ctx, lhp_selm_t *m, const lhp_atr_idx_t *ai,
-	     const char *n, size_t nl, uint32_t h)
-{
-	unsigned int lo = 0, hi = ai->count;
-	const char *v = NULL;
-	uint64_t work = 0;
-	int first = 1;
-
-	while (lo < hi) {
-		unsigned int mid = lo + (hi - lo) / 2;
-		const lhp_atr_ent_t *e = &ai->a[mid];
-
-		work++;
-		if (e->h < h || (e->h == h && e->a->name_len < nl))
-			lo = mid + 1;
-		else
-			hi = mid;
-	}
-
-	/* the entries with this hash and length, sorted by name */
-
-	for (; lo < ai->count && ai->a[lo].h == h &&
-	       ai->a[lo].a->name_len == nl; lo++) {
-		const lhp_atr_t *at = ai->a[lo].a;
-		int r;
-
-		if (!first && m && --m->budget < 0)
-			/* out of steps: the match won't be believed */
-			break;
-		first = 0;
-
-		work++;
-		r = lhp_name_cmp(n, (const char *)&at[1], nl, &work);
-		if (!r) {
-			v = (const char *)&at[1] + at->name_len + 1;
-			break;
-		}
-		if (r < 0)
-			break;
-	}
-
-	if (m)
-		lhp_sel_work(m, (size_t)work);
-	else
-		ctx->sel_work += work;
-
-	return v;
-}
-
-/* the value of the element's attribute with the fixed name n, if any */
-
-static const char *
-lhp_atr_get_fixed(lhp_selm_t *m, const lhp_atr_idx_t *el, const char *n,
-		  size_t nl)
-{
-	return lhp_atr_find(m->ctx, m, el, n, nl, lhp_name_hash(n, nl));
-}
-
-static int
-lhp_ident_char(char c)
-{
-	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-	       (c >= '0' && c <= '9') || c == '-' || c == '_' ||
-	       (unsigned char)c >= 0x80;
-}
-
-static int
-lhp_ws(char c)
-{
-	return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f';
-}
-
-/*
- * Is [name, name + name_len) one of the whitespace-separated words of the
- * attribute value v?  It is how both .class and [attr~=word] match: a class
- * token is bounded by whitespace (a tailwind class like md:flex or
- * w-[1312px] is one token, matched by an escaped selector .md\:flex), and so
- * is a ~= word, so an empty name, or one containing whitespace, never
- * matches.  This is the hottest comparison in the cascade (every class
- * selector that survives the key prefilter, for every element), so no
- * tokenizer: one pass over the value, charged a unit per byte.
- *
- * The name is decoded selector text and may hold a NUL (an escaped one), so
- * compare by length and never index past the word
- */
-
-static int
-lhp_sel_has_word(lhp_selm_t *m, const char *v, const char *name,
-		 size_t name_len)
-{
-	const char *c = v, *t;
-	int hit = 0;
-
-	while (*c && !hit) {
-		while (lhp_ws(*c))
-			c++;
-		t = c;
-		while (*c && !lhp_ws(*c))
-			c++;
-		/* a word has at least one byte: compare it before memcmp() */
-		hit = c != t && (size_t)(c - t) == name_len &&
-		      *t == *name && !memcmp(t, name, name_len);
-	}
-
-	lhp_sel_work(m, (size_t)(c - v) + (hit ? name_len : 0));
-
-	return hit;
-}
-
-static int
-lhp_sel_match(lhp_selm_t *m, const lhp_atr_idx_t *el, lhp_pstack_t *parent,
-	      const uint8_t *c);
-
-/*
- * The descendant combinator makes selector matching backtrack over every
- * ancestor at every level: a selector of 63 " a" against 127 nested <a> is
- * exponential.  Each top-level match gets at most LHP_SEL_MATCH_BUDGET
- * lhp_sel_match() steps; a selector that runs out simply does not match.
- *
- * The step counter is threaded through :is() / :where() / :not() arguments
- * rather than renewed there, or nesting them would multiply the bound.
- *
- * The document's own selectors also draw on one LHP_SEL_CASCADE_BUDGET per
- * element, so however many expensive selectors a page carries, cascading
- * one of its elements costs a bounded amount.  The user-agent and filter
- * selectors are trusted and don't draw on it, so a page cannot starve them.
- *
- * A step must be a bounded amount of work for that to hold, however long the
- * selector, its names and values, and however many attributes the element
- * has.  A step is one of
- *
- *  - lhp_sel_match() visiting a compound, with its first simple selector,
- *  - each further simple selector of the compound (a compound can hold forty
- *    [a] or sixty .c, G-529),
- *  - each further attribute name a lookup compares, past the first (only
- *    names sharing a hash and length, G-540), and
- *  - each LHP_SEL_STEP_WORK units of the work itself, counted where it is
- *    done (lhp_sel_work()): each compound and simple selector visited, index
- *    entry probed, byte of a name compared and byte of an attribute value
- *    scanned or compared, carried over from one simple selector to the next
- *    so that scans shorter than that are not free (G-523, G-547).
- *
- * The selector itself is compiled once (see above), so a step never looks at
- * its text.  A simple selector looks its attribute, class or id up in the
- * element's attribute index: a binary search of <= LHP_MAX_ATR_PER_ELEM
- * hashes, 7 probes, then at most one name compare of its own, < 128 bytes
- * (the selector text is shorter); :checked looks up two names.  A combinator
- * reaches the next ancestor or sibling in O(1): a resolved element keeps its
- * parent element (lhp_parent_elem()).  Values are scanned in one pass, a
- * byte at a time ('~=' and .class split on whitespace, no tokenizer), and
- * '*=' compares each position only up to the first byte that differs.  So a
- * step is a few operations plus at most LHP_SEL_STEP_WORK units of work,
- * besides the < LHP_SEL_STEP_WORK carried at the end of a match and the
- * bytes of a value scan that the step running out interrupts (a strlen() or
- * word scan of <= LHP_STRING_CHUNK, or one '*=' position of < 128 bytes).
- *
- * Every step taken also counts in the document's ctx->cascade_ops, and the
- * work in ctx->sel_work, so tests can check that a step stays a bounded
- * amount of work rather than only counting steps.
- */
-#define LHP_SEL_MATCH_BUDGET		4096
-#define LHP_SEL_CASCADE_BUDGET		32768
-
-/*
- * One class token of the element being cascaded, with its selector index
- * hash.  They are sorted so repeats are adjacent and each distinct token is
- * looked up once, however many there are
- */
-typedef struct lhp_cls_tok {
-	const char		*s;
-	size_t			len;
-	uint32_t		h;
-} lhp_cls_tok_t;
-
-/*
- * The parent element of a level: the nearest level above it with a tag.
- * Levels without one (a malformed tag) can nest, so a resolved element keeps
- * it rather than walking them for every selector step
- */
-
-static lhp_pstack_t *
-lhp_parent_elem(lhp_pstack_t *ps)
-{
-	lws_dll2_t *d;
-
-	if (!ps)
-		return NULL;
-	if (ps->css_resolved)
-		return ps->parent_elem;
-
-	d = lws_dll2_get_prev(&ps->list);
-	while (d) {
-		lhp_pstack_t *p = lws_container_of(d, lhp_pstack_t, list);
-
-		if (!lws_dll2_is_empty(&p->atr) || !lws_dll2_get_prev(d))
-			return p;
-		d = lws_dll2_get_prev(d);
-	}
-
-	return NULL;
-}
-
-/* the compiled selector list [c, end): does any of them match? */
-
-static int
-lhp_sel_list_match(lhp_selm_t *m, const lhp_atr_idx_t *el,
-		   lhp_pstack_t *parent, const uint8_t *c, const uint8_t *end)
-{
-	while (c < end) {
-		size_t l;
-
-		if (end - c < 2) {
-			m->bad = 1;
-			return 0;
-		}
-		l = lhp_sc_rd16(c);
-		if (l > (size_t)(end - c) - 2) {
-			m->bad = 1;
-			return 0;
-		}
-
-		if (lhp_sel_match(m, el, parent, c + 2))
-			return 1;
-		c += 2 + l;
-	}
-
-	return 0;
-}
-
-/*
- * :pseudo-class evaluation, besides :is() / :where() / :not().  We have no
- * hover / focus / visited state, so those never match: they are compiled as
- * LHP_SC_NEVER
- */
-
-static int
-lhp_sel_pseudo(lhp_selm_t *m, const lhp_atr_idx_t *el, lhp_pstack_t *parent,
-	       uint8_t kind)
-{
-	const lhp_atr_t *ta = el->tag;
-	const char *tag = (const char *)&ta[1];
-
-	switch (kind) {
-	case LHP_SCP_CHECKED:
-		return lhp_atr_get_fixed(m, el, "checked", 7) != NULL ||
-		       lhp_atr_get_fixed(m, el, "selected", 8) != NULL;
-
-	case LHP_SCP_DISABLED:
-		return lhp_atr_get_fixed(m, el, "disabled", 8) != NULL;
-
-	case LHP_SCP_ENABLED:
-		return lhp_atr_get_fixed(m, el, "disabled", 8) == NULL;
-
-	case LHP_SCP_FIRST_CHILD:
-		/* text between elements doesn't count in CSS either */
-		return parent && lws_dll2_is_empty(&parent->sibs);
-
-	case LHP_SCP_ROOT:
-		return ta->name_len == 4 && !strncasecmp(tag, "html", 4);
-
-	case LHP_SCP_LINK:
-		return ta->name_len == 1 && (*tag == 'a' || *tag == 'A') &&
-		       lhp_atr_get_fixed(m, el, "href", 4) != NULL;
-	}
-
-	return 0;
-}
-
-/*
- * Does the subject match the compiled compound at *pc?  If so, *pc moves past
- * it and its comb is returned, else -1
- */
-
-static int
-lhp_sel_match_compound(lhp_selm_t *m, const lhp_atr_idx_t *el,
-		       lhp_pstack_t *parent, const uint8_t **pc)
-{
-	const uint8_t *c = *pc;
-	const char *v, *s;
-	size_t l, vl;
-	int first = 1;
-
-	if (!el->tag)
-		/* the document level: no element here */
-		return -1;
-
-	for (;;) {
-		uint8_t op;
-
-		/* a program ends in LHP_SC_END, comb or LHP_SC_NEVER */
-		if (!lhp_sc_has(m, c, 1))
-			return -1;
-		op = *c++;
-
-		if (op == LHP_SC_END) {
-			if (!lhp_sc_has(m, c, 1))
-				return -1;
-			*pc = c + 1;
-
-			return *c;
-		}
-
-		/*
-		 * The step lhp_sel_match() took for the compound covers its
-		 * first simple selector, each one after that takes a step of
-		 * its own: a compound can hold forty [a] or .c, each a lookup
-		 * and maybe a scan, and a step must stay a bounded amount of
-		 * work however long the compound is
-		 */
-		if (!first)
-			m->budget--;
-		first = 0;
-		lhp_sel_work(m, 1);
-		if (m->budget < 0)
-			/* out of steps: the match won't be believed anyway */
-			return -1;
-
-		switch (op) {
-		case LHP_SC_ANY:
-			break;
-
-		case LHP_SC_TAG:
-		{
-			uint64_t w = 0;
-			int r;
-
-			if (!lhp_sc_has(m, c, 6) ||
-			    !lhp_sc_in_text(m, c[1], c[0]))
-				return -1;
-			l = c[0];
-			if (l != el->tag->name_len ||
-			    lhp_sc_rd32(c + 2) != el->tag_h)
-				return -1;
-			r = lhp_name_cmp(m->text + c[1],
-					 (const char *)&el->tag[1], l, &w);
-			lhp_sel_work(m, (size_t)w);
-			if (r)
-				return -1;
-			c += 6;
-			break;
-		}
-
-		case LHP_SC_CLASS:
-			if (!lhp_sc_has(m, c, 1) || !lhp_sc_has(m, c, 1u + c[0]))
-				return -1;
-			l = c[0];
-			v = lhp_atr_get_fixed(m, el, "class", 5);
-			if (!v || !lhp_sel_has_word(m, v, (const char *)c + 1, l))
-				return -1;
-			c += 1 + l;
-			break;
-
-		case LHP_SC_ID:
-			if (!lhp_sc_has(m, c, 1) || !lhp_sc_has(m, c, 1u + c[0]))
-				return -1;
-			l = c[0];
-			v = lhp_atr_get_fixed(m, el, "id", 2);
-			if (!v)
-				return -1;
-			vl = strlen(v);
-			lhp_sel_work(m, vl + (vl == l ? l : 0));
-			if (vl != l || memcmp(v, c + 1, l))
-				return -1;
-			c += 1 + l;
-			break;
-
-		case LHP_SC_ATTR:
-		{
-			const char *av;
-			size_t avl;
-			char aop;
-
-			if (!lhp_sc_has(m, c, 9) ||
-			    !lhp_sc_in_text(m, c[2], c[1]) ||
-			    !lhp_sc_in_text(m, c[8], c[7]))
-				return -1;
-			av = m->text + c[8];
-			avl = c[7];
-			aop = (char)c[0];
-
-			v = lhp_atr_find(m->ctx, m, el, m->text + c[2], c[1],
-					 lhp_sc_rd32(c + 3));
-			c += 9;
-			if (!v)
-				return -1;
-			if (!aop)
-				break;
-
-			if (aop == '~') {
-				/* no strlen(): the word scan finds the end */
-				if (!lhp_sel_has_word(m, v, av, avl))
-					return -1;
-				break;
-			}
-
-			vl = strlen(v);
-			lhp_sel_work(m, vl);
-			switch (aop) {
-			case '=':
-				if (vl != avl)
-					return -1;
-				lhp_sel_work(m, avl);
-				if (memcmp(v, av, avl))
-					return -1;
-				break;
-			case '^':
-				if (!avl || vl < avl)
-					return -1;
-				lhp_sel_work(m, avl);
-				if (memcmp(v, av, avl))
-					return -1;
-				break;
-			case '$':
-				if (!avl || vl < avl)
-					return -1;
-				lhp_sel_work(m, avl);
-				if (memcmp(v + vl - avl, av, avl))
-					return -1;
-				break;
-			case '|':
-				if (vl < avl)
-					return -1;
-				lhp_sel_work(m, avl);
-				if (memcmp(v, av, avl) ||
-				    (v[avl] && v[avl] != '-'))
-					return -1;
-				break;
-			case '*':
-				if (!avl || vl < avl)
-					return -1;
-				/*
-				 * Each position compares until the first
-				 * byte that differs, and is charged the bytes
-				 * it compared: the positions times the needle
-				 * can be ~2048 x 127 bytes, so the budget is
-				 * checked at each one
-				 */
-				for (s = v; s + avl <= v + vl; s++) {
-					size_t k = 0;
-
-					while (k < avl && s[k] == av[k])
-						k++;
-					lhp_sel_work(m, k < avl ? k + 1 : k);
-					if (k == avl)
-						break;
-					if (m->budget < 0)
-						return -1;
-				}
-				if (s + avl > v + vl)
-					return -1;
-				break;
-			default:
-				return -1;
-			}
-			break;
-		}
-
-		case LHP_SC_PSEUDO:
-			if (!lhp_sc_has(m, c, 1) ||
-			    !lhp_sel_pseudo(m, el, parent, *c++))
-				return -1;
-			break;
-
-		case LHP_SC_IS:
-			if (!lhp_sc_has(m, c, 2) ||
-			    !lhp_sc_has(m, c, 2 + lhp_sc_rd16(c)))
-				return -1;
-			l = lhp_sc_rd16(c);
-			if (!lhp_sel_list_match(m, el, parent, c + 2,
-						c + 2 + l))
-				return -1;
-			c += 2 + l;
-			break;
-
-		case LHP_SC_NOT:
-			/*
-			 * An argument that ran out of budget did not really
-			 * fail to match: it must not invert into a match
-			 */
-			if (!lhp_sc_has(m, c, 2) ||
-			    !lhp_sc_has(m, c, 2 + lhp_sc_rd16(c)))
-				return -1;
-			l = lhp_sc_rd16(c);
-			if (lhp_sel_list_match(m, el, parent, c + 2,
-					       c + 2 + l) || m->budget < 0 ||
-			    m->bad)
-				return -1;
-			c += 2 + l;
-			break;
-
-		default:
-			if (op != LHP_SC_NEVER)
-				/* not an opcode of this format */
-				m->bad = 1;
-			return -1;
-		}
-	}
-}
-
-/*
- * If the selector ends with a :before / :after (or ::before / ::after)
- * pseudo-element, the length of that suffix, and which it is in *kind
- * (LHP_PSEUDO_ELEM_), else 0
- */
-
-static size_t
-lhp_pseudo_elem_suffix(const char *sel, size_t len, uint8_t *kind)
-{
-	static const struct {
-		const char	*s;
-		uint8_t		kind;
-	} suf[] = {
-		{ "::after",	LHP_PSEUDO_ELEM_AFTER },
-		{ "::before",	LHP_PSEUDO_ELEM_BEFORE },
-		{ ":after",	LHP_PSEUDO_ELEM_AFTER },
-		{ ":before",	LHP_PSEUDO_ELEM_BEFORE },
-	};
-	size_t n;
-
-	*kind = LHP_PSEUDO_ELEM_NONE;
-
-	/* the selector text can trail with spaces before the '{' */
-	while (len && (sel[len - 1] == ' ' || sel[len - 1] == '\t' ||
-		       sel[len - 1] == '\n' || sel[len - 1] == '\r'))
-		len--;
-
-	for (n = 0; n < LWS_ARRAY_SIZE(suf); n++) {
-		size_t sl = strlen(suf[n].s);
-
-		if (len > sl && !strncmp(sel + len - sl, suf[n].s, sl)) {
-			*kind = suf[n].kind;
-			return sl;
-		}
-	}
-
-	return 0;
-}
-
-/*
- * Match the compiled complex selector starting with the compound at c against
- * the subject.  ' ' and '>' walk the ancestors, '~' and '+' the parent's
- * remembered closed children.
- */
-
-static int
-lhp_sel_match(lhp_selm_t *m, const lhp_atr_idx_t *el, lhp_pstack_t *parent,
-	      const uint8_t *c)
-{
-	int comb;
-
-	m->budget--;
-	lhp_sel_work(m, 1);
-	if (m->budget < 0)
-		return 0;
-
-	comb = lhp_sel_match_compound(m, el, parent, &c);
-
-	switch (comb) {
-	case 0: /* the leftmost compound matched */
-		return 1;
-
-	case ' ': /* any ancestor */
-		while (parent) {
-			lhp_pstack_t *pp = lhp_parent_elem(parent);
-
-			if (lhp_sel_match(m, &parent->atr_idx, pp, c))
-				return 1;
-			parent = pp;
-		}
-		return 0;
-
-	case '>': /* the parent */
-		if (!parent)
-			return 0;
-		return lhp_sel_match(m, &parent->atr_idx,
-				     lhp_parent_elem(parent), c);
-
-	case '~': /* any earlier sibling we still remember */
-		if (!parent)
-			return 0;
-		lws_start_foreach_dll_back(lws_dll2_t *, d,
-					   lws_dll2_get_tail(&parent->sibs)) {
-			lhp_sib_t *sib = lws_container_of(d, lhp_sib_t, list);
-
-			if (lhp_sel_match(m, &sib->atr_idx, parent, c))
-				return 1;
-		} lws_end_foreach_dll_back(d);
-		return 0;
-
-	case '+': /* the immediately preceding sibling */
-		if (!parent || !lws_dll2_get_tail(&parent->sibs))
-			return 0;
-		return lhp_sel_match(m, &lws_container_of(
-				lws_dll2_get_tail(&parent->sibs),
-				lhp_sib_t, list)->atr_idx, parent, c);
-
-	case -1: /* the compound didn't match */
-	case LHP_SC_COMB_FAIL:
-		return 0;
-
-	default: /* not a combinator of this format */
-		m->bad = 1;
-		return 0;
-	}
-}
-
-/*
- * Compiling a selector (see "CSS selectors" above).  It runs twice: first
- * with no buffer, only to measure the program, then into the allocation made
- * for it.  Its text is < 128 chars and no char emits more than 8 bytes, so a
- * program is < 1024 bytes and every len fits its field.  Each nesting of
- * :is() / :not() scans its argument a few times, so the work, counted in
- * work, is <= ~3 x 64 levels x 127 chars per selector
- */
-
-typedef struct lhp_sc {
-	uint8_t			*b;	/* NULL while measuring */
-	const char		*text;	/* offsets are from here */
-	size_t			len;	/* bytes emitted so far */
-	size_t			alloc;
-	uint64_t		work;	/* chars of the text scanned */
-} lhp_sc_t;
-
-static void
-lhp_sc_emit(lhp_sc_t *sc, uint8_t v)
-{
-	if (sc->b && sc->len < sc->alloc)
-		sc->b[sc->len] = v;
-	sc->len++;
-}
-
-static void
-lhp_sc_emit32(lhp_sc_t *sc, uint32_t v)
-{
-	lhp_sc_emit(sc, (uint8_t)v);
-	lhp_sc_emit(sc, (uint8_t)(v >> 8));
-	lhp_sc_emit(sc, (uint8_t)(v >> 16));
-	lhp_sc_emit(sc, (uint8_t)(v >> 24));
-}
-
-/* fill in the len[2] at ofs with the bytes emitted after it */
-
-static void
-lhp_sc_patch16(lhp_sc_t *sc, size_t ofs)
-{
-	size_t l = sc->len - ofs - 2;
-
-	if (sc->b && ofs + 2 <= sc->alloc) {
-		sc->b[ofs] = (uint8_t)l;
-		sc->b[ofs + 1] = (uint8_t)(l >> 8);
-	}
-}
-
-static uint8_t
-lhp_sc_ofs(const lhp_sc_t *sc, const char *p)
-{
-	return (uint8_t)lws_ptr_diff_size_t(p, sc->text);
-}
-
-/*
- * Emit an identifier from selector text, resolving backslash escapes
- * (tailwind: .md\:flex, .w-\[1312px\], .pt-\(--aspect-padding\)), returning
- * the number of selector chars consumed and the decoded length in *len
- */
-
-static size_t
-lhp_sc_ident(lhp_sc_t *sc, const char *p, const char *end, size_t *len)
-{
-	const char *s = p;
-	size_t n = 0;
-
-	while (p < end) {
-		char c = *p;
-
-		if (c == '\\' && p + 1 < end) {
-			c = p[1];
-			p += 2;
-		} else if (lhp_ident_char(c))
-			p++;
-		else
-			break;
-
-		lhp_sc_emit(sc, (uint8_t)c);
-		n++;
-	}
-
-	*len = n;
-
-	return lws_ptr_diff_size_t(p, s);
-}
-
-static void
-lhp_sc_list(lhp_sc_t *sc, const char *p, const char *end);
-
-/*
- * Compile the compound [p, end).  Returns nonzero if it ended with
- * LHP_SC_NEVER, so that nothing more of the selector need be compiled
- */
-
-static int
-lhp_sc_compound(lhp_sc_t *sc, const char *p, const char *end)
-{
-	size_t at, nl;
-
-	sc->work += lws_ptr_diff_size_t(end, p);
-
-	if (p >= end)
-		goto never;
-
-	while (p < end) {
-		switch (*p) {
-		case '*':
-			lhp_sc_emit(sc, LHP_SC_ANY);
-			p++;
-			break;
-
-		case '.':
-		case '#':
-			at = sc->len;
-			lhp_sc_emit(sc, *p == '.' ? LHP_SC_CLASS : LHP_SC_ID);
-			lhp_sc_emit(sc, 0);
-			p += 1 + lhp_sc_ident(sc, p + 1, end, &nl);
-			if (!nl) {
-				sc->len = at;
-				goto never;
-			}
-			if (sc->b && at + 1 < sc->alloc)
-				sc->b[at + 1] = (uint8_t)nl;
-			break;
-
-		case '[':
-		{
-			const char *an, *av = NULL;
-			size_t anl, avl = 0;
-			char op = 0;
-
-			an = ++p;
-			while (p < end && *p != ']' && *p != '=' && *p != '~' &&
-			       *p != '|' && *p != '^' && *p != '$' && *p != '*')
-				p++;
-			anl = lws_ptr_diff_size_t(p, an);
-			if (p < end && *p != ']') {
-				op = *p++;
-				if (op != '=') {
-					if (p >= end || *p != '=')
-						goto never;
-					p++;
-				}
-				if (p < end && (*p == '"' || *p == '\'')) {
-					char q = *p++;
-
-					av = p;
-					while (p < end && *p != q)
-						p++;
-					avl = lws_ptr_diff_size_t(p, av);
-					if (p < end)
-						p++;
-				} else {
-					av = p;
-					while (p < end && *p != ']')
-						p++;
-					avl = lws_ptr_diff_size_t(p, av);
-				}
-			}
-			if (p >= end || *p != ']' || !anl)
-				goto never;
-			p++;
-
-			lhp_sc_emit(sc, LHP_SC_ATTR);
-			lhp_sc_emit(sc, (uint8_t)op);
-			lhp_sc_emit(sc, (uint8_t)anl);
-			lhp_sc_emit(sc, lhp_sc_ofs(sc, an));
-			lhp_sc_emit32(sc, lhp_name_hash(an, anl));
-			lhp_sc_emit(sc, (uint8_t)avl);
-			lhp_sc_emit(sc, av ? lhp_sc_ofs(sc, av) : 0);
-			break;
-		}
-
-		case ':':
-		{
-			const char *n, *arg = NULL, *aend = NULL;
-			uint8_t kind;
-
-			p++;
-			if (p < end && *p == ':')
-				/* ::before, ::after: no generated boxes */
-				goto never;
-			n = p;
-			while (p < end && lhp_ident_char(*p))
-				p++;
-			nl = lws_ptr_diff_size_t(p, n);
-			if (!nl)
-				goto never;
-			if (p < end && *p == '(') {
-				int depth = 1;
-
-				arg = ++p;
-				while (p < end && depth) {
-					if (*p == '(')
-						depth++;
-					else if (*p == ')')
-						depth--;
-					p++;
-				}
-				if (depth)
-					goto never;
-				aend = p - 1;
-				sc->work += lws_ptr_diff_size_t(p, arg);
-			}
-
-			if ((nl == 3 && !strncasecmp(n, "not", 3)) ||
-			    (nl == 2 && !strncasecmp(n, "is", 2)) ||
-			    (nl == 5 && !strncasecmp(n, "where", 5))) {
-				if (!arg)
-					goto never;
-				lhp_sc_emit(sc, nl == 3 ? LHP_SC_NOT :
-							  LHP_SC_IS);
-				at = sc->len;
-				lhp_sc_emit(sc, 0);
-				lhp_sc_emit(sc, 0);
-				lhp_sc_list(sc, arg, aend);
-				lhp_sc_patch16(sc, at);
-				break;
-			}
-
-			if (nl == 7 && !strncasecmp(n, "checked", 7))
-				kind = LHP_SCP_CHECKED;
-			else if (nl == 8 && !strncasecmp(n, "disabled", 8))
-				kind = LHP_SCP_DISABLED;
-			else if (nl == 7 && !strncasecmp(n, "enabled", 7))
-				kind = LHP_SCP_ENABLED;
-			else if (nl == 11 && !strncasecmp(n, "first-child", 11))
-				kind = LHP_SCP_FIRST_CHILD;
-			else if (nl == 4 && !strncasecmp(n, "root", 4))
-				kind = LHP_SCP_ROOT;
-			else if ((nl == 4 && !strncasecmp(n, "link", 4)) ||
-				 (nl == 9 && !strncasecmp(n, "any-link", 8)))
-				kind = LHP_SCP_LINK;
-			else
-				/* hover, focus, active, visited, empty,
-				 * nth-*, last-child, has, before... none of
-				 * these are matched */
-				goto never;
-
-			lhp_sc_emit(sc, LHP_SC_PSEUDO);
-			lhp_sc_emit(sc, kind);
-			break;
-		}
-
-		default:
-		{
-			const char *s = p;
-
-			if (!lhp_ident_char(*p))
-				goto never;
-			while (p < end && lhp_ident_char(*p))
-				p++;
-			nl = lws_ptr_diff_size_t(p, s);
-			lhp_sc_emit(sc, LHP_SC_TAG);
-			lhp_sc_emit(sc, (uint8_t)nl);
-			lhp_sc_emit(sc, lhp_sc_ofs(sc, s));
-			lhp_sc_emit32(sc, lhp_name_hash(s, nl));
-			break;
-		}
-		}
-	}
-
-	return 0;
-
-never:
-	lhp_sc_emit(sc, LHP_SC_NEVER);
-
-	return 1;
-}
-
-/*
- * Compile the complex selector [sel, end): its compounds right to left, split
- * at the combinators outside [...] and (...)
- */
-
-static void
-lhp_sc_complex(lhp_sc_t *sc, const char *sel, const char *end)
-{
-	const char *e = end;
-
-	for (;;) {
-		const char *p = e;
-		int depth = 0;
-		char comb = 0;
-
-		while (p > sel) {
-			char c = p[-1];
-
-			if (c == ']' || c == ')')
-				depth++;
-			else if (c == '[' || c == '(')
-				depth--;
-			else if (!depth && (c == ' ' || c == '>' || c == '+' ||
-					    c == '~')) {
-				comb = c;
-				break;
-			}
-			p--;
-		}
-		sc->work += lws_ptr_diff_size_t(e, p);
-
-		if (lhp_sc_compound(sc, p, e))
-			return;
-
-		lhp_sc_emit(sc, LHP_SC_END);
-		if (!comb) {
-			lhp_sc_emit(sc, 0);
-			return;
-		}
-		if (p - 1 <= sel) {
-			lhp_sc_emit(sc, LHP_SC_COMB_FAIL);
-			return;
-		}
-		lhp_sc_emit(sc, (uint8_t)comb);
-		e = p - 1; /* the selector text left of the combinator */
-	}
-}
-
-/* compile the comma-separated selector list [p, end) */
-
-static void
-lhp_sc_list(lhp_sc_t *sc, const char *p, const char *end)
-{
-	sc->work += lws_ptr_diff_size_t(end, p);
-
-	while (p < end) {
-		const char *s = p, *e;
-		int depth = 0;
-
-		while (p < end && (*p != ',' || depth)) {
-			if (*p == '(' || *p == '[')
-				depth++;
-			else if (*p == ')' || *p == ']')
-				depth--;
-			p++;
-		}
-		e = p;
-		if (p < end)
-			p++;
-		while (s < e && *s == ' ')
-			s++;
-		while (e > s && e[-1] == ' ')
-			e--;
-		if (s < e) {
-			size_t at = sc->len;
-
-			lhp_sc_emit(sc, 0);
-			lhp_sc_emit(sc, 0);
-			lhp_sc_complex(sc, s, e);
-			lhp_sc_patch16(sc, at);
-		}
-	}
-}
-
-static uint32_t
-lhp_sel_specificity(const char *p, const char *end)
-{
-	unsigned int a = 0, b = 0, c = 0;
-	int inb = 0;
-
-	while (p < end) {
-		char ch = *p++;
-
-		if (inb) {
-			if (ch == ']')
-				inb = 0;
-			continue;
-		}
-
-		switch (ch) {
-		case '#':
-			a++;
-			break;
-		case '.':
-			b++;
-			break;
-		case '[':
-			b++;
-			inb = 1;
-			continue;
-		case ':':
-			if (p < end && *p == ':') {
-				p++;
-				c++;
-			} else
-				b++;
-			break;
-		case '*':
-		case ' ':
-		case '>':
-		case '+':
-		case '~':
-			continue;
-		default:
-			if (!lhp_ident_char(ch))
-				continue;
-			c++;
-			break;
-		}
-
-		/* skip the rest of the identifier (and any (...) argument) */
-		while (p < end && (lhp_ident_char(*p) || *p == '\\')) {
-			if (*p == '\\' && p + 1 < end)
-				p++;
-			p++;
-		}
-		if (p < end && *p == '(') {
-			while (p < end && *p != ')')
-				p++;
-			if (p < end)
-				p++;
-		}
-	}
-
-	if (a > 63)
-		a = 63;
-	if (b > 63)
-		b = 63;
-	if (c > 63)
-		c = 63;
-
-	return (a << 12) | (b << 6) | c;
-}
-
-/*
- * The cascade layer bits sit above the specificity, so a rule in a layer
- * loses to any unlayered rule and to any rule in a later-declared layer,
- * whatever their selectors.  The style="" (1u << 24) and filter (1u << 25)
- * bits stay above the layer.
- */
-
-static uint32_t
-lhp_css_layer_bits(lhp_ctx_t *ctx)
-{
-	/* the UA sheet is its own origin, below every author layer */
-	if (ctx->u.f.default_css)
-		return 0;
-
-	return (uint32_t)(ctx->css_layer ? ctx->css_layer :
-					    LHP_CSS_LAYER_NONE) << 18;
-}
-
-/*
- * Find or register the cascade layer [name, name + len) (a dotted nested
- * name is treated as one layer), returning its 1-based order.  Anonymous
- * layers are always new.  Returns 0 if it can't be tracked.
- */
-
-static uint8_t
-lhp_css_layer(lhp_ctx_t *ctx, const char *name, size_t len)
-{
-	lhp_css_layer_t *l;
-	unsigned int n = 0;
-
-	while (len && *name == ' ') {
-		name++;
-		len--;
-	}
-	while (len && name[len - 1] == ' ')
-		len--;
-
-	if (len)
-		lws_start_foreach_dll(struct lws_dll2 *, d,
-				      lws_dll2_get_head(&ctx->css_layers)) {
-			l = lws_container_of(d, lhp_css_layer_t, list);
-			n++;
-			/* the name is untrusted text and may hold NUL bytes,
-			 * so a string compare can agree with a shorter stored
-			 * name and then index past its allocation: compare
-			 * by length */
-			if (l->len == len && !memcmp(&l[1], name, len))
-				return (uint8_t)n;
-		} lws_end_foreach_dll(d);
-
-	if (ctx->css_layers.count >= LHP_CSS_LAYER_NONE - 1)
-		return 0;
-
-	l = lwsac_use_zero(&ctx->cssac, sizeof(*l) + len + 1,
-			   LHP_AC_GRANULE);
-	if (!l)
-		return 0;
-
-	l->len = len;
-	memcpy(&l[1], name, len);
-	((char *)&l[1])[len] = '\0';
-	lws_dll2_add_tail(&l->list, &ctx->css_layers);
-
-	return (uint8_t)ctx->css_layers.count;
-}
-
-/*
- * @layer a, b, c; establishes the layer order without any rules
- */
-
-static void
-lhp_css_layer_statement(lhp_ctx_t *ctx, const char *p, const char *end)
-{
-	while (p < end) {
-		const char *s = p;
-
-		while (p < end && *p != ',')
-			p++;
-		lhp_css_layer(ctx, s, (size_t)(p - s));
-		if (p < end)
-			p++;
-	}
-}
-
-static uint32_t
-lhp_selidx_hash(uint8_t kind, const char *k, size_t len)
-{
-	uint32_t h = 2166136261u ^ kind;
-
-	while (len--) {
-		char c = *k++;
-
-		/* tags match case-insensitively */
-		if (kind == LHP_SELKEY_TAG && c >= 'A' && c <= 'Z')
-			c = (char)(c + 32);
-		h = (h ^ (uint8_t)c) * 16777619u;
-	}
-
-	return h;
-}
-
-/*
- * Pick the most selective simple selector (id, else class, else tag) of the
- * rightmost compound of the normalized selector [sel, end), so the cascade
- * can reject the selector for most elements without running the matcher.
- * A large site has thousands of selectors and thousands of elements: the
- * full match of every selector against every element is where all the
- * time went.  The key is only a prefilter, it must never reject a selector
- * the matcher would accept; anything it doesn't understand gets no key.
- */
-
-static void
-lhp_sel_key(const char *sel, const char *end, lcsp_names_t *na)
-{
-	const char *p = end, *tag = NULL, *cls = NULL, *id = NULL, *s;
-	size_t tag_len = 0, cls_len = 0, id_len = 0;
-	int depth = 0;
-
-	na->key_kind = LHP_SELKEY_NONE;
-
-	/* find the start of the rightmost compound selector */
-
-	while (p > sel) {
-		char c = p[-1];
-
-		if (c == ']' || c == ')')
-			depth++;
-		else if (c == '[' || c == '(')
-			depth--;
-		else if (!depth && (c == ' ' || c == '>' || c == '+' ||
-				    c == '~'))
-			break;
-		p--;
-	}
-
-	while (p < end) {
-		switch (*p) {
-		case '*':
-			p++;
-			break;
-		case '.':
-			s = ++p;
-			while (p < end && lhp_ident_char(*p))
-				p++;
-			if (p < end && *p == '\\')
-				/* an escaped name: the index key is raw text,
-				 * so this selector can't be keyed */
-				return;
-			if (!cls && p > s) {
-				cls = s;
-				cls_len = (size_t)(p - s);
-			}
-			break;
-		case '#':
-			s = ++p;
-			while (p < end && lhp_ident_char(*p))
-				p++;
-			if (p < end && *p == '\\')
-				return;
-			if (!id && p > s) {
-				id = s;
-				id_len = (size_t)(p - s);
-			}
-			break;
-		case '[':
-			/* attribute selectors: skip to the matching ']' */
-			while (p < end && *p != ']')
-				p++;
-			if (p < end)
-				p++;
-			break;
-		case ':':
-			/* pseudo-classes: skip the name and any (...) */
-			p++;
-			while (p < end && (lhp_ident_char(*p) || *p == ':'))
-				p++;
-			if (p < end && *p == '(') {
-				depth = 0;
-				while (p < end) {
-					if (*p == '(')
-						depth++;
-					else if (*p == ')' && !--depth) {
-						p++;
-						break;
-					}
-					p++;
-				}
-			}
-			break;
-		default:
-			if (!lhp_ident_char(*p))
-				return; /* not understood: no key */
-			s = p;
-			while (p < end && lhp_ident_char(*p))
-				p++;
-			if (!tag) {
-				tag = s;
-				tag_len = (size_t)(p - s);
-			}
-			break;
-		}
-	}
-
-	if (id) {
-		na->key_kind = LHP_SELKEY_ID;
-		s = id;
-		na->key_len = (uint16_t)id_len;
-	} else if (cls) {
-		na->key_kind = LHP_SELKEY_CLASS;
-		s = cls;
-		na->key_len = (uint16_t)cls_len;
-	} else if (tag) {
-		na->key_kind = LHP_SELKEY_TAG;
-		s = tag;
-		na->key_len = (uint16_t)tag_len;
-	} else
-		return;
-
-	na->key_ofs = (uint16_t)(s - sel);
-	na->key_h = lhp_selidx_hash(na->key_kind, s, na->key_len);
-}
-
-/*
- * Is the css being parsed the document's own, a stylesheet, <style> or a
- * style="" attribute, rather than the user-agent or filter css?  style=""
- * is parsed with default_css set, to skip the document-end processing, but it
- * is the document's and its bytes count in its budget like the rest.  It is
- * parsed during its element's cascade, which checks the budget before it
- * (lhp_css_doc_spent()), so what it adds is seen by the next element's: the
- * overshoot is at most one style="", <= LHP_STRING_CHUNK
- */
-
-static int
-lhp_css_is_doc(const lhp_ctx_t *ctx)
-{
-	return !ctx->u.f.default_css || ctx->u.f.style_attr;
-}
-
-/*
- * Is nm one of the document's own selectors?  The user-agent sheet is layer
- * 0 and the filter css is flagged in its specificity (see
- * lhp_css_add_names())
- */
-
-static int
-lhp_nm_is_doc(const lcsp_names_t *nm)
-{
-	return ((nm->specificity >> 18) & LHP_CSS_LAYER_NONE) &&
-	       !(nm->specificity & (1u << 25));
-}
-
-/*
- * What bounds a document's css work and heap.  Untrusted pages have found a
- * new unbounded layer each time one stage was bounded, so this lists every
- * loop in the css / cascade / layout path with its bound; a new loop over
- * css or document data needs an entry here, and its work counted in
- * ctx->cascade_ops (or ctx->layout_ops).
- *
- *  - parsing: O(1) per byte, a step per byte of the document's css.  A long
- *    selector list is flushed per LHP_STRING_CHUNK.  @media / @supports /
- *    @layer headers are scanned once (<= LHP_STRING_CHUNK), layers <= 62
- *  - selectors: each split and normalized once (<= 127 chars, key and
- *    specificity linear in that), at most LHP_MAX_CSS_SELECTORS kept; past
- *    that, or once spent, a stanza costs only its bytes.  Each kept one is
- *    compiled once for matching (lhp_sc_complex()), each :is() / :not()
- *    nesting rescanning its argument, so <= ~3 x 64 x 127 chars, counted
- *  - values: at most LHP_MAX_CSS_DECL_VALUES per declaration (G-524);
- *    custom properties at most LHP_MAX_CSS_VARS.  The number of declarations
- *    is only bounded by the css size (G-089), but each costs its bytes
- *  - selector index: each stanza and selector indexed once, plus once more
- *    when the budget is spent, a step each (G-520)
- *  - html attributes: each is added to its element's attribute index as it
- *    is parsed, a hash of its name, a binary search and a move of
- *    <= LHP_MAX_ATR_PER_ELEM entries, so a selector finds one without
- *    walking them or comparing their names (G-529, G-540)
- *  - per element: each indexed selector keyed by its tag, id, classes or
- *    none is visited at most once, a step each, its key hash computed when
- *    it was compiled, so a key is only compared when the hashes agree; class
- *    tokens (<= 2048 bytes of attribute) are hashed and sorted once.
- *    Matching runs the compiled selector, never its text, and costs a step
- *    per compound, per further simple selector in it, per further attribute
- *    name compared in a lookup and per LHP_SEL_STEP_WORK units of the work
- *    itself (index probes, name and value bytes), so a step is O(1) work
- *    (see LHP_SEL_MATCH_BUDGET).  At most LHP_SEL_MATCH_BUDGET per selector
- *    and, for the document's, at most LHP_SEL_CASCADE_BUDGET per element, all
- *    counted (G-090, G-523, G-529, G-540, G-547).  A selector that runs out
- *    may finish the class, id or attribute value it is scanning,
- *    <= LHP_STRING_CHUNK.
- *    Combinators visit <= LHP_MAX_ELEMS_NEST ancestors or
- *    LHP_SIBLING_HISTORY siblings, a budget step each
- *  - matched stanzas: a hash probe each, sorted once, counted; the
- *    declaration index walks their declarations once and sorts the winners,
- *    counted.  Only the winners are kept while the element is open, and
- *    what the open elements keep, with their parsed style="" attributes, is
- *    at most LHP_MAX_CSS_LEVEL_HEAP (G-521, G-666)
- *  - lookups: a binary search per ancestor (<= LHP_MAX_ELEMS_NEST), plus
- *    copying <= LHP_MAX_CSS_DECL_VALUES values to ctx->active_atr, counted;
- *    var() follows <= 8 indirections; calc() has its own budget per
- *    expression (G-082).  A % length walks back through the containing
- *    blocks (<= LHP_MAX_ELEMS_NEST levels) to the first one with an
- *    absolute length; if that is a calc() with % terms, it resolves the
- *    next block out the same way, <= LHP_MAX_CB_RESOLVE_DEPTH walks in all.
- *    Those walks are not counted (G-531)
- *  - style="": parsed once per element, <= LHP_STRING_CHUNK, a step per
- *    byte like the rest of the document's css, and not at all once spent.
- *    An element cascaded again (<html>, each time a <body> starts under it)
- *    matches the stanza it kept from the first time instead of parsing it
- *    again (G-666).  Its custom properties live with the element, not on
- *    the document's list, so LHP_MAX_CSS_VARS doesn't apply: their bytes
- *    and heap count as above
- *  - layout: an element's close walks its own children (rows, cells, block
- *    children, bottom-anchored boxes), so linear overall; table columns are
- *    found without walking (G-461, ctx->layout_ops); a line's end walks its
- *    items; positioned boxes are raised once per document; a ::before /
- *    ::after stanza's declarations are walked a fixed number of times when
- *    its box is laid out, counted (G-524)
- *  - the document: all of the above that the document's css drives counts
- *    in ctx->cascade_ops, and LHP_MAX_CSS_CASCADE_OPS / LHP_MAX_CSS_LEVEL_HEAP
- *    end it (lhp_css_doc_spent() below), overshooting by at most one
- *    element.  After that each element costs a user-agent and filter css
- *    cascade (the filter css is trusted), and the document's css is no
- *    longer kept, but its inherited lookups still walk its ancestors, so an
- *    element costs O(nesting), not a constant (G-531).  What remains
- *    unbounded except by input size is the heap of the css kept before
- *    that (G-089), and the layout work and DLOs of the elements (G-531)
- */
-
-/*
- * Has the document spent its css budget, LHP_MAX_CSS_CASCADE_OPS steps of
- * ctx->cascade_ops, or LHP_MAX_CSS_LEVEL_HEAP bytes held by its open elements
- * for their css?  Parsing its css, indexing it and cascading its elements
- * all count, so this bounds the css work and the cascade's heap of the whole
- * document, however its css and elements are interleaved and nested.  The
- * heap held by the open elements falls again as they close, but once spent,
- * the budget stays spent.  The first time it finds the budget spent,
- * it drops the selector index, so that the next cascade makes it again
- * without the document's own selectors: the elements after that get only the
- * user-agent and filter css, at the cost of an ordinary element, and the
- * parser keeps no more of the document's css.  The overshoot is at most one
- * element's cascade, which is bounded by itself, or one css byte.
- */
-
-static int
-lhp_css_doc_spent(lhp_ctx_t *ctx)
-{
-	if (ctx->css_doc_spent)
-		return 1;
-
-	if (ctx->cascade_ops < LHP_MAX_CSS_CASCADE_OPS &&
-	    ctx->css_level_heap < LHP_MAX_CSS_LEVEL_HEAP)
-		return 0;
-
-	lwsl_warn("%s: document css took %llu steps, open elements hold %llu "
-		  "bytes for it: ignoring it for the rest of the document\n",
-		  __func__, (unsigned long long)ctx->cascade_ops,
-		  (unsigned long long)ctx->css_level_heap);
-	ctx->css_doc_spent = 1;
-
-	lwsac_free(&ctx->idxac);
-	lhp_selidx_reset(ctx);
-	ctx->selidx_last = NULL;
-
-	return 1;
-}
-
-/*
- * Index the selectors of the stanzas listed on ctx->css since the last time.
- * Stylesheets and <style> blocks keep arriving during the parse, so the
- * cascade calls this whenever ctx->css has stanzas after ctx->selidx_last:
- * each stanza is indexed once, however the <style> blocks are interleaved
- * with the elements, and the work counts against the document's css budget.
- * Once the document has spent it, its own selectors are left out, so the
- * cascade of later elements doesn't so much as visit them
- */
-
-static int
-lhp_selidx_add(lhp_ctx_t *ctx)
-{
-	lws_dll2_t *q = ctx->selidx_last ? lws_dll2_get_next(ctx->selidx_last) :
-					   lws_dll2_get_head(&ctx->css);
-
-	for (; q; q = lws_dll2_get_next(q)) {
+	lws_start_foreach_dll(struct lws_dll2 *, q, ctx->css.head) {
 		lcsp_stanza_t *stz = lws_container_of(q, lcsp_stanza_t, list);
 
-		ctx->cascade_ops++;
+		/* ... does this stanza mention our name? */
 
-		lws_start_foreach_dll(struct lws_dll2 *, z,
-				      lws_dll2_get_head(&stz->names)) {
+		lws_start_foreach_dll(struct lws_dll2 *, z, stz->names.head) {
 			lcsp_names_t *nm = lws_container_of(z, lcsp_names_t,
 							    list);
-			lhp_selidx_t *e, **head;
+			const char *p = (const char *)&nm[1];
+			size_t nl = nm->name_len;
 
-			ctx->cascade_ops++;
-
-			if (ctx->css_doc_spent && lhp_nm_is_doc(nm))
-				continue;
-
-			e = lwsac_use_zero(&ctx->idxac, sizeof(*e),
-					   LHP_AC_GRANULE);
-			if (!e)
-				return 1;
-
-			e->nm = nm;
-			e->stz = stz;
-
-			if (nm->key_kind == LHP_SELKEY_NONE)
-				head = &ctx->selidx_nokey;
-			else
-				head = &ctx->selidx[nm->key_h %
-						    LHP_SELIDX_BUCKETS];
-
-			/*
-			 * Prepend, walking the list later gives reverse
-			 * source order: the hits are sorted by stanza seq
-			 * before use, so order here doesn't matter
-			 */
-			e->next = *head;
-			*head = e;
-		} lws_end_foreach_dll(z);
-
-		ctx->selidx_last = q;
-	}
-
-	return 0;
-}
-
-/*
- * Match the compiled selector of nm (without any pseudo-element suffix)
- * against the element being cascaded.  A document selector draws its steps
- * from what is left of the element's cascade budget
- */
-
-static int
-lhp_selidx_match(lhp_ctx_t *ctx, lhp_pstack_t *ps, const lcsp_names_t *nm)
-{
-	int doc = lhp_nm_is_doc(nm), start, spent, r;
-	lhp_selm_t m;
-
-	if (!nm->prog_len)
-		return 0;
-
-	m.ctx = ctx;
-	m.text = (const char *)&nm[1];
-	m.text_len = nm->name_len;
-	m.end = (const uint8_t *)m.text + nm->name_len + 1 + nm->prog_len;
-	m.work = 0;
-	m.bad = 0;
-	m.budget = LHP_SEL_MATCH_BUDGET;
-	if (doc && ctx->sel_budget < m.budget)
-		m.budget = (int)ctx->sel_budget;
-	if (m.budget <= 0)
-		return 0;
-	start = m.budget;
-
-	/* lws_css_cascade() found the parent element before matching */
-	r = lhp_sel_match(&m, &ps->atr_idx, ps->parent_elem,
-			  (const uint8_t *)m.text + nm->name_len + 1);
-	spent = start - (m.budget < 0 ? 0 : m.budget);
-	ctx->cascade_ops += (uint64_t)spent;
-	if (doc)
-		ctx->sel_budget -= spent;
-
-	/*
-	 * A match is only believed if it was decided within the budget, from
-	 * a program that made sense
-	 */
-
-	return r && m.budget >= 0 && !m.bad;
-}
-
-/*
- * The stanzas hit in a cascade pass are found again by a small open-addressed
- * table from the stanza to its index in ctx->hits, so that a stanza hit by
- * many selectors costs a probe per selector rather than a walk of every hit
- * so far.  A slot belongs to the current pass only if it carries the pass's
- * generation, so the table needn't be cleared between passes.
- */
-
-struct lhp_hits_slot {
-	uint32_t		gen;
-	uint32_t		idx;	/* into ctx->hits */
-};
-
-static uint32_t
-lhp_hits_slot(lhp_ctx_t *ctx, const lcsp_stanza_t *stz)
-{
-	uint32_t m = ctx->hits_hash_size - 1,
-		 h = ((uint32_t)((uintptr_t)stz >> 3) * 2654435761u) & m;
-
-	while (ctx->hits_hash[h].gen == ctx->hits_gen &&
-	       ctx->hits[ctx->hits_hash[h].idx].stz != stz) {
-		ctx->cascade_ops++;
-		h = (h + 1) & m;
-	}
-
-	return h;
-}
-
-/* make room for one more hit, keeping the table at most half full */
-
-static int
-lhp_hits_grow(lhp_ctx_t *ctx)
-{
-	uint32_t na = ctx->hits_alloc ? ctx->hits_alloc * 2 : 16, n;
-	struct lhp_hits_slot *hh;
-	lcsp_match_t *h;
-
-	hh = lws_zalloc(2 * na * sizeof(*hh), __func__);
-	if (!hh)
-		return 1;
-
-	h = lws_realloc(ctx->hits, na * sizeof(*h), __func__);
-	if (!h) {
-		lws_free(hh);
-		return 1;
-	}
-	ctx->hits = h;
-	ctx->hits_alloc = na;
-
-	lws_free(ctx->hits_hash);
-	ctx->hits_hash = hh;
-	ctx->hits_hash_size = 2 * na;
-
-	/* the slots were all zeroed: gen 0 is never a pass's generation */
-
-	for (n = 0; n < ctx->hits_count; n++) {
-		uint32_t sl = lhp_hits_slot(ctx, ctx->hits[n].stz);
-
-		ctx->hits_hash[sl].gen = ctx->hits_gen;
-		ctx->hits_hash[sl].idx = n;
-	}
-
-	return 0;
-}
-
-static void
-lhp_hits_new_pass(lhp_ctx_t *ctx)
-{
-	ctx->hits_count = 0;
-	if (!++ctx->hits_gen) {
-		/* wrapped: forget every slot, and skip gen 0 */
-		if (ctx->hits_hash)
-			memset(ctx->hits_hash, 0, ctx->hits_hash_size *
-						  sizeof(*ctx->hits_hash));
-		ctx->hits_gen = 1;
-	}
-}
-
-/*
- * Run the matcher for the indexed selector e, recording a stanza hit for
- * this cascade pass if it matches
- */
-
-static int
-lhp_selidx_try_one(lhp_ctx_t *ctx, lhp_pstack_t *ps, const lhp_selidx_t *e)
-{
-	lcsp_names_t *nm = e->nm;
-	lcsp_stanza_t *stz = e->stz;
-	uint32_t sl = 0, hn = ctx->hits_count;
-
-	if (nm->pseudo_elem != LHP_PSEUDO_ELEM_NONE) {
-		/*
-		 * A :before / :after pseudo-element selector: the element
-		 * matches the subject part (compiled without the suffix), and
-		 * the stanza generates a pseudo box instead of styling the
-		 * element itself.  The last one in source order wins, so one
-		 * that cannot win needn't be matched
-		 */
-		lcsp_stanza_t **pse = nm->pseudo_elem == LHP_PSEUDO_ELEM_AFTER ?
-				&ps->pseudo_after : &ps->pseudo_before;
-
-		if ((!*pse || (*pse)->seq < stz->seq) &&
-		    lhp_selidx_match(ctx, ps, nm))
-			*pse = stz;
-
-		return 0;
-	}
-
-	/*
-	 * A stanza with no declarations can't style anything: matching its
-	 * selector would only spend the element's budget
-	 */
-
-	if (!lws_dll2_get_head(&stz->defs))
-		return 0;
-
-	/*
-	 * Have we taken this stanza already in this pass, at what specificity?
-	 * The hits array is the pass, so the stanza itself is left untouched.
-	 * Looking before matching saves matching a selector that could not
-	 * change anything
-	 */
-
-	if (ctx->hits_hash) {
-		sl = lhp_hits_slot(ctx, stz);
-		if (ctx->hits_hash[sl].gen == ctx->hits_gen)
-			hn = ctx->hits_hash[sl].idx;
-	}
-
-	if (hn != ctx->hits_count &&
-	    nm->specificity <= ctx->hits[hn].specificity)
-		return 0;
-
-	if (!lhp_selidx_match(ctx, ps, nm))
-		return 0;
-
-	if (hn != ctx->hits_count) {
-		ctx->hits[hn].specificity = nm->specificity;
-		return 0;
-	}
-
-	/* first hit on this stanza this pass */
-
-	if (ctx->hits_count == ctx->hits_alloc) {
-		if (lhp_hits_grow(ctx))
-			return 1;
-		/* the slot moved with the table */
-		sl = lhp_hits_slot(ctx, stz);
-	}
-
-	ctx->hits_hash[sl].gen = ctx->hits_gen;
-	ctx->hits_hash[sl].idx = ctx->hits_count;
-	ctx->hits[ctx->hits_count].stz = stz;
-	ctx->hits[ctx->hits_count++].specificity = nm->specificity;
-
-	return 0;
-}
-
-/*
- * Run the matcher for every indexed selector whose key is exactly k, of
- * selector index hash h, recording stanza hits for this cascade pass.  Each
- * selector's key hash was computed when it was compiled, so a key is only
- * compared when the hash and length agree.  LHP_SELKEY_NONE tries all of the
- * keyless list
- */
-
-static int
-lhp_selidx_try(lhp_ctx_t *ctx, lhp_pstack_t *ps, uint8_t kind, const char *k,
-	       size_t klen)
-{
-	uint32_t h = 0;
-	lhp_selidx_t *e;
-
-	if (kind == LHP_SELKEY_NONE)
-		e = ctx->selidx_nokey;
-	else {
-		h = lhp_selidx_hash(kind, k, klen);
-		e = ctx->selidx[h % LHP_SELIDX_BUCKETS];
-	}
-
-	for (; e; e = e->next) {
-		const lcsp_names_t *nm = e->nm;
-		const char *n = (const char *)&nm[1];
-
-		ctx->cascade_ops++;
-
-		if (kind != LHP_SELKEY_NONE &&
-		    (nm->key_kind != kind || nm->key_h != h ||
-		     nm->key_len != klen ||
-		     (kind == LHP_SELKEY_TAG ?
-			     strncasecmp(n + nm->key_ofs, k, klen) :
-			     strncmp(n + nm->key_ofs, k, klen))))
-			continue;
-
-		if (lhp_selidx_try_one(ctx, ps, e))
-			return 1;
-	}
-
-	return 0;
-}
-
-/* class tokens sort by index bucket first, so a bucket's tokens are adjacent */
-
-static int
-lhp_cls_tok_cmp(const void *a, const void *b)
-{
-	const lhp_cls_tok_t *ta = (const lhp_cls_tok_t *)a,
-			    *tb = (const lhp_cls_tok_t *)b;
-
-	if (ta->h % LHP_SELIDX_BUCKETS != tb->h % LHP_SELIDX_BUCKETS)
-		return ta->h % LHP_SELIDX_BUCKETS <
-		       tb->h % LHP_SELIDX_BUCKETS ? -1 : 1;
-	if (ta->h != tb->h)
-		return ta->h < tb->h ? -1 : 1;
-	if (ta->len != tb->len)
-		return ta->len < tb->len ? -1 : 1;
-
-	return memcmp(ta->s, tb->s, ta->len);
-}
-
-/*
- * Try the indexed selectors keyed by each distinct class token of the
- * element, in the whitespace-separated class attribute value c.
- *
- * Every token is looked up: a selector keyed by a class the element has must
- * be tried however many other classes come before it, or a page can hide an
- * element from a class-keyed filter rule behind enough junk classes.  A
- * repeated token would only walk the same bucket and retry the same selectors
- * again, so the tokens are sorted and each distinct one is looked up once.
- * That bounds the work: each indexed selector has exactly one key, so it is
- * matched at most once per element, with document selectors also drawing on
- * the element's cascade budget.
- *
- * Many distinct tokens can share a bucket, and a page can choose its class
- * names so that they do, so each bucket is walked once for all of its
- * tokens, each selector's key looked up among them, rather than once per
- * token: walking the class buckets costs at most one visit per indexed
- * selector, however many classes the element has.
- */
-
-static int
-lhp_selidx_try_classes(lhp_ctx_t *ctx, lhp_pstack_t *ps, const char *c)
-{
-	uint32_t nt = 0, t;
-
-	while (*c) {
-		const char *cs;
-		size_t cl;
-
-		while (*c && lhp_ws(*c))
-			c++;
-		cs = c;
-		while (*c && !lhp_ws(*c))
-			c++;
-		cl = lws_ptr_diff_size_t(c, cs);
-		if (!cl)
-			continue;
-
-		if (nt == ctx->ctok_alloc) {
-			uint32_t na = ctx->ctok_alloc ?
-					ctx->ctok_alloc * 2 : 8;
-			lhp_cls_tok_t *ct = lws_realloc(ctx->ctok,
-							na * sizeof(*ct),
-							__func__);
-
-			if (!ct)
-				return 1;
-			ctx->ctok = ct;
-			ctx->ctok_alloc = na;
-		}
-
-		ctx->ctok[nt].s = cs;
-		ctx->ctok[nt].len = cl;
-		ctx->ctok[nt++].h = lhp_selidx_hash(LHP_SELKEY_CLASS, cs, cl);
-	}
-
-	if (nt > 1)
-		qsort(ctx->ctok, nt, sizeof(*ctx->ctok), lhp_cls_tok_cmp);
-
-	t = 0;
-	while (t < nt) {
-		uint32_t b = ctx->ctok[t].h % LHP_SELIDX_BUCKETS, g = t + 1;
-		const lhp_selidx_t *e;
-
-		/* the tokens [t, g) are the ones in bucket b */
-		while (g < nt && ctx->ctok[g].h % LHP_SELIDX_BUCKETS == b)
-			g++;
-
-		for (e = ctx->selidx[b]; e; e = e->next) {
-			const lcsp_names_t *nm = e->nm;
-			lhp_cls_tok_t key;
-			uint32_t lo = t, hi = g;
-
-			ctx->cascade_ops++;
-
-			if (nm->key_kind != LHP_SELKEY_CLASS)
-				continue;
-
-			key.s = (const char *)&nm[1] + nm->key_ofs;
-			key.len = nm->key_len;
-			key.h = nm->key_h;
-
-			/* is the selector's class one of the tokens? */
-
-			while (lo < hi) {
-				uint32_t mid = lo + (hi - lo) / 2;
-				int r = lhp_cls_tok_cmp(&key, &ctx->ctok[mid]);
-
-				ctx->cascade_ops++;
-				if (!r)
-					break;
-				if (r < 0)
-					hi = mid;
-				else
-					lo = mid + 1;
-			}
-
-			if (lo < hi && lhp_selidx_try_one(ctx, ps, e))
-				return 1;
-		}
-
-		t = g;
-	}
-
-	return 0;
-}
-
-/*
- * Split the comma-separated selector list in [buf, buf + len) into
- * normalized lcsp_names_t on the current stanza.  The stanza is only made,
- * and listed on ctx->css, along with the first selector that is kept: if
- * ctx->stz is still NULL afterwards, none was (the list was empty, the
- * document is past its selector limit, or has spent its css budget) and the
- * caller skips the stanza's block, so css that can't be applied costs no
- * stanza and no index work
- */
-
-static int
-lhp_css_add_names(lhp_ctx_t *ctx, const char *buf, size_t len)
-{
-	const char *p = buf, *end = buf + len;
-
-	while (p < end) {
-		const char *s = p, *e;
-		char norm[128];
-		lcsp_names_t *na;
-		size_t n = 0, pl, ml;
-		lhp_sc_t sc;
-		int inb = 0;
-		uint8_t pk;
-
-		/* a comma inside :where(...) / :is(...) / :not(...) is part
-		 * of that selector, not a list separator */
-		{
-			int depth = 0;
-
-			while (p < end && (*p != ',' || depth)) {
-				if (*p == '(')
-					depth++;
-				if (*p == ')' && depth)
-					depth--;
+			if (nl && *p == '.') { /* match .mycss as mycss */
 				p++;
-			}
-		}
-		e = p;
-		if (p < end)
-			p++;
-
-		while (s < e && *s == ' ')
-			s++;
-		while (e > s && e[-1] == ' ')
-			e--;
-		if (s == e)
-			continue;
-
-		if (!ctx->u.f.default_css) {
-			/* the document's own selectors are limited */
-			if (ctx->css_doc_selectors >= LHP_MAX_CSS_SELECTORS ||
-			    lhp_css_doc_spent(ctx))
-				return 0;
-			if (++ctx->css_doc_selectors == LHP_MAX_CSS_SELECTORS)
-				lwsl_warn("%s: document css reached %d "
-					  "selectors, ignoring any more\n",
-					  __func__, LHP_MAX_CSS_SELECTORS);
-		}
-
-		while (s < e && n < sizeof(norm) - 1) {
-			char c = *s++;
-
-			if (c == '[' || c == '(')
-				inb++;
-			else if ((c == ']' || c == ')') && inb)
-				inb--;
-
-			if (c == ' ') {
-				if (inb)
-					continue;
-				if (n && (norm[n - 1] == '>' ||
-					  norm[n - 1] == '+' ||
-					  norm[n - 1] == '~'))
-					continue;
-				if (s < e && (*s == '>' || *s == '+' ||
-					      *s == '~'))
-					continue;
-			}
-			norm[n++] = c;
-		}
-
-		if (!ctx->stz) {
-			ctx->stz = lwsac_use_zero(&ctx->cssac,
-						  sizeof(*ctx->stz),
-						  LHP_AC_GRANULE);
-			if (!ctx->stz)
-				return 1;
-			ctx->stz->seq = ctx->stz_seq++;
-			lws_dll2_add_tail(&ctx->stz->list, &ctx->css);
-		}
-
-		/*
-		 * Compile what will be matched, the selector without any
-		 * pseudo-element suffix (see lhp_selidx_try_one()), once here,
-		 * so matching never looks at its text again: measure it, then
-		 * compile it into the allocation after the text
-		 */
-
-		pl = lhp_pseudo_elem_suffix(norm, n, &pk);
-		ml = n > pl ? n - pl : 0;
-		memset(&sc, 0, sizeof(sc));
-		sc.text = norm;
-		if (ml)
-			lhp_sc_complex(&sc, norm, norm + ml);
-		if (sc.len > 0xffff)
-			/* can't happen, see lhp_sc_t */
-			continue;
-
-		na = lwsac_use_zero(&ctx->cssac, sizeof(*na) + n + 1 + sc.len,
-				    LHP_AC_GRANULE);
-		if (!na)
-			return 1;
-
-		na->name_len = (uint16_t)n;
-		na->prog_len = (uint16_t)sc.len;
-		na->pseudo_elem = pk;
-		sc.b = (uint8_t *)&na[1] + n + 1;
-		sc.alloc = sc.len;
-		sc.len = 0;
-		if (ml)
-			lhp_sc_complex(&sc, norm, norm + ml);
-		/* the compile is css work for the document like the parse */
-		ctx->cascade_ops += sc.work;
-
-		na->specificity = lhp_sel_specificity(norm, norm + n) |
-				  lhp_css_layer_bits(ctx);
-		lhp_sel_key(norm, norm + ml, na);
-		if (ctx->u.f.filter_css)
-			/*
-			 * Filter css is a user-agent level overlay: it is
-			 * authoritative over any document css, including
-			 * the style="" attribute's 1u << 24
-			 */
-			na->specificity |= 1u << 25;
-		memcpy(&na[1], norm, n);
-		((char *)(&na[1]))[n] = '\0';
-		lws_dll2_add_tail(&na->list, &ctx->stz->names);
-	}
-
-	return 0;
-}
-
-/*
- * The stanza being parsed ended up with no declarations: it can't style
- * anything, so take it back off ctx->css before it is indexed and every
- * element's cascade visits its selectors.  It is the tail of ctx->css, since
- * stanzas are only listed at the tail, and no element is cascaded while one
- * is being parsed, so it can't have been indexed; if it was, it is left
- * alone.  A style="" stanza is never listed.
- */
-
-static void
-lhp_css_drop_empty(lhp_ctx_t *ctx)
-{
-	if (ctx->stz && !lws_dll2_get_head(&ctx->stz->defs) &&
-	    lws_dll2_owner(&ctx->stz->list) == &ctx->css &&
-	    &ctx->stz->list != ctx->selidx_last)
-		lws_dll2_remove(&ctx->stz->list);
-}
-
-/*
- * The css viewport height: the window the page is seen through.  A
- * scrolling browser lays out on a surface much taller than its window so
- * the whole page is reachable, but vh units, the root element's height and
- * height media queries must still resolve against the window, or 100vh
- * heroes fill the entire layout surface.
- */
-
-const lws_fx_t *
-lws_lhp_viewport_h(lhp_ctx_t *ctx)
-{
-	if (ctx->viewport_h) {
-		ctx->viewport_h_fx.whole = ctx->viewport_h;
-		ctx->viewport_h_fx.frac = 0;
-
-		return &ctx->viewport_h_fx;
-	}
-
-	return &ctx->ic.wh_px[LWS_LHPREF_HEIGHT];
-}
-
-/*
- * Crude @media evaluation: enough to keep print / max-width blocks from
- * leaking into the layout.  Unknown features are treated as not matching.
- */
-
-static int
-lhp_media_feature(lhp_ctx_t *ctx, const char *p, const char *end)
-{
-	const char *n = p, *v;
-	size_t nl;
-	lws_fx_t val;
-	int px, ref;
-
-	while (p < end && *p != ':' && *p != ')')
-		p++;
-	nl = (size_t)(p - n);
-	while (nl && n[nl - 1] == ' ')
-		nl--;
-
-	if (p >= end || *p != ':') {
-		/* (color), (hover) etc: only "(color)" is something we are */
-		return nl == 5 && !strncmp(n, "color", 5) &&
-		       !ctx->ic.greyscale;
-	}
-
-	p++;
-	while (p < end && *p == ' ')
-		p++;
-	v = p;
-
-	/* we are a 1:1 device; the -webkit- forms are common Chrome hacks */
-	if ((nl >= 22 && !strncmp(n + nl - 22, "min-device-pixel-ratio", 22)) ||
-	    (nl == 14 && !strncmp(n, "min-resolution", 14))) {
-		lhp_fx_parse(&val, v, (size_t)(end - v));
-		if (nl == 14 && strstr(v, "dpi"))
-			return val.whole <= 96;
-		return val.whole <= 1;
-	}
-	if ((nl >= 22 && !strncmp(n + nl - 22, "max-device-pixel-ratio", 22)) ||
-	    (nl == 14 && !strncmp(n, "max-resolution", 14))) {
-		lhp_fx_parse(&val, v, (size_t)(end - v));
-		if (nl == 14 && strstr(v, "dpi"))
-			return val.whole >= 96;
-		return val.whole >= 1;
-	}
-
-	if (nl == 11 && !strncmp(n, "orientation", 11))
-		return (ctx->ic.wh_px[0].whole >= lws_lhp_viewport_h(ctx)->whole) ==
-		       (end - v >= 9 && !strncmp(v, "landscape", 9));
-
-	if ((nl == 9 && !strncmp(n, "max-width", 9)) ||
-	    (nl == 9 && !strncmp(n, "min-width", 9)) ||
-	    (nl == 10 && !strncmp(n, "max-height", 10)) ||
-	    (nl == 10 && !strncmp(n, "min-height", 10))) {
-		ref = n[4] == 'w' ? 0 : 1;
-		lhp_fx_parse(&val, v, (size_t)(end - v));
-		while (v < end && ((*v >= '0' && *v <= '9') || *v == '.'))
-			v++;
-		if (end - v >= 2 && (!strncmp(v, "em", 2) ||
-				     !strncmp(v, "rem", 3)))
-			val.whole *= 16;
-		px = ref ? lws_lhp_viewport_h(ctx)->whole :
-			   ctx->ic.wh_px[ref].whole;
-		if (n[1] == 'a') /* max- */
-			return px <= val.whole;
-		return px >= val.whole;
-	}
-
-	return 0;
-}
-
-/*
- * @supports evaluation.  Claiming support for everything is wrong in the
- * way that matters: tailwind v4 wraps its lab() / oklch() / color-mix()
- * colour theme in @supports (color: lab(0% 0 0)) with hex fallbacks
- * outside it, so taking the block replaced every colour on the page with
- * values we can't parse (digg.com rendered white text on white).
- *
- * A declaration (prop: value) is supported if its value uses no function
- * we don't implement; selector(), font-tech() etc are not.  not / and / or
- * combine as in the spec, at one level of parentheses.
- */
-
-static int
-lhp_supports_decl(const char *p, const char *end)
-{
-	static const char * const fns[] = {
-		"rgb", "rgba", "hsl", "hsla", "var", "calc", "min", "max",
-		"clamp", "url", "linear-gradient", "attr", "counter"
-	};
-	const char *v = p;
-
-	while (v < end && *v != ':')
-		v++;
-	if (v >= end)
-		return 0; /* not a declaration */
-
-	/* display: grid we don't do */
-	if (v - p >= 7 && !strncmp(p, "display", 7)) {
-		const char *w = v + 1;
-
-		while (w < end && *w == ' ')
-			w++;
-		if (end - w >= 4 && !strncmp(w, "grid", 4))
-			return 0;
-	}
-
-	/* every function in the value must be one we know */
-	while (v < end) {
-		if (*v == '(') {
-			const char *n = v;
-			size_t k;
-
-			while (n > p && lhp_ident_char(n[-1]))
-				n--;
-			for (k = 0; k < LWS_ARRAY_SIZE(fns); k++)
-				if ((size_t)(v - n) == strlen(fns[k]) &&
-				    !strncmp(n, fns[k], (size_t)(v - n)))
-					break;
-			if (k == LWS_ARRAY_SIZE(fns))
-				return 0;
-		}
-		v++;
-	}
-
-	return 1;
-}
-
-static int
-lhp_supports_true(const char *q, const char *end)
-{
-	int result = -1, op = 0 /* 0: none, 1: and, 2: or */, neg = 0;
-
-	while (q < end) {
-		while (q < end && *q == ' ')
-			q++;
-		if (q >= end)
-			break;
-
-		if (end - q >= 3 && !strncmp(q, "not", 3) &&
-		    (q + 3 == end || q[3] == ' ' || q[3] == '(')) {
-			neg = !neg;
-			q += 3;
-			continue;
-		}
-		if (end - q >= 3 && !strncmp(q, "and", 3) &&
-		    (q + 3 == end || q[3] == ' ' || q[3] == '(')) {
-			op = 1;
-			q += 3;
-			continue;
-		}
-		if (end - q >= 2 && !strncmp(q, "or", 2) &&
-		    (q + 2 == end || q[2] == ' ' || q[2] == '(')) {
-			op = 2;
-			q += 2;
-			continue;
-		}
-
-		if (*q == '(') {
-			/* find the matching ')' */
-			const char *s = q + 1;
-			int depth = 1, r;
-
-			q++;
-			while (q < end && depth) {
-				if (*q == '(')
-					depth++;
-				else if (*q == ')')
-					depth--;
-				if (depth)
-					q++;
+				nl--;
 			}
 
-			/* general enclosure of a nested condition, or a decl */
-			while (s < q && *s == ' ')
-				s++;
-			if (s < q && (*s == '(' ||
-				      (q - s >= 3 && !strncmp(s, "not", 3) &&
-				       (s[3] == ' ' || s[3] == '('))))
-				r = lhp_supports_true(s, q);
-			else
-				r = lhp_supports_decl(s, q);
-
-			if (neg)
-				r = !r;
-			neg = 0;
-
-			if (result < 0)
-				result = r;
-			else if (op == 1)
-				result = result && r;
-			else if (op == 2)
-				result = result || r;
-			else
-				result = r;
-
-			if (q < end)
-				q++;
-			continue;
-		}
-
-		/* selector(...), font-tech(...), anything else: unsupported */
-		return 0;
-	}
-
-	return result > 0;
-}
-
-static int
-lhp_media_query_true(lhp_ctx_t *ctx, const char *q, const char *end)
-{
-	/* comma-separated list: any true */
-	while (q < end) {
-		const char *s = q, *e;
-		int all = 1, neg = 0;
-
-		while (q < end && *q != ',')
-			q++;
-		e = q;
-		if (q < end)
-			q++;
-
-		while (s < e && *s == ' ')
-			s++;
-		while (e > s && e[-1] == ' ')
-			e--;
-
-		if (e - s >= 4 && !strncmp(s, "not ", 4)) {
-			neg = 1;
-			s += 4;
-		}
-		if (e - s >= 5 && !strncmp(s, "only ", 5))
-			s += 5;
-
-		/* " and "-separated terms: all true */
-		while (s < e && all) {
-			const char *t = s, *te;
-
-			while (s < e && strncmp(s, " and ", 5))
-				s++;
-			te = s;
-			if (s < e)
-				s += 5;
-
-			if (*t == '(') {
-				t++;
-				if (te > t && te[-1] == ')')
-					te--;
-				all = lhp_media_feature(ctx, t, te);
-			} else if ((te - t == 3 && !strncmp(t, "all", 3)) ||
-				   (te - t == 6 && !strncmp(t, "screen", 6)))
-				all = 1;
-			else
-				all = 0; /* print, speech, unknown */
-		}
-
-		if (all != neg)
-			return 1;
-	}
-
-	return 0;
-}
-
-/*
- * Properties whose computed value passes from parent to child when the child
- * doesn't declare them (CSS 2.1 "Inherited: yes")
- */
-
-static int
-lhp_prop_inherited(int prop)
-{
-	switch (prop) {
-	case LCSP_PROP_AZIMUTH:
-	case LCSP_PROP_BORDER_COLLAPSE:
-	case LCSP_PROP_BORDER_SPACING:
-	case LCSP_PROP_CAPTION_SIDE:
-	case LCSP_PROP_COLOR:
-	case LCSP_PROP_CURSOR:
-	case LCSP_PROP_DIRECTION:
-	case LCSP_PROP_ELEVATION:
-	case LCSP_PROP_EMPTY_CELLS:
-	case LCSP_PROP_FONT_FAMILY:
-	case LCSP_PROP_FONT_SIZE:
-	case LCSP_PROP_FONT_STYLE:
-	case LCSP_PROP_FONT_VARAIANT:
-	case LCSP_PROP_FONT_WEIGHT:
-	case LCSP_PROP_FONT:
-	case LCSP_PROP_LETTER_SPACING:
-	case LCSP_PROP_LINE_HEIGHT:
-	case LCSP_PROP_LIST_STYLE_IMAGE:
-	case LCSP_PROP_LIST_STYLE_POSITION:
-	case LCSP_PROP_LIST_STYLE_TYPE:
-	case LCSP_PROP_LIST_STYLE:
-	case LCSP_PROP_ORPHANS:
-	case LCSP_PROP_PITCH_RANGE:
-	case LCSP_PROP_PITCH:
-	case LCSP_PROP_QUOTES:
-	case LCSP_PROP_RICHNESS:
-	case LCSP_PROP_SPEAK_HEADER:
-	case LCSP_PROP_SPEAK_NUMERAL:
-	case LCSP_PROP_SPEAK_PUNCTUATION:
-	case LCSP_PROP_SPEAK:
-	case LCSP_PROP_SPEECH_RATE:
-	case LCSP_PROP_STRESS:
-	case LCSP_PROP_TEXT_ALIGN:
-	case LCSP_PROP_TEXT_INDENT:
-	case LCSP_PROP_TEXT_TRANSFORM:
-	/* not inherited in css, but it propagates to every in-flow
-	 * descendant's text, which comes to the same thing here */
-	case LCSP_PROP_TEXT_DECORATION:
-	case LCSP_PROP_VISIBILITY:
-	case LCSP_PROP_VOICE_FAMILY:
-	case LCSP_PROP_VOLUME:
-	case LCSP_PROP_WHITE_SPACE:
-	case LCSP_PROP_WIDOWS:
-	case LCSP_PROP_WORD_SPACING:
-		return 1;
-	default:
-		return 0;
-	}
-}
-
-/*
- * The winning declaration of prop among the stanzas matched by ps, or NULL
- */
-
-static const lcsp_atr_t *
-lhp_resolve_var_ps(lhp_ctx_t *ctx, lhp_pstack_t *ps, const lcsp_atr_t *a);
-
-/*
- * Each element keeps an index of the declarations that win among its matched
- * stanzas: for each property, and each custom property by name, the one with
- * the highest rank, sorted by property for binary search.  It is made once,
- * when the element is first looked up after its matched stanzas change, so a
- * lookup costs a binary search instead of a walk of every declaration of
- * every matched stanza... and an inherited property costs that at each
- * ancestor level, rather than the walk at each.
- *
- * rank is the cascade's precedence: !important declarations above the rest,
- * then the matched stanzas' order, then the declaration's position in its
- * stanza.  A custom property is taken by the same order ignoring !important,
- * and only if it has a value, as lhp_find_var() always did.
- */
-
-typedef struct lhp_decl {
-	const lcsp_defs_t	*def;
-	uint32_t		rank;
-} lhp_decl_t;
-
-/* the ctx the element is open in, NULL if it isn't on a stack */
-
-static lhp_ctx_t *
-lhp_ps_ctx(lhp_pstack_t *ps)
-{
-	return lws_dll2_owner_container(&ps->list, lhp_ctx_t, stack);
-}
-
-static void
-lhp_ps_ops(lhp_pstack_t *ps, uint32_t n)
-{
-	lhp_ctx_t *ctx = lhp_ps_ctx(ps);
-
-	if (ctx)
-		ctx->cascade_ops += n;
-}
-
-/*
- * Account what ps now holds for its css, its matched stanzas, declaration
- * index and parsed style="" attribute, in the document's ctx->css_level_heap:
- * every open level holds its own, so nesting multiplies it, and
- * LHP_MAX_CSS_LEVEL_HEAP bounds the sum (see lhp_css_doc_spent()).
- * ps->css_heap is what was counted for it, so lhp_clean_level() can take it
- * off again
- */
-
-static void
-lhp_ps_heap(lhp_pstack_t *ps)
-{
-	lhp_ctx_t *ctx = lhp_ps_ctx(ps);
-	uint32_t now = (uint32_t)(ps->nmatched * sizeof(lcsp_match_t) +
-				  ps->ndecl * sizeof(lhp_decl_t) +
-				  lwsac_total_alloc(ps->styleac));
-
-	if (!ctx)
-		return;
-
-	ctx->css_level_heap = ctx->css_level_heap - ps->css_heap + now;
-	ps->css_heap = now;
-}
-
-/* property, then for custom properties the name, by length then bytes */
-
-static int
-lhp_decl_key_cmp(int prop, const char *name, size_t len,
-		 const lcsp_defs_t *def)
-{
-	if (prop != (int)def->prop)
-		return prop < (int)def->prop ? -1 : 1;
-	if (prop != LCSP_PROP__COUNT)
-		return 0;
-	if (len != def->var->name_len)
-		return len < def->var->name_len ? -1 : 1;
-	if (!len)
-		return 0; /* nothing to compare, and name may be NULL */
-
-	return memcmp(name, &def->var[1], len);
-}
-
-static int
-lhp_decl_cmp(const void *a, const void *b)
-{
-	const lhp_decl_t *da = (const lhp_decl_t *)a,
-			 *db = (const lhp_decl_t *)b;
-	const lcsp_defs_t *d = da->def;
-	int r = lhp_decl_key_cmp((int)d->prop,
-				 d->var ? (const char *)&d->var[1] : NULL,
-				 d->var ? d->var->name_len : 0, db->def);
-
-	if (r)
-		return r;
-
-	return da->rank < db->rank ? -1 : da->rank > db->rank;
-}
-
-static void
-lhp_decl_invalidate(lhp_pstack_t *ps)
-{
-	lws_free_set_NULL(ps->decl);
-	ps->ndecl = 0;
-	ps->decl_valid = 0;
-	lhp_ps_heap(ps);
-}
-
-static void
-lhp_decl_index(lhp_pstack_t *ps)
-{
-	uint32_t n, total = 0, i = 0, k = 0, w = 0;
-	lhp_decl_t *d, *dr;
-
-	if (ps->decl_valid)
-		return;
-
-	lhp_decl_invalidate(ps);
-	/* if we can't make it, the element has no declarations */
-	ps->decl_valid = 1;
-
-	for (n = 0; n < ps->nmatched; n++)
-		total += lws_dll2_count(&ps->matched[n].stz->defs);
-	if (!total)
-		return;
-
-	d = lws_malloc(total * sizeof(*d), __func__);
-	if (!d) {
-		lwsl_warn("%s: OOM indexing %u declarations\n", __func__,
-			  (unsigned int)total);
-		return;
-	}
-
-	for (n = 0; n < ps->nmatched; n++)
-		lws_start_foreach_dll(struct lws_dll2 *, q,
-			lws_dll2_get_head(&ps->matched[n].stz->defs)) {
-			const lcsp_defs_t *def = lws_container_of(q,
-							lcsp_defs_t, list);
-
-			if (def->prop == LCSP_PROP__COUNT) {
-				if (def->var && lws_dll2_get_tail(&def->atrs)) {
-					d[k].def = def;
-					d[k++].rank = i;
-				}
-			} else {
-				d[k].def = def;
-				d[k++].rank = def->important ? total + i : i;
-			}
-			i++;
-		} lws_end_foreach_dll(q);
-
-	lhp_ps_ops(ps, total + k);
-	qsort(d, k, sizeof(*d), lhp_decl_cmp);
-
-	/* keep the last of each run of the same key: the winner */
-
-	for (n = 0; n < k; n++) {
-		const lcsp_defs_t *def = d[n].def;
-
-		if (n + 1 < k && !lhp_decl_key_cmp((int)def->prop,
-				def->var ? (const char *)&def->var[1] : NULL,
-				def->var ? def->var->name_len : 0,
-				d[n + 1].def))
-			continue;
-		d[w++] = d[n];
-	}
-
-	if (!w) {
-		lws_free(d);
-		return;
-	}
-
-	dr = lws_realloc(d, w * sizeof(*d), __func__);
-	ps->decl = dr ? dr : d;
-	ps->ndecl = w;
-	lhp_ps_heap(ps);
-}
-
-/*
- * The winning declaration on ps for prop, or for prop LCSP_PROP__COUNT the
- * custom property --name (len chars, without the --), or NULL
- */
-
-static const lhp_decl_t *
-lhp_decl_find(lhp_pstack_t *ps, int prop, const char *name, size_t len)
-{
-	uint32_t lo = 0, hi;
-
-	lhp_decl_index(ps);
-	hi = ps->ndecl;
-
-	while (lo < hi) {
-		uint32_t mid = lo + (hi - lo) / 2;
-		int r = lhp_decl_key_cmp(prop, name, len, ps->decl[mid].def);
-
-		lhp_ps_ops(ps, 1);
-		if (!r)
-			return &ps->decl[mid];
-		if (r < 0)
-			hi = mid;
-		else
-			lo = mid + 1;
-	}
-
-	return NULL;
-}
-
-/*
- * The declaration in effect on ps for any of the props[] (a longhand and
- * the shorthands that can set it), by specificity then source order
- */
-
-static const lcsp_defs_t *
-lhp_find_defn(lhp_pstack_t *ps, const int *props, int nprops)
-{
-	const lhp_decl_t *best = NULL;
-	int i;
-
-	for (i = 0; i < nprops; i++) {
-		const lhp_decl_t *dc = lhp_decl_find(ps, props[i], NULL, 0);
-
-		if (dc && (!best || dc->rank > best->rank))
-			best = dc;
-	}
-
-	return best ? best->def : NULL;
-}
-
-static const lcsp_defs_t *
-lhp_find_def(lhp_pstack_t *ps, int prop)
-{
-	return lhp_find_defn(ps, &prop, 1);
-}
-
-/*
- * Term n of a multi-term declaration value, eg the "10px" of
- * "background-position: 20px 10px"; NULL if there is no nth term
- */
-
-static const lcsp_atr_t *
-lhp_def_term(const lcsp_defs_t *def, int n)
-{
-	lws_dll2_t *d;
-
-	if (!def)
-		return NULL;
-
-	d = lws_dll2_get_head(&def->atrs);
-	while (d && n-- > 0)
-		d = lws_dll2_get_next(d);
-
-	return d ? lws_container_of(d, lcsp_atr_t, list) : NULL;
-}
-
-/*
- * One background-size / background-position term against reference length
- * ref (the element box side, or the element side minus the image side for
- * position percentages).  Lengths in any unit resolve via the normal css
- * machinery, percentages scale ref, and keywords resolve to 0 / half /
- * all of ref.  *set is cleared if the term is auto or absent.
- */
-
-static void
-lhp_bg_term(lws_fx_t *result, int *set, const lcsp_atr_t *a,
-	    const lws_fx_t *ref, lhp_pstack_t *ps)
-{
-	*set = 0;
-
-	if (!a)
-		return;
-
-	if (a->unit == LCSP_UNIT_LENGTH_PERCENT) {
-		lws_fx_mul(result, &a->u.i, ref);
-		lws_fx_div(result, result, &c_100);
-		*set = 1;
-		return;
-	}
-
-	if (a->unit == LCSP_UNIT_NONE) {
-		switch (a->propval) {
-		case LCSP_PROPVAL_CENTER:
-			lws_fx_div(result, ref, &lws_fx_2);
-			*set = 1;
-			return;
-		case LCSP_PROPVAL_BOTTOM:
-		case LCSP_PROPVAL_RIGHT:
-			*result = *ref;
-			*set = 1;
-			return;
-		case LCSP_PROPVAL_TOP:
-		case LCSP_PROPVAL_LEFT:
-			result->whole = 0;
-			result->frac = 0;
-			*set = 1;
-			return;
-		}
-		/* auto, cover, contain... leave unsized */
-
-		return;
-	}
-
-	*result = *lws_csp_px(a, ps);
-	*set = 1;
-}
-
-/*
- * The value in effect for one side of a box property that has both longhand
- * (eg, margin-top) and shorthand (eg, margin: 1px 2px) forms: whichever was
- * declared with the higher precedence wins, and a shorthand is expanded by
- * the position of its values.  These properties don't inherit, so only the
- * element's own declarations count.
- *
- * TRBL: 1 value: all; 2: top/bottom, left/right; 3: top, left/right, bottom;
- *       4: top, right, bottom, left.  idx: 0 top, 1 right, 2 bottom, 3 left
- *
- * radii: 1: all; 2: TL/BR, TR/BL; 3: TL, TR/BL, BR; 4: TL, TR, BR, BL.
- *        idx: 0 TL, 1 TR, 2 BL, 3 BR
- */
-
-static const lcsp_atr_t *
-lhp_side_atr(lhp_pstack_t *ps, int longhand, int shorthand, int idx,
-	     int radii)
-{
-	const lcsp_defs_t *def;
-	int props[4], np = 0, logi = -1, axis = -1;
-	lhp_ctx_t *ctx;
-	int c, use = 0;
-
-	props[np++] = longhand;
-	props[np++] = shorthand;
-
-	/*
-	 * The logical properties, taken as horizontal-tb ltr: the inline
-	 * axis is left / right (start / end), the block axis top / bottom.
-	 * inset is the shorthand for the four offsets, which have no
-	 * physical shorthand of their own
-	 */
-	if (!radii) {
-		int base = -1;
-
-		switch (shorthand) {
-		case LCSP_PROP_MARGIN:
-			base = LCSP_PROP_MARGIN_INLINE;
-			break;
-		case LCSP_PROP_PADDING:
-			base = LCSP_PROP_PADDING_INLINE;
-			break;
-		case LCSP_PROP_INSET:
-			base = LCSP_PROP_INSET_INLINE;
-			break;
-		default:
-			break;
-		}
-
-		if (base != -1) {
-			/* base + 0: -inline, 1: -inline-start, 2: -inline-end,
-			 *        3: -block, 4: -block-start, 5: -block-end */
-			switch (idx) {
-			case CCPAS_TOP:
-				logi = base + 4;
-				axis = base + 3;
-				break;
-			case CCPAS_RIGHT:
-				logi = base + 2;
-				axis = base;
-				break;
-			case CCPAS_BOTTOM:
-				logi = base + 5;
-				axis = base + 3;
-				break;
-			default:
-				logi = base + 1;
-				axis = base;
+			if (nl == tag_len && !memcmp(p, tag, tag_len)) {
+
+				lcsp_stanza_ptr_t *sp = lwsac_use_zero(
+						&ctx->cascadeac,
+						sizeof(*sp), LHP_AC_GRANULE);
+				if (!sp)
+					return 1;
+
+				sp->stz = stz;
+				lws_dll2_add_tail(&sp->list,
+						  &ctx->active_stanzas);
 				break;
 			}
-			props[np++] = logi;
-			props[np++] = axis;
-		}
-	}
 
-	def = lhp_find_defn(ps, props, np);
-
-	if (!def || !lws_dll2_get_head(&def->atrs))
-		return NULL;
-
-	ctx = lws_dll2_owner_container(&ps->list, lhp_ctx_t, stack);
-
-	if ((int)def->prop == longhand || (int)def->prop == logi)
-		return lhp_resolve_var_ps(ctx, ps, lws_container_of(
-					lws_dll2_get_tail(&def->atrs),
-					lcsp_atr_t, list));
-
-	c = (int)lws_dll2_count(&def->atrs);
-
-	if ((int)def->prop == axis)
-		/* start end, or one value for both */
-		use = c >= 2 && (idx == CCPAS_RIGHT || idx == CCPAS_BOTTOM);
-	else if (!radii) {
-		switch (c) {
-		case 2:
-			use = (idx == 0 || idx == 2) ? 0 : 1;
-			break;
-		case 3:
-			use = idx == 0 ? 0 : ((idx == 1 || idx == 3) ? 1 : 2);
-			break;
-		case 4:
-			use = idx;
-			break;
-		default:
-			use = 0;
-			break;
-		}
-	} else {
-		switch (c) {
-		case 2:
-			use = (idx == 0 || idx == 3) ? 0 : 1;
-			break;
-		case 3:
-			use = idx == 0 ? 0 : ((idx == 1 || idx == 2) ? 1 : 2);
-			break;
-		case 4:
-			use = idx == 0 ? 0 : (idx == 1 ? 1 : (idx == 3 ? 2 : 3));
-			break;
-		default:
-			use = 0;
-			break;
-		}
-	}
-
-	lws_start_foreach_dll(struct lws_dll2 *, d,
-			      lws_dll2_get_head(&def->atrs)) {
-		if (!use--)
-			/* a term of the shorthand may be a var() too */
-			return lhp_resolve_var_ps(ctx, ps,
-				lws_container_of(d, lcsp_atr_t, list));
-	} lws_end_foreach_dll(d);
-
-	return NULL;
-}
-
-const lcsp_atr_t *
-lws_css_get_side_atr_ps(lhp_pstack_t *ps, int longhand, int shorthand,
-			int idx, int radii)
-{
-	return lhp_side_atr(ps, longhand, shorthand, idx, radii);
-}
-
-/*
- * The border widths named by keyword, and the initial one (medium)
- */
-
-static const lcsp_atr_t lhp_bw_thin = {
-	.u.i = { 1, 0 }, .unit = LCSP_UNIT_LENGTH_PX },
-			lhp_bw_medium = {
-	.u.i = { 3, 0 }, .unit = LCSP_UNIT_LENGTH_PX },
-			lhp_bw_thick = {
-	.u.i = { 5, 0 }, .unit = LCSP_UNIT_LENGTH_PX };
-
-/* the keyword transparent, as a colour */
-
-static const lcsp_atr_t lhp_bc_transparent = {
-	.u.rgba = 0, .unit = LCSP_UNIT_RGBA };
-
-static int
-lhp_atr_is_str(const lcsp_atr_t *a, const char *str)
-{
-	size_t n = strlen(str);
-
-	return a->unit == LCSP_UNIT_STRING && a->value_len >= n &&
-	       !strncasecmp((const char *)&a[1], str, n) &&
-	       (a->value_len == n || !((const char *)&a[1])[n]);
-}
-
-/* which part of a border a term of border, or border-<side>, sets */
-
-enum {
-	LHP_BT_WIDTH,
-	LHP_BT_STYLE,
-	LHP_BT_COLOR,
-};
-
-static int
-lhp_border_term_kind(const lcsp_atr_t *a)
-{
-	if (a->unit == LCSP_UNIT_RGBA ||
-	    (a->unit == LCSP_UNIT_NONE &&
-	     a->propval == LCSP_PROPVAL_TRANSPARENT) ||
-	    (a->unit == LCSP_UNIT_STRING &&
-	     (!strncmp((const char *)&a[1], "var(--", 6) ||
-	      lhp_atr_is_str(a, "currentcolor"))))
-		return LHP_BT_COLOR;
-
-	if ((a->unit >= LCSP_UNIT_NUM && a->unit <= LCSP_UNIT_CALC) ||
-	    lhp_atr_is_str(a, "thin") || lhp_atr_is_str(a, "medium") ||
-	    lhp_atr_is_str(a, "thick"))
-		return LHP_BT_WIDTH;
-
-	/* none and hidden are keywords, the drawn styles are strings */
-
-	return LHP_BT_STYLE;
-}
-
-/*
- * One part (kind) of the border on side idx: from its longhand, eg
- * border-top-width, the shorthand for that part on all sides, eg
- * border-width: 1px 2px, or the shorthands for all of one side, or all the
- * sides, border-top: 1px solid red and border: 1px solid red, whichever wins.
- * NULL means it takes its initial value, as a shorthand that sets the other
- * parts and not this one resets it to.
- */
-
-static const lcsp_atr_t *
-lhp_border_part(lhp_ctx_t *ctx, lhp_pstack_t *ps, int idx, int kind)
-{
-	static const int sides[] = { LCSP_PROP_BORDER_TOP_WIDTH,
-				     LCSP_PROP_BORDER_TOP_STYLE,
-				     LCSP_PROP_BORDER_TOP_COLOR },
-			 alls[] = { LCSP_PROP_BORDER_WIDTH,
-				    LCSP_PROP_BORDER_STYLE,
-				    LCSP_PROP_BORDER_COLOR };
-	int props[4];
-	const lcsp_defs_t *def;
-
-	props[0] = sides[kind] + idx;
-	props[1] = alls[kind];
-	props[2] = LCSP_PROP_BORDER_TOP + idx;
-	props[3] = LCSP_PROP_BORDER;
-
-	def = lhp_find_defn(ps, props, 4);
-	if (!def)
-		return NULL;
-
-	if ((int)def->prop == props[0] || (int)def->prop == props[1])
-		return lhp_side_atr(ps, props[0], props[1], idx, 0);
-
-	lws_start_foreach_dll(struct lws_dll2 *, d,
-			      lws_dll2_get_head(&def->atrs)) {
-		const lcsp_atr_t *a = lhp_resolve_var_ps(ctx, ps,
-				lws_container_of(d, lcsp_atr_t, list));
-
-		if (lhp_border_term_kind(a) == kind)
-			return a;
-	} lws_end_foreach_dll(d);
-
-	return NULL;
-}
-
-/*
- * The border on each side of ps: its width, or NULL if it has none, because
- * its style is none or hidden, or it wasn't given one, and its colour, or NULL
- * for currentColor.  Every drawn style is drawn solid.
- */
-
-static void
-lhp_border_resolve(lhp_ctx_t *ctx, lhp_pstack_t *ps)
-{
-	const lcsp_atr_t *a;
-	int n;
-
-	for (n = 0; n < 4; n++) {
-		ps->css_border_width[n] = NULL;
-		ps->css_border_color[n] = NULL;
-
-		a = lhp_border_part(ctx, ps, n, LHP_BT_STYLE);
-		if (!a || a->unit == LCSP_UNIT_NONE)
-			/* none, hidden, or not given */
-			continue;
-
-		a = lhp_border_part(ctx, ps, n, LHP_BT_WIDTH);
-		if (!a)
-			a = &lhp_bw_medium;
-		else if (lhp_atr_is_str(a, "thin"))
-			a = &lhp_bw_thin;
-		else if (lhp_atr_is_str(a, "medium"))
-			a = &lhp_bw_medium;
-		else if (lhp_atr_is_str(a, "thick"))
-			a = &lhp_bw_thick;
-		else if (a->unit == LCSP_UNIT_LENGTH_PERCENT ||
-			 a->unit < LCSP_UNIT_NUM || a->unit > LCSP_UNIT_CALC)
-			/* not a border width */
-			continue;
-		ps->css_border_width[n] = a;
-
-		a = lhp_border_part(ctx, ps, n, LHP_BT_COLOR);
-		if (a && a->unit == LCSP_UNIT_NONE &&
-		    a->propval == LCSP_PROPVAL_TRANSPARENT)
-			a = &lhp_bc_transparent;
-		if (a && a->unit == LCSP_UNIT_RGBA)
-			ps->css_border_color[n] = a;
-	}
-}
-
-/*
- * Find the declaration in effect for prop on element ps, listing its values
- * in ctx->active_atr and returning the last one
- */
-
-static const lcsp_atr_t *
-lhp_prop_atr_ps(lhp_ctx_t *ctx, lhp_pstack_t *ps, lcsp_props_t prop)
-{
-	int inh = lhp_prop_inherited((int)prop);
-	lcsp_atr_ptr_t *ap;
-
-	lws_dll2_owner_clear(&ctx->active_atr);
-	lwsac_free(&ctx->propatrac);
-
-	while (ps) {
-		const lcsp_defs_t *def = lhp_find_def(ps, (int)prop);
-		const lcsp_atr_t *a;
-
-		ctx->cascade_ops++;
-
-		if (!def) {
-			if (!inh)
-				return NULL;
-			goto parent;
-		}
-
-		if (!lws_dll2_get_head(&def->atrs))
-			return NULL;
-
-		a = lws_container_of(lws_dll2_get_head(&def->atrs),
-				     lcsp_atr_t, list);
-		if (a->unit == LCSP_UNIT_NONE &&
-		    a->propval == LCSP_PROPVAL_INHERIT)
-			goto parent;
-
-		/* at most LHP_MAX_CSS_DECL_VALUES of these */
-		lws_start_foreach_dll(struct lws_dll2 *, z,
-				      lws_dll2_get_head(&def->atrs)) {
-			lcsp_atr_ptr_t *patr = lwsac_use_zero(&ctx->propatrac,
-						sizeof(*patr), LHP_AC_GRANULE);
-			if (!patr)
-				return NULL;
-
-			ctx->cascade_ops++;
-
-			patr->atr = lws_container_of(z, lcsp_atr_t, list);
-			lws_dll2_add_tail(&patr->list, &ctx->active_atr);
 		} lws_end_foreach_dll(z);
 
-		ap = lws_container_of(lws_dll2_get_tail(&ctx->active_atr),
-				      lcsp_atr_ptr_t, list);
-
-		return lhp_resolve_var_ps(ctx, ps, ap->atr);
-
-parent:
-		if (!lws_dll2_get_prev(&ps->list))
-			return NULL;
-		ps = lws_container_of(lws_dll2_get_prev(&ps->list),
-				      lhp_pstack_t, list);
-	}
-
-	return NULL;
-}
-
-/*
- * Add one more stanza to an element's matched stanzas, in precedence order:
- * the style="" attribute's stanza, after the cascade set the rest
- */
-
-static int
-lhp_add_match(lhp_pstack_t *ps, lcsp_stanza_t *stz, uint32_t spec)
-{
-	lcsp_match_t *m;
-	unsigned int n;
-
-	if (ps->nmatched == 0xffff)
-		return 0;
-
-	m = lws_realloc(ps->matched, sizeof(*m) * (ps->nmatched + 1u),
-			__func__);
-	if (!m)
-		return 1;
-	ps->matched = m;
-
-	/* stable insertion: after every entry with specificity <= ours */
-
-	n = ps->nmatched;
-	while (n && m[n - 1].specificity > spec) {
-		m[n] = m[n - 1];
-		n--;
-	}
-	m[n].stz = stz;
-	m[n].specificity = spec;
-	ps->nmatched++;
-	lhp_decl_invalidate(ps);
+	} lws_end_foreach_dll(q);
 
 	return 0;
-}
-
-/* hits in cascade order: by specificity, then source order */
-
-static int
-lhp_hits_cascade_cmp(const void *a, const void *b)
-{
-	const lcsp_match_t *ma = (const lcsp_match_t *)a,
-			   *mb = (const lcsp_match_t *)b;
-
-	if (ma->specificity != mb->specificity)
-		return ma->specificity < mb->specificity ? -1 : 1;
-
-	return ma->stz->seq < mb->stz->seq ? -1 : ma->stz->seq > mb->stz->seq;
-}
-
-/*
- * Make the stanzas hit in this cascade pass (only ever ones with
- * declarations) the element's matched stanzas, lowest precedence first, in
- * one go.  If there are too many, the lowest precedence ones are left out,
- * keeping a slot for the style="" stanza.
- */
-
-static int
-lhp_set_matches(lhp_ctx_t *ctx, lhp_pstack_t *ps)
-{
-	uint32_t k = ctx->hits_count, skip = 0;
-	lcsp_match_t *m;
-
-	ps->nmatched = 0;
-	lhp_decl_invalidate(ps);
-
-	if (!k) {
-		lws_free_set_NULL(ps->matched);
-		return 0;
-	}
-
-	qsort(ctx->hits, k, sizeof(*ctx->hits), lhp_hits_cascade_cmp);
-	ctx->cascade_ops += k;
-
-	if (k > 0xfffe) {
-		skip = k - 0xfffe;
-		k = 0xfffe;
-	}
-
-	m = lws_realloc(ps->matched, k * sizeof(*m), __func__);
-	if (!m)
-		return 1;
-	ps->matched = m;
-	memcpy(m, ctx->hits + skip, k * sizeof(*m));
-	ps->nmatched = (uint16_t)k;
-	lhp_ps_heap(ps);
-
-	return 0;
-}
-
-/*
- * Parse a style="..." attribute as a stanza that only this element matches,
- * reusing the declaration parser by nesting lws_lhp_parse() on the string.
- * The allocations go in ps->styleac so they die with the element, and count
- * in the document's css_level_heap while it is open.  It is parsed once per
- * element: ps->style_stz keeps the stanza for any later cascade of the
- * element to match again (G-666)
- */
-
-static int
-lhp_parse_style_attr(lhp_ctx_t *ctx, lhp_pstack_t *ps, const char *val)
-{
-	static const uint8_t term[] = ";}";
-	const uint8_t *p = (const uint8_t *)val, *pt = term;
-	size_t len = strlen(val), lt = sizeof(term) - 1;
-	struct lwsac *oac = ctx->cssac;
-	lcsp_stanza_t *stz, *sstz = ctx->stz;
-	lcsp_defs_t *sdef = ctx->def;
-	int sstate = ctx->state, snpos = ctx->npos,
-	    scomm = ctx->state_css_comm, stc = ctx->temp_count,
-	    sprop = ctx->prop, spropval = ctx->propval, r = 0;
-	int16_t scss = ctx->css_state, scssval = ctx->cssval_state;
-	lcsp_css_units_t sunit = ctx->unit;
-	uint32_t su = ctx->u.s, stemp = ctx->temp;
-	lws_dll2_t *svars = lws_dll2_get_tail(&ctx->css_vars);
-	lws_fx_t stf = ctx->tf;
-	char sbuf[64];
-
-	if (snpos < 0 || snpos > (int)sizeof(sbuf))
-		return 0;
-	memcpy(sbuf, ctx->buf, (size_t)snpos);
-
-	ctx->cssac = ps->styleac;
-	stz = lwsac_use_zero(&ctx->cssac, sizeof(*stz), LHP_AC_GRANULE);
-	if (!stz) {
-		r = 1;
-		goto restore;
-	}
-
-	ctx->stz = stz;
-	ctx->def = NULL;
-	ctx->state = LCSPS_CSS_STANZA;
-	ctx->state_css_comm = LCSPS_CSS_STANZA;
-	ctx->u.s = 0;
-	ctx->u.f.default_css = 1; /* no document-end processing in here */
-	ctx->u.f.style_attr = 1; /* and only declarations may be parsed */
-	ctx->css_state = 0;
-	ctx->cssval_state = 0;
-	ctx->npos = 0;
-	ctx->temp = 0;
-	ctx->temp_count = 0;
-	ctx->unit = LCSP_UNIT_NONE;
-
-	if ((lws_lhp_parse(ctx, &p, &len) & LWS_SRET_FATAL) ||
-	    (lws_lhp_parse(ctx, &pt, &lt) & LWS_SRET_FATAL))
-		r = 1;
-	else {
-		ps->style_stz = stz;
-		if (lws_dll2_get_head(&stz->defs) &&
-		    lhp_add_match(ps, stz, 1u << 24))
-			r = 1;
-	}
-
-restore:
-	/*
-	 * --custom: values declared in the attribute were registered on the
-	 * document-wide variable list but live in styleac, which dies with
-	 * the element: unregister them
-	 */
-	while (lws_dll2_get_tail(&ctx->css_vars) != svars)
-		lws_dll2_remove(lws_dll2_get_tail(&ctx->css_vars));
-
-	ps->styleac = ctx->cssac;
-	lhp_ps_heap(ps);
-	ctx->cssac = oac;
-	ctx->stz = sstz;
-	ctx->def = sdef;
-	ctx->state = sstate;
-	ctx->state_css_comm = scomm;
-	ctx->temp_count = stc;
-	ctx->prop = sprop;
-	ctx->propval = spropval;
-	ctx->css_state = scss;
-	ctx->cssval_state = scssval;
-	ctx->unit = sunit;
-	ctx->u.s = su;
-	ctx->temp = stemp;
-	ctx->tf = stf;
-	memcpy(ctx->buf, sbuf, (size_t)snpos);
-	ctx->npos = snpos;
-
-	return r;
-}
-
-/*
- * css opacity, a number 0 .. 1 or a percentage, clamped, as an alpha 0 .. 255.
- * Anything else, or no opacity, is opaque
- */
-
-static unsigned int
-lhp_opacity_alpha(const lcsp_atr_t *op)
-{
-	int64_t v, full;
-
-	if (!op || (op->unit != LCSP_UNIT_NUM &&
-		    op->unit != LCSP_UNIT_LENGTH_PERCENT))
-		return 255;
-
-	full = op->unit == LCSP_UNIT_NUM ? 1 : 100;
-	if (op->u.i.whole < 0)
-		return 0;
-	if (op->u.i.whole >= full)
-		return 255;
-
-	/* in units of 1 / LWS_FX_FRACTION_MSD of the number */
-	v = (int64_t)op->u.i.whole * LWS_FX_FRACTION_MSD + op->u.i.frac;
-	if (v < 0)
-		return 0;
-
-	return (unsigned int)((v * 255 + (full * LWS_FX_FRACTION_MSD) / 2) /
-			      (full * LWS_FX_FRACTION_MSD));
-}
-
-/*
- * font-size is inherited as a computed px value, since relative units in the
- * declaration are relative to the parent's size
- */
-
-static void
-lhp_compute_font_size(lhp_ctx_t *ctx, lhp_pstack_t *ps, lhp_pstack_t *parent)
-{
-	static const lws_fx_t c16 = { 16, 0 };
-	const lws_fx_t *pfs = parent && (parent->font_size.whole ||
-					 parent->font_size.frac) ?
-					 &parent->font_size : &c16;
-	const lcsp_defs_t *def = lhp_find_def(ps, LCSP_PROP_FONT_SIZE);
-	const lcsp_atr_t *a;
-	lws_fx_t t, r;
-
-	ps->font_size = *pfs;
-
-	if (!def || !lws_dll2_get_head(&def->atrs))
-		return;
-
-	a = lws_container_of(lws_dll2_get_head(&def->atrs), lcsp_atr_t, list);
-
-	/* font-size: var(--x): what the custom property says */
-	a = lhp_resolve_var_ps(ctx, ps, a);
-
-	switch (a->unit) {
-	case LCSP_UNIT_NUM:
-	case LCSP_UNIT_LENGTH_PX:
-		r = a->u.i;
-		break;
-	case LCSP_UNIT_CALC:
-		/* em / % inside it are of the parent's size, which is what
-		 * ps->font_size holds at this point */
-		r = *lws_csp_px(a, ps);
-		break;
-	case LCSP_UNIT_LENGTH_EM:
-		lws_fx_mul(&r, &a->u.i, pfs);
-		break;
-	case LCSP_UNIT_LENGTH_EX:
-		lws_fx_mul(&t, &a->u.i, pfs);
-		lws_fx_div(&r, &t, &lws_fx_2);
-		break;
-	case LCSP_UNIT_LENGTH_PERCENT:
-		lws_fx_mul(&t, &a->u.i, pfs);
-		lws_fx_div(&r, &t, &c_100);
-		break;
-	case LCSP_UNIT_LENGTH_REM:
-	{
-		/* the root element's size is that of the level after the
-		 * document level, if it has been resolved */
-		const lws_fx_t *rfs = &c16;
-		lws_dll2_t *d = lws_dll2_get_head(&ctx->stack);
-
-		if (d && lws_dll2_get_next(d)) {
-			lhp_pstack_t *root = lws_container_of(
-					lws_dll2_get_next(d), lhp_pstack_t, list);
-			if (root->font_size.whole)
-				rfs = &root->font_size;
-		}
-		lws_fx_mul(&r, &a->u.i, rfs);
-		break;
-	}
-	case LCSP_UNIT_LENGTH_PT: /* css px are 1/96in, pt 1/72in */
-		lws_fx_mul(&t, &a->u.i, &lws_fx_4);
-		lws_fx_div(&r, &t, &lws_fx_3);
-		break;
-	case LCSP_UNIT_LENGTH_PC:
-		lws_fx_mul(&r, &a->u.i, &c16);
-		break;
-	case LCSP_UNIT_LENGTH_IN:
-		lws_fx_mul(&r, &a->u.i, &lws_fx_96);
-		break;
-	case LCSP_UNIT_LENGTH_CM:
-		lws_fx_mul(&t, &a->u.i, &lws_fx_96);
-		lws_fx_div(&r, &t, &c_254);
-		break;
-	case LCSP_UNIT_LENGTH_MM:
-		lws_fx_mul(&t, &a->u.i, &lws_fx_96);
-		lws_fx_div(&r, &t, &lws_fx_254);
-		break;
-	case LCSP_UNIT_LENGTH_VW:
-	case LCSP_UNIT_LENGTH_VH:
-	case LCSP_UNIT_LENGTH_VMIN:
-	case LCSP_UNIT_LENGTH_VMAX:
-		/* font-size: 2vw and friends resolve against the surface */
-		r = *lws_csp_px(a, ps);
-		break;
-	case LCSP_UNIT_STRING:
-	{
-		/* absolute-size keywords, CSS2.1 table for a 16px medium */
-		static const struct { const char *n; uint8_t px; } ks[] = {
-			{ "xx-small", 9 }, { "x-small", 10 }, { "small", 13 },
-			{ "medium", 16 }, { "large", 18 }, { "x-large", 24 },
-			{ "xx-large", 32 },
-		};
-		const char *v = (const char *)&a[1];
-		size_t n;
-
-		if (a->value_len == 7 && !strncmp(v, "smaller", 7)) {
-			lws_fx_mul(&t, pfs, &lws_fx_83);
-			lws_fx_div(&r, &t, &c_100);
-			break;
-		}
-		if (a->value_len == 6 && !strncmp(v, "larger", 6)) {
-			lws_fx_mul(&t, pfs, &lws_fx_120);
-			lws_fx_div(&r, &t, &c_100);
-			break;
-		}
-		for (n = 0; n < LWS_ARRAY_SIZE(ks); n++)
-			if (a->value_len == strlen(ks[n].n) &&
-			    !strncmp(v, ks[n].n, a->value_len)) {
-				/* lws_fx_set() tests x < 0, pointless on a uint8 */
-				r.whole = ks[n].px;
-				r.frac = 0;
-				goto done;
-			}
-		return;
-	}
-	default:
-		return;
-	}
-
-done:
-	if (r.whole > 0 || (r.whole == 0 && r.frac > 0))
-		ps->font_size = r;
 }
 
 const char *
 lws_html_get_atr(lhp_pstack_t *ps, const char *aname, size_t aname_len)
 {
-	/* the head is the tag */
-
+	/* look for src= attribute */
 	lws_start_foreach_dll(struct lws_dll2 *, p,
 			      lws_dll2_get_head(&ps->atr)) {
-		const lhp_atr_t *at = lws_container_of(p, lhp_atr_t, list);
+		const lhp_atr_t *at = lws_container_of(p,
+						lhp_atr_t, list);
 		const char *ats = (const char *)&at[1];
 
-		/* attribute names are ascii case-insensitive, as for css */
-		if (p != lws_dll2_get_head(&ps->atr) &&
-		    at->name_len == aname_len &&
-		    !strncasecmp(ats, aname, aname_len))
+		if (at->name_len == aname_len && !strcmp(ats, aname))
 			return ats + aname_len + 1;
 
 	} lws_end_foreach_dll(p);
@@ -5843,391 +640,106 @@ lws_html_get_atr(lhp_pstack_t *ps, const char *aname, size_t aname_len)
 }
 
 /*
- * The value of custom property --name (len chars, without the --) as seen
- * from element ps: custom properties inherit, so the nearest of ps and its
- * ancestors with a matching stanza declaring it wins, highest precedence
- * stanza first as for any property.  A site's dark theme declares the
- * same names again under a selector that doesn't match, which must not
- * override the light ones.
- */
-
-static const lcsp_atr_t *
-lhp_find_var(lhp_ctx_t *ctx, lhp_pstack_t *ps, const char *name, size_t len)
-{
-	while (ps) {
-		const lhp_decl_t *dc = lhp_decl_find(ps, LCSP_PROP__COUNT,
-						     name, len);
-
-		ctx->cascade_ops++;
-		if (dc)
-			return lws_container_of(
-					lws_dll2_get_tail(&dc->def->atrs),
-					lcsp_atr_t, list);
-
-		if (!lws_dll2_get_prev(&ps->list))
-			break;
-		ps = lws_container_of(lws_dll2_get_prev(&ps->list),
-				      lhp_pstack_t, list);
-	}
-
-	return NULL;
-}
-
-/*
- * If a is the string value var(--name[, fallback]), the value of --name as
- * seen from ps, itself resolved if it is another var(); else a itself
- */
-
-static const lcsp_atr_t *
-lhp_resolve_var_ps(lhp_ctx_t *ctx, lhp_pstack_t *ps, const lcsp_atr_t *a)
-{
-	const char *n;
-	size_t len;
-	int depth = 0;
-
-	while (a && depth++ < 8) {
-		const lcsp_atr_t *ra;
-
-		if (a->unit != LCSP_UNIT_STRING && a->unit != LCSP_UNIT_URL)
-			return a;
-
-		n = (const char *)&a[1];
-		if (strncmp(n, "var(--", 6))
-			return a;
-
-		n += 4; /* skip var( */
-		len = 0;
-		while (n[len] && n[len] != ')' && n[len] != ',' &&
-		       n[len] != ' ')
-			len++;
-
-		ra = lhp_find_var(ctx, ps, n, len);
-		if (!ra)
-			return a;
-
-		a = ra;
-	}
-
-	return a;
-}
-
-const lcsp_atr_t *
-lhp_resolve_var(lhp_ctx_t *ctx, const lcsp_atr_t *a)
-{
-	if (lws_dll2_is_empty(&ctx->stack))
-		return a;
-
-	return lhp_resolve_var_ps(ctx, lws_container_of(
-				lws_dll2_get_tail(&ctx->stack),
-				lhp_pstack_t, list), a);
-}
-
-const lcsp_atr_t *
-lhp_resolve_var_color(lhp_ctx_t *ctx, const lcsp_atr_t *a)
-{
-	const lcsp_atr_t *ra = lhp_resolve_var(ctx, a);
-
-	return ra && ra->unit == LCSP_UNIT_RGBA ? ra : a;
-}
-
-/* is the element one the caller asked for by its id */
-
-static int
-lhp_id_wanted(lhp_ctx_t *ctx, lhp_pstack_t *ps)
-{
-	const char *pname;
-
-	if (!ctx->ids || !lws_dll2_get_head(ctx->ids))
-		return 0;
-
-	pname = lws_html_get_atr(ps, "id", 2);
-	if (!pname)
-		return 0;
-
-	lws_start_foreach_dll(struct lws_dll2 *, d, lws_dll2_get_head(ctx->ids)) {
-		lws_display_id_t *id = lws_container_of(d, lws_display_id_t, list);
-
-		if (!strcmp(pname, id->id))
-			return 1;
-
-	} lws_end_foreach_dll(d);
-
-	return 0;
-}
-
-/*
- * Resolve the css for the element at the top of the parse stack: collect the
- * stanzas whose selectors match it (sorted by specificity, source order
- * breaking ties), parse its style="" attribute, compute its font size and
- * fill in the layout-related property lookups.  Ancestors were resolved when
- * they were on top, and keep their results until they close.
+ * Produce an ordered list of css stanzas that apply to the current html
+ * parsing context, accounting for class="xxx" at each level
  */
 
 static int
 lws_css_cascade(lhp_ctx_t *ctx)
 {
-	lhp_pstack_t *parent = NULL, *ps = lws_container_of(
-			lws_dll2_get_tail(&ctx->stack), lhp_pstack_t, list);
-	const char *st;
+	lws_dll2_owner_clear(&ctx->active_stanzas);
+	lwsac_free(&ctx->cascadeac);
+	lws_dll2_owner_clear(&ctx->active_atr);
+	lwsac_free(&ctx->propatrac);
+	ctx->in_body = 0;
 
-	if (ps->css_resolved) {
-		ctx->in_body = ps->in_body;
-		return 0;
-	}
+	/* let's proceed through the html element stack that applies */
 
-	/* the parent element is the nearest level above us with a tag */
-	parent = lhp_parent_elem(ps);
-	ps->parent_elem = parent;
-
-	ps->in_body = parent ? parent->in_body : 0;
-
-	if (lws_dll2_is_empty(&ps->atr)) {
-		/*
-		 * A level pushed for a tag we haven't parsed yet: nothing to
-		 * match, and it must not be marked resolved or the real
-		 * element gets no css when the tag and attributes arrive
-		 */
-		ctx->in_body = ps->in_body;
-		ps->font_size = parent ? parent->font_size : ps->font_size;
-		ps->hidden = parent ? parent->hidden : 0;
-
-		return 0;
-	}
-
-	{
-		lhp_atr_t *ta = lws_container_of(lws_dll2_get_head(&ps->atr),
-						 lhp_atr_t, list);
-
-		const char *etag = (const char *)&ta[1],
-			   *eid = lhp_atr_find(ctx, NULL, &ps->atr_idx, "id", 2,
-					       lhp_name_hash("id", 2)),
-			   *ecls = lhp_atr_find(ctx, NULL, &ps->atr_idx,
-						"class", 5,
-						lhp_name_hash("class", 5));
-
-		if (ta->name_len == 4 && !strncasecmp(etag, "body", 4))
-			ps->in_body = 1;
+	lws_start_foreach_dll(struct lws_dll2 *, p, ctx->stack.head) {
+		lhp_pstack_t *ps = lws_container_of(p, lhp_pstack_t, list);
 
 		/*
-		 * The limits on the document's selectors bound what one
-		 * element can cost, but css whose selectors match every
-		 * element costs that again for each one.  So the document
-		 * has a budget of css work too: once it is spent, its own
-		 * css is dropped from the index and is not applied to the
-		 * rest of its elements, see lhp_css_doc_spent()
+		 * if there is a css definition for the html entity at this
+		 * stack level, add its stanza to the results
 		 */
 
-		lhp_css_doc_spent(ctx);
+		lws_start_foreach_dll(struct lws_dll2 *, ha, ps->atr.head) {
+			lhp_atr_t *a = lws_container_of(ha, lhp_atr_t, list);
+			struct lws_tokenize ts;
 
-		/*
-		 * Which stanzas have a selector matching this element?  Only
-		 * the indexed selectors keyed by this element's tag, id and
-		 * classes can, plus the keyless ones.  Index any stanzas that
-		 * arrived since the last element first
-		 */
+			memset(&ts, 0, sizeof(ts));
 
-		if (lws_dll2_get_tail(&ctx->css) != ctx->selidx_last &&
-		    lhp_selidx_add(ctx))
-			return 1;
-
-		lhp_hits_new_pass(ctx);
-		ctx->sel_budget = LHP_SEL_CASCADE_BUDGET;
-
-		if (lhp_selidx_try(ctx, ps, LHP_SELKEY_NONE, NULL, 0) ||
-		    lhp_selidx_try(ctx, ps, LHP_SELKEY_TAG, etag, ta->name_len))
-			return 1;
-
-		if (eid && *eid &&
-		    lhp_selidx_try(ctx, ps, LHP_SELKEY_ID, eid, strlen(eid)))
-			return 1;
-
-		if (ecls && lhp_selidx_try_classes(ctx, ps, ecls))
-			return 1;
-
-		/* the matched stanzas, in source order for cascade ties */
-
-		if (lhp_set_matches(ctx, ps))
-			return 1;
-
-		/*
-		 * The style="" attribute is parsed into the element's styleac
-		 * the first time it is cascaded.  When it is cascaded again
-		 * (<html>, each time a <body> starts directly under it), its
-		 * stanza is matched again as it is: parsing it again added
-		 * another copy to styleac each time, which only grows while
-		 * the element is open (G-666)
-		 */
-		if (ps->style_stz) {
-			if (!ctx->css_doc_spent &&
-			    lws_dll2_get_head(&ps->style_stz->defs) &&
-			    lhp_add_match(ps, ps->style_stz,
-					  1u << 24))
-				return 1;
-		} else {
-			st = lws_html_get_atr(ps, "style", 5);
-			if (st && *st && !ctx->await_css_done &&
-			    !ctx->css_doc_spent &&
-			    lhp_parse_style_attr(ctx, ps, st))
-				return 1;
-		}
-	}
-
-	ps->css_resolved = 1;
-	ctx->in_body = ps->in_body;
-
-	lhp_compute_font_size(ctx, ps, parent);
-
-	/*
-	 * ... fill layout-related CSS lookups into the element
-	 * stack item... these are all pointers to the attribute
-	 * not necessarily computed scalars.  Eg lws_csp_px() can be
-	 * used later to resolve atr like 50% to pixel values.
-	 */
-
-	ps->css_position = lws_css_cascade_get_prop_atr(ctx, LCSP_PROP_POSITION);
-	ps->css_width = lws_css_cascade_get_prop_atr(ctx, LCSP_PROP_WIDTH);
-	ps->css_height = lws_css_cascade_get_prop_atr(ctx, LCSP_PROP_HEIGHT);
-	ps->css_display = lws_css_cascade_get_prop_atr(ctx, LCSP_PROP_DISPLAY);
-	ps->css_text_indent = lws_css_cascade_get_prop_atr(ctx,
-						       LCSP_PROP_TEXT_INDENT);
-	ps->css_box_sizing = lws_css_cascade_get_prop_atr(ctx,
-							  LCSP_PROP_BOX_SIZING);
-
-	/* display: none takes the whole subtree out of the layout */
-	ps->hidden = (parent && parent->hidden) ||
-		     (ps->css_display &&
-		      ps->css_display->unit == LCSP_UNIT_NONE &&
-		      ps->css_display->propval == LCSP_PROPVAL_NONE);
-
-	/*
-	 * An element we could not see as a browser does fails closed against
-	 * a cosmetic filter, see lhp_elem_suspicious()
-	 */
-	if (ps->suspicious && ctx->filter_css)
-		ps->hidden = 1;
-
-	/*
-	 * opacity: 0 and visibility: hidden show nothing either.  In css
-	 * the box still takes its space; here the subtree is left out, which
-	 * is the same thing for the usual case, an out-of-flow menu or
-	 * overlay parked invisible until a script shows it
-	 */
-	ps->opacity_inv = 0;
-	if (!ps->hidden) {
-		const lcsp_atr_t *op = lws_css_cascade_get_prop_atr(ctx,
-							LCSP_PROP_OPACITY);
-		const lcsp_atr_t *vi = lws_css_cascade_get_prop_atr(ctx,
-							LCSP_PROP_VISIBILITY);
-
-		ps->opacity_inv = (uint8_t)(255 - lhp_opacity_alpha(op));
-		if (ps->opacity_inv == 255 ||
-		    (vi && vi->unit == LCSP_UNIT_NONE &&
-		     vi->propval == LCSP_PROPVAL_HIDDEN))
-			ps->hidden = 1;
-	}
-
-	/*
-	 * The "visually hidden" idiom for screen-reader text: a box of 1px
-	 * or less with overflow: hidden shows nothing in a browser.  But one
-	 * whose id the caller asked for is kept: it's not junk, and it may be
-	 * shown later, eg, an empty bar's fill widened in place
-	 */
-	if (!ps->hidden && !lhp_id_wanted(ctx, ps)) {
-		const lcsp_atr_t *ov = lws_css_cascade_get_prop_atr(ctx,
-							LCSP_PROP_OVERFLOW);
-
-		if (ov && ov->unit == LCSP_UNIT_NONE &&
-		    ov->propval == LCSP_PROPVAL_HIDDEN &&
-		    ((ps->css_width &&
-		      ps->css_width->unit == LCSP_UNIT_LENGTH_PX &&
-		      ps->css_width->u.i.whole <= 1) ||
-		     (ps->css_height &&
-		      ps->css_height->unit == LCSP_UNIT_LENGTH_PX &&
-		      ps->css_height->u.i.whole <= 1)))
-			ps->hidden = 1;
-	}
-	/*
-	 * Note: text-indent: -9999px (the image-replacement and screen-reader
-	 * idioms) is NOT treated as hiding the element: the first-line indent
-	 * moves the text off-canvas in lhp_content, while the element box and
-	 * any background image it carries still lay out and draw
-	 */
-	if (!ps->hidden) {
-		/* clip: rect(0, 0, 0, 0) or rect(0 0 0 0): nothing visible */
-		const lcsp_atr_t *cl = lws_css_cascade_get_prop_atr(ctx,
-							LCSP_PROP_CLIP);
-
-		if (cl && cl->unit == LCSP_UNIT_STRING && cl->value_len > 5 &&
-		    !strncmp((const char *)&cl[1], "rect(", 5)) {
-			const char *p = (const char *)&cl[1] + 5;
-			int zero = 1;
-
-			while (*p && *p != ')') {
-				if (*p != '0' && *p != ' ' && *p != ',' &&
-				    *p != 'p' && *p != 'x')
-					zero = 0;
-				p++;
+			if (ha == ps->atr.head) {
+				ts.start = (const char *)&a[1];
+				ts.len = a->name_len;
 			}
-			if (zero)
-				ps->hidden = 1;
-		}
-	}
 
-	ps->css_border_radius[0] = lhp_side_atr(ps, LCSP_PROP_BORDER_TOP_LEFT_RADIUS, LCSP_PROP_BORDER_RADIUS, 0, 1);
-	ps->css_border_radius[1] = lhp_side_atr(ps, LCSP_PROP_BORDER_TOP_RIGHT_RADIUS, LCSP_PROP_BORDER_RADIUS, 1, 1);
-	ps->css_border_radius[2] = lhp_side_atr(ps, LCSP_PROP_BORDER_BOTTOM_LEFT_RADIUS, LCSP_PROP_BORDER_RADIUS, 2, 1);
-	ps->css_border_radius[3] = lhp_side_atr(ps, LCSP_PROP_BORDER_BOTTOM_RIGHT_RADIUS, LCSP_PROP_BORDER_RADIUS, 3, 1);
 
-	ps->css_background_color = lws_css_cascade_get_prop_atr(ctx, LCSP_PROP_BACKGROUND_COLOR);
-	if (!ps->css_background_color &&
-	    lws_css_cascade_get_prop_atr(ctx, LCSP_PROP_BACKGROUND)) {
-		/* the colour part of the background shorthand, if any */
-		lws_start_foreach_dll(struct lws_dll2 *, d,
-				      lws_dll2_get_head(&ctx->active_atr)) {
-			lcsp_atr_ptr_t *ap = lws_container_of(d, lcsp_atr_ptr_t,
-							      list);
+			if (a->name_len == 5 &&
+			     !strcmp((const char *)&a[1], "class")) {
+				ts.start = ((const char *)&a[1]) + 5 + 1;
+				ts.len = a->value_len;
+			}
 
-			if (ap->atr->unit == LCSP_UNIT_RGBA ||
-			    (ap->atr->unit == LCSP_UNIT_STRING &&
-			     !strncmp((const char *)&ap->atr[1], "var(--", 6)))
-				ps->css_background_color = ap->atr;
-		} lws_end_foreach_dll(d);
-	}
-	if (ps->css_background_color)
-		ps->css_background_color = lhp_resolve_var_color(ctx, ps->css_background_color);
+			do {
+				ts.e = (int8_t)lws_tokenize(&ts);
+				if (ts.e == LWS_TOKZE_TOKEN) {
 
-	ps->css_color = lws_css_cascade_get_prop_atr(ctx, LCSP_PROP_COLOR);
-	if (ps->css_color)
-		ps->css_color = lhp_resolve_var_color(ctx, ps->css_color);
+					if (ha == ps->atr.head &&
+					    ts.token_len == 4 &&
+					    !memcmp(ts.token, "body", 4))
+						ctx->in_body = 1;
 
-	ps->css_pos[CCPAS_TOP] = lhp_side_atr(ps, LCSP_PROP_TOP, LCSP_PROP_INSET, CCPAS_TOP, 0);
-	ps->css_pos[CCPAS_RIGHT] = lhp_side_atr(ps, LCSP_PROP_RIGHT, LCSP_PROP_INSET, CCPAS_RIGHT, 0);
-	ps->css_pos[CCPAS_BOTTOM] = lhp_side_atr(ps, LCSP_PROP_BOTTOM, LCSP_PROP_INSET, CCPAS_BOTTOM, 0);
-	ps->css_pos[CCPAS_LEFT] = lhp_side_atr(ps, LCSP_PROP_LEFT, LCSP_PROP_INSET, CCPAS_LEFT, 0);
+					/*
+					 * let's look through the css stanzas
+					 * for a tag match
+					 */
 
-	ps->css_margin[CCPAS_TOP] = lhp_side_atr(ps, LCSP_PROP_MARGIN_TOP, LCSP_PROP_MARGIN, CCPAS_TOP, 0);
-	ps->css_margin[CCPAS_RIGHT] = lhp_side_atr(ps, LCSP_PROP_MARGIN_RIGHT, LCSP_PROP_MARGIN, CCPAS_RIGHT, 0);
-	ps->css_margin[CCPAS_BOTTOM] = lhp_side_atr(ps, LCSP_PROP_MARGIN_BOTTOM, LCSP_PROP_MARGIN, CCPAS_BOTTOM, 0);
-	ps->css_margin[CCPAS_LEFT] = lhp_side_atr(ps, LCSP_PROP_MARGIN_LEFT, LCSP_PROP_MARGIN, CCPAS_LEFT, 0);
+					if (lws_css_cascade_atr_match(ctx,
+							ts.token, ts.token_len))
+						return 1;
+				}
 
-	ps->css_padding[CCPAS_TOP] = lhp_side_atr(ps, LCSP_PROP_PADDING_TOP, LCSP_PROP_PADDING, CCPAS_TOP, 0);
-	ps->css_padding[CCPAS_RIGHT] = lhp_side_atr(ps, LCSP_PROP_PADDING_RIGHT, LCSP_PROP_PADDING, CCPAS_RIGHT, 0);
-	ps->css_padding[CCPAS_BOTTOM] = lhp_side_atr(ps, LCSP_PROP_PADDING_BOTTOM, LCSP_PROP_PADDING, CCPAS_BOTTOM, 0);
-	ps->css_padding[CCPAS_LEFT] = lhp_side_atr(ps, LCSP_PROP_PADDING_LEFT, LCSP_PROP_PADDING, CCPAS_LEFT, 0);
+			} while (ts.e > 0);
 
-	lhp_border_resolve(ctx, ps);
+		} lws_end_foreach_dll(ha);
 
-	/*
-	 * From now on, lookups on this element only need its declaration
-	 * index, not the stanzas it was made from: let them go, so that each
-	 * open level holds only the declarations that win for it.  The
-	 * matched stanzas are only needed again if the element is cascaded
-	 * again, which makes them again (<html>, when <body> starts)
-	 */
-	lhp_decl_index(ps);
-	lws_free_set_NULL(ps->matched);
-	ps->nmatched = 0;
-	lhp_ps_heap(ps);
+		/*
+		 * ... fill layout-related CSS lookups into the element
+		 * stack item... these are all pointers to the attribute
+		 * not necessarily computed scalars.  Eg lws_csp_px() can be
+		 * used later to resolve atr like 50% to pixel values.
+		 */
+
+		ps->css_position = lws_css_cascade_get_prop_atr(ctx, LCSP_PROP_POSITION);
+		ps->css_width = lws_css_cascade_get_prop_atr(ctx, LCSP_PROP_WIDTH);
+		ps->css_height = lws_css_cascade_get_prop_atr(ctx, LCSP_PROP_HEIGHT);
+		ps->css_display = lws_css_cascade_get_prop_atr(ctx, LCSP_PROP_DISPLAY);
+
+		ps->css_border_radius[0] = lws_css_cascade_get_prop_atr(ctx, LCSP_PROP_BORDER_TOP_LEFT_RADIUS);
+		ps->css_border_radius[1] = lws_css_cascade_get_prop_atr(ctx, LCSP_PROP_BORDER_TOP_RIGHT_RADIUS);
+		ps->css_border_radius[2] = lws_css_cascade_get_prop_atr(ctx, LCSP_PROP_BORDER_BOTTOM_LEFT_RADIUS);
+		ps->css_border_radius[3] = lws_css_cascade_get_prop_atr(ctx, LCSP_PROP_BORDER_BOTTOM_RIGHT_RADIUS);
+
+		ps->css_background_color = lws_css_cascade_get_prop_atr(ctx, LCSP_PROP_BACKGROUND_COLOR);
+		ps->css_color = lws_css_cascade_get_prop_atr(ctx, LCSP_PROP_COLOR);
+
+		ps->css_pos[CCPAS_TOP] = lws_css_cascade_get_prop_atr(ctx, LCSP_PROP_TOP);
+		ps->css_pos[CCPAS_RIGHT] = lws_css_cascade_get_prop_atr(ctx, LCSP_PROP_RIGHT);
+		ps->css_pos[CCPAS_BOTTOM] = lws_css_cascade_get_prop_atr(ctx, LCSP_PROP_BOTTOM);
+		ps->css_pos[CCPAS_LEFT] = lws_css_cascade_get_prop_atr(ctx, LCSP_PROP_LEFT);
+
+		ps->css_margin[CCPAS_TOP] = lws_css_cascade_get_prop_atr(ctx, LCSP_PROP_MARGIN_TOP);
+		ps->css_margin[CCPAS_RIGHT] = lws_css_cascade_get_prop_atr(ctx, LCSP_PROP_MARGIN_RIGHT);
+		ps->css_margin[CCPAS_BOTTOM] = lws_css_cascade_get_prop_atr(ctx, LCSP_PROP_MARGIN_BOTTOM);
+		ps->css_margin[CCPAS_LEFT] = lws_css_cascade_get_prop_atr(ctx, LCSP_PROP_MARGIN_LEFT);
+
+		ps->css_padding[CCPAS_TOP] = lws_css_cascade_get_prop_atr(ctx, LCSP_PROP_PADDING_TOP);
+		ps->css_padding[CCPAS_RIGHT] = lws_css_cascade_get_prop_atr(ctx, LCSP_PROP_PADDING_RIGHT);
+		ps->css_padding[CCPAS_BOTTOM] = lws_css_cascade_get_prop_atr(ctx, LCSP_PROP_PADDING_BOTTOM);
+		ps->css_padding[CCPAS_LEFT] = lws_css_cascade_get_prop_atr(ctx, LCSP_PROP_PADDING_LEFT);
+
+	} lws_end_foreach_dll(p);
 
 	return 0;
 }
@@ -6239,28 +751,12 @@ lws_lhp_destruct(lhp_ctx_t *ctx)
 		free((void *)ctx->base_url);
 		ctx->base_url = NULL;
 	}
-	lws_free(ctx->filter_css);
-	ctx->filter_css = NULL;
-	lws_dll2_owner_clear(&ctx->block_rules);
-	lwsac_free(&ctx->blockac);
 	lws_dll2_foreach_safe(&ctx->stack, NULL, lhp_clean_stack);
-	/* a font fetch must not wake us after we are gone */
-	lws_dll2_remove(&ctx->font_wait.list);
 	lws_dll2_owner_clear(&ctx->active_stanzas);
 	lws_dll2_owner_clear(&ctx->active_atr);
-	lws_dll2_owner_clear(&ctx->css_vars);
 	lwsac_free(&ctx->propatrac);
 	lwsac_free(&ctx->cascadeac);
 	lwsac_free(&ctx->cssac);
-	lwsac_free(&ctx->idxac);
-	lws_free_set_NULL(ctx->hits);
-	ctx->hits_alloc = 0;
-	lws_free_set_NULL(ctx->hits_hash);
-	ctx->hits_hash_size = 0;
-	lws_free_set_NULL(ctx->ctok);
-	ctx->ctok_alloc = 0;
-	ctx->hits_count = 0;
-	ctx->selidx_last = NULL;
 }
 
 void
@@ -6287,232 +783,10 @@ lws_lhp_tag_dlo_id(lhp_ctx_t *ctx, lhp_pstack_t *ps, lws_dlo_t *dlo)
 	} lws_end_foreach_dll(d);
 }
 
-/*
- * The external stylesheet referenced by a <link> has been fully parsed: the
- * link is a void element, so close it now and carry on with the html after
- * it.  Otherwise its stack level is never popped and everything after it,
- * body included, is parsed as a descendant of <head>.
- */
-
-static void
-lhp_link_css_done(lhp_ctx_t *ctx)
-{
-	lhp_pstack_t *ps = lws_container_of(lws_dll2_get_tail(&ctx->stack),
-					    lhp_pstack_t, list);
-
-	ctx->u.s = 0;
-	ctx->tag = NULL;
-	ctx->tag_len = 0;
-	ctx->await_css_done = 0;
-	ctx->await_css_url[0] = '\0';
-	ctx->finish_css = 0;
-	ctx->npos = 0;
-
-	if (lws_dll2_count(&ctx->stack) > 1 && !lws_dll2_is_empty(&ps->atr)) {
-		lhp_atr_t *a = lws_container_of(lws_dll2_get_head(&ps->atr),
-						lhp_atr_t, list);
-
-		memcpy(ctx->buf, &a[1], a->name_len);
-		ctx->npos = (int)a->name_len;
-		ps->cb(ctx, LHPCB_ELEMENT_END);
-		ctx->npos = 0;
-		lhp_clean_level(ps);
-		lws_css_cascade(ctx);
-	}
-
-	ctx->state = LHPS_OUTER;
-}
-
-/* elements that belong in <head>: anything else implies the head ended */
-
-static int
-lhp_head_content(const char *tag, size_t len)
-{
-	static const char * const hc[] = {
-		"base", "head", "html", "link", "meta", "noscript", "script",
-		"style", "template", "title", "!doctype"
-	};
-	size_t n;
-
-	if (!tag)
-		return 1;
-
-	for (n = 0; n < LWS_ARRAY_SIZE(hc); n++)
-		if (strlen(hc[n]) == len && !strncasecmp(tag, hc[n], len))
-			return 1;
-
-	return 0;
-}
-
-/* the nearest open level above ps (exclusive) for the named tag */
-
-/*
- * Is the tag being started or ended, as presented in ctx->buf, the named one?
- * html tag names are ascii case-insensitive, and every decision taken on the
- * tag name must agree with the cascade's, which ignores case: <BODY> is the
- * body for the css, so it must get the body's surface rect too
- */
-
-static int
-lhp_buf_is_tag(const lhp_ctx_t *ctx, const char *name, size_t len)
-{
-	return ctx->npos == (int)len && !strncasecmp(ctx->buf, name, len);
-}
-
-static lhp_pstack_t *
-lhp_parent_tag(lhp_pstack_t *ps, const char *name, size_t len)
-{
-	while (lws_dll2_get_prev(&ps->list)) {
-		lhp_atr_t *a;
-
-		ps = lws_container_of(lws_dll2_get_prev(&ps->list),
-				      lhp_pstack_t, list);
-		if (lws_dll2_is_empty(&ps->atr))
-			continue;
-		a = lws_container_of(lws_dll2_get_head(&ps->atr), lhp_atr_t,
-				     list);
-		if (a->name_len == len &&
-		    !strncasecmp((const char *)&a[1], name, len))
-			return ps;
-	}
-
-	return NULL;
-}
-
-/*
- * Close the open levels from the top of the stack down to and including
- * th, as their closing tags would, issuing ELEMENT_END for each
- */
-
-static void
-lhp_close_through(lhp_ctx_t *ctx, lhp_pstack_t *th)
-{
-	for (;;) {
-		lhp_pstack_t *ps = lws_container_of(
-				lws_dll2_get_tail(&ctx->stack),
-				lhp_pstack_t, list);
-		int last = ps == th;
-
-		if (lws_dll2_count(&ctx->stack) < 2)
-			return;
-
-		if (!lws_dll2_is_empty(&ps->atr)) {
-			lhp_atr_t *a = lws_container_of(
-					lws_dll2_get_head(&ps->atr),
-					lhp_atr_t, list);
-
-			memcpy(ctx->buf, &a[1], a->name_len);
-			ctx->npos = (int)a->name_len;
-		} else
-			ctx->npos = 0;
-
-		ps->cb(ctx, LHPCB_ELEMENT_END);
-		ctx->npos = 0;
-		lhp_clean_level(ps);
-		lws_css_cascade(ctx);
-
-		if (last)
-			return;
-	}
-}
-
-/*
- * A "&#" (and the 'x' collected after it, if any) that turned out not to start
- * a character reference, because no digits followed, is text, as in html: put
- * it back in front of anything collected since.
- */
-
-static void
-lhp_amphash_literal(lhp_ctx_t *ctx)
-{
-	if (ctx->npos + 2 <= LHP_STRING_CHUNK - 4) {
-		memmove(ctx->buf + ctx->entity_start + 2,
-			ctx->buf + ctx->entity_start,
-			(size_t)(ctx->npos - ctx->entity_start));
-		ctx->buf[ctx->entity_start] = '&';
-		ctx->buf[ctx->entity_start + 1] = '#';
-		ctx->npos += 2;
-	} else {
-		/* as in LHPS_AMP, nl_temp indexes into what we are dropping */
-		if (ctx->saved_state == LHPS_ATTRIB_VAL)
-			lhp_atr_val_overflow(ctx);
-		ctx->npos = 0;
-		ctx->nl_temp = 0;
-	}
-
-	ctx->state = ctx->saved_state;
-}
-
-/*
- * Deliver the text collected so far.  At the places that can, the callback
- * may ask to see it again later, eg, because the face it is to be set in
- * needs a page of glyphs that is on its way: then the byte that made us
- * deliver it is given back, so the parse makes the same delivery again when
- * it is resumed.  Returns nonzero if it is to be retried.
- */
-
-static int
-lhp_deliver_content(lhp_ctx_t *ctx, lhp_pstack_t *ps, const uint8_t **buf,
-		    size_t *len)
-{
-	lws_stateful_ret_t r;
-
-	ctx->content_can_wait = 1;
-	r = ps->cb(ctx, LHPCB_CONTENT);
-	ctx->content_can_wait = 0;
-
-	if (!(r & LWS_SRET_AWAIT_RETRY))
-		return 0;
-
-	if (buf) {
-		(*buf)--;
-		(*len)++;
-	}
-
-	return 1;
-}
-
-/*
- * The digits of a numeric character reference have ended, at a ';' or, as
- * html allows, at anything else: replace what was collected for it with the
- * character in ctx->temp.
- */
-
-static void
-lhp_amphash_emit(lhp_ctx_t *ctx, lhp_pstack_t *ps)
-{
-	if (ctx->npos >= LHP_STRING_CHUNK - 5) {
-		if (ctx->saved_state == LHPS_OUTER) {
-			if (ctx->in_body)
-				ps->cb(ctx, LHPCB_CONTENT);
-			else
-				/* Not delivering this text anyway: drop it */
-				ctx->entity_start = 0;
-			ctx->npos = 0;
-		} else {
-			/*
-			 * The expansion doesn't fit in the attribute value:
-			 * discard the attribute rather than fail the document
-			 */
-			lhp_atr_val_overflow(ctx);
-			ctx->npos = 0;
-			ctx->nl_temp = 0;
-			ctx->entity_start = 0;
-		}
-	}
-
-	/* &#0; in a value is a NUL, as above */
-	if (!ctx->temp && ctx->saved_state == LHPS_ATTRIB_VAL)
-		lhp_elem_suspicious(ctx);
-	ctx->npos = ctx->entity_start;
-	lhp_uni_emit(ctx);
-	ctx->state = ctx->saved_state;
-}
-
 lws_stateful_ret_t
 lws_lhp_parse(lhp_ctx_t *ctx, const uint8_t **buf, size_t *len)
 {
-	lhp_pstack_t *ps1, *ps = lws_container_of(lws_dll2_get_tail(&ctx->stack),
+	lhp_pstack_t *ps1, *ps = lws_container_of(ctx->stack.tail,
 						  lhp_pstack_t, list);
 	struct lws_context *cx = (struct lws_context *)ctx->user1;
 	lws_dl_rend_t *drt = (lws_dl_rend_t *)ctx->user;
@@ -6526,44 +800,13 @@ lws_lhp_parse(lhp_ctx_t *ctx, const uint8_t **buf, size_t *len)
 
 	assert(drt);
 
-	if (!*len && ctx->is_css && ctx->await_css_done && ctx->finish_css) {
-		lhp_link_css_done(ctx);
-		return LWS_SRET_AWAIT_RETRY;
-	}
+	if (!*len && ctx->is_css && ctx->await_css_done && ctx->finish_css)
+		goto finish_css;
 
 	while (*len) {
-		uint8_t c, added = 0;
-		int is_term = 0;
+		uint8_t c = *(*buf)++;
 
-		/*
-		 * A style="" value is parsed by nesting ourselves with the
-		 * state set to the declarations of a stanza.  A '}' in the
-		 * value legitimately ends those declarations, but the value
-		 * must not carry on into the selector or html states: the
-		 * outer parse holds the element level whose cascade is
-		 * running, and a nested "</div>" would free it under it.
-		 */
-		if (ctx->u.f.style_attr &&
-		    ctx->state != LCSPS_CSS_STANZA &&
-		    ctx->state != LCSPS_CSS_DEF_NAME &&
-		    ctx->state != LCSPS_CSS_DEF_VALUE &&
-		    ctx->state != LCSPS_CCOM_S1 &&
-		    ctx->state != LCSPS_CCOM_E1 &&
-		    ctx->state != LCSPS_CCOM)
-			return LWS_SRET_OK;
-
-		c = *(*buf)++;
 		(*len)--;
-
-		/*
-		 * Each byte of the document's css parsed, its style=""
-		 * attributes' too, counts against its css budget, see
-		 * lhp_css_doc_spent()
-		 */
-		if (ctx->state >= LCSPS_CSS_OUTER &&
-		    ctx->state <= LCSPS_CSS_SKIP_BLOCK &&
-		    lhp_css_is_doc(ctx))
-			ctx->cascade_ops++;
 
 		if (ctx->state == LHPS_DO_START_ELEM) {
 			/* we are retrying the inner callback */
@@ -6571,13 +814,12 @@ lws_lhp_parse(lhp_ctx_t *ctx, const uint8_t **buf, size_t *len)
 			(*buf)--;
 		}
 
-	//	lwsl_notice("%s: %d, '%c', %02X\n", __func__, ctx->state, c, c);
+		// lwsl_notice("%s: %d, '%c', %02X\n", __func__, ctx->state, c, c);
 
 		switch (ctx->state) {
 
 		case LHPS_INIT:
 
-#if !defined(LWS_WITH_LHP_UA_FLASH)
 			/* default css injection first, then... */
 
 			ctx->state = LCSPS_CSS_OUTER;
@@ -6590,36 +832,11 @@ lws_lhp_parse(lhp_ctx_t *ctx, const uint8_t **buf, size_t *len)
 			rbuf = (const uint8_t *)default_css;
 			rsize = strlen(default_css);
 			r = lws_lhp_parse(ctx, &rbuf, &rsize);
-			if (r & LWS_SRET_FATAL) {
+			if (r >= LWS_SRET_FATAL) {
 				lwsl_err("%s: css parse fail\n", __func__);
 				return r;
 			}
 			ctx->u.f.default_css = 0;
-#endif
-
-			if (ctx->filter_css) {
-				/*
-				 * Same trick for any user filter css: its
-				 * selectors are marked with filter precedence
-				 * as they are parsed.  Malformed filter css
-				 * degrades to whatever complete rules it
-				 * contained, same as a browser.
-				 */
-				ctx->state = LCSPS_CSS_OUTER;
-				ctx->u.f.default_css = 1;
-				ctx->u.f.filter_css = 1;
-				rbuf = (const uint8_t *)ctx->filter_css;
-				rsize = strlen(ctx->filter_css);
-				r = lws_lhp_parse(ctx, &rbuf, &rsize);
-				if (r & LWS_SRET_FATAL) {
-					lwsl_err("%s: filter css parse fail\n",
-						 __func__);
-					return r;
-				}
-				ctx->u.f.filter_css = 0;
-				ctx->u.f.default_css = 0;
-			}
-
 			ctx->npos = 0;
 			ctx->state = LHPS_OUTER;
 
@@ -6628,30 +845,15 @@ lws_lhp_parse(lhp_ctx_t *ctx, const uint8_t **buf, size_t *len)
 		case LHPS_OUTER:
 			switch (c) {
 			case '<':
-				/*
-				 * Flush pending text while the element it
-				 * belongs to is still at the top of the stack,
-				 * before we push the level for the next tag
-				 */
-				if (ctx->npos) {
-					if (ctx->in_body &&
-					    (ctx->npos != 1 || ctx->buf[0] != ' ')) {
-						lws_css_cascade(ctx);
-						if (lhp_deliver_content(ctx, ps,
-								buf, len))
-							return LWS_SRET_AWAIT_RETRY;
-					}
-					ctx->npos = 0;
-				}
+				ctx->u.s = 0;
+				ctx->u.f.first = 1;
 
-				/*
-				 * Everything that can fail comes before we
-				 * change any state for the new tag: whoever
-				 * feeds us next (another stylesheet stream on
-				 * the same ctx, or the html after it) must not
-				 * find us inside a tag with no level for it
-				 */
-				if (lws_dll2_count(&ctx->stack) == LHP_MAX_ELEMS_NEST /* sanity */) {
+				ctx->tag = NULL;
+				ctx->tag_len = 0;
+
+				ctx->state = LHPS_TAG;
+
+				if (ctx->stack.count == LHP_MAX_ELEMS_NEST /* sanity */) {
 					lwsl_err("%s: MAX_ELEMS_NEST\n", __func__);
 					ps->cb(ctx, LHPCB_FAILED);
 					return LWS_SRET_FATAL;
@@ -6662,14 +864,6 @@ lws_lhp_parse(lhp_ctx_t *ctx, const uint8_t **buf, size_t *len)
 				if (!ps1)
 					goto oom;
 
-				ctx->u.s = 0;
-				ctx->u.f.first = 1;
-
-				ctx->tag = NULL;
-				ctx->tag_len = 0;
-
-				ctx->state = LHPS_TAG;
-
 				/* inherit user and cb to start with */
 				ps1->user	= ps->user;
 				ps1->cb		= ps->cb;
@@ -6679,18 +873,6 @@ lws_lhp_parse(lhp_ctx_t *ctx, const uint8_t **buf, size_t *len)
 				break;
 
 			case '&':
-				if (ctx->npos) {
-					if (ctx->in_body &&
-					    (ctx->npos != 1 || ctx->buf[0] != ' ')) {
-						lws_css_cascade(ctx);
-						if (lhp_deliver_content(ctx, ps,
-								buf, len))
-							return LWS_SRET_AWAIT_RETRY;
-					}
-					ctx->npos = 0;
-				}
-				ctx->saved_state = LHPS_OUTER;
-				ctx->entity_start = 0;
 				ctx->state = LHPS_AMP;
 				ctx->temp_count = 0;
 				continue;
@@ -6701,26 +883,17 @@ lws_lhp_parse(lhp_ctx_t *ctx, const uint8_t **buf, size_t *len)
 				/* fallthru */
 			default:
 				if (c != ' ' || !ctx->npos ||
-				    ctx->buf[ctx->npos - 1] != ' ') {
+				    ctx->buf[ctx->npos - 1] != ' ')
 					ctx->buf[ctx->npos++] = (char)c;
-					added = 1;
-				}
 				break;
 			}
 
 			if (ctx->npos &&
 			    (ctx->state != LHPS_OUTER ||
 			     ctx->npos >= LHP_STRING_CHUNK - 4)) {
-				if (ctx->in_body &&
-				    (ctx->npos != 1 || ctx->buf[0] != ' ')) {
+				if (ctx->in_body && (ctx->npos != 1 || ctx->buf[0] != ' ')) {
 					lws_css_cascade(ctx);
-					if (lhp_deliver_content(ctx, ps, buf,
-								len)) {
-						/* added again when resumed */
-						if (added)
-							ctx->npos--;
-						return LWS_SRET_AWAIT_RETRY;
-					}
+					ps->cb(ctx, LHPCB_CONTENT);
 				}
 				ctx->npos = 0;
 			}
@@ -6736,7 +909,7 @@ lws_lhp_parse(lhp_ctx_t *ctx, const uint8_t **buf, size_t *len)
 			if (c == '/' && ctx->u.f.first) {
 				/* remove the level we just prepared for this */
 				lhp_clean_level(ps);
-				ps = lws_container_of(lws_dll2_get_tail(&ctx->stack),
+				ps = lws_container_of(ctx->stack.tail,
 						      lhp_pstack_t, list);
 				ctx->u.f.closing = 1;
 				ctx->u.f.first = 0;
@@ -6777,22 +950,8 @@ lws_lhp_parse(lhp_ctx_t *ctx, const uint8_t **buf, size_t *len)
 
 					ps->cb(ctx, LHPCB_ELEMENT_START);
 					ctx->npos = 0;
+					// lwsl_warn("leaving html for css\n");
 					ctx->state = LCSPS_CSS_OUTER;
-					break;
-				}
-
-				/* <script> trapdoor into skipping */
-
-				if (ctx->u.f.tag_used && c == '>' &&
-				    ctx->tag_len == 6 &&
-				    !strncasecmp(ctx->buf, "script", 6) &&
-				    !ctx->u.f.closing) {
-					/*
-					 * We don't want to parse script as
-					 * text.
-					 */
-					ctx->npos = 0;
-					ctx->state = LHPS_SCRIPT;
 					break;
 				}
 			}
@@ -6842,18 +1001,11 @@ lws_lhp_parse(lhp_ctx_t *ctx, const uint8_t **buf, size_t *len)
 
 		case LHPS_DO_START_ELEM:
 elem_start:
-			/*
-			 * Present the tag in buf, if any.  For a closing tag,
-			 * buf already holds the collected close tag name: keep
-			 * it, so close tags can be matched against the open
-			 * element stack by name
-			 */
-			if (!ctx->u.f.closing || ctx->u.f.void_element) {
-				if (ctx->tag_len)
-					memcpy(ctx->buf, ctx->tag, ctx->tag_len);
-				ctx->buf[ctx->tag_len] = '\0';
-				ctx->npos = (int)ctx->tag_len;
-			}
+			/* present the tag in buf, if any */
+			if (ctx->tag_len)
+				memcpy(ctx->buf, ctx->tag, ctx->tag_len);
+			ctx->buf[ctx->tag_len] = '\0';
+			ctx->npos = (int)ctx->tag_len;
 
 			if (!ctx->u.f.closing || ctx->u.f.void_element) {
 				const char *pname = NULL, *rel = NULL;
@@ -6863,76 +1015,12 @@ elem_start:
 				lhp_pstack_t *psb;
 				lws_dlo_t *dlo;
 				lws_box_t box;
-				char url[LHP_URL_LEN];
-				int is_css_link = 0;
+				char url[128];
 
 				memset(&i, 0, sizeof(i));
-
-				/*
-				 * A start tag that can't live in <head> ends
-				 * the head implicitly, whether the </head> was
-				 * omitted or eaten by a malformed tag before it
-				 * (itsfoss.com: <meta ... /  then </head>, the
-				 * meta's missing > swallows the </head>).  The
-				 * head is display: none, so without this the
-				 * whole body is laid out hidden.  Our level is
-				 * already on the stack: lift it off, close down
-				 * through the head, put it back under what's
-				 * left, and cascade against that
-				 */
-				if (!ctx->u.f.closing &&
-				    !lhp_head_content(ctx->tag, ctx->tag_len)) {
-					lhp_pstack_t *th = lhp_parent_tag(ps,
-								"head", 4);
-
-					if (th) {
-						lws_dll2_remove(&ps->list);
-						lhp_close_through(ctx, th);
-						lws_dll2_add_tail(&ps->list,
-								  &ctx->stack);
-						/* the closes used buf: put
-						 * our tag back in it */
-						memcpy(ctx->buf, ctx->tag,
-						       ctx->tag_len);
-						ctx->buf[ctx->tag_len] = '\0';
-						ctx->npos = (int)ctx->tag_len;
-					}
-				}
-
-				/*
-				 * <html> was resolved against the css before
-				 * any stylesheet had been seen, so nothing
-				 * matched it.  Now the head is done and the
-				 * body starts, resolve it again: :root / html
-				 * rules carry the custom properties the rest
-				 * of the document uses, and inherited props
-				 */
-				if (ctx->tag_len == 4 &&
-				    !strncasecmp(ctx->tag, "body", 4)) {
-					lhp_pstack_t *ph = lhp_parent_tag(ps,
-								"html", 4);
-
-					if (ph && lws_dll2_get_prev(&ps->list) ==
-							&ph->list) {
-						lws_dll2_remove(&ps->list);
-						ph->css_resolved = 0;
-						ph->nmatched = 0;
-						lhp_decl_invalidate(ph);
-						lws_css_cascade(ctx);
-						lws_dll2_add_tail(&ps->list,
-								  &ctx->stack);
-					}
-				}
-
 				lws_css_cascade(ctx);
 
-				/*
-				 * body gets a surface-sized rect to draw on;
-				 * only once, since we come back through here
-				 * when retrying after waiting for the dims of
-				 * its background image
-				 */
-				if (lhp_buf_is_tag(ctx, "body", 4) && !ps->dlo) {
+				if (ctx->npos == 4 && !strncmp(ctx->buf, "body", 4)) {
 					lws_display_colour_t col =
 						LWSDC_RGBA(255, 255, 255, 255);
 
@@ -6947,44 +1035,23 @@ elem_start:
 					    )
 						ps->drt.w = *lws_csp_px(ps->css_width, ps);
 
-					ps->drt.h = *lws_lhp_viewport_h(ctx);
+					ps->drt.h = ctx->ic.wh_px[LWS_LHPREF_HEIGHT];
 					if (ps->css_height &&
-					    ps->css_height->propval != LCSP_PROPVAL_AUTO &&
-					    /* body { height: 100% } is the viewport */
-					    ps->css_height->unit != LCSP_UNIT_LENGTH_PERCENT)
+					    ps->css_height->propval != LCSP_PROPVAL_AUTO) //&&
+					    //lws_fx_comp(lws_csp_px(ps->css_height, ps),
+						//		   &ps->drt.h) < 0)
 						ps->drt.h = *lws_csp_px(ps->css_height, ps);
 
-					/*
-					 * Put a default white body background
-					 * behind everything.  The body's
-					 * containing block height for its
-					 * children is the css viewport, but
-					 * the background itself spans the
-					 * whole layout surface: a scrolling
-					 * viewport re-scans the retained DLOs
-					 * below the first window, and the
-					 * render skips everything under a
-					 * root it has passed the bottom of
-					 */
+					/* put a default white body background behind everything */
 
 					lws_fx_set(box.x, 0, 0);
 					lws_fx_set(box.y, 0, 0);
 					box.w = ps->drt.w;
-					/*
-					 * ... whatever height the body is
-					 * given, since as a browser's, its
-					 * background is the canvas', and what
-					 * overflows the body must be rendered
-					 */
-					box.h = ctx->ic.wh_px[LWS_LHPREF_HEIGHT];
-					if (lws_fx_comp(&ps->drt.h, &box.h) > 0)
-						box.h = ps->drt.h;
+					box.h = ps->drt.h;
 
 					ps->dlo = (lws_dlo_t *)lws_display_dlo_rect_new(
 							drt->dl, NULL, &box, 0,
 							col);
-					if (!ps->dlo)
-						goto oom;
 
 					ps->dlo->flag_toplevel = 1;
 
@@ -6993,295 +1060,115 @@ elem_start:
 
 				/* it's a link? */
 
-				if (lhp_buf_is_tag(ctx, "link", 4)) {
+				if (ctx->npos == 4 && !strncmp(ctx->buf, "link", 4)) {
 					pname = lws_html_get_atr(ps, "href", 4);
 					rel = lws_html_get_atr(ps, "rel", 3);
 
-					if (!rel || strncasecmp(rel, "stylesheet", 10))
+					if (!rel || strncmp(rel, "stylesheet", 10))
 						goto issue_elem_start;
-					is_css_link = 1;
 				}
 
 				/* it's an img? */
 
-				if (lhp_buf_is_tag(ctx, "img", 3))
+				if (ctx->npos == 3 && !strncmp(ctx->buf, "img", 3))
 					pname = lws_html_get_atr(ps, "src", 3);
 				else {
 					aa = lws_css_cascade_get_prop_atr(ctx,
 						LCSP_PROP_BACKGROUND_IMAGE);
 
-					/*
-					 * Only string and url atrs have a
-					 * NUL-terminated payload after the
-					 * atr... eg, "background-image: none"
-					 * is a well-known propval atr with
-					 * nothing at all after it
-					 */
-
-					if (aa && aa->value_len &&
-					    (aa->unit == LCSP_UNIT_STRING ||
-					     aa->unit == LCSP_UNIT_URL))
+					if (ctx->npos == 4 &&
+					    !strncmp(ctx->buf, "body", 4) && aa)
 						pname = (const char *)(aa + 1);
-					else if (!aa &&
-						 lws_css_cascade_get_prop_atr(ctx,
-							LCSP_PROP_BACKGROUND)) {
-						/* the url() term of the
-						 * background shorthand */
-						lws_start_foreach_dll(
-						    struct lws_dll2 *, d,
-						    lws_dll2_get_head(
-							    &ctx->active_atr)) {
-							lcsp_atr_ptr_t *ap =
-							  lws_container_of(d,
-							     lcsp_atr_ptr_t,
-							     list);
-
-							if (ap->atr->unit ==
-							     LCSP_UNIT_URL &&
-							    ap->atr->value_len)
-								aa = ap->atr;
-						} lws_end_foreach_dll(d);
-						if (aa)
-							pname = (const char *)
-								    (aa + 1);
-					}
 				}
 
-				/*
-				 * Image assets inside a hidden (display:none)
-				 * subtree are never shown, so don't fetch
-				 * them.  Stylesheets are exempt: they live in
-				 * <head>, which is itself display:none.
-				 */
+				assert(ctx->base_url);
 
-				if (ps->hidden && !is_css_link)
-					goto issue_elem_start;
-
-				/*
-				 * Without a base url we can't resolve the
-				 * asset URL at all; it's not a parse error,
-				 * and the element still exists for layout
-				 */
-
-				if (!pname || !ctx->base_url)
+				if (!pname)
 					goto issue_elem_start;
 
 				/* we should be in an <img tag or
 				 * something with a background image */
 
+				assert(ctx->base_url);
+
 				if (lws_http_rel_to_url(url, sizeof(url),
-							ctx->base_url, pname)) {
-					lwsl_warn("%s: asset url too long: %s\n",
-						  __func__, pname);
-					goto issue_elem_start;
-				}
-
-				/*
-				 * decode percent-encoding in the URL, in place:
-				 * it only ever shrinks.  A malformed escape
-				 * leaves no usable url, so no asset for it
-				 */
-				{
-					const char *q;
-
-					if (lws_urldecode(url, url, sizeof(url))) {
-						lwsl_warn("%s: bad escape in asset url\n",
-							  __func__);
-						goto issue_elem_start;
-					}
-
-					/*
-					 * ... which the page may have used to
-					 * put CR / LF or other controls in the
-					 * url we will put on the wire, in the
-					 * request line to whatever host it
-					 * names: no asset for it then
-					 */
-					for (q = url; *q; q++)
-						if ((unsigned char)*q < 0x20 ||
-						    *q == 0x7f)
-							break;
-					if (*q)
-						goto issue_elem_start;
-				}
-
-				/*
-				 * the filter's url block rules: a blocked
-				 * asset is never fetched at all, the element
-				 * is laid out without it
-				 */
-
-				if (!lws_dll2_is_empty(&ctx->block_rules) &&
-				    lhp_url_blocked(ctx, url))
-					goto issue_elem_start;
+							ctx->base_url, pname))
+					goto skip_image;
 
 				psb = lws_css_get_parent_block(ctx, ps);
 				//if (!psb)
 				//	lwsl_err("%s: NULL psb\n", __func__);
 
-				lws_fx_set(box.x, 0, 0);
-				lws_fx_set(box.y, 0, 0);
-				lws_fx_set(box.w, 0, 0);
-				lws_fx_set(box.h, 0, 0);
+				if (ctx->npos == 3 && !strncmp(ctx->buf, "img", 3)) {
+					lws_fx_set(box.x, 0, 0);
+					lws_fx_set(box.y, 0, 0);
 
-				if (psb) {
-					box.x = psb->curx;
-					box.y = psb->cury;
-					lws_fx_add(&box.x, &box.x,
-						lws_csp_px(psb->css_margin[CCPAS_LEFT], psb));
-					lws_fx_add(&box.y, &box.y,
-						lws_csp_px(psb->css_margin[CCPAS_TOP], psb));
+					if (ps->css_position->propval == LCSP_PROPVAL_ABSOLUTE) {
+					//	box.x = *lws_csp_px(ps->css_pos[CCPAS_LEFT], ps);
+					///	box.y = *lws_csp_px(ps->css_pos[CCPAS_TOP], ps);
+					//	abs = 1;
+					} else {
+						if (psb) {
+							box.x = psb->curx;
+							box.y = psb->cury;
+						}
+					}
+
+					if (psb) {
+						lws_fx_add(&box.x, &box.x,
+							lws_csp_px(psb->css_margin[CCPAS_LEFT], psb));
+						lws_fx_add(&box.y, &box.y,
+							lws_csp_px(psb->css_margin[CCPAS_TOP], psb));
+					}
+
+					box.h = ctx->ic.wh_px[LWS_LHPREF_HEIGHT]; /* placeholder */
+					lws_fx_sub(&box.w, &ctx->ic.wh_px[0], &box.x);
+
+					if (ps->css_width &&
+					    lws_fx_comp(lws_csp_px(ps->css_width, ps), &box.w) > 0)
+						box.w = *lws_csp_px(ps->css_width, ps);
 				}
-
-			if (ps->css_width &&
-				lws_fx_comp(lws_csp_px(ps->css_width, ps), &box.w) > 0)
-				box.w = *lws_csp_px(ps->css_width, ps);
-			if (ps->css_height &&
-				lws_fx_comp(lws_csp_px(ps->css_height, ps), &box.h) > 0)
-				box.h = *lws_csp_px(ps->css_height, ps);
-
-			/*
-			 * A css background image (as opposed to an <img>) is
-			 * sized and positioned inside the element box by
-			 * background-size / background-position, eg the
-			 * slashdot logo draws 146px wide, 20px in from the
-			 * left of its 167px element.  An auto side stays 0 and
-			 * is filled from the intrinsic aspect ratio when the
-			 * image dimensions arrive
-			 */
-
-			if (aa) {
-				const lcsp_defs_t *d;
-				lws_fx_t ew = box.w, eh = box.h, ox, oy, t;
-				int set;
-
-				d = lhp_find_def(ps, LCSP_PROP_BACKGROUND_SIZE);
-				if (d) {
-					/* an auto side falls to the intrinsic
-					 * aspect ratio at the dims callback */
-					lhp_bg_term(&t, &set, lhp_def_term(d, 0),
-						    &ew, ps);
-					if (set)
-						box.w = t;
-					else
-						lws_fx_set(box.w, 0, 0);
-					lhp_bg_term(&t, &set, lhp_def_term(d, 1),
-						    &eh, ps);
-					if (set)
-						box.h = t;
-					else
-						lws_fx_set(box.h, 0, 0);
-				}
-
-				lws_fx_set(ox, 0, 0);
-				lws_fx_set(oy, 0, 0);
-
-				d = lhp_find_def(ps,
-						 LCSP_PROP_BACKGROUND_POSITION);
-				if (d) {
-					/* % is of the element less the image */
-					lws_fx_sub(&t, &ew, &box.w);
-					lhp_bg_term(&ox, &set, lhp_def_term(d, 0),
-						    &t, ps);
-					lws_fx_sub(&t, &eh, &box.h);
-					lhp_bg_term(&oy, &set, lhp_def_term(d, 1),
-						    &t, ps);
-				}
-
-				lws_fx_add(&box.x, &box.x, &ox);
-				lws_fx_add(&box.y, &box.y, &oy);
-				ps->bg_ox = ox;
-				ps->bg_oy = oy;
-			}
 
 				memset(&u, 0, sizeof(u));
-
-				if (!cx)
-					/*
-					 * Standalone parse with no lws_context
-					 * (no Secure Streams backing): there
-					 * is no way to look for or fetch image
-					 * assets, leave the element empty
-					 */
-					goto issue_elem_start;
-
 				if (lws_dlo_ss_find(cx, url, &u)) {
 
-					i.cx			= cx;
-					i.dl			= drt->dl;
+					i.cx = cx;
+					i.dl = drt->dl;
 					if (psb)
-						i.dlo_parent	= psb->dlo;
-					i.box			= &box;
-					i.on_rx			= ctx->ssevcb;
-					i.on_rx_sul		= ctx->ssevsul;
-					i.url			= url;
-					i.lhp			= ctx;
-					i.u			= &u;
-					i.window		= ctx->window;
+						i.dlo_parent = psb->dlo;
+					i.box = &box;
+					i.on_rx = ctx->ssevcb;
+					i.on_rx_sul = ctx->ssevsul;
+					i.url = url;
+					i.lhp = ctx;
+					i.u = &u;
+					i.window = ctx->window;
 
-					lwsl_cx_info(cx, "not already in progress: %s", url);
+					lwsl_cx_warn(cx, "not already in progress: %s", url);
 					if (lws_dlo_ss_create(&i, &dlo)) {
-						/*
-						 * we can't get it: the element
-						 * is laid out without its image
-						 */
+						/* we can't get it */
 						lwsl_cx_warn(cx, "Can't get %s", url);
 						goto issue_elem_start;
 					} else {
-						lwsl_cx_info(cx, "Created SS for %s\n", url);
-						if (lhp_buf_is_tag(ctx, "img", 3))
-							ps->dlo = dlo;
-						else if (aa)
-							/* homed into our own dlo
-							 * by the layout */
-							ps->bg_dlo = dlo;
+						lwsl_cx_warn(cx, "Created SS for %s\n", url);
+						if (psb)
+							psb->dlo = dlo;
+					//	else
+						ps->dlo = dlo;
 					}
 				} else {
 					// lwsl_cx_warn(cx, "Found in-progress %s\n", url);
-					/* an in-progress asset that isn't an
-					 * image (eg, a stylesheet) has no dlo */
-					if (u.u.dlo_png && lhp_buf_is_tag(ctx, "img", 3))
-						ps->dlo = &u.u.dlo_png->dlo;
-
-					/*
-					 * A css background image is placed by
-					 * background-size / -position afresh
-					 * each time its element is laid out
-					 * again.  Auto sides (0) keep what the
-					 * image dimensions callback resolved
-					 */
-					if (aa && u.u.dlo_png &&
-					    !u.u.dlo_png->dlo.flag_bg_homed) {
-						u.u.dlo_png->dlo.box.x = box.x;
-						u.u.dlo_png->dlo.box.y = box.y;
-						if (box.w.whole)
-							u.u.dlo_png->dlo.box.w = box.w;
-						if (box.h.whole)
-							u.u.dlo_png->dlo.box.h = box.h;
-						ps->bg_dlo = &u.u.dlo_png->dlo;
-					}
+					if (psb)
+						psb->dlo = &u.u.dlo_png->dlo;
+					//else
+					ps->dlo = &u.u.dlo_png->dlo;
 				}
 
-				if (aa)
-					/*
-					 * For a css background image the
-					 * element's width / height size the
-					 * element, not the image: the image
-					 * geometry was decided above and any
-					 * auto side is resolved when the image
-					 * dimensions arrive.  Nothing to wait
-					 * for here either: a background image
-					 * never stalls the layout
-					 */
-					goto issue_elem_start;
-
-				if (lhp_buf_is_tag(ctx, "link", 4)) {
+				if (ctx->npos == 4 && !strncmp(ctx->buf, "link", 4)) {
 					ps->cb(ctx, LHPCB_ELEMENT_START);
 					ctx->npos = 0;
 					ctx->state = LCSPS_CSS_OUTER;
 					ctx->await_css_done = 1;
-					lws_strncpy(ctx->await_css_url, url,
-						    sizeof(ctx->await_css_url));
 
 					return LWS_SRET_AWAIT_RETRY;
 				}
@@ -7289,18 +1176,6 @@ elem_start:
 				/*
 				 * It's on its way to some extent and *u set...
 				 *
-				 * ... unless it isn't: a url that isn't an
-				 * image asset (eg, a .css given as an
-				 * element's src=) can be accepted for
-				 * fetching without producing any image dlo
-				 * for us to describe.  Nothing more we can do
-				 * with it here.
-				 */
-
-				if (!u.u.dlo_png)
-					goto check_closing;
-
-				/*
 				 * If he has given explicit width and height
 				 * for the image, no need to wait for them
 				 */
@@ -7309,7 +1184,7 @@ elem_start:
 							LCSP_PROP_HEIGHT), ps)->whole &&
 						lws_csp_px(lws_css_cascade_get_prop_atr(ctx,
 							LCSP_PROP_WIDTH), ps)->whole) {
-					lwsl_cx_info(cx, "Have width and height %d x %d",
+					lwsl_cx_warn(cx, "Have width and height %d x %d",
 							(int)lws_csp_px(lws_css_cascade_get_prop_atr(ctx,
 								LCSP_PROP_WIDTH), ps)->whole,
 							(int)lws_csp_px(lws_css_cascade_get_prop_atr(ctx,
@@ -7322,31 +1197,6 @@ elem_start:
 					goto issue_elem_start;
 				}
 
-				{
-					/*
-					 * bounded like any css number, and a
-					 * negative size is no size, ie, auto
-					 */
-					const char *p = lws_html_get_atr(ps, "width", 5);
-					lws_fx_t t;
-
-					if (p) {
-						lhp_fx_parse(&t, p, strlen(p));
-						u.u.dlo_png->dlo.box.w.whole =
-							t.whole < 0 ? 0 : t.whole;
-					}
-					p = lws_html_get_atr(ps, "height", 6);
-					if (p) {
-						lhp_fx_parse(&t, p, strlen(p));
-						u.u.dlo_png->dlo.box.h.whole =
-							t.whole < 0 ? 0 : t.whole;
-					}
-				}
-
-				if (u.u.dlo_png->dlo.box.w.whole &&
-				    u.u.dlo_png->dlo.box.h.whole)
-					goto issue_elem_start;
-
 				/*
 				 * Do we have the dimensions?  If not, bail
 				 * from here and await a retry (maybe caused by
@@ -7355,18 +1205,8 @@ elem_start:
 
 				if (!lws_dlo_image_width(&u) ||
 				    !lws_dlo_image_height(&u)) {
-					/*
-					 * ps->dlo is only set for body and
-					 * img... for, eg, a div with a css
-					 * background-image, there's nowhere to
-					 * keep the retry budget, so don't
-					 * spin waiting for the dimensions
-					 */
-					if (ps->dlo && ++ps->dlo->budget < 30) {
-						lwsl_warn("%s: exiting with AWAIT_RETRY due to no dims\n", __func__);
-						return LWS_SRET_AWAIT_RETRY;
-					}
-					lwsl_err("%s: ignoring no dims\n", __func__);
+					// lwsl_warn("%s: exiting with AWAIT_RETRY\n", __func__);
+					return LWS_SRET_AWAIT_RETRY;
 				}
 
 				u.u.dlo_png->dlo.box.w.whole = (int32_t)lws_dlo_image_width(&u);
@@ -7376,7 +1216,7 @@ elem_start:
 
 				if (u.u.dlo_png->dlo.box.w.whole < 0) {
 					lwsl_notice("%s: understanding image failed\n", __func__);
-					goto check_closing;
+					goto skip_image;
 				}
 
 				/*
@@ -7393,123 +1233,28 @@ issue_elem_start:
 				}
 			}
 
-check_closing:
 			if (ctx->u.f.closing || ctx->u.f.void_element){
-				lhp_pstack_t *match = ps;
-				char close_name[24];
-				int close_name_len = 0;
-
-				if (lws_dll2_count(&ctx->stack) == 1) {
+				if (ctx->stack.count == 1) {
 					lwsl_err("%s: element close mismatch\n", __func__);
 					ps->cb(ctx, LHPCB_FAILED);
 					return LWS_SRET_FATAL;
 				}
-
-				/*
-				 * Real-world html often leaves inner elements
-				 * unclosed (a div inside a nav, an li inside a
-				 * ul...).  Browsers close them by implication
-				 * when an enclosing element closes, and ignore a
-				 * stray close tag with nothing open of that
-				 * name.  Match the close tag against the open
-				 * element stack by name the same way, so the
-				 * tree cannot skew level-by-level as unmatched
-				 * closes eat the wrong levels.
-				 */
-
-				if (ctx->u.f.closing && ctx->npos &&
-				    (size_t)ctx->npos < sizeof(close_name)) {
-					lhp_pstack_t *tp = ps;
-					unsigned int budget = 500; /* sanity */
-
-					memcpy(close_name, ctx->buf,
-					       (size_t)ctx->npos);
-					close_name_len = ctx->npos;
-
-					while (lws_dll2_get_prev(&tp->list) &&
-					       budget--) {
-						if (!lws_dll2_is_empty(&tp->atr)) {
-							lhp_atr_t *ta =
-								lws_container_of(
-								    lws_dll2_get_head(&tp->atr),
-								    lhp_atr_t, list);
-
-							if (ta->name_len ==
-							    (size_t)close_name_len &&
-							    !strncasecmp(
-							      (const char *)&ta[1],
-							      close_name,
-							      (size_t)close_name_len))
-								break;
-						}
-
-						tp = lws_container_of(
-							lws_dll2_get_prev(&tp->list),
-							lhp_pstack_t, list);
-					}
-
-					if (!lws_dll2_get_prev(&tp->list)) {
-						/*
-						 * Nothing open with this
-						 * name: ignore the stray
-						 * close completely
-						 */
-						ctx->u.f.closing = 0;
-						ctx->npos = 0;
-						ctx->state = LHPS_OUTER;
-						goto close_done;
-					}
-
-					match = tp;
+				if (ps->atr.head) {
+					lhp_atr_t *a = lws_container_of(ps->atr.head, lhp_atr_t, list);
+					memcpy(ctx->buf, &a[1], a->name_len);
+					ctx->npos = (int)a->name_len;
 				}
-
-				for (;;) {
-					lhp_pstack_t *closing = ps;
-
-					if (!lws_dll2_is_empty(&ps->atr)) {
-						a = lws_container_of(
-							lws_dll2_get_head(&ps->atr),
-							lhp_atr_t, list);
-						memcpy(ctx->buf, &a[1], a->name_len);
-						ctx->npos = (int)a->name_len;
-					}
-					ps->cb(ctx, LHPCB_ELEMENT_END);
-					ctx->npos = 0;
-					/* remove the start level */
-					lhp_clean_level(ps);
-					lws_css_cascade(ctx);
-					ps = lws_container_of(
-						lws_dll2_get_tail(&ctx->stack),
-						lhp_pstack_t, list);
-
-					if (closing == match)
-						break;
-				}
+				ps->cb(ctx, LHPCB_ELEMENT_END);
+				ctx->npos = 0;
+				/* remove the start level */
+				lhp_clean_level(ps);
+				lws_css_cascade(ctx);
+				ps = lws_container_of(ctx->stack.tail,
+						      lhp_pstack_t, list);
 			}
+skip_image:
 			ctx->npos = 0;
 			ctx->state = LHPS_OUTER;
-
-close_done:
-
-			/*
-			 * <script ...> and <style ...> with attributes came
-			 * through here rather than the bare-tag trapdoors:
-			 * their content is not html either
-			 */
-			if (!ctx->u.f.closing && !ctx->u.f.void_element &&
-			    !lws_dll2_is_empty(&ps->atr)) {
-				lhp_atr_t *ta = lws_container_of(
-						lws_dll2_get_head(&ps->atr),
-						lhp_atr_t, list);
-				const char *tn = (const char *)&ta[1];
-
-				if (ta->name_len == 6 &&
-				    !strncasecmp(tn, "script", 6))
-					ctx->state = LHPS_SCRIPT;
-				else if (ta->name_len == 5 &&
-					 !strncasecmp(tn, "style", 5))
-					ctx->state = LCSPS_CSS_OUTER;
-			}
 			break;
 
 		case LHPS_ATTRIB:
@@ -7522,23 +1267,14 @@ close_done:
 
 			if ((ctx->u.f.inq || !hspace(c)) &&
 			    (c != '/' || ctx->u.f.inq) && c != '>') {
-				/*
-				 * sanity: check before the write, and with
-				 * >=, since npos can have been advanced by
-				 * more than one by an entity expansion.  Keep
-				 * the -4 slack for a possible entity expansion,
-				 * as in lhp_uni_emit().
-				 *
-				 * An oversize attribute name is junk: discard
-				 * the attribute and carry on with the document
-				 * rather than failing it
-				 */
-				if (ctx->npos >= LHP_STRING_CHUNK - 4) {
-					ctx->u.f.atr_drop = 1;
-					break;
-				}
 				/* collect the attrib name */
 				ctx->buf[ctx->npos++] = (char)c;
+				/* sanity */
+				if (ctx->npos == LHP_STRING_CHUNK) {
+					lwsl_err("%s: string chunk\n", __func__);
+					ps->cb(ctx, LHPCB_FAILED);
+					return LWS_SRET_FATAL;
+				}
 				if (c == '=') {
 					ctx->nl_temp = ctx->npos - 1;
 					ctx->state = LHPS_ATTRIB_VAL;
@@ -7550,22 +1286,6 @@ close_done:
 				break;
 			}
 
-			if (c != '>' && ctx->npos && !ctx->u.f.atr_drop) {
-				/*
-				 * Whitespace after a name: as in html, an '='
-				 * may still follow and give it a value
-				 */
-				ctx->state = LHPS_ATTRIB_AFTER_NAME;
-				break;
-			}
-
-attrib_name_done:
-			if (ctx->u.f.atr_drop) {
-				/* the attribute name overflowed: discard it */
-				ctx->u.f.atr_drop = 0;
-				ctx->npos = 0;
-				ctx->nl_temp = 0;
-			} else
 			if (ctx->npos &&
 			    !lhp_atr_new(ctx, (size_t)ctx->npos, 0))
 				goto oom;
@@ -7576,97 +1296,24 @@ attrib_name_done:
 			}
 			break;
 
-		case LHPS_ATTRIB_AFTER_NAME:
-			/* the name in buf is complete, did it have a value? */
-
-			if (hspace(c))
-				break;
-
-			if (c == '=') {
-				/* ATTRIB stopped collecting with room for it */
-				ctx->nl_temp = ctx->npos;
-				ctx->buf[ctx->npos++] = '=';
-				ctx->state = LHPS_ATTRIB_VAL;
-				break;
-			}
-
-			/*
-			 * No: it was a valueless attribute, and c starts
-			 * whatever is next
-			 */
-			ctx->state = LHPS_ATTRIB;
-			if (c == '>')
-				goto attrib_name_done;
-			(*len)++;
-			(*buf)--;
-			if (!lhp_atr_new(ctx, (size_t)ctx->npos, 0))
-				goto oom;
-			break;
-
 		case LHPS_ATTRIB_VAL:
 
-			/* as in html, whitespace before the value is skipped */
-			if (!ctx->u.f.inq && ctx->npos == ctx->nl_temp + 1 &&
-			    hspace(c))
-				break;
-
-			/*
-			 * An opening quote of either kind starts the value; the
-			 * matching closing quote ends it immediately, so that
-			 * a "/>" following it is seen as self-closing
-			 */
-			if (!ctx->u.f.inq && ctx->npos == ctx->nl_temp + 1 &&
-			    (c == '\"' || c == '\'')) {
-				/* nothing after the '=' yet: opening quote */
-				ctx->u.f.inq = 1;
-				ctx->u.f.sq = c == '\'';
-				break;
-			}
-			if (ctx->u.f.inq && c == (ctx->u.f.sq ? '\'' : '\"')) {
-				ctx->u.f.inq = 0;
-				goto attrib_val_done;
-			}
-
-			if (c == '&' && !ctx->u.f.atr_drop) {
-				ctx->saved_state = LHPS_ATTRIB_VAL;
-				ctx->entity_start = ctx->npos;
-				ctx->temp_count = 0;
-				ctx->state = LHPS_AMP;
-				break;
-			}
-
-			if (ctx->u.f.inq ||
-			    (!hspace(c) && c != '>' && c != '\'' && c != '\"')) {
-				/*
-				 * sanity: check before the write, and with
-				 * >=, since npos can have been advanced by
-				 * more than one by an entity expansion.  Keep
-				 * the -4 slack for a possible entity expansion,
-				 * as in lhp_uni_emit().
-				 *
-				 * Oversize attribute values are a real thing,
-				 * eg inline data: URIs: discard the attribute
-				 * and keep laying out the document rather than
-				 * failing it
-				 */
-				if (ctx->npos >= LHP_STRING_CHUNK - 4) {
-					lhp_atr_val_overflow(ctx);
+			if (/*ctx->u.f.doctype && */c == '\"') {
+				ctx->u.f.inq = ctx->u.f.inq ^ 1u;
+				if (ctx->u.f.inq)
 					break;
-				}
-				if (!c) {
-					/*
-					 * A raw NUL: a browser sees U+FFFD
-					 * and the rest of the value, ours is
-					 * a C string.  Keep the rest, but the
-					 * element is suspicious
-					 */
-					lhp_elem_suspicious(ctx);
-					ctx->temp = 0xfffd;
-					lhp_uni_emit(ctx);
-					break;
-				}
+			}
+
+			if ((ctx->u.f.inq || !hspace(c)) &&
+			    c != '>' && c != '\'' && c != '\"') {
 				/* collect the attrib value */
 				ctx->buf[ctx->npos++] = (char)c;
+				/* sanity */
+				if (ctx->npos == LHP_STRING_CHUNK) {
+					lwsl_err("%s: string chunk 2\n", __func__);
+					ps->cb(ctx, LHPCB_FAILED);
+					return LWS_SRET_FATAL;
+				}
 				break;
 			}
 			if (c == '/') {
@@ -7674,35 +1321,17 @@ attrib_name_done:
 				break;
 			}
 
+			if (c == '\'' || c == '\"')
+				break;
+
 			if (ctx->u.f.inq)
 				break;
 
-attrib_val_done:
-			if (ctx->u.f.atr_drop) {
-				/* the attribute overflowed: discard it */
-				ctx->u.f.atr_drop = 0;
-				ctx->state = LHPS_ATTRIB;
-				ctx->npos = 0;
-				ctx->nl_temp = 0;
-				if (c != '>')
-					break;
-			} else
 			if (ctx->npos) {
-				/*
-				 * nl_temp is where the '=' sits in buf, so
-				 * npos must be beyond it for the value length
-				 * to be derivable.  Entity handling can reset
-				 * npos out from under nl_temp; in that case
-				 * just drop the attribute rather than
-				 * underflow value_len.
-				 */
-				if (ctx->npos > ctx->nl_temp) {
-					ctx->buf[ctx->npos] = '\0';
-					if (!lhp_atr_new(ctx, (size_t)ctx->nl_temp,
-							 (size_t)(ctx->npos -
-								  ctx->nl_temp - 1)))
-						goto oom;
-				}
+				ctx->buf[ctx->npos] = '\0';
+				if (!lhp_atr_new(ctx, (size_t)ctx->nl_temp,
+					 (size_t)ctx->npos - (size_t)ctx->nl_temp - 1u))
+					goto oom;
 				ctx->state = LHPS_ATTRIB;
 				ctx->npos = 0;
 				if (c != '>')
@@ -7718,147 +1347,83 @@ attrib_val_done:
 
 		case LHPS_AMP:
 			/* the character after the & */
-			if (c == '#' && ctx->npos == ctx->entity_start) {
+			if (c == '#') {
 				ctx->state = LHPS_AMPHASH;
 				ctx->temp = 0;
-				ctx->temp_count = 0;
 				break;
 			}
-
-			if ((c >= 'a' && c <= 'z') ||
-			    (c >= 'A' && c <= 'Z') ||
-			    (c >= '0' && c <= '9')) {
-				if (ctx->npos < (int)sizeof(ctx->buf) - 1)
-					ctx->buf[ctx->npos++] = (char)c;
-				break;
-			}
-
-			if (c == ';') {
-				size_t n;
-
-				ctx->buf[ctx->npos] = '\0';
-				for (n = 0; n < LWS_ARRAY_SIZE(entities); n++) {
-					if (!strcmp(ctx->buf + ctx->entity_start, entities[n].name)) {
-						ctx->temp = entities[n].val;
-						ctx->npos = ctx->entity_start;
-						lhp_uni_emit(ctx);
-						ctx->state = ctx->saved_state;
-						goto done_amp;
-					}
-				}
-
-				if (ctx->npos + 2 < LHP_STRING_CHUNK) {
-					memmove(ctx->buf + ctx->entity_start + 1,
-						ctx->buf + ctx->entity_start,
-						(size_t)(ctx->npos - ctx->entity_start));
-					ctx->buf[ctx->entity_start] = '&';
-					ctx->buf[ctx->npos + 1] = ';';
-					ctx->npos += 2;
-					ctx->state = ctx->saved_state;
-				} else {
-					/*
-					 * We're dumping what we collected...
-					 * nl_temp indexes into it, so it has
-					 * to go too or the attribute lengths
-					 * derived from it are garbage.  An
-					 * attribute value we dump is
-					 * discarded whole
-					 */
-					if (ctx->saved_state == LHPS_ATTRIB_VAL)
-						lhp_atr_val_overflow(ctx);
-					ctx->npos = 0;
-					ctx->nl_temp = 0;
-					ctx->state = ctx->saved_state;
-				}
-				break;
-			}
-
-			if (ctx->npos + 1 < LHP_STRING_CHUNK) {
-				memmove(ctx->buf + ctx->entity_start + 1,
-					ctx->buf + ctx->entity_start,
-					(size_t)(ctx->npos - ctx->entity_start));
-				ctx->buf[ctx->entity_start] = '&';
-				ctx->npos++;
-				(*len)++;
-				(*buf)--;
-				ctx->state = ctx->saved_state;
-			} else {
-				/* as above, nl_temp indexes into what we are
-				 * dropping, it can't survive it */
-				if (ctx->saved_state == LHPS_ATTRIB_VAL)
-					lhp_atr_val_overflow(ctx);
-				ctx->npos = 0;
-				ctx->nl_temp = 0;
-				ctx->state = ctx->saved_state;
-			}
-done_amp:
+			/*
+			 * These are supposed to be named chars, like &dagger;
+			 * but not supported yet.
+			 */
+			ctx->state = LHPS_OUTER;
 			break;
 		case LHPS_AMPHASH:
 			/*
 			 * This is either decimal or hex unicode like
-			 * &#1234; or &#xfc16;.  As in html, the ';' is
-			 * optional: the reference ends at the first character
-			 * that can't be part of it, which is then processed
-			 * normally.  temp_count is how many digits we saw.
+			 * &#1234; or &#xfc16;
 			 */
-			if (!ctx->temp_count && (c == 'x' || c == 'X')) {
-				/* kept in case no hex digits follow */
-				if (ctx->npos < LHP_STRING_CHUNK - 4)
-					ctx->buf[ctx->npos++] = (char)c;
+			if (c == 'x' || c == 'X') {
 				ctx->state = LHPS_AMPHASH_HEX;
 				break;
 			}
 
-			if (c >= '0' && c <= '9') {
-				/*
-				 * There may be any number of digits; stop
-				 * accumulating once we are already outside
-				 * unicode range, so we can't overflow (the
-				 * out-of-range value is still handled by
-				 * lhp_uni_emit())
-				 */
-				ctx->temp_count = 1;
-				if (ctx->temp <= 0x10ffff)
-					ctx->temp = (ctx->temp * 10) +
-						    (uint32_t)(c - '0');
+			if (ctx->temp_count++ > 32 /* sanity */) {
+				ctx->state = LHPS_OUTER;
+				break;
+			}
+			if (c == ';') {
+				if (ctx->npos >= LHP_STRING_CHUNK - 5) {
+					if (ctx->in_body)
+						ps->cb(ctx, LHPCB_CONTENT);
+					ctx->npos = 0;
+				}
+				ctx->state = LHPS_OUTER;
+				lhp_uni_emit(ctx);
 				break;
 			}
 
-			goto amphash_end;
-
-		case LHPS_AMPHASH_HEX:
-			if (c >= '0' && c <= '9') {
-				ctx->temp_count = 1;
-				/* as above, stop beyond unicode range */
-				if (ctx->temp <= 0x10ffff)
-					ctx->temp = (ctx->temp << 4) +
-						    (uint32_t)(c - '0');
-				break;
-			}
-
-			if ((c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f')) {
-				ctx->temp_count = 1;
-				if (ctx->temp <= 0x10ffff)
-					ctx->temp = (ctx->temp << 4) +
-						    (uint32_t)((c | 0x20) - 'a') +
-						    10;
-				break;
-			}
-
-amphash_end:
-			if (!ctx->temp_count)
-				/* "&#" or "&#x" then no digits: just text */
-				lhp_amphash_literal(ctx);
+			if (c >= '0' && c <= '9')
+				ctx->temp = (uint32_t)(((int)ctx->temp * 10) + ((int)c - '0'));
 			else
-				lhp_amphash_emit(ctx, ps);
+				ctx->state = LHPS_OUTER;
 
-			if (c != ';' || !ctx->temp_count) {
-				/* c is not part of it, process it normally */
-				(*len)++;
-				(*buf)--;
-			}
 			break;
 
+		case LHPS_AMPHASH_HEX:
+			if (c == ';') {
+				if (ctx->npos >= LHP_STRING_CHUNK - 5) {
+					if (ctx->in_body)
+						ps->cb(ctx, LHPCB_CONTENT);
+					ctx->npos = 0;
+				}
+				ctx->state = LHPS_OUTER;
+				lhp_uni_emit(ctx);
+				break;
+			}
+
+			if (ctx->temp_count++ > 8 /* sanity */) {
+				ctx->state = LHPS_OUTER;
+				break;
+			}
+
+			if (c >= '0' && c <= '9') {
+				ctx->temp = (uint32_t)(((int)ctx->temp << 4) + ((int)c - '0'));
+				break;
+			}
+
+			if (c >= 'A' && c <= 'F') {
+				ctx->temp = (uint32_t)(((int)ctx->temp << 4) + ((int)c - 'A') + 10);
+				break;
+			}
+
+			if (c >= 'a' && c <= 'f') {
+				ctx->temp = (uint32_t)(((int)ctx->temp << 4) + ((int)c - 'a') + 10);
+				break;
+			}
+
+			ctx->state = LHPS_OUTER;
+			break;
 		case LHPS_SCOMMENT1: /* we have <! */
 			if (c == '-') {
 				ctx->state = LHPS_SCOMMENT2;
@@ -7912,20 +1477,6 @@ amphash_end:
 					ps->cb(ctx, LHPCB_COMMENT);
 					ctx->npos = 0;
 				}
-				/*
-				 * The level pushed at the '<' was for an
-				 * element; a comment isn't one, so it must
-				 * not stay on the stack as an empty ancestor
-				 * of everything after it
-				 */
-				if (lws_dll2_count(&ctx->stack) > 1 &&
-				    lws_dll2_is_empty(&ps->atr)) {
-					lhp_clean_level(ps);
-					ps = lws_container_of(
-						lws_dll2_get_tail(&ctx->stack),
-						lhp_pstack_t, list);
-					lws_css_cascade(ctx);
-				}
 				ctx->state = LHPS_OUTER;
 				break;
 			}
@@ -7954,103 +1505,54 @@ amphash_end:
 			}
 
 			if (c == '{') { /* open stanza */
+				struct lws_tokenize ts;
 
-				while (ctx->npos && ctx->buf[ctx->npos - 1] == ' ')
-					ctx->npos--;
-				ctx->buf[ctx->npos] = '\0';
+				/* create the stanza object */
 
-				if (ctx->css_lhs_skip) {
-					/* one selector didn't fit: lose
-					 * this stanza, not the sheet */
-					ctx->css_lhs_skip = 0;
-					ctx->css_skip_depth = 1;
-					ctx->state = LCSPS_CSS_SKIP_BLOCK;
-					ctx->npos = 0;
-					break;
-				}
-
-				if (ctx->css_lhs_partial) {
-					/* the stanza may exist already with
-					 * the selectors that were flushed */
-					ctx->css_lhs_partial = 0;
-					if (lhp_css_add_names(ctx, ctx->buf,
-							(size_t)ctx->npos))
-						goto oom;
-					goto stanza_open;
-				}
-
-				if (ctx->npos && ctx->buf[0] == '@') {
-					/*
-					 * @media we can evaluate, @supports
-					 * (we claim to support anything not
-					 * negated) and @layer: parse the
-					 * rules inside as if toplevel.  Any
-					 * other @-rule block (@font-face,
-					 * @keyframes, print media...) must
-					 * not leak its rules into the page.
-					 */
-					int ok = 0;
-
-					if (ctx->npos > 6 &&
-					    !strncmp(ctx->buf, "@media", 6))
-						ok = lhp_media_query_true(ctx,
-							ctx->buf + 6,
-							ctx->buf + ctx->npos);
-					else if (ctx->npos >= 9 &&
-						 !strncmp(ctx->buf,
-							  "@supports", 9))
-						ok = lhp_supports_true(
-							ctx->buf + 9,
-							ctx->buf + ctx->npos);
-					else if (ctx->npos >= 6 &&
-						 !strncmp(ctx->buf,
-							  "@layer", 6) &&
-						 !ctx->css_layer) {
-						ctx->css_layer = lhp_css_layer(
-							ctx, ctx->buf + 6,
-							(size_t)ctx->npos - 6);
-						ctx->css_layer_depth =
-						   (uint8_t)(ctx->css_block_depth + 1);
-						ok = 1;
-					} else if (ctx->npos >= 6 &&
-						   !strncmp(ctx->buf,
-							    "@layer", 6))
-						/* nested @layer: stays in
-						 * the outer layer */
-						ok = 1;
-
-					if (ok) {
-						if (ctx->css_block_depth < 255)
-							ctx->css_block_depth++;
-					} else {
-						ctx->css_skip_depth = 1;
-						ctx->state = LCSPS_CSS_SKIP_BLOCK;
-					}
-					ctx->npos = 0;
-					break;
-				}
-
-				/*
-				 * The stanza object is created, and listed in
-				 * our lhp context css, with the first of its
-				 * selectors that is kept
-				 */
-
-				ctx->stz = NULL;
-				if (lhp_css_add_names(ctx, ctx->buf,
-						      (size_t)ctx->npos))
+				ctx->stz = lwsac_use_zero(&ctx->cssac,
+							  sizeof(*ctx->stz),
+							  LHP_AC_GRANULE);
+				if (!ctx->stz)
 					goto oom;
 
-stanza_open:
-				if (!ctx->stz) {
-					/* no selector of it could be kept */
-					ctx->css_skip_depth = 1;
-					ctx->state = LCSPS_CSS_SKIP_BLOCK;
-					ctx->npos = 0;
-					break;
-				}
+				/* attach names to it */
 
-				ctx->npos = 0;
+				memset(&ts, 0, sizeof(ts));
+				ts.start = ctx->buf;
+				ts.len = (size_t)ctx->npos;
+				ts.flags = LWS_TOKENIZE_F_COMMA_SEP_LIST |
+						LWS_TOKENIZE_F_DOT_NONTERM;
+
+				do {
+					ts.e = (int8_t)lws_tokenize(&ts);
+					if (ts.e == LWS_TOKZE_TOKEN) {
+						lcsp_names_t *na = lwsac_use_zero(
+							&ctx->cssac,
+							sizeof(*na) +
+							ts.token_len + 1,
+							LHP_AC_GRANULE);
+						if (!na)
+							goto oom;
+
+						//lwsl_notice("%s: CSS name %.*s\n",
+						//	__func__,
+						//	(int)ts.token_len, ts.token);
+
+						na->name_len = ts.token_len;
+						memcpy(&na[1], ts.token, ts.token_len);
+						((char *)(&na[1]))[ts.token_len] = '\0';
+						lws_dll2_add_tail(&na->list, &ctx->stz->names);
+					}
+
+				} while (ts.e > 0);
+
+
+				/* list this stanza in our lhp context CSS */
+
+				lws_dll2_add_tail(&ctx->stz->list, &ctx->css);
+
+				ctx->buf[ctx->npos] = '\0';
+
 				ctx->state = LCSPS_CSS_STANZA;
 				ctx->cssval_state = 0;
 				ctx->css_state = 0;
@@ -8060,115 +1562,28 @@ stanza_open:
 				break;
 			}
 
-			if (c == '}') {
-				/* closing an @media / @layer block we
-				 * parsed inline */
-				if (ctx->css_block_depth)
-					ctx->css_block_depth--;
-				if (ctx->css_layer &&
-				    ctx->css_block_depth < ctx->css_layer_depth)
-					ctx->css_layer = 0;
-				ctx->npos = 0;
-				break;
-			}
-
-			if (c == ';') {
-				/* blockless @-rule, eg @import, @charset,
-				 * or @layer a, b; fixing the layer order */
-				if (ctx->npos > 6 &&
-				    !strncmp(ctx->buf, "@layer", 6))
-					lhp_css_layer_statement(ctx,
-							ctx->buf + 6,
-							ctx->buf + ctx->npos);
-				ctx->npos = 0;
-				break;
-			}
-
-			/* otherwise let's collect the selector text, with
-			 * whitespace collapsed to single spaces */
-
-			if (ctx->css_lhs_skip)
-				/* discarding an unusable selector */
-				break;
+			/* otherwise let's collect the name pieces */
 
 			if (ctx->npos >= LHP_STRING_CHUNK) {
-				/*
-				 * Minified resets can have selector lists
-				 * far longer than the buffer.  Flush the
-				 * complete selectors before the last comma
-				 * on to the stanza now and carry on
-				 * collecting; a single selector that can't
-				 * fit loses its stanza only.
-				 */
-				int k = ctx->npos;
-
-				while (k && ctx->buf[k - 1] != ',')
-					k--;
-
-				if (!k) {
-					lwsl_warn("%s: css selector too long\n",
-						  __func__);
-					/* the stanza is lost, with any
-					 * selectors flushed to it already */
-					if (ctx->css_lhs_partial)
-						lhp_css_drop_empty(ctx);
-					ctx->css_lhs_skip = 1;
-					ctx->css_lhs_partial = 0;
-					ctx->npos = 0;
-					break;
-				}
-
-				if (!ctx->css_lhs_partial) {
-					/* made with its first kept selector */
-					ctx->stz = NULL;
-					ctx->css_lhs_partial = 1;
-				}
-
-				if (lhp_css_add_names(ctx, ctx->buf,
-						      (size_t)k - 1))
-					goto oom;
-
-				memmove(ctx->buf, ctx->buf + k,
-					(size_t)(ctx->npos - k));
-				ctx->npos -= k;
+				lwsl_err("%s: css lhs too long\n", __func__);
+				return LWS_SRET_FATAL;
 			}
 
-			if (hspace(c)) {
-				if (ctx->npos && ctx->buf[ctx->npos - 1] != ' ')
-					ctx->buf[ctx->npos++] = ' ';
-				break;
-			}
+			if (!hspace(c))
+				ctx->buf[ctx->npos++] = (char)c;
 
-			ctx->buf[ctx->npos++] = (char)c;
-			break;
-
-		case LCSPS_CSS_SKIP_BLOCK:
-			/* balance braces until the @-rule block ends */
-			if (c == '{' && ctx->css_skip_depth < 255)
-				ctx->css_skip_depth++;
-			if (c == '}' && !--ctx->css_skip_depth)
-				ctx->state = LCSPS_CSS_OUTER;
 			break;
 
 		case LCSPS_CSS_STANZA:
 			ctx->state_css_comm = LCSPS_CSS_STANZA;
 			if (c == '}') {
 				ctx->state = LCSPS_CSS_OUTER;
-				lhp_css_drop_empty(ctx);
 
-				if (ctx->u.f.infunc) {
-					ctx->u.f.infunc = 0;
-					ctx->npos = 0;
-					ctx->u.f.arg = 0;
-					ctx->css_state = 0;
-					ctx->cssval_state = 0;
-					break;
-				}
+				ctx->u.f.arg = 0;
 
 				if (ctx->u.f.color) {
 					lcsp_append_cssval_color(ctx);
 					ctx->npos = 0;
-					ctx->u.f.arg = 0;
 					break;
 				}
 				if (ctx->u.f.integer) {/* x: 123} */
@@ -8177,19 +1592,15 @@ stanza_open:
 
 					ctx->u.f.integer = 0;
 					ctx->npos = 0;
-					ctx->u.f.arg = 0;
 					break;
 				}
-				if (ctx->u.f.arg && lcsp_finish_cssval_keyword(ctx))
-					goto oom;
-
-				ctx->u.f.arg = 0;
-				ctx->css_state = 0;
-				ctx->cssval_state = 0;
+				//lwsl_notice("close curly cssval_state %d\n", ctx->cssval_state);
+				if (ctx->cssval_state || ctx->npos)
+					goto for_term;
 				ctx->npos = 0;
 				break;
 			}
-			if (c == '/' && !ctx->u.f.infunc) {
+			if (c == '/') {
 				ctx->state = LCSPS_CCOM_S1;
 				break;
 			}
@@ -8197,47 +1608,11 @@ stanza_open:
 			if (ctx->u.f.arg) {
 				/* we're on the value side of prop: value */
 
-				/*
-				 * name( ... ) values: collect to the matching
-				 * ')' (this may span input chunks) and then
-				 * interpret the whole thing.  A ';' or '}'
-				 * before that means a broken value: drop it.
-				 */
-
-				if (ctx->u.f.infunc && c != ';' && c != '}') {
-					if (ctx->npos >= LHP_STRING_CHUNK) {
-						lwsl_err("%s: func too long\n", __func__);
-						goto oom;
-					}
-					ctx->buf[ctx->npos++] = (char)c;
-					if (c == '"' || c == '\'')
-						ctx->u.f.inq = ctx->u.f.inq ^ 1u;
-					else if (!ctx->u.f.inq) {
-						if (c == '(')
-							ctx->temp_count++;
-						if (c == ')' && !--ctx->temp_count) {
-							ctx->u.f.infunc = 0;
-							if (lcsp_func_value(ctx))
-								goto oom;
-							ctx->npos = 0;
-							ctx->cssval_state = 0;
-						}
-					}
-					break;
-				}
-
 				if (c == ';') {
-					/* end of this declaration: restart with
+					/* resync after unknown prop: restart with
 					 * whatever is after the ';' */
 					ctx->css_state = 0;
 					ctx->u.f.arg = 0;
-
-					if (ctx->u.f.infunc) {
-						ctx->u.f.infunc = 0;
-						ctx->npos = 0;
-						ctx->cssval_state = 0;
-						break;
-					}
 
 					if (ctx->u.f.color) {
 						lcsp_append_cssval_color(ctx);
@@ -8250,12 +1625,19 @@ stanza_open:
 							goto oom;
 						ctx->u.f.integer = 0;
 						ctx->npos = 0;
-						break;
 					}
 
-					if (lcsp_finish_cssval_keyword(ctx))
-						goto oom;
+					if (ctx->cssval_state)
+						goto for_term;
 					ctx->npos = 0;
+					break;
+				}
+
+				if (ctx->cssval_state == (int16_t)-1 &&
+				    hspace(c)) {
+					/* resync after unknown prop: restart
+					 * with whatever is after the ';' */
+					ctx->cssval_state = 0;
 					break;
 				}
 
@@ -8263,57 +1645,16 @@ stanza_open:
 					((c >= '0' && c <= '9') ||
 					(c >= 'a' && c <= 'f') ||
 					(c >= 'A' && c <= 'F'))) {
-					/*
-					 * #rrggbbaa is the longest form we
-					 * understand; don't shift past the
-					 * end of temp for longer garbage
-					 */
-					if (ctx->temp_count < 8)
-						ctx->temp = (ctx->temp << 4) |
-							(uint32_t)((c <= '9') ? c - '0' :
-								(c >= 'a') ? 10 + (c - 'a') :
-									10 + (c - 'A'));
-					if (ctx->temp_count < 9)
-						/* 9 == "too long", no valid
-						 * length matches it */
-						ctx->temp_count++;
+					ctx->temp = (uint32_t)(((int)ctx->temp << 4) |
+						((c <= '9') ? c - '0' :
+							(c >= 'a') ? 10 + (c - 'a') :
+								10 + (c - 'A')));
+					ctx->temp_count++;
 					break;
 				}
 
-				if (ctx->u.f.color) {
-					/*
-					 * The colour value just ended (eg the
-					 * space before the next value): commit
-					 * it now, and let this char be handled
-					 * by the ordinary value machinery
-					 */
-					if (lcsp_append_cssval_color(ctx))
-						goto oom;
-				}
-
-				if (!ctx->u.f.integer && hspace(c)) {
-					/* space between values: complete any
-					 * keyword we were matching */
-					if (lcsp_finish_cssval_keyword(ctx))
-						goto oom;
+				if (!ctx->u.f.integer && hspace(c))
 					break;
-				}
-
-				if (!ctx->cssval_state && !ctx->u.f.integer &&
-				    c == '-') {
-					/*
-					 * A leading minus can only start a
-					 * negative number here: value keywords
-					 * never begin with '-'.  The digits
-					 * start from the next character
-					 */
-					lws_fx_set(ctx->tf, 0, 0);
-					ctx->u.f.integer = LHP_CSS_PROPVAL_INT_WHOLE;
-					ctx->temp = LWS_FX_FRACTION_MSD / 10;
-					ctx->unit = LCSP_UNIT_NONE;
-					ctx->u.f.negval = 1;
-					break;
-				}
 
 				if (!ctx->cssval_state && !ctx->u.f.integer &&
 				    ((c >= '0' && c <= '9') || c == '.')) {
@@ -8322,7 +1663,6 @@ stanza_open:
 					ctx->u.f.integer = LHP_CSS_PROPVAL_INT_WHOLE;
 					ctx->temp = LWS_FX_FRACTION_MSD / 10;
 					ctx->unit = LCSP_UNIT_NONE;
-					ctx->u.f.negval = 0;
 				}
 
 				if (ctx->u.f.integer) {
@@ -8334,20 +1674,11 @@ stanza_open:
 
 					if (ctx->u.f.integer < LHP_CSS_PROPVAL_INT_UNIT &&
 					    c >= '0' && c <= '9') {
-						if (ctx->u.f.integer == LHP_CSS_PROPVAL_INT_WHOLE) {
-							/*
-							 * tf.whole is int32_t and
-							 * nothing else bounds the
-							 * digit count; stop
-							 * accumulating well before
-							 * it can overflow
-							 */
-							if (ctx->tf.whole <
-								   LHP_CSS_MAX_WHOLE)
-								ctx->tf.whole =
-								  (ctx->tf.whole * 10) +
-								  (c - '0');
-						} else {
+						if (ctx->u.f.integer == LHP_CSS_PROPVAL_INT_WHOLE)
+							ctx->tf.whole =
+								(ctx->tf.whole * 10) +
+								(c - '0');
+						else {
 							if (ctx->temp) {
 								ctx->tf.frac += (int32_t)ctx->temp * (c - '0');
 								ctx->temp /= 10;
@@ -8356,15 +1687,7 @@ stanza_open:
 						break;
 					}
 					if (hspace(c)) {
-						/* a unitless number followed
-						 * by more values, eg,
-						 * "margin: 1em 0 2em" */
-						if (ctx->u.f.integer !=
-						    LHP_CSS_PROPVAL_INT_UNIT &&
-						    lcsp_append_cssval_int(ctx))
-							goto oom;
 						ctx->u.f.integer = 0;
-						ctx->npos = 0;
 						break;
 					}
 
@@ -8383,55 +1706,34 @@ stanza_open:
 						ctx->buf[ctx->npos++] = (char)c;
 						ctx->buf[ctx->npos] = '\0';
 
-							if (ctx->npos == 2) {
-								if (!strcmp(ctx->buf, "em"))
-									ctx->unit = LCSP_UNIT_LENGTH_EM;
-								if (!strcmp(ctx->buf, "ex"))
-									ctx->unit = LCSP_UNIT_LENGTH_EX;
-								if (!strcmp(ctx->buf, "in"))
-									ctx->unit = LCSP_UNIT_LENGTH_IN;
-								if (!strcmp(ctx->buf, "cm"))
-									ctx->unit = LCSP_UNIT_LENGTH_CM;
-								if (!strcmp(ctx->buf, "mm"))
-									ctx->unit = LCSP_UNIT_LENGTH_MM;
-								if (!strcmp(ctx->buf, "pt"))
-									ctx->unit = LCSP_UNIT_LENGTH_PT;
-								if (!strcmp(ctx->buf, "pc"))
-									ctx->unit = LCSP_UNIT_LENGTH_PC;
-								if (!strcmp(ctx->buf, "px"))
-									ctx->unit = LCSP_UNIT_LENGTH_PX;
-								if (!strcmp(ctx->buf, "vw"))
-									ctx->unit = LCSP_UNIT_LENGTH_VW;
-								if (!strcmp(ctx->buf, "vh"))
-									ctx->unit = LCSP_UNIT_LENGTH_VH;
-							}
-							if (ctx->npos == 3) {
-								if (!strcmp(ctx->buf, "rem"))
-									ctx->unit = LCSP_UNIT_LENGTH_REM;
-								if (!strcmp(ctx->buf, "deg"))
-									ctx->unit = LCSP_UNIT_ANGLE_ABS_DEG;
-								if (!strcmp(ctx->buf, "rad"))
-									ctx->unit = LCSP_UNIT_ANGLE_ABS_DEG;
-								/* dynamic / small / large
-								 * viewport units are all
-								 * the same for us */
-								if (!strcmp(ctx->buf, "dvw") ||
-								    !strcmp(ctx->buf, "svw") ||
-								    !strcmp(ctx->buf, "lvw"))
-									ctx->unit = LCSP_UNIT_LENGTH_VW;
-								if (!strcmp(ctx->buf, "dvh") ||
-								    !strcmp(ctx->buf, "svh") ||
-								    !strcmp(ctx->buf, "lvh"))
-									ctx->unit = LCSP_UNIT_LENGTH_VH;
-							}
-							if (ctx->npos == 4) {
-								if (!strcmp(ctx->buf, "grad"))
-									ctx->unit = LCSP_UNIT_ANGLE_ABS_DEG;
-								if (!strcmp(ctx->buf, "vmin"))
-									ctx->unit = LCSP_UNIT_LENGTH_VMIN;
-								if (!strcmp(ctx->buf, "vmax"))
-									ctx->unit = LCSP_UNIT_LENGTH_VMAX;
-							}
+						if (ctx->npos == 2) {
+							if (!strcmp(ctx->buf, "em"))
+								ctx->unit = LCSP_UNIT_LENGTH_EM;
+							if (!strcmp(ctx->buf, "ex"))
+								ctx->unit = LCSP_UNIT_LENGTH_EX;
+							if (!strcmp(ctx->buf, "in"))
+								ctx->unit = LCSP_UNIT_LENGTH_IN;
+							if (!strcmp(ctx->buf, "cm"))
+								ctx->unit = LCSP_UNIT_LENGTH_CM;
+							if (!strcmp(ctx->buf, "mm"))
+								ctx->unit = LCSP_UNIT_LENGTH_MM;
+							if (!strcmp(ctx->buf, "pt"))
+								ctx->unit = LCSP_UNIT_LENGTH_PT;
+							if (!strcmp(ctx->buf, "pc"))
+								ctx->unit = LCSP_UNIT_LENGTH_PC;
+							if (!strcmp(ctx->buf, "px"))
+								ctx->unit = LCSP_UNIT_LENGTH_PX;
+						}
+						if (ctx->npos == 3) {
+							if (!strcmp(ctx->buf, "deg"))
+								ctx->unit = LCSP_UNIT_ANGLE_ABS_DEG;
+							if (!strcmp(ctx->buf, "rad"))
+								ctx->unit = LCSP_UNIT_ANGLE_ABS_DEG;
+						}
+						if (ctx->npos == 4) {
+							if (!strcmp(ctx->buf, "grad"))
+								ctx->unit = LCSP_UNIT_ANGLE_ABS_DEG;
+						}
 
 issue_post:
 						if (ctx->unit) {
@@ -8452,29 +1754,16 @@ issue_post:
 				}
 
 
-				if (!is_term) {
-					if (ctx->npos >= LHP_STRING_CHUNK) {
-						lwsl_err("%s: prop value string too long\n", __func__);
-						goto oom;
-					}
-
-					ctx->buf[ctx->npos++] = (char)c;
+				if (ctx->npos >= LHP_STRING_CHUNK) {
+					lwsl_err("%s: prop value string too long\n", __func__);
+					goto oom;
 				}
 
-				if (c == '(' && ctx->npos > 1 && ctx->npos < 24) {
-					int n, fn = 1;
+				ctx->buf[ctx->npos++] = (char)c;
 
-					/* only ident( starts a function */
-					for (n = 0; n < ctx->npos - 1; n++)
-						if (!lhp_ident_char(ctx->buf[n]))
-							fn = 0;
-					if (fn) {
-						ctx->u.f.infunc = 1;
-						ctx->u.f.inq = 0;
-						ctx->temp_count = 1;
-						break;
-					}
-				}
+				/* well-known property value strings */
+
+for_term:
 
 				switch(lws_minilex_parse(css_propconst_lextable,
 							 &ctx->cssval_state,
@@ -8499,15 +1788,18 @@ issue_post:
 					 * property value match */
 					//lwsl_notice("propval %d\n", ctx->propval);
 					{
-						int drop;
-						lcsp_atr_t *atr = lcsp_atr_new(
-								ctx, 0, &drop);
-
-						if (!atr && !drop)
+						lcsp_atr_t *atr = lwsac_use_zero(
+							  &ctx->cssac,
+							  sizeof(*atr),
+							  LHP_AC_GRANULE);
+						if (!atr)
 							goto oom;
-						if (atr)
-							atr->propval = (uint16_t)
-								ctx->propval;
+						/* add this prop value atr to the def */
+
+						atr->propval = ctx->propval;
+
+						lws_dll2_add_tail(&atr->list,
+								&ctx->def->atrs);
 
 						ctx->npos = 0;
 					}
@@ -8537,78 +1829,6 @@ issue_post:
 				break;
 			}
 
-			/*
-			 * Check if it looks like a CSS variable definition, eg
-			 * --color-bg:
-			 */
-
-			if (c == '-' && !ctx->npos && !ctx->css_state) {
-				ctx->css_state = -2; /* var name */
-				ctx->buf[ctx->npos++] = (char)c;
-				break;
-			}
-
-			if (ctx->css_state == -2) {
-				if (c != ':') {
-					if (ctx->npos < 64)
-						ctx->buf[ctx->npos++] = (char)c;
-					break;
-				}
-
-				/* it is a var definition */
-
-				if (!ctx->u.f.default_css) {
-					/*
-					 * the document's own are limited: past
-					 * that, or once its css budget is
-					 * spent, skip it like an unknown prop
-					 */
-					if (ctx->css_doc_vars >=
-							LHP_MAX_CSS_VARS ||
-					    lhp_css_doc_spent(ctx)) {
-						ctx->css_state = (int16_t)-1;
-						ctx->npos = 0;
-						break;
-					}
-					if (++ctx->css_doc_vars ==
-							LHP_MAX_CSS_VARS)
-						lwsl_warn("%s: document css "
-							  "reached %d custom "
-							  "properties, ignoring "
-							  "any more\n", __func__,
-							  LHP_MAX_CSS_VARS);
-				}
-
-				ctx->def = lwsac_use_zero(&ctx->cssac,
-						  sizeof(*ctx->def),
-						  LHP_AC_GRANULE);
-				if (!ctx->def)
-					goto oom;
-				ctx->def->prop = LCSP_PROP__COUNT; /* var definition */
-				lws_dll2_add_tail(&ctx->def->list, &ctx->stz->defs);
-
-				{
-					lhp_css_var_t *v = lwsac_use_zero(&ctx->cssac,
-							sizeof(*v) + (unsigned int)ctx->npos + 1,
-							LHP_AC_GRANULE);
-					if (!v)
-						goto oom;
-
-					v->name_len = (size_t)ctx->npos;
-					v->def = ctx->def;
-					ctx->def->var = v;
-					memcpy(&v[1], ctx->buf, v->name_len);
-					*((uint8_t *)&v[1] + v->name_len) = '\0';
-					lws_dll2_add_tail(&v->list, &ctx->css_vars);
-				}
-
-				ctx->u.f.arg = 1;
-				ctx->npos = 0;
-				ctx->cssval_state = 0;
-				ctx->css_state = 0;
-				break;
-			}
-
 			switch(lws_minilex_parse(css_lextable, &ctx->css_state,
 						 c, &ctx->prop)) {
 			case LWS_MINILEX_FAIL:
@@ -8619,30 +1839,8 @@ issue_post:
 				 */
 				break;
 			case LWS_MINILEX_CONTINUE:
-				/*
-				 * ':' ends every property name; if it is
-				 * still ambiguous (eg, "margin:" vs
-				 * "margin-top:") ask the minilex to settle it
-				 */
-				if (c != ':' ||
-				    lws_minilex_parse(css_lextable,
-						      &ctx->css_state, 0,
-						      &ctx->prop) !=
-							LWS_MINILEX_MATCH)
-					break;
-				/* fallthru */
+				break;
 			case LWS_MINILEX_MATCH:
-				if (!ctx->u.f.default_css &&
-				    lhp_css_doc_spent(ctx)) {
-					/*
-					 * the document's css is no longer
-					 * applied, don't keep any more of it:
-					 * skip it like an unknown prop
-					 */
-					ctx->css_state = (int16_t)-1;
-					ctx->npos = 0;
-					break;
-				}
 				/* we have an unambiguous match, now we are
 				 * doing the property args */
 				ctx->def = lwsac_use_zero(&ctx->cssac,
@@ -8650,7 +1848,7 @@ issue_post:
 						  LHP_AC_GRANULE);
 				if (!ctx->def)
 					goto oom;
-				ctx->def->prop = (uint16_t)ctx->prop;
+				ctx->def->prop = (lcsp_props_t)ctx->prop;
 				/* add this prop def to the stanza */
 				lws_dll2_add_tail(&ctx->def->list, &ctx->stz->defs);
 				ctx->u.f.arg = 1;
@@ -8666,16 +1864,7 @@ issue_post:
 				ctx->state = LCSPS_CCOM;
 				break;
 			}
-
-			/*
-			 * It was not a comment start after all.  Restore the
-			 * state and reprocess this char in it; eating it
-			 * silently corrupted values like url(.../sd/...)
-			 */
-
 			ctx->state = ctx->state_css_comm;
-			(*buf)--;
-			(*len)++;
 			break;
 
 		case LCSPS_CSS_OUTER_TAG1:
@@ -8688,24 +1877,10 @@ issue_post:
 				ctx->u.f.first = 0;
 				break;
 			}
-			if (ctx->is_css) {
-				/*
-				 * A linked stylesheet has no tags, so no </
-				 * that ends it: that's only the </style> of
-				 * an inline one.  Letting it leave css here
-				 * ended the <link>'s await with the rest of
-				 * the stylesheet still to come, to be parsed
-				 * into the html after it.  It's just a bad '<'
-				 * in the css: carry on with this char as we
-				 * were
-				 */
-				ctx->state = ctx->state_css_comm;
-				(*buf)--;
-				(*len)++;
-				break;
-			}
 			if (ctx->state_css_comm == LCSPS_CSS_OUTER &&
 			    c == '/' && ctx->u.f.first) {
+
+finish_css:
 				r = ctx->await_css_done;
 				// lwsl_warn("leaving css for tag");
 				ctx->u.s = 0;
@@ -8812,51 +1987,9 @@ issue_post:
 			ctx->state = LCSPS_COMMENT;
 			break;
 
-		case LHPS_SCRIPT:
-			if (c == '<') {
-				ctx->state = LHPS_SCRIPT_TAG1;
-				ctx->u.f.first = 1;
-				break;
-			}
-			break;
-
-		case LHPS_SCRIPT_TAG1:
-			if (c == '/') {
-				ctx->npos = 0;
-				ctx->state = LHPS_SCRIPT_TAG2;
-				break;
-			}
-			ctx->state = c == '<' ? LHPS_SCRIPT_TAG1 : LHPS_SCRIPT;
-			break;
-
-		case LHPS_SCRIPT_TAG2:
-			/*
-			 * Only </script> ends the script; "</div>" inside a
-			 * string literal or a comparison like i < n/2 does not
-			 */
-			if (lhp_ident_char((char)c) && ctx->npos < 6) {
-				ctx->buf[ctx->npos++] = (char)c;
-				break;
-			}
-			if (c == '>' && ctx->npos == 6 &&
-			    !strncasecmp(ctx->buf, "script", 6)) {
-				ctx->u.s = 0;
-				ctx->u.f.closing = 1;
-				ctx->tag = NULL;
-				ctx->tag_len = 0;
-				ctx->npos = 0;
-				ctx->await_css_done = 0;
-				ctx->finish_css = 0;
-				goto elem_start;
-			}
-			ctx->state = c == '<' ? LHPS_SCRIPT_TAG1 : LHPS_SCRIPT;
-			break;
-
 		}
-		if (!*len && ctx->is_css && ctx->await_css_done && ctx->finish_css) {
-			lhp_link_css_done(ctx);
-			return LWS_SRET_AWAIT_RETRY;
-		}
+		if (!*len && ctx->is_css && ctx->await_css_done && ctx->finish_css)
+			goto finish_css;
 	}
 
 	if (!ctx->u.f.default_css && ctx->flags & LHP_FLAG_DOCUMENT_END) {
@@ -8866,11 +1999,8 @@ issue_post:
 		 */
 
 		if (ctx->state == LHPS_OUTER && ctx->npos) {
-			/* retried, we come back here with nothing to parse */
-			if (ctx->in_body &&
-			    (ctx->npos != 1 || ctx->buf[0] != ' ') &&
-			    lhp_deliver_content(ctx, ps, NULL, NULL))
-				return LWS_SRET_AWAIT_RETRY;
+			if (ctx->in_body && (ctx->npos != 1 || ctx->buf[0] != ' '))
+				ps->cb(ctx, LHPCB_CONTENT);
 			ctx->npos = 0;
 		}
 
@@ -8887,39 +2017,78 @@ oom:
 }
 
 /*
- * Query the css in effect for a property on the element currently being
- * parsed, see the description in lws-html.h
+ * Query the css cascade active at this html parsing point for a list of active
+ * css attributes belonging to a particular property, accounting for cascading
+ * overriding inside the list.
  */
 
 const lcsp_atr_t *
 lws_css_cascade_get_prop_atr(lhp_ctx_t *ctx, lcsp_props_t prop)
 {
-	if (lws_dll2_is_empty(&ctx->stack))
+	lcsp_atr_ptr_t *ap;
+
+	lws_dll2_owner_clear(&ctx->active_atr);
+	lwsac_free(&ctx->propatrac);
+
+	/*
+	 * Let's go through the active stanzas looking for defs that relate to
+	 * the property we care about
+	 */
+
+	lws_start_foreach_dll(struct lws_dll2 *, q, ctx->active_stanzas.head) {
+		lcsp_stanza_ptr_t *pstz = lws_container_of(q, lcsp_stanza_ptr_t,
+							   list);
+
+		/* each def entry in the stanza in turn */
+
+		lws_start_foreach_dll(struct lws_dll2 *, p, pstz->stz->defs.head) {
+			lcsp_defs_t *def = lws_container_of(p, lcsp_defs_t, list);
+
+			if (def->prop == prop) {
+
+				lws_start_foreach_dll(struct lws_dll2 *, z,
+						      def->atrs.head) {
+					lcsp_atr_ptr_t *patr = lwsac_use_zero(
+							&ctx->propatrac,
+							sizeof(*patr),
+							LHP_AC_GRANULE);
+					if (!patr)
+						return NULL;
+
+					patr->atr = lws_container_of(z,
+							lcsp_atr_t, list);
+
+					lws_dll2_add_tail(&patr->list,
+							  &ctx->active_atr);
+				} lws_end_foreach_dll(z);
+			}
+
+		} lws_end_foreach_dll(p);
+
+	} lws_end_foreach_dll(q);
+
+	if (!ctx->active_atr.count)
 		return NULL;
 
-	return lhp_prop_atr_ps(ctx, lws_container_of(
-				lws_dll2_get_tail(&ctx->stack),
-				lhp_pstack_t, list), prop);
-}
+	ap = lws_container_of(ctx->active_atr.tail, lcsp_atr_ptr_t, list);
 
-const lcsp_atr_t *
-lws_css_get_prop_atr_ps(lhp_ctx_t *ctx, lhp_pstack_t *ps, lcsp_props_t prop)
-{
-	return lhp_prop_atr_ps(ctx, ps, prop);
+	return ap->atr;
 }
 
 lhp_pstack_t *
 lws_css_get_parent_block(lhp_ctx_t *ctx, lhp_pstack_t *ps)
 {
-	lws_start_foreach_dll_back(lws_dll2_t *, d,
-				   lws_dll2_get_prev(&ps->list)) {
-		lhp_pstack_t *tp = lws_container_of(d, lhp_pstack_t, list);
+	do {
 
-		if (tp->dlo)
-			return tp;
-	} lws_end_foreach_dll_back(d);
+		if (!ps->list.prev)
+			return NULL;
 
-	return NULL;
+		ps = lws_container_of(ps->list.prev, lhp_pstack_t, list);
+
+		if (ps->dlo)
+			return ps;
+
+	} while(1);
 }
 
 const char *
@@ -8930,10 +2099,10 @@ lws_css_pstack_name(lhp_pstack_t *ps)
 	if (!ps)
 		return "(null ps)";
 
-	if(lws_dll2_is_empty(&ps->atr))
+	if (!ps->atr.head)
 		return "no-name";
 
-	a = lws_container_of(lws_dll2_get_head(&ps->atr), lhp_atr_t, list);
+	a = lws_container_of(ps->atr.head, lhp_atr_t, list);
 
 	return (const char *)&a[1];
 }
@@ -8946,12 +2115,7 @@ lws_css_pstack_name(lhp_pstack_t *ps)
 int
 lhp_prop_axis(const lcsp_atr_t *a)
 {
-	const lcsp_defs_t *d;
-
-	if (!lws_dll2_owner(&a->list))
-		return LWS_LHPREF_NONE;
-
-	d = lws_dll2_owner_container(&a->list, lcsp_defs_t, atrs);
+	const lcsp_defs_t *d = lws_container_of(a->list.owner, lcsp_defs_t, atrs);
 
 	switch (d->prop) {
 	/* referenced to height */

@@ -40,8 +40,6 @@ struct lws_cose_key_parse_state {
 	lws_cose_key_import_callback	per_key_cb;
 	lws_dll2_owner_t		*pkey_set;
 	/**< if non-NULL, expects a [ key set ], else single key */
-	lws_dll2_owner_t		import_set;
-	/**< this import's keys, only moved to *pkey_set if it succeeds */
 	void				*user;
 	size_t				pos;
 	int				cose_state;
@@ -49,18 +47,8 @@ struct lws_cose_key_parse_state {
 	int				seen_count;
 	int				gencrypto_eidx;
 	int				meta_idx;
-	int				key_count;
 	unsigned short			possible;
-	unsigned char			blob_ok;
-	/**< VAL_BLOB_START accepted the blob in flight and its destination */
 };
-
-/*
- * Each element of a COSE_KeySet array costs us a ~350-byte lws_cose_key_t that
- * lives until the caller destroys the set, and the cheapest element that does
- * not fail the parse is one byte (eg, `null`).  Cap how many we will make.
- */
-#define LWS_COSE_MAX_KEYSET_KEYS	64
 
 /*
  * A COSE key representation is a CBOR map with a specified structure.  The
@@ -116,10 +104,6 @@ lws_cose_key_dump(const struct lws_cose_key *ck)
 		elems = LWS_GENCRYPTO_EC_KEYEL_COUNT;
 		enames = ec_names;
 		break;
-	case LWS_GENCRYPTO_KTY_OKP:
-		elems = LWS_GENCRYPTO_OKP_KEYEL_COUNT;
-		enames = ec_names; /* okp uses same names as ec basically, crv, x, d */
-		break;
 
 	default:
 		lwsl_err("%s: jwk %p: unknown type\n", __func__, ck);
@@ -166,12 +150,7 @@ lws_cose_key_checks(const lws_cose_key_t *key, int64_t kty, cose_param_t alg,
 	assert(kty);
 	assert(alg);
 	assert(key_op);
-	/*
-	 * The expected curve is only imposed from outside for EC2, where the
-	 * alg pins it.  OKP keys bring their own curve (Ed25519 / Ed448) since
-	 * EdDSA does not pin one, so crv is NULL for them.
-	 */
-	assert(kty != LWSCOSE_WKKTV_EC2 || crv);
+	assert((kty != LWSCOSE_WKKTV_OKP && kty != LWSCOSE_WKKTV_EC2) || crv);
 
 	/* RFC8152 8.1:
 	 *
@@ -183,22 +162,6 @@ lws_cose_key_checks(const lws_cose_key_t *key, int64_t kty, cose_param_t alg,
 	if (!kty || kty >= (int)LWS_ARRAY_SIZE(kty_strings)) {
 		/* we don't understand it */
 		lwsl_notice("%s: unknown kty %d\n", __func__, (int)kty);
-		goto bail;
-	}
-
-	/*
-	 * meta[KTY] is the optional *string* form and only exists for imported
-	 * keys.  key->kty is set for imported and generated keys alike, and is
-	 * what decides the meaning of the e[] elements, so that is what has to
-	 * be checked... testing only the string let a generated EC2 / RSA key
-	 * pass the SYMMETRIC arm, where e[0] (which for those is the public
-	 * curve name / public exponent) would have been used as the HMAC
-	 * secret, ie, MAC forgery with entirely public material.
-	 */
-
-	if (key->kty != kty) {
-		lwsl_notice("%s: key kty %d, wanted %d\n", __func__,
-			    (int)key->kty, (int)kty);
 		goto bail;
 	}
 
@@ -238,30 +201,14 @@ lws_cose_key_checks(const lws_cose_key_t *key, int64_t kty, cose_param_t alg,
 
 	ke = &key->meta[COSEKEY_META_KEY_OPS];
 	if (ke->buf && ke->len) {
-		/*
-		 * RFC9052 7 gives MACs their own ops, but callers of
-		 * lws_cose_key_generate() naturally ask for sign / verify, so
-		 * accept the signature op as a synonym for the corresponding
-		 * MAC op.  The sign vs verify separation, which is the point
-		 * of the check, is kept either way.
-		 */
-		int alt = key_op;
 		uint32_t n;
 
-		if (key_op == LWSCOSE_WKKO_MAC_CREATE)
-			alt = LWSCOSE_WKKO_SIGN;
-		if (key_op == LWSCOSE_WKKO_MAC_VERIFY)
-			alt = LWSCOSE_WKKO_VERIFY;
-
 		for (n = 0; n < ke->len; n++)
-			if (ke->buf[n] == key_op || ke->buf[n] == alt)
+			if (ke->buf[n] == key_op)
 				break;
 
-		if (n == ke->len) {
-			lwsl_notice("%s: key_ops does not allow op %d\n",
-				    __func__, key_op);
+		if (n == ke->len)
 			goto bail;
-		}
 	}
 
 	/*
@@ -269,41 +216,7 @@ lws_cose_key_checks(const lws_cose_key_t *key, int64_t kty, cose_param_t alg,
 	 * key, and check it is what we expect
 	 */
 
-	if (kty == LWSCOSE_WKKTV_OKP) {
-		/*
-		 * EdDSA works with either Ed25519 or Ed448, so the curve
-		 * comes from the key rather than the alg.  The crypto layer
-		 * accepts the same names, with or without a counted NUL.
-		 * Compare by length + memcmp since key elements are not
-		 * guaranteed NUL-terminated.
-		 */
-		static const struct okp_curve {
-			const char	*name;
-			size_t		len;
-		} okp_curves[] = {
-			{ "Ed25519",	7 },
-			{ "Ed448",	5 },
-		};
-		size_t n;
-
-		ke = &key->e[LWS_GENCRYPTO_OKP_KEYEL_CRV];
-
-		if (!ke->buf)
-			goto bail;
-
-		for (n = 0; n < LWS_ARRAY_SIZE(okp_curves); n++)
-			if (ke->len >= okp_curves[n].len &&
-			    ke->len <= okp_curves[n].len + 1 &&
-			    !memcmp(ke->buf, okp_curves[n].name,
-				    okp_curves[n].len))
-				break;
-
-		if (n == LWS_ARRAY_SIZE(okp_curves)) {
-			lwsl_notice("%s: OKP curve not usable with EdDSA\n",
-					__func__);
-			goto bail;
-		}
-	} else if (kty == LWSCOSE_WKKTV_EC2) {
+	if (kty == LWSCOSE_WKKTV_OKP || kty == LWSCOSE_WKKTV_EC2) {
 		ke = &key->e[LWS_GENCRYPTO_EC_KEYEL_CRV];
 
 		if (!ke->buf)
@@ -328,19 +241,6 @@ bail:
 static int
 lws_ck_set_el(struct lws_gencrypto_keyelem *e, char *in, size_t len)
 {
-	/*
-	 * The CBOR can drive us here more than once for the same element (eg,
-	 * an array where a single value was expected)... wipe and free what is
-	 * already there, or it becomes an unreachable heap leak of key
-	 * material that the attacker chooses the size of
-	 */
-
-	if (e->buf) {
-		lws_explicit_bzero(e->buf, e->len);
-		lws_free_set_NULL(e->buf);
-		e->len = 0;
-	}
-
 	e->buf = lws_malloc(len + 1, "ck");
 	if (!e->buf)
 		return -1;
@@ -361,12 +261,8 @@ static struct {
 	{ "P-521",	LWSCOSE_WKEC_P521 },
 	{ "X25519",	LWSCOSE_WKEC_X25519 },
 	{ "X448",	LWSCOSE_WKEC_X448 },
-	/*
-	 * The OKP curve names are case-sensitive and must match the crypto
-	 * backend's expectations (and RFC8037's spellings) exactly
-	 */
-	{ "Ed25519",	LWSCOSE_WKEC_ED25519 },
-	{ "Ed448",	LWSCOSE_WKEC_ED448 },
+	{ "ED25519",	LWSCOSE_WKEC_ED25519 },
+	{ "ED448",	LWSCOSE_WKEC_ED448 },
 	{ "SECP256K1",	LWSCOSE_WKEC_SECP256K1 },
 };
 
@@ -405,30 +301,6 @@ static signed char wk_alg_indexes[] = {
 	LWSCOSE_WKAECDSA_ALG_ES512,
 };
 
-/*
- * Is there another key in the set with the same kid as ck?
- */
-
-static int
-lws_cose_key_kid_in_set(lws_dll2_owner_t *set, lws_cose_key_t *ck)
-{
-	struct lws_gencrypto_keyelem *k1 = &ck->meta[COSEKEY_META_KID];
-
-	if (!k1->buf)
-		return 0;
-
-	lws_start_foreach_dll(struct lws_dll2 *, d, lws_dll2_get_head(set)) {
-		lws_cose_key_t *o = lws_container_of(d, lws_cose_key_t, list);
-		struct lws_gencrypto_keyelem *k2 = &o->meta[COSEKEY_META_KID];
-
-		if (o != ck && k2->buf && k1->len == k2->len &&
-		    !memcmp(k1->buf, k2->buf, k1->len))
-			return 1;
-	} lws_end_foreach_dll(d);
-
-	return 0;
-}
-
 static signed char
 cb_cose_key(struct lecp_ctx *ctx, char reason)
 {
@@ -445,47 +317,14 @@ cb_cose_key(struct lecp_ctx *ctx, char reason)
 			ctx->pst[ctx->pst_sp].ppos);
 #endif
 
-	/*
-	 * The value arms below take "we are inside a container" (ctx->sp) to
-	 * mean "we are inside a key map".  It isn't: a top-level
-	 * indefinite-length string also pushes a level, and the scalars and
-	 * blobs inside it then arrive here with no key allocated, so a label
-	 * followed by a bstr reaches lws_ck_set_el() through a NULL cps->ck.
-	 * Nothing that carries a value is meaningful before the key map
-	 * (or key set array item) that creates the key has started.
-	 */
-	if (!cps->ck &&
-	    ((reason & LECP_FLAG_CB_IS_VALUE) ||
-	     reason == LECPCB_VAL_STR_START ||
-	     reason == LECPCB_VAL_BLOB_START ||
-	     reason == LECPCB_PAIR_NAME ||
-	     reason == LECPCB_LITERAL_CBOR)) {
-		lwsl_warn("%s: value before any key\n", __func__);
-		goto bail;
-	}
-
 	switch (reason) {
 	case LECPCB_OBJECT_START:
 		if (cps->ck)
 			break;
-		cps->ck = lws_zalloc(sizeof(*cps->ck), __func__);
-		if (!cps->ck)
-			goto bail;
-		cps->cose_state = 0;
-		cps->meta_idx = -1;
-		cps->gencrypto_eidx = -1;
-		cps->seen_count = 0;
-
-		if (cps->pkey_set)
-			lws_dll2_add_tail(&cps->ck->list, &cps->import_set);
-		break;
+		goto ak;
 	case LECPCB_ARRAY_ITEM_START:
 		if (cps->pkey_set && ctx->pst[ctx->pst_sp].ppos == 2) {
-			if (++cps->key_count > LWS_COSE_MAX_KEYSET_KEYS) {
-				lwsl_warn("%s: too many keys in set\n",
-						__func__);
-				goto bail;
-			}
+			ak:
 			cps->ck = lws_zalloc(sizeof(*cps->ck), __func__);
 			if (!cps->ck)
 				goto bail;
@@ -495,61 +334,13 @@ cb_cose_key(struct lecp_ctx *ctx, char reason)
 			cps->seen_count = 0;
 
 			if (cps->pkey_set)
-				lws_dll2_add_tail(&cps->ck->list, &cps->import_set);
+				lws_dll2_add_tail(&cps->ck->list, cps->pkey_set);
 		}
 		break;
 	case LECPCB_ARRAY_ITEM_END:
 		if (cps->pkey_set && ctx->pst[ctx->pst_sp].ppos == 2) {
-
-			/*
-			 * Every member of the set has to be a key we can
-			 * actually use... only the last one used to be checked
-			 * (in lws_cose_key_import()), so an element that is
-			 * not a map at all, or a map carrying just a kid,
-			 * stayed in the set: it can then shadow a real key,
-			 * since lws_cose_key_from_set() returns the first kid
-			 * match (or the head, for a kid-less lookup).  It was
-			 * also handed to the application's per_key_cb.
-			 */
-
-			if (!cps->ck || cps->ck->gencrypto_kty ==
-						LWS_GENCRYPTO_KTY_UNKNOWN) {
-				lwsl_warn("%s: key set member has no kty\n",
-						__func__);
-				goto bail;
-			}
-
-			/*
-			 * ...and its kid must be unique in the set: lookups
-			 * take the first match, so a later member with a
-			 * colliding kid (a usable key of the attacker's own)
-			 * would shadow nothing, but an earlier one shadows
-			 * the genuine key for every signature naming it.  The
-			 * set it joins is the keys the caller already had and
-			 * the ones this import made so far.
-			 */
-
-			if (lws_cose_key_kid_in_set(cps->pkey_set, cps->ck) ||
-			    lws_cose_key_kid_in_set(&cps->import_set,
-						    cps->ck)) {
-				lwsl_warn("%s: duplicate kid in key set\n",
-					  __func__);
-				goto bail;
-			}
-
-			/*
-			 * The application may refuse the key by returning
-			 * nonzero, which halts the import like the JWK one
-			 * does: it used to be ignored, so a key an admission
-			 * filter rejected stayed in the set
-			 */
-
-			if (cps->per_key_cb &&
-			    cps->per_key_cb(cps->ck, cps->user)) {
-				lwsl_notice("%s: user cb halts import\n",
-					    __func__);
-				goto bail;
-			}
+			if (cps->per_key_cb)
+				cps->per_key_cb(cps->ck, cps->user);
 		}
 		break;
 	case LECPCB_TAG_START:
@@ -581,7 +372,7 @@ cb_cose_key(struct lecp_ctx *ctx, char reason)
 				switch (ctx->item.u.u64) {
 				case LWSCOSE_WKKTV_OKP:
 					cps->ck->gencrypto_kty =
-							LWS_GENCRYPTO_KTY_OKP;
+							LWS_GENCRYPTO_KTY_EC;
 					kty_str = "OKP";
 					break;
 				case LWSCOSE_WKKTV_EC2:
@@ -606,17 +397,14 @@ cb_cose_key(struct lecp_ctx *ctx, char reason)
 					goto bail;
 				}
 
-				/*
-				 * store the string version of the key type...
-				 * via the setter, since a bstr kty earlier in
-				 * the map may already have put a buffer here
-				 * that would otherwise be dropped on the floor
-				 */
+				/* store the string version of the key type */
 
-				if (lws_ck_set_el(&cps->ck->meta[COSEKEY_META_KTY],
-						  (char *)kty_str,
-						  strlen(kty_str)))
+				ke = &cps->ck->meta[COSEKEY_META_KTY];
+				ke->len = (uint32_t)strlen(kty_str);
+				ke->buf = lws_malloc(ke->len + 1, __func__);
+				if (!ke->buf)
 					goto bail;
+				memcpy(ke->buf, kty_str, ke->len + 1);
 				break;
 			case LWSCOSE_WKK_ALG:
 				/*
@@ -626,69 +414,32 @@ cb_cose_key(struct lecp_ctx *ctx, char reason)
 				break;
 			case LWSCOSE_WKK_KEY_OPS:
 				if (!cps->pkey_set &&
-				    (ctx->pst[ctx->pst_sp].ppos != 3 ||
+				    (ctx->pst[ctx->sp].ppos != 3 ||
 				     strcmp(ctx->path, ".[]"))) {
 					lwsl_warn("%s: unexpected kops\n",
 								__func__);
 					goto bail;
 				}
 				if (cps->pkey_set &&
-				    (ctx->pst[ctx->pst_sp].ppos != 5 ||
+				    (ctx->pst[ctx->sp].ppos != 5 ||
 				     strcmp(ctx->path, "[].[]"))) {
 					lwsl_warn("%s: unexpected kops\n",
 								__func__);
 					goto bail;
 				}
-
-				/*
-				 * Actually record the op... it used to be
-				 * validated and dropped, which meant the
-				 * key_ops enforcement in lws_cose_key_checks()
-				 * could never fire for an imported key, ie, a
-				 * key its producer restricted to eg [verify]
-				 * was silently usable to sign.  meta[KEY_OPS]
-				 * is a plain byte array, the same as what
-				 * lws_cose_key_generate() makes and what the
-				 * export side emits.
-				 */
-
-				if (ctx->item.u.i64 < 1 ||
-				    ctx->item.u.i64 > LWSCOSE_WKKO_MAC_VERIFY) {
-					lwsl_warn("%s: bad key_op %d\n",
-						  __func__,
-						  (int)ctx->item.u.i64);
-					goto bail;
-				}
-
-				ke = &cps->ck->meta[COSEKEY_META_KEY_OPS];
-
-				/* the export side only emits 10 of them */
-				if (ke->len >= 10) {
-					lwsl_warn("%s: too many key_ops\n",
-								__func__);
-					goto bail;
-				}
-
-				{
-					uint8_t *nb = lws_realloc(ke->buf,
-							ke->len + 1, __func__);
-
-					if (!nb)
-						goto bail;
-
-					ke->buf = nb;
-					ke->buf[ke->len++] =
-						(uint8_t)ctx->item.u.u64;
-				}
 				break;
 			case LWSCOSE_WKOKP_CRV:
 				cps->ck->cose_curve = (int)ctx->item.u.u64;
 				p = lws_cose_curve_id_to_name(cps->ck->cose_curve);
-				/* same: replace, don't leak, any earlier crv bstr */
-				if (p && lws_ck_set_el(
-						&cps->ck->e[LWS_GENCRYPTO_EC_KEYEL_CRV],
-						(char *)p, strlen(p)))
-					goto bail;
+				if (p) {
+					ke = &cps->ck->e[LWS_GENCRYPTO_EC_KEYEL_CRV];
+					ke->len = (uint32_t)strlen(p);
+					ke->buf = lws_malloc(ke->len + 1, __func__);
+					if (!ke->buf)
+						goto bail;
+					memcpy(ke->buf, p, ke->len);
+					ke->buf[ke->len] = '\0';
+				}
 				break;
 			default:
 				lwsl_warn("%s: uint not allowed in state %d\n",
@@ -697,12 +448,7 @@ cb_cose_key(struct lecp_ctx *ctx, char reason)
 				goto bail;
 			}
 
-			/*
-			 * Keep the key_ops state for any further items in
-			 * its array
-			 */
-			if (cps->cose_state != LWSCOSE_WKK_KEY_OPS)
-				cps->cose_state = 0;
+			cps->cose_state = 0;
 			break;
 		}
 
@@ -724,16 +470,7 @@ cb_cose_key(struct lecp_ctx *ctx, char reason)
 			goto bail;
 		cps->seen[cps->seen_count++] = cps->cose_state;
 
-		/*
-		 * Both of these have to be cleared for *every* label, not just
-		 * for the key-element ones... a stale gencrypto_eidx left by a
-		 * previous element (whose value was not a bstr, so it was never
-		 * consumed) otherwise wins over meta_idx at BLOB_END, and eg a
-		 * kid gets installed as a key element instead
-		 */
 		cps->meta_idx = -1;
-		cps->gencrypto_eidx = -1;
-
 		switch ((int)ctx->item.u.u64) {
 		case LWSCOSE_WKK_KTY:
 			cps->meta_idx = COSEKEY_META_KTY;
@@ -752,6 +489,8 @@ cb_cose_key(struct lecp_ctx *ctx, char reason)
 			break;
 
 		default:
+			cps->gencrypto_eidx = -1;
+
 			switch (cps->ck->kty) {
 			case LWSCOSE_WKKTV_OKP:
 				switch ((int)ctx->item.u.u64) {
@@ -760,11 +499,11 @@ cb_cose_key(struct lecp_ctx *ctx, char reason)
 					break;
 				case LWSCOSE_WKOKP_X:
 					cps->gencrypto_eidx =
-						LWS_GENCRYPTO_OKP_KEYEL_X;
+						LWS_GENCRYPTO_EC_KEYEL_X;
 					break;
 				case LWSCOSE_WKOKP_D:
 					cps->gencrypto_eidx =
-						LWS_GENCRYPTO_OKP_KEYEL_D;
+						LWS_GENCRYPTO_EC_KEYEL_D;
 					break;
 				default:
 					goto bail;
@@ -866,31 +605,16 @@ cb_cose_key(struct lecp_ctx *ctx, char reason)
 			goto bail;
 		}
 
+		if (cps->cose_state == COSEKEY_META_KID)
+			break;
+
 		/*
 		 * Validate the association of the blob now, collect it into
 		 * the temp buf in cps and then alloc and copy it into the
 		 * related key element when it's at the end and the size known
-		 *
-		 * The reset has to happen for every blob including the kid,
-		 * since the gencrypto_eidx arm at BLOB_END does not do it
 		 */
 
 		cps->pos = 0;
-		cps->blob_ok = 0;
-
-		/*
-		 * cose_state holds a COSE map *label*, so it has to be
-		 * compared against LWSCOSE_WKK_..., not against a
-		 * COSEKEY_META_... index into meta[] (COSEKEY_META_KID just
-		 * happens to equal LWSCOSE_WKK_KTY, so this used to fire for a
-		 * bstr kty and not for the kid it was meant for)
-		 */
-
-		if (cps->cose_state == LWSCOSE_WKK_KID) {
-			cps->blob_ok = 1;
-			break;
-		}
-
 		if (cps->gencrypto_eidx >= 0) {
 			if (cps->ck->e[cps->gencrypto_eidx].buf) {
 				lwsl_warn("%s: e[%d] set twice %d\n", __func__,
@@ -899,64 +623,15 @@ cb_cose_key(struct lecp_ctx *ctx, char reason)
 				/* key elements must only come at most once */
 				goto bail;
 			}
-			cps->blob_ok = 1;
 			break;
 		}
-		if (cps->meta_idx >= 0) {
-
-			/*
-			 * RFC9052 7.1: key_ops is an array of int / tstr, a
-			 * bstr is not a legal key op.  At BLOB_END it would
-			 * become meta[KEY_OPS] wholesale, ie, up to 1KB of
-			 * unchecked bytes replacing the ops array the integer
-			 * arm validated one op at a time, which is exactly
-			 * what lws_cose_key_checks() then walks.  Drop it
-			 * rather than treat arbitrary bytes as ops: a key with
-			 * no ops is no weaker than one whose ops the same
-			 * attacker could have removed.
-			 */
-
-			if (cps->meta_idx == COSEKEY_META_KEY_OPS) {
-				lwsl_warn("%s: ignoring bstr key_ops\n",
-						__func__);
-				cps->meta_idx = -1;
-				cps->cose_state = 0;
-				/* accepted, to go nowhere */
-				cps->blob_ok = 1;
-				break;
-			}
-
-			/*
-			 * Same for alg (int / tstr): the export side chooses
-			 * bstr or tstr by which meta it is, so bytes accepted
-			 * here come back out inside a CBOR text string
-			 */
-
-			if (cps->meta_idx == COSEKEY_META_ALG) {
-				lwsl_warn("%s: bstr alg\n", __func__);
-				goto bail;
-			}
-
-			cps->blob_ok = 1;
+		if (cps->meta_idx >= 0)
 			break;
-		}
 
 		goto bail;
 
 	case LECPCB_VAL_BLOB_CHUNK:
 	case LECPCB_VAL_BLOB_END:
-		/*
-		 * Only install what VAL_BLOB_START checked: the refusals
-		 * above (bstr alg, bstr key_ops, an element set twice) are
-		 * only there, so a blob whose START we did not see, or whose
-		 * START we refused, must not reach the key here
-		 */
-		if (!cps->blob_ok) {
-			lwsl_warn("%s: blob without accepted start\n",
-				  __func__);
-			goto bail;
-		}
-
 		if (cps->pos + ctx->npos > sizeof(cps->buf)) {
 			lwsl_warn("%s: oversize blob\n", __func__);
 			goto bail;
@@ -967,70 +642,39 @@ cb_cose_key(struct lecp_ctx *ctx, char reason)
 		if (reason == LECPCB_VAL_BLOB_CHUNK)
 			break;
 
-		cps->blob_ok = 0;
-
 		/* we have the key element data, let's make the ck element */
 		if (cps->gencrypto_eidx >= 0) {
 
 			if (cps->ck->e[cps->gencrypto_eidx].buf)
 				break;
 
-			if (lws_ck_set_el(&cps->ck->e[cps->gencrypto_eidx],
-					  (char *)cps->buf, cps->pos))
-				goto bail;
+			lws_ck_set_el(&cps->ck->e[cps->gencrypto_eidx],
+					(char *)cps->buf, cps->pos);
 			cps->gencrypto_eidx = -1;
 			break;
 		}
 
 
 		if (cps->meta_idx >= 0) {
-			if (lws_ck_set_el(&cps->ck->meta[cps->meta_idx],
-					  (char *)cps->buf, cps->pos))
-				goto bail;
+			lws_ck_set_el(&cps->ck->meta[cps->meta_idx],
+					(char *)cps->buf, cps->pos);
 			cps->meta_idx = -1;
 		}
 		cps->pos = 0;
 		break;
 	case LECPCB_VAL_STR_END:
-		/* match the integer arm: a top-level string has no map */
-		if (!ctx->sp)
-			goto bail;
-
-		/*
-		 * The crv arm used to lack this guard the alg arm has, so
-		 * after `-1:"P-256"` the *next text map label* in the same map
-		 * also landed in e[CRV], replacing the real curve with an
-		 * attacker-chosen string
-		 */
-
-		if (lecp_parse_map_is_key(ctx))
-			break;
-
 		if (cps->cose_state == LWSCOSE_WKOKP_CRV) {
 			cps->ck->cose_curve = lws_cose_curve_name_to_id(ctx->buf);
-			if (cps->ck->kty == LWSCOSE_WKKTV_OKP)
-				ke = &cps->ck->e[LWS_GENCRYPTO_OKP_KEYEL_CRV];
-			else
-				ke = &cps->ck->e[LWS_GENCRYPTO_EC_KEYEL_CRV];
-			/*
-			 * The curve element is later consumed as a C string,
-			 * eg, by the strcmp() table walk at key export, so it
-			 * has to be stored NUL-terminated like every other
-			 * string element
-			 */
-			if (lws_ck_set_el(ke, ctx->buf, ctx->npos))
+			ke = &cps->ck->e[LWS_GENCRYPTO_EC_KEYEL_CRV];
+			ke->len = ctx->npos;
+			ke->buf = lws_malloc(ctx->npos, __func__);
+			if (!ke->buf)
 				goto bail;
-
-			/*
-			 * Consume the state, like the integer arm does, so a
-			 * following array element or value can't come back
-			 * round and replace what we just stored
-			 */
-			cps->cose_state = 0;
-			break;
+			memcpy(ke->buf, ctx->buf, ctx->npos);
 		}
 
-		if (cps->cose_state == LWSCOSE_WKK_ALG) {
+		if (!lecp_parse_map_is_key(ctx) &&
+		    cps->cose_state == LWSCOSE_WKK_ALG) {
 			size_t n;
 
 			for (n = 0; n < LWS_ARRAY_SIZE(wk_algs); n++)
@@ -1046,10 +690,11 @@ cb_cose_key(struct lecp_ctx *ctx, char reason)
 					  __func__, (int)ctx->npos, ctx->buf);
 
 			ke = &cps->ck->meta[COSEKEY_META_ALG];
-			if (lws_ck_set_el(ke, ctx->buf, ctx->npos))
+			ke->len = ctx->npos;
+			ke->buf = lws_malloc(ctx->npos, __func__);
+			if (!ke->buf)
 				goto bail;
-
-			cps->cose_state = 0;
+			memcpy(ke->buf, ctx->buf, ctx->npos);
 		}
 
 		break;
@@ -1060,8 +705,11 @@ cb_cose_key(struct lecp_ctx *ctx, char reason)
 bail:
 	lwsl_warn("%s: bail\n", __func__);
 	lws_cose_key_destroy(&cps->ck);
-	/* only what this import made, never the caller's existing keys */
-	lws_cose_key_set_destroy(&cps->import_set);
+
+	if (cps->pkey_set) {
+		lws_cose_key_set_destroy(cps->pkey_set);
+		cps->pkey_set = NULL;
+	}
 
 	return -1;
 }
@@ -1106,33 +754,6 @@ lws_cose_key_set_memb_remove(struct lws_dll2 *d, void *user)
 
 	lws_dll2_remove(d);
 	lws_cose_key_destroy(&ck);
-
-	return 0;
-}
-
-/*
- * The per-member checks at LECPCB_ARRAY_ITEM_END, applied once more to
- * everything the import made before it is handed over, so they do not rest
- * only on lecp pairing each member's ITEM_START with an ITEM_END
- */
-
-static int
-lws_cose_key_import_memb_check(struct lws_dll2 *d, void *user)
-{
-	struct lws_cose_key_parse_state *cps =
-			(struct lws_cose_key_parse_state *)user;
-	lws_cose_key_t *ck = lws_container_of(d, lws_cose_key_t, list);
-
-	return ck->gencrypto_kty == LWS_GENCRYPTO_KTY_UNKNOWN ||
-	       lws_cose_key_kid_in_set(cps->pkey_set, ck) ||
-	       lws_cose_key_kid_in_set(&cps->import_set, ck);
-}
-
-static int
-lws_cose_key_set_memb_move(struct lws_dll2 *d, void *user)
-{
-	lws_dll2_remove(d);
-	lws_dll2_add_tail(d, (lws_dll2_owner_t *)user);
 
 	return 0;
 }
@@ -1199,8 +820,6 @@ lws_cose_key_generate(struct lws_context *context, cose_param_t cose_kty,
 	if (kid) {
 		ke = &ck->meta[COSEKEY_META_KID];
 		ke->buf = lws_malloc(kl, __func__);
-		if (!ke->buf)
-			goto fail;
 		ke->len = (uint32_t)kl;
 		memcpy(ke->buf, kid, ke->len);
 	}
@@ -1246,12 +865,7 @@ lws_cose_key_generate(struct lws_context *context, cose_param_t cose_kty,
 	{
 		struct lws_genec_ctx ctx;
 
-		memset(&ctx, 0, sizeof(ctx));
-
-		if (cose_kty == LWSCOSE_WKKTV_OKP)
-			ck->gencrypto_kty = LWS_GENCRYPTO_KTY_OKP;
-		else
-			ck->gencrypto_kty = LWS_GENCRYPTO_KTY_EC;
+		ck->gencrypto_kty = LWS_GENCRYPTO_KTY_EC;
 
 		if (!curve) {
 			lwsl_err("%s: must have a named curve\n", __func__);
@@ -1259,32 +873,21 @@ lws_cose_key_generate(struct lws_context *context, cose_param_t cose_kty,
 			goto fail;
 		}
 
-		if (cose_kty == LWSCOSE_WKKTV_OKP) {
-			if (lws_geneddsa_create(&ctx, context, NULL))
-				goto fail;
-			lwsl_notice("%s: generating EdDSA key on curve %s\n", __func__,
-					curve);
-			n = lws_geneddsa_new_keypair(&ctx, curve, ck->e);
-			lws_genec_destroy(&ctx);
-			if (n) {
-				lwsl_err("%s: problem generating EdDSA key\n", __func__);
-				goto fail;
-			}
-			ck->e[LWS_GENCRYPTO_OKP_KEYEL_CRV].len = (uint32_t)strlen(curve);
-		} else {
-			if (lws_genecdsa_create(&ctx, context, NULL))
-				goto fail;
-			ctx.genec_alg = LEGENEC_ECDSA;
-			lwsl_notice("%s: generating ECDSA key on curve %s\n", __func__,
-					curve);
-			n = lws_genecdsa_new_keypair(&ctx, curve, ck->e);
-			lws_genec_destroy(&ctx);
-			if (n) {
-				lwsl_err("%s: problem generating ECDSA key\n", __func__);
-				goto fail;
-			}
-			ck->e[LWS_GENCRYPTO_EC_KEYEL_CRV].len = (uint32_t)strlen(curve);
+		if (lws_genecdsa_create(&ctx, context, NULL))
+			goto fail;
+
+		ctx.genec_alg = LEGENEC_ECDSA;
+		lwsl_notice("%s: generating ECDSA key on curve %s\n", __func__,
+				curve);
+
+		n = lws_genecdsa_new_keypair(&ctx, curve, ck->e);
+		lws_genec_destroy(&ctx);
+		if (n) {
+			lwsl_err("%s: problem generating ECDSA key\n", __func__);
+			goto fail;
 		}
+		/* trim the trailing NUL */
+		ck->e[LWS_GENCRYPTO_EC_KEYEL_CRV].len = (uint32_t)strlen(curve);
 	}
 		break;
 
@@ -1296,14 +899,7 @@ lws_cose_key_generate(struct lws_context *context, cose_param_t cose_kty,
 	return ck;
 
 fail:
-	/*
-	 * By the time we can get here, key_ops / kid and (for the RSA / EC /
-	 * OKP arms) the generated key elements have already been allocated...
-	 * free the container alone and they are leaked, with the private
-	 * elements left unwiped in the heap
-	 */
-
-	lws_cose_key_destroy(&ck);
+	lws_free_set_NULL(ck);
 
 	return NULL;
 }
@@ -1329,27 +925,8 @@ lws_cose_key_import(lws_dll2_owner_t *pkey_set, lws_cose_key_import_callback cb,
 
 	if (m < 0) {
 		lwsl_notice("%s: parse got %d\n", __func__, m);
-		/*
-		 * The callback's own bail path already destroyed and NULLed
-		 * these; for parser-level failures (malformed or truncated
-		 * CBOR) it was never called, so we must clean up any
-		 * partially-created key here
-		 */
-		lws_cose_key_destroy(&cps.ck);
-		lws_cose_key_set_destroy(&cps.import_set);
-
-		return NULL;
-	}
-
-	/*
-	 * The parse completed, but the input never opened a key map, eg,
-	 * `[]`, `null` or empty input.  Without a key there is nothing to
-	 * return.
-	 */
-
-	if (!cps.ck) {
-		lwsl_notice("%s: no key map in input\n", __func__);
-		lws_cose_key_set_destroy(&cps.import_set);
+		if (cps.pkey_set)
+			lws_cose_key_set_destroy(cps.pkey_set);
 
 		return NULL;
 	}
@@ -1362,36 +939,16 @@ lws_cose_key_import(lws_dll2_owner_t *pkey_set, lws_cose_key_import_callback cb,
 		break;
 	}
 
-	/*
-	 * The import is good: only now do its keys join the caller's set,
-	 * after any keys it already had.  A failed import frees just what
-	 * it made, so keys the caller holds pointers to stay valid.
-	 */
-
-	if (cps.pkey_set) {
-		if (lws_dll2_foreach_safe(&cps.import_set, &cps,
-					  lws_cose_key_import_memb_check)) {
-			lwsl_notice("%s: key set member fails checks\n",
-				    __func__);
-			goto bail;
-		}
-
-		lws_dll2_foreach_safe(&cps.import_set, cps.pkey_set,
-				      lws_cose_key_set_memb_move);
-	}
-
 	return cps.ck;
 
 bail:
 	lws_cose_key_destroy(&cps.ck);
-	lws_cose_key_set_destroy(&cps.import_set);
-
 	return NULL;
 }
 
 /* gencrypto element orering -> cose key parameters */
 
-static const signed char ckp[4][12] = {
+static const signed char ckp[3][12] = {
 	{ /* LWS_GENCRYPTO_KTY_OCT (1) */
 		/* LWS_GENCRYPTO_OCT_KEYEL_K */ LWSCOSE_WKSYMKP_KEY_VALUE,
 	},
@@ -1414,11 +971,6 @@ static const signed char ckp[4][12] = {
 		/* LWS_GENCRYPTO_EC_KEYEL_X */   LWSCOSE_WKECKP_X,
 		/* LWS_GENCRYPTO_EC_KEYEL_D */   LWSCOSE_WKECKP_D,
 		/* LWS_GENCRYPTO_EC_KEYEL_Y */   LWSCOSE_WKECKP_Y,
-	},
-	{ /* LWS_GENCRYPTO_KTY_OKP (4) */
-		/* LWS_GENCRYPTO_OKP_KEYEL_CRV */ LWSCOSE_WKOKP_CRV,
-		/* LWS_GENCRYPTO_OKP_KEYEL_X */   LWSCOSE_WKOKP_X,
-		/* LWS_GENCRYPTO_OKP_KEYEL_D */   LWSCOSE_WKOKP_D,
 	}
 };
 
@@ -1437,31 +989,15 @@ lws_cose_key_export(lws_cose_key_t *ck, lws_lec_pctx_t *ctx, int flags)
 
 		switch (ck->gencrypto_kty) {
 		case LWS_GENCRYPTO_KTY_OCT:
-			/*
-			 * The only element of a symmetric key IS the secret,
-			 * so there is no public half of it to export... this
-			 * used to select the secret regardless of the flags,
-			 * ie, an app publishing "the public part" of its key
-			 * set emitted every symmetric key verbatim
-			 */
-			if (!(flags & LWSJWKF_EXPORT_PRIVATE)) {
-				lwsl_err("%s: symmetric key has no public "
-					 "part to export\n", __func__);
-				goto fail;
-			}
+			/* nothing to differentiate */
 			ctx->opaque[2] = 1 << LWS_GENCRYPTO_OCT_KEYEL_K;
 			break;
 		case LWS_GENCRYPTO_KTY_RSA:
-			/* n is public and a public key is useless without it */
-			ctx->opaque[2] = (1 << LWS_GENCRYPTO_RSA_KEYEL_E) |
-					 (1 << LWS_GENCRYPTO_RSA_KEYEL_N);
+			ctx->opaque[2] = 1 << LWS_GENCRYPTO_RSA_KEYEL_E;
 			break;
 		case LWS_GENCRYPTO_KTY_EC:
 			ctx->opaque[2] = (1 << LWS_GENCRYPTO_EC_KEYEL_X) |
 					 (1 << LWS_GENCRYPTO_EC_KEYEL_Y);
-			break;
-		case LWS_GENCRYPTO_KTY_OKP:
-			ctx->opaque[2] = (1 << LWS_GENCRYPTO_OKP_KEYEL_X);
 			break;
 		default:
 			goto fail;
@@ -1476,35 +1012,9 @@ lws_cose_key_export(lws_cose_key_t *ck, lws_lec_pctx_t *ctx, int flags)
 		 * right size.
 		 */
 
-		/*
-		 * The count predicate has to be identical to the emit
-		 * predicate below... a zero-length element (which import
-		 * happily produces from eg `-2: h''`) is counted but not
-		 * emitted otherwise, and the map header then declares more
-		 * pairs than follow it.  Inside a key set that eats the next
-		 * key's first pair.
-		 */
-
 		for (n = 0; n < (int)LWS_ARRAY_SIZE(ck->e); n++)
-			if ((ctx->opaque[2] & (1 << n)) && ck->e[n].buf &&
-			    ck->e[n].len &&
-			    /* the curve pair is counted below, whatever its len */
-			    (n || (ck->gencrypto_kty != LWS_GENCRYPTO_KTY_EC &&
-				   ck->gencrypto_kty != LWS_GENCRYPTO_KTY_OKP)))
+			if ((ctx->opaque[2] & (1 << n)) && ck->e[n].buf)
 				ctx->opaque[0]++;
-
-		/*
-		 * We emit the curve pair unconditionally for EC / OKP below,
-		 * so it must be in the pair count whether or not it is in
-		 * the element mask (CRV is element index 0 for both, which
-		 * the public masks do not include) and whatever its length
-		 * (an imported empty curve tstr is emitted as such)...
-		 * otherwise the export declares map(3) and then writes 4 pairs
-		 */
-
-		if (ck->gencrypto_kty == LWS_GENCRYPTO_KTY_EC ||
-		    ck->gencrypto_kty == LWS_GENCRYPTO_KTY_OKP)
-			ctx->opaque[0]++;
 
 		/*
 		 * We always issue kty, others may be
@@ -1512,53 +1022,40 @@ lws_cose_key_export(lws_cose_key_t *ck, lws_lec_pctx_t *ctx, int flags)
 		 * KID / ALG / KEY_OPS / BASE_IV
 		 */
 
-		if (ck->meta[COSEKEY_META_KID].buf &&
-		    ck->meta[COSEKEY_META_KID].len)
+		if (ck->meta[COSEKEY_META_KID].buf)
 			ctx->opaque[0]++;
-		if ((ck->meta[COSEKEY_META_ALG].buf &&
-		     ck->meta[COSEKEY_META_ALG].len) || ck->cose_alg)
+		if (ck->meta[COSEKEY_META_ALG].buf)
 			ctx->opaque[0]++;
-		/* key_ops is emitted as an array, even an empty one */
 		if (ck->meta[COSEKEY_META_KEY_OPS].buf)
 			ctx->opaque[0]++;
-		if (ck->meta[COSEKEY_META_BASE_IV].buf &&
-		    ck->meta[COSEKEY_META_BASE_IV].len)
+		if (ck->meta[COSEKEY_META_BASE_IV].buf)
 			ctx->opaque[0]++;
 
 		lws_lec_int(ctx, LWS_CBOR_MAJTYP_MAP, 0, (uint64_t)ctx->opaque[0]);
 		lws_lec_signed(ctx, LWSCOSE_WKK_KTY);
 		lws_lec_signed(ctx, (int64_t)ck->kty);
 
-		if (ck->gencrypto_kty == LWS_GENCRYPTO_KTY_EC || ck->gencrypto_kty == LWS_GENCRYPTO_KTY_OKP) {
-			struct lws_gencrypto_keyelem *ke;
+		if (ck->gencrypto_kty == LWS_GENCRYPTO_KTY_EC) {
+			struct lws_gencrypto_keyelem *ke =
+					&ck->e[LWS_GENCRYPTO_EC_KEYEL_CRV];
 
-			if (ck->gencrypto_kty == LWS_GENCRYPTO_KTY_OKP)
-				ke = &ck->e[LWS_GENCRYPTO_OKP_KEYEL_CRV];
-			else
-				ke = &ck->e[LWS_GENCRYPTO_EC_KEYEL_CRV];
-
-			if (!ke->buf || ke->len > 10) {
+			if (!ke->buf ||
+			    ck->e[LWS_GENCRYPTO_EC_KEYEL_CRV].len > 10) {
 				lwsl_err("%s: no curve type\n", __func__);
 				goto fail;
 			}
 
-			/*
-			 * A curve we know goes out as its COSE int now.  A
-			 * curve name we don't know goes out as a tstr from the
-			 * COSEKEY_META_KTY step of the loop below, which can
-			 * resume it in the next output buffer... done here,
-			 * lws_lec_printf() returning AGAIN was lost, and so
-			 * was the rest of the curve and the kid after it.
-			 */
-
 			pa = lws_cose_curve_name_to_id((const char *)ke->buf);
-			if (pa) {
-				lws_lec_signed(ctx, LWSCOSE_WKECKP_CRV);
+			lws_lec_signed(ctx, LWSCOSE_WKECKP_CRV);
+			if (pa)
 				lws_lec_signed(ctx, pa);
-			}
+			else
+				lws_lec_printf(ctx, "%.*s",
+						(int)ke->len, ke->buf);
 		}
 
-		ctx->opaque[1] = COSEKEY_META_KTY;
+
+		ctx->opaque[1] = COSEKEY_META_KID;
 	}
 
 	/*
@@ -1579,9 +1076,8 @@ lws_cose_key_export(lws_cose_key_t *ck, lws_lec_pctx_t *ctx, int flags)
 		if (ctx->opaque[1] >= LWS_COUNT_COSE_KEY_ELEMENTS) {
 			n = ctx->opaque[1] - LWS_COUNT_COSE_KEY_ELEMENTS;
 
-			if ((ck->gencrypto_kty != LWS_GENCRYPTO_KTY_EC &&
-			     ck->gencrypto_kty != LWS_GENCRYPTO_KTY_OKP) ||
-			    n != LWS_GENCRYPTO_EC_KEYEL_CRV) { /* CRV has 0 index for both */
+			if (ck->gencrypto_kty != LWS_GENCRYPTO_KTY_EC ||
+			    n != LWS_GENCRYPTO_EC_KEYEL_CRV) {
 				/* we didn't already encode his curve */
 
 				if ((ctx->opaque[2] & (1 << n)) &&
@@ -1593,20 +1089,6 @@ lws_cose_key_export(lws_cose_key_t *ck, lws_lec_pctx_t *ctx, int flags)
 		} else
 
 			switch (ctx->opaque[1]) {
-
-			case COSEKEY_META_KTY: /* kty went out above */
-				if (ck->gencrypto_kty != LWS_GENCRYPTO_KTY_EC &&
-				    ck->gencrypto_kty != LWS_GENCRYPTO_KTY_OKP)
-					break;
-				/* CRV has 0 index for both */
-				ke = &ck->e[LWS_GENCRYPTO_EC_KEYEL_CRV];
-				if (lws_cose_curve_name_to_id(
-						(const char *)ke->buf)) {
-					ke = NULL; /* went out as an int above */
-					break;
-				}
-				cose_key_param = LWSCOSE_WKECKP_CRV;
-				break;
 
 			case COSEKEY_META_KID: /* bstr */
 				if (ck->meta[COSEKEY_META_KID].buf) {
@@ -1620,17 +1102,6 @@ lws_cose_key_export(lws_cose_key_t *ck, lws_lec_pctx_t *ctx, int flags)
 				if (ck->meta[COSEKEY_META_ALG].buf) {
 					ke = &ck->meta[COSEKEY_META_ALG];
 					cose_key_param = LWSCOSE_WKK_ALG;
-					break;
-				}
-				/*
-				 * an integer alg was recorded in cose_alg by
-				 * the import and not in the meta: a re-export
-				 * that dropped it made the key usable with
-				 * every alg the original had restricted
-				 */
-				if (ck->cose_alg) {
-					lws_lec_signed(ctx, LWSCOSE_WKK_ALG);
-					lws_lec_signed(ctx, (int64_t)ck->cose_alg);
 				}
 				break;
 
@@ -1667,9 +1138,7 @@ lws_cose_key_export(lws_cose_key_t *ck, lws_lec_pctx_t *ctx, int flags)
 				break;
 			}
 
-		if (ke && ke->buf &&
-		    /* the curve pair is counted even if its tstr is empty */
-		    (ke->len || ctx->opaque[1] == COSEKEY_META_KTY)) {
+		if (ke && ke->buf && ke->len) {
 
 			if (!ctx->opaque[3])
 				lws_lec_signed(ctx, cose_key_param);

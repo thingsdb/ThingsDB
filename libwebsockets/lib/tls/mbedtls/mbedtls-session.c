@@ -42,38 +42,16 @@ typedef struct lws_tls_session_cache_mbedtls {
 
 
 
-/*
- * The serialized blob is the whole mbedtls_ssl_session: for TLS1.2 that
- * includes the master secret, and for TLS1.3 the resumption PSK and the
- * ticket.  It must not be left lying around in freed heap.
- */
-
-static void
-lws_tls_session_ser_free(lws_tls_scm_t *ts)
-{
-	if (!ts->ser_data)
-		return;
-
-	lws_explicit_bzero(ts->ser_data, sizeof(*ts->ser_data));
-	lws_free(ts->ser_data);
-	ts->ser_data = NULL;
-}
-
 static void
 __lws_tls_session_destroy(lws_tls_scm_t *ts)
 {
-	struct lws_vhost *vh = lws_dll2_owner_container(&ts->list,
-					struct lws_vhost, tls_sessions);
-	unsigned int count = lws_dll2_count(lws_dll2_owner(&ts->list));
-
-	(void)count; /* logs-off builds drop the only use */
-
 	lwsl_tlssess("%s: %s (%u)\n", __func__, (const char *)&ts[1],
-		     count ? count - 1 : 0);
+				     (unsigned int)(ts->list.owner->count - 1));
 
-	__lws_tls_session_ttl_cancel(vh, &ts->sul_ttl);
+	lws_sul_cancel(&ts->sul_ttl);
 	lws_dll2_remove(&ts->list);		/* vh lock */
-	lws_tls_session_ser_free(ts);
+	if (ts->ser_data)
+		lws_free(ts->ser_data);
 
 	lws_free(ts);
 }
@@ -98,7 +76,7 @@ __lws_tls_session_lookup_by_name(struct lws_vhost *vh, const char *name)
  * If possible, reuse an existing, cached session
  */
 
-int
+void
 lws_tls_reuse_session(struct lws *wsi)
 {
 	char buf[LWS_SESSION_TAG_LEN];
@@ -108,9 +86,10 @@ lws_tls_reuse_session(struct lws *wsi)
 
 	if (!wsi->a.vhost ||
 	    wsi->a.vhost->options & LWS_SERVER_OPTION_DISABLE_TLS_SESSION_CACHE)
-		return 0;
+		return;
 
-	lws_tls_session_cache_lock(wsi->a.vhost); /* ------- cache { */
+	lws_context_lock(wsi->a.context, __func__); /* -------------- cx { */
+	lws_vhost_lock(wsi->a.vhost); /* -------------- vh { */
 
 	if (lws_tls_session_tag_from_wsi(wsi, buf, sizeof(buf)))
 		goto bail;
@@ -127,44 +106,29 @@ lws_tls_reuse_session(struct lws *wsi)
 
 	mbedtls_ssl_session_init(&session);
 
-#if defined(LWS_HAVE_mbedtls_ssl_session_save)
 	if (mbedtls_ssl_session_load(&session, ts->ser_data->data,
 				     ts->ser_data->len)) {
 		mbedtls_ssl_session_free(&session);
 		goto bail;
 	}
-#else
-	/* Session load/save not supported in this mbedtls version */
-	goto bail;
-#endif
-
-	msc = &wsi->io->tls.ssl->ssl;
-	if (mbedtls_ssl_set_session(msc, &session)) {
-		/*
-		 * Nothing was installed, so we are about to do a full
-		 * handshake... lws_tls_session_is_reused() must not tell the
-		 * application otherwise.
-		 */
-		mbedtls_ssl_session_free(&session);
-		goto bail;
-	}
-	mbedtls_ssl_session_free(&session);
 
 	lwsl_tlssess("%s: %s\n", __func__, (const char *)&ts[1]);
 	wsi->tls_session_reused = 1;
+
+	msc = SSL_mbedtls_ssl_context_from_SSL(wsi->tls.ssl);
+	if (mbedtls_ssl_set_session(msc, &session)) {
+		/* Failed to set session, clean up and bail */
+	}
+	mbedtls_ssl_session_free(&session);
 
 	/* keep our session list sorted in lru -> mru order */
 
 	lws_dll2_remove(&ts->list);
 	lws_dll2_add_tail(&ts->list, &wsi->a.vhost->tls_sessions);
 
-	lws_tls_session_cache_unlock(wsi->a.vhost); /* } cache ------- */
-
-	return 1;
-
 bail:
-	lws_tls_session_cache_unlock(wsi->a.vhost); /* } cache ------- */
-	return 0;
+	lws_vhost_unlock(wsi->a.vhost); /* } vh --------------  */
+	lws_context_unlock(wsi->a.context); /* } cx --------------  */
 }
 
 int
@@ -203,12 +167,14 @@ static void
 lws_tls_session_expiry_cb(lws_sorted_usec_list_t *sul)
 {
 	lws_tls_scm_t *ts = lws_container_of(sul, lws_tls_scm_t, sul_ttl);
-	struct lws_vhost *vh = lws_dll2_owner_container(&ts->list,
+	struct lws_vhost *vh = lws_container_of(ts->list.owner,
 						struct lws_vhost, tls_sessions);
 
-	lws_tls_session_cache_lock(vh); /* ------- cache { */
+	lws_context_lock(vh->context, __func__); /* -------------- cx { */
+	lws_vhost_lock(vh); /* -------------- vh { */
 	__lws_tls_session_destroy(ts);
-	lws_tls_session_cache_unlock(vh); /* } cache ------- */
+	lws_vhost_unlock(vh); /* } vh --------------  */
+	lws_context_unlock(vh->context); /* } cx --------------  */
 }
 
 /*
@@ -224,13 +190,12 @@ lws_tls_session_new_mbedtls(struct lws *wsi)
 	lws_tls_scm_t *ts;
 	size_t nl;
 	mbedtls_ssl_session temp_session;
-#if (_LWS_ENABLED_LOGS & LLL_INFO)
+#if !defined(LWS_WITH_NO_LOGS) && defined(_DEBUG)
 	const char *disposition = "reuse";
 #endif
 
 	vh = wsi->a.vhost;
-	if ((vh->options & LWS_SERVER_OPTION_DISABLE_TLS_SESSION_CACHE) ||
-	    vh->being_destroyed)
+	if (vh->options & LWS_SERVER_OPTION_DISABLE_TLS_SESSION_CACHE)
 		return 0;
 
 	if (lws_tls_session_tag_from_wsi(wsi, buf, sizeof(buf)))
@@ -238,29 +203,12 @@ lws_tls_session_new_mbedtls(struct lws *wsi)
 
 	nl = strlen(buf);
 
-	msc = &wsi->io->tls.ssl->ssl;
-
-	/*
-	 * mbedtls clients run at VERIFY_OPTIONAL, so the handshake completes
-	 * even when the peer cert did not verify... lws only decides about it
-	 * afterwards, in lws_tls_client_confirm_peer_cert().  We are called
-	 * from the handshake completion and again from lws_ssl_close(), ie,
-	 * both before and after that decision, so check the result ourselves:
-	 * a session from a connection we are going to reject must not enter
-	 * the cache (nor evict a genuine entry from it).  This is what openssl
-	 * gets from only caching in its new_session_cb.
-	 */
-
-	if (lws_mbedtls_verify_result(wsi)) {
-		lwsl_tlssess("%s: %s: not caching unverified session\n",
-			     __func__, buf);
-
-		return 0;
-	}
+	msc = SSL_mbedtls_ssl_context_from_SSL(wsi->tls.ssl);
 
 	mbedtls_ssl_session_init(&temp_session);
 
-	lws_tls_session_cache_lock(vh); /* ------- cache { */
+	lws_context_lock(vh->context, __func__); /* -------------- cx { */
+	lws_vhost_lock(vh); /* -------------- vh { */
 
 	ts = __lws_tls_session_lookup_by_name(vh, buf);
 
@@ -269,15 +217,13 @@ lws_tls_session_new_mbedtls(struct lws *wsi)
 		 * We have to make our own, new session
 		 */
 
-		if (lws_dll2_count(&vh->tls_sessions) &&
-		    lws_dll2_count(&vh->tls_sessions) >=
-					     vh->tls_session_cache_max) {
+		if (vh->tls_sessions.count == vh->tls_session_cache_max) {
 
 			/*
 			 * We have reached the vhost's session cache limit,
 			 * prune the LRU / head
 			 */
-			ts = lws_container_of(lws_dll2_get_head(&vh->tls_sessions),
+			ts = lws_container_of(vh->tls_sessions.head,
 					      lws_tls_scm_t, list);
 
 			lwsl_tlssess("%s: pruning oldest session (hit max %u)\n",
@@ -304,32 +250,28 @@ lws_tls_session_new_mbedtls(struct lws *wsi)
 		}
 
 		if (mbedtls_ssl_get_session(msc, &temp_session)) {
-			lws_tls_session_ser_free(ts);
+			lws_free(ts->ser_data);
 			lws_free(ts);
 			/* no joy for whatever reason */
 			goto bail;
 		}
 
-#if defined(LWS_HAVE_mbedtls_ssl_session_save)
 		if (mbedtls_ssl_session_save(&temp_session, ts->ser_data->data,
 					     sizeof(ts->ser_data->data),
 					     &ts->ser_data->len)) {
 			/* Serialization failed, cache entry will be invalid */
-			lws_tls_session_ser_free(ts);
+			lws_free(ts->ser_data);
+			ts->ser_data = NULL;
 		}
-#else
-		/* Session save not supported in this mbedtls version */
-		lws_tls_session_ser_free(ts);
-#endif
 
 		lws_dll2_add_tail(&ts->list, &vh->tls_sessions);
 
-		__lws_tls_session_ttl_schedule(vh, &ts->sul_ttl,
-				lws_tls_session_expiry_cb,
-				(int64_t)vh->tls.tls_session_cache_ttl *
-								LWS_US_PER_SEC);
+		lws_sul_schedule(wsi->a.context, wsi->tsi, &ts->sul_ttl,
+				 lws_tls_session_expiry_cb,
+				 (int64_t)vh->tls.tls_session_cache_ttl *
+							 LWS_US_PER_SEC);
 
-#if (_LWS_ENABLED_LOGS & LLL_INFO)
+#if !defined(LWS_WITH_NO_LOGS) && defined(_DEBUG)
 		disposition = "new";
 #endif
 	} else {
@@ -343,17 +285,13 @@ lws_tls_session_new_mbedtls(struct lws *wsi)
 				goto bail;
 		}
 
-#if defined(LWS_HAVE_mbedtls_ssl_session_save)
 		if (mbedtls_ssl_session_save(&temp_session, ts->ser_data->data,
 					     sizeof(ts->ser_data->data),
 					     &ts->ser_data->len)) {
 			/* Serialization failed, cache entry will be invalid */
-			lws_tls_session_ser_free(ts);
+			lws_free(ts->ser_data);
+			ts->ser_data = NULL;
 		}
-#else
-		/* Session save not supported in this mbedtls version */
-		lws_tls_session_ser_free(ts);
-#endif
 
 		/* keep our session list sorted in lru -> mru order */
 
@@ -362,11 +300,12 @@ lws_tls_session_new_mbedtls(struct lws *wsi)
 	}
 	mbedtls_ssl_session_free(&temp_session);
 
-	lws_tls_session_cache_unlock(vh); /* } cache ------- */
+	lws_vhost_unlock(vh); /* } vh --------------  */
+	lws_context_unlock(vh->context); /* } cx --------------  */
 
 	lwsl_tlssess("%s: %s: %s %s, (%s:%u)\n", __func__,
 		     wsi->lc.gutag, disposition, buf, vh->name,
-		     (unsigned int)lws_dll2_count(&vh->tls_sessions));
+		     (unsigned int)vh->tls_sessions.count);
 
 	/*
 	 * indicate we will hold on to the SSL_SESSION reference, and take
@@ -377,7 +316,8 @@ lws_tls_session_new_mbedtls(struct lws *wsi)
 
 bail:
 	mbedtls_ssl_session_free(&temp_session);
-	lws_tls_session_cache_unlock(vh); /* } cache ------- */
+	lws_vhost_unlock(vh); /* } vh --------------  */
+	lws_context_unlock(vh->context); /* } cx --------------  */
 
 	return 0;
 }
@@ -398,7 +338,7 @@ lws_sess_cache_synth_cb(lws_sorted_usec_list_t *sul)
 {
 	struct lws_lws_tls *tls = lws_container_of(sul, struct lws_lws_tls,
 						   sul_cb_synth);
-	struct lws *wsi = lws_container_of(tls, struct lws_io_adjunct, tls)->wsi;
+	struct lws *wsi = lws_container_of(tls, struct lws, tls);
 
 	lws_tls_session_new_mbedtls(wsi);
 }
@@ -412,9 +352,8 @@ lws_tls_session_cache(struct lws_vhost *vh, uint32_t ttl)
 }
 
 int
-lws_tls_session_dump_save_flags(struct lws_vhost *vh, const char *host,
-				uint16_t port, unsigned int flags,
-				lws_tls_sess_cb_t cb_save, void *opq)
+lws_tls_session_dump_save(struct lws_vhost *vh, const char *host, uint16_t port,
+			  lws_tls_sess_cb_t cb_save, void *opq)
 {
 	/* there seems no serialization / deserialization helper in mbedtls */
 	lwsl_warn("%s: only supported on openssl atm\n", __func__);
@@ -423,9 +362,8 @@ lws_tls_session_dump_save_flags(struct lws_vhost *vh, const char *host,
 }
 
 int
-lws_tls_session_dump_load_flags(struct lws_vhost *vh, const char *host,
-				uint16_t port, unsigned int flags,
-				lws_tls_sess_cb_t cb_load, void *opq)
+lws_tls_session_dump_load(struct lws_vhost *vh, const char *host, uint16_t port,
+			  lws_tls_sess_cb_t cb_load, void *opq)
 {
 	/* there seems no serialization / deserialization helper in mbedtls */
 	lwsl_warn("%s: only supported on openssl atm\n", __func__);

@@ -44,13 +44,12 @@ int
 lws_display_ssd1675b_spi_init(lws_display_state_t *lds);
 int
 lws_display_ssd1675b_spi_blit(lws_display_state_t *lds, const uint8_t *src,
-			     lws_box_t *box, lws_dll2_owner_t *ids);
+			     lws_box_t *box);
 int
 lws_display_ssd1675b_spi_power(lws_display_state_t *lds, int state);
 
 #define lws_display_ssd1675b_ops \
 	.init = lws_display_ssd1675b_spi_init, \
 	.blit = lws_display_ssd1675b_spi_blit, \
-	.power = lws_display_ssd1675b_spi_power, \
-	.bistable = 1
+	.power = lws_display_ssd1675b_spi_power
 #endif

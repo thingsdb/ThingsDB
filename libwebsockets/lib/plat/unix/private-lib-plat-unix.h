@@ -28,18 +28,6 @@
 #include <strings.h>
 #include <unistd.h>
 
-#if defined(LWS_HAVE_MALLOC_USABLE_SIZE)
-#include <malloc.h>
-/* how much heap an allocation really holds, so lws can account for it */
-#define LWS_PLAT_ALLOC_SIZE
-#define lws_plat_alloc_size(_p) malloc_usable_size(_p)
-#endif
-
-#if defined(LWS_WITH_CRASH_BACKTRACE)
-/* lws_plat_callers() can say who called, through execinfo */
-#define LWS_PLAT_CALLERS
-#endif
-
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
@@ -75,26 +63,33 @@
 #include <net/if.h>
 #endif
 #if defined(__QNX__)
-	/*
-	 * SDP8's io-sock <sys/param.h> provides the BSD 1234 / 4321 set.  Only
-	 * older SDPs, where it doesn't, need them made up from <gulliver.h>;
-	 * redefining them over SDP8's is a -Werror build break.
-	 */
-	#include <sys/param.h>
 	#include <gulliver.h>
-	#if !defined(LITTLE_ENDIAN)
-		#define LITTLE_ENDIAN 1234
+	#if defined(__LITTLEENDIAN__)
+		#define BYTE_ORDER __LITTLEENDIAN__
+		#define LITTLE_ENDIAN __LITTLEENDIAN__
+		#define BIG_ENDIAN 4321  /* to show byte order (taken from gcc); for suppres warning that BIG_ENDIAN is not defined. */
 	#endif
-	#if !defined(BIG_ENDIAN)
-		#define BIG_ENDIAN 4321
+	#if defined(__BIGENDIAN__)
+		#define BYTE_ORDER __BIGENDIAN__
+		#define LITTLE_ENDIAN 1234  /* to show byte order (taken from gcc); for suppres warning that LITTLE_ENDIAN is not defined. */
+		#define BIG_ENDIAN __BIGENDIAN__
 	#endif
-	#if !defined(BYTE_ORDER)
-		#if defined(__BIGENDIAN__)
-			#define BYTE_ORDER BIG_ENDIAN
-		#else
-			#define BYTE_ORDER LITTLE_ENDIAN
-		#endif
-	#endif
+#endif
+
+#if defined(LWS_HAVE_PTHREAD_H)
+#include <pthread.h>
+#include <sys/types.h>
+
+typedef pthread_mutex_t lws_mutex_t;
+#define lws_mutex_init(x)	pthread_mutex_init(&(x), NULL)
+#define lws_mutex_destroy(x)	pthread_mutex_destroy(&(x))
+#define lws_mutex_lock(x)	pthread_mutex_lock(&(x))
+#define lws_mutex_unlock(x)	pthread_mutex_unlock(&(x))
+
+#define lws_tid_t		pthread_t
+#define lws_thread_is(x)	pthread_equal(x, pthread_self())
+#define lws_thread_id()		pthread_self()
+
 #endif
 
 #if defined(__sun) && defined(__GNUC__)
@@ -147,8 +142,7 @@
 #include <sys/syslog.h>
 #endif
 
-#if defined(__QNX__) && !defined(TCP_KEEPIDLE)
-/* older io-pkt SDPs lack these in <netinet/tcp.h>, SDP8 io-sock has them */
+#ifdef __QNX__
 # include "netinet/tcp_var.h"
 # define TCP_KEEPINTVL TCPCTL_KEEPINTVL
 # define TCP_KEEPIDLE  TCPCTL_KEEPIDLE
@@ -175,20 +169,6 @@
 #define LWS_SOCK_INVALID (-1)
 
 struct lws_context;
-
-/*
- * With info.fd_limit_per_thread below the process fd limit
- * (max_fds_unrelated_to_ulimit), wsi are not found by indexing a table with
- * the fd, but by searching context->lws_lookup_slots.  Each service thread
- * has fd_limit_per_thread slots of its own, changed only for its own wsi and
- * under its pt lock, so threads never compete for a slot.  A slot keeps the
- * fd it was entered for, so a search compares fds and never dereferences a
- * wsi, which may be another thread's and being freed.
- */
-struct lws_fd_slot {
-	struct lws		*wsi;
-	int			fd;	/* LWS_SOCK_INVALID if unused */
-};
 
 struct lws *
 wsi_from_fd(const struct lws_context *context, int fd);

@@ -48,7 +48,8 @@ struct lws_fts_entry;
 /* notice these are stored in t->lwsac_input_head which has input file scope */
 
 struct lws_fts_filepath {
-	lws_dll2_t list; /* member of t->filepath_list_owner */
+	struct lws_fts_filepath *next;
+	struct lws_fts_filepath *prev;
 	char filepath[256];
 	jg2_file_offset ofs;
 	jg2_file_offset line_table_ofs;
@@ -102,9 +103,8 @@ struct lws_fts_instance_file {
 struct lws_fts_entry {
 	struct lws_fts_entry *parent;
 
-	/* children, kept in ascending order of .c */
-	lws_dll2_owner_t child_list_owner;
-	lws_dll2_t sibling;
+	struct lws_fts_entry *child_list;
+	struct lws_fts_entry *sibling;
 
 	/*
 	 * care... this points to content in t->lwsac_input_head, it goes
@@ -116,6 +116,7 @@ struct lws_fts_entry {
 
 	char *suffix; /* suffix string or NULL if one char (in .c) */
 	jg2_file_offset ofs;
+	uint32_t child_count;
 	uint32_t instance_count;
 	uint32_t agg_inst_count;
 	uint32_t agg_child_count;
@@ -129,7 +130,7 @@ struct lws_fts {
 	struct lwsac *lwsac_head;
 	struct lwsac *lwsac_input_head;
 	struct lws_fts_entry *root;
-	lws_dll2_owner_t filepath_list_owner;
+	struct lws_fts_filepath *filepath_list;
 	struct lws_fts_filepath *fp;
 
 	struct lws_fts_entry *parser;
@@ -165,59 +166,6 @@ struct lws_fts {
 /* since the kernel case allocates >300MB, no point keeping this too low */
 
 #define TRIE_LWSAC_BLOCK_SIZE (1024 * 1024)
-
-/* NULL-safe iteration helpers */
-
-static struct lws_fts_entry *
-fts_child_head(struct lws_fts_entry *e)
-{
-	struct lws_dll2 *d = lws_dll2_get_head(&e->child_list_owner);
-
-	return d ? lws_container_of(d, struct lws_fts_entry, sibling) : NULL;
-}
-
-static struct lws_fts_entry *
-fts_entry_next(struct lws_fts_entry *e)
-{
-	struct lws_dll2 *d = lws_dll2_get_next(&e->sibling);
-
-	return d ? lws_container_of(d, struct lws_fts_entry, sibling) : NULL;
-}
-
-static struct lws_fts_filepath *
-fts_fp_next(struct lws_fts_filepath *fp)
-{
-	struct lws_dll2 *d = lws_dll2_get_next(&fp->list);
-
-	return d ? lws_container_of(d, struct lws_fts_filepath, list) : NULL;
-}
-
-static struct lws_fts_filepath *
-fts_fp_prev(struct lws_fts_filepath *fp)
-{
-	struct lws_dll2 *d = lws_dll2_get_prev(&fp->list);
-
-	return d ? lws_container_of(d, struct lws_fts_filepath, list) : NULL;
-}
-
-static struct lws_fts_filepath *
-fts_fp_by_index(struct lws_fts *t, uint32_t file_index)
-{
-	/* the list is built head-first, so the usual "the one we just
-	 * created" case is found immediately */
-
-	lws_start_foreach_dll(struct lws_dll2 *, d,
-			      lws_dll2_get_head(&t->filepath_list_owner)) {
-		struct lws_fts_filepath *fp = lws_container_of(d,
-					struct lws_fts_filepath, list);
-
-		if ((uint32_t)fp->file_index == file_index)
-			return fp;
-
-	} lws_end_foreach_dll(d);
-
-	return NULL;
-}
 
 #define spill(margin, force) \
 	if (bp && ((uint32_t)bp >= (sizeof(buf) - (size_t)(margin)) || (force))) { \
@@ -325,7 +273,7 @@ lws_fts_create(int fd)
 	t->parser = t->root;
 	t->last_file_index = -1;
 	t->line_number = 1;
-	lws_dll2_owner_clear(&t->filepath_list_owner);
+	t->filepath_list = NULL;
 
 	memset(t->root_lookup, 0, sizeof(*t->root_lookup));
 
@@ -375,31 +323,27 @@ int
 lws_fts_file_index(struct lws_fts *t, const char *filepath, int filepath_len,
 		    int priority)
 {
-	struct lws_fts_filepath *fp;
+	struct lws_fts_filepath *fp = t->filepath_list;
+#if 0
+	while (fp) {
+		if (fp->filepath_len == filepath_len &&
+		    !strcmp(fp->filepath, filepath))
+			return fp->file_index;
 
-	/*
-	 * zeroed... lws_dll2_add_head() requires a detached list member, and
-	 * lwsac_use() hands back whatever was in the heap
-	 */
-
-	fp = lwsac_use_zero(&t->lwsac_head, sizeof(*fp), TRIE_LWSAC_BLOCK_SIZE);
+		fp = fp->next;
+	}
+#endif
+	fp = lwsac_use(&t->lwsac_head, sizeof(*fp), TRIE_LWSAC_BLOCK_SIZE);
 	if (!fp)
 		return -1;
 
-	lws_dll2_add_head(&fp->list, &t->filepath_list_owner);
+	fp->next = t->filepath_list;
+	t->filepath_list = fp;
 	strncpy(fp->filepath, filepath, sizeof(fp->filepath) - 1);
 	fp->filepath[sizeof(fp->filepath) - 1] = '\0';
 	fp->filepath_len = filepath_len;
 	fp->file_index = t->next_file_index++;
-	/*
-	 * The line table for this filepath does not start here... the previous
-	 * filepath's line table is only terminated when the first fill for
-	 * this one arrives, so latching t->c now would point this filepath at
-	 * the previous one's terminator.  0 means "not started yet", it's
-	 * filled in by lws_fts_fill() (or lws_fts_serialize(), if this
-	 * filepath never gets any content at all).
-	 */
-	fp->line_table_ofs = 0;
+	fp->line_table_ofs = t->c;
 	fp->priority = priority;
 	fp->total_lines = 0;
 	t->fp = fp;
@@ -411,7 +355,7 @@ static struct lws_fts_entry *
 lws_fts_entry_child_add(struct lws_fts *t, unsigned char c,
 			struct lws_fts_entry *parent)
 {
-	struct lws_fts_entry *e;
+	struct lws_fts_entry *e, **pe;
 
 	e = lwsac_use(&t->lwsac_head, sizeof(*e), TRIE_LWSAC_BLOCK_SIZE);
 	if (!e)
@@ -420,29 +364,29 @@ lws_fts_entry_child_add(struct lws_fts *t, unsigned char c,
 	memset(e, 0, sizeof(*e));
 
 	e->c = c;
+	parent->child_count++;
 	e->parent = parent;
 	t->count_entries++;
 
 	/* keep the parent child list in ascending sort order for c */
 
-	lws_dll2_clear(&e->sibling);
-
-	lws_start_foreach_dll(struct lws_dll2 *, d,
-			      lws_dll2_get_head(&parent->child_list_owner)) {
-		struct lws_fts_entry *e2 = lws_container_of(d,
-					struct lws_fts_entry, sibling);
-
-		assert(e2->parent == parent);
-		if (e2->c > c) {
+	pe = &parent->child_list;
+	while (*pe) {
+		assert((*pe)->parent == parent);
+		if ((*pe)->c > c) {
 			/* add it before */
-			lws_dll2_add_before(&e->sibling, &e2->sibling);
-
-			return e;
+			e->sibling = *pe;
+			*pe = e;
+			break;
 		}
-	} lws_end_foreach_dll(d);
+		pe = &(*pe)->sibling;
+	}
 
-	/* add it at the end */
-	lws_dll2_add_tail(&e->sibling, &parent->child_list_owner);
+	if (!*pe) {
+		/* add it at the end */
+		e->sibling = NULL;
+		*pe = e;
+	}
 
 	return e;
 }
@@ -601,11 +545,10 @@ lws_fts_fill(struct lws_fts *t, uint32_t file_index, const char *buf,
 {
 	unsigned long long tf = (unsigned long long)lws_now_usecs();
 	unsigned char c, linetable[256], vlibuf[8];
-	struct lws_fts_entry *e, *e1;
+	struct lws_fts_entry *e, *e1, *dcl;
 	struct lws_fts_instance_file *tif;
 	int bp = 0, sline, chars, m;
 	char *osuff, skipline = 0;
-	uint32_t tokline = 1;
 	struct lws_fts_lines *tl;
 	unsigned int olen, n;
 	off_t lbh;
@@ -617,42 +560,11 @@ lws_fts_fill(struct lws_fts *t, uint32_t file_index, const char *buf,
 		t->line_number = 1;
 		t->chars_in_line = 0;
 		t->lines_in_unsealed_linetable = 0;
-
-		/*
-		 * The tokenizer context must not straddle input files: if the
-		 * previous file ended midway through a token, the first chars
-		 * of this one would otherwise be appended to it, producing a
-		 * token that exists in neither file.
-		 */
-
-		t->parser = t->root;
-		t->str_match_pos = 0;
-		t->aggregate = 0;
-		t->agg_pos = 0;
-
-		/*
-		 * Point at the filepath this fill is for (the caller may not
-		 * be filling the filepath he indexed most recently), and if
-		 * this is its first content, latch where its line table
-		 * starts... which is only knowable now the previous filepath's
-		 * line table has been terminated by finalize_per_input().
-		 */
-
-		t->fp = fts_fp_by_index(t, file_index);
-		if (!t->fp) {
-			lwsl_err("%s: unknown file index %u\n", __func__,
-				 (unsigned int)file_index);
-
-			return 1;
-		}
-
-		if (!t->fp->line_table_ofs)
-			t->fp->line_table_ofs = t->c;
 	}
 
 	t->agg_raw_input += len;
 
-	while (len) {
+resume:
 
 	chars = 0;
 	lbh = (off_t)t->c;
@@ -669,20 +581,11 @@ lws_fts_fill(struct lws_fts *t, uint32_t file_index, const char *buf,
 
 		len--;
 
-		/*
-		 * The line the token being sealed belongs to... a token that
-		 * is terminated by the newline itself must be filed under the
-		 * line it is on, not the one that starts after it, or the
-		 * reader can't find it in the line table chunk covering it.
-		 */
-
-		tokline = (uint32_t)t->line_number;
-
 		c = (unsigned char)*buf++;
 		t->chars_in_line++;
 		if (c == '\n') {
 			skipline = 0;
-			t->fp->total_lines++;
+			t->filepath_list->total_lines++;
 			t->lines_in_unsealed_linetable++;
 			t->line_number++;
 
@@ -769,7 +672,7 @@ lws_fts_fill(struct lws_fts *t, uint32_t file_index, const char *buf,
 
 			/* look for the char amongst the children */
 
-			e = fts_child_head(t->parser);
+			e = t->parser->child_list;
 			while (e) {
 
 				/* since they're alpha ordered... */
@@ -786,7 +689,7 @@ lws_fts_fill(struct lws_fts *t, uint32_t file_index, const char *buf,
 					break;
 				}
 
-				e = fts_entry_next(e);
+				e = e->sibling;
 			}
 
 			if (e)
@@ -814,11 +717,12 @@ lws_fts_fill(struct lws_fts *t, uint32_t file_index, const char *buf,
 		t->parser = e;
 
 		{
-			lws_start_foreach_dll(struct lws_dll2 *, d,
-					      lws_dll2_get_head(&e->child_list_owner)) {
-				assert(lws_container_of(d, struct lws_fts_entry,
-							sibling)->parent == e);
-			} lws_end_foreach_dll(d);
+			struct lws_fts_entry **pe = &e->child_list;
+			while (*pe) {
+				assert((*pe)->parent == e);
+
+				pe = &(*pe)->sibling;
+			}
 		}
 
 		/*
@@ -921,22 +825,11 @@ seal:
 			 * the original string.
 			 */
 
-			/*
-			 * Stash our children, so the new guy becomes our
-			 * only child, then hand the stashed children to him
-			 * (in order) fixing their parent pointers.
-			 */
-			lws_dll2_owner_t stash;
+			dcl = t->parser->child_list;
+			m = (int)t->parser->child_count;
 
-			lws_dll2_owner_clear(&stash);
-
-			while(!lws_dll2_is_empty(&t->parser->child_list_owner)) {
-				struct lws_dll2 *d =
-					lws_dll2_get_head(&t->parser->child_list_owner);
-
-				lws_dll2_remove(d);
-				lws_dll2_add_tail(d, &stash);
-			}
+			t->parser->child_list = NULL;
+			t->parser->child_count = 0;
 
 			e = lws_fts_entry_child_add(t, (unsigned char)
 					osuff[t->str_match_pos - 1], t->parser);
@@ -946,15 +839,24 @@ seal:
 				return 1;
 			}
 
-			while (stash.head) {
-				struct lws_dll2 *d = stash.head;
-
-				lws_dll2_remove(d);
-				lws_dll2_add_tail(d, &e->child_list_owner);
-				e1 = lws_container_of(d, struct lws_fts_entry,
-						       sibling);
+			e->child_list = dcl;
+			e->child_count = (uint32_t)m;
+			/*
+			 * any children we took over must point to us as the
+			 * parent now they appear on our child list
+			 */
+			e1 = e->child_list;
+			while (e1) {
 				e1->parent = e;
+				e1 = e1->sibling;
 			}
+
+			/*
+			 * We detached any children, gave them to the new guy
+			 * and replaced them with just our new guy
+			 */
+			t->parser->child_count = 1;
+			t->parser->child_list = e;
 
 			/*
 			 * any instances that belonged to the original entry we
@@ -1086,14 +988,14 @@ seal:
 		 * more vli space and continues chaining those if needed.
 		 */
 
-		n = (unsigned int)wq32(vlibuf, tokline);
+		n = (unsigned int)wq32(vlibuf, (uint32_t)t->line_number);
 		tif = t->parser->inst_file_list;
 
 		if (!tif->lines_list) {
 			/* we are still trying to use the file inst vli */
 			if (LWS_ARRAY_SIZE(tif->vli) - (size_t)tif->count >= n) {
 				tif->count = (char)((char)tif->count + (char)wq32(tif->vli + tif->count,
-						   tokline));
+						   (uint32_t)t->line_number));
 				goto after;
 			}
 			/* we are going to have to allocate */
@@ -1105,7 +1007,7 @@ seal:
 				(unsigned char)tif->lines_tail->count >= n) {
 			tif->lines_tail->count = (char)((char)tif->lines_tail->count + (char)wq32(tif->lines_tail->vli +
 						       tif->lines_tail->count,
-						       tokline));
+						       (uint32_t)t->line_number));
 			goto after;
 		}
 
@@ -1126,7 +1028,7 @@ seal:
 		if (!tif->lines_list)
 			tif->lines_list = tl;
 
-		tl->count = (char)wq32(tl->vli, tokline);
+		tl->count = (char)wq32(tl->vli, (uint32_t)t->line_number);
 after:
 		tif->total++;
 #if 0
@@ -1179,7 +1081,7 @@ after:
 
 	if (len) {
 		t->lines_in_unsealed_linetable = 0;
-	}
+		goto resume;
 	}
 
 	/* dump the collected per-input instance and line data, and free it */
@@ -1194,12 +1096,10 @@ after:
 int
 lws_fts_serialize(struct lws_fts *t)
 {
-	struct lws_fts_filepath *fp;
+	struct lws_fts_filepath *fp = t->filepath_list, *ofp;
 	unsigned long long tf = (unsigned long long)lws_now_usecs();
 	struct lws_fts_entry *e, *e1, *s[256];
 	unsigned char buf[8192], stasis;
-	struct lws_fts_entry *te1, *te2;
-	jg2_file_offset empty_lt;
 	int n, bp, sp = 0, do_parent;
 
 	(void)tf;
@@ -1230,75 +1130,41 @@ lws_fts_serialize(struct lws_fts *t)
 
 		for (n = 0; n <= sp; n++) {
 			s[n]->agg_inst_count += s[sp]->instance_count;
-			s[n]->agg_child_count +=
-					lws_dll2_count(&s[sp]->child_list_owner);
+			s[n]->agg_child_count += s[sp]->child_count;
 		}
 
 		/* handle any children before the parent */
 
-		if(!lws_dll2_is_empty(&s[sp]->child_list_owner)) {
+		if (s[sp]->child_list) {
 			if (sp + 1 == LWS_ARRAY_SIZE(s)) {
 				lwsl_err("Stack too deep\n");
 
 				goto bail;
 			}
 
-			s[sp + 1] = fts_child_head(s[sp]);
+			s[sp + 1] = s[sp]->child_list;
 			sp++;
 			continue;
 		}
 
 		do {
-			if (lws_dll2_get_next(&s[sp]->sibling)) {
-				s[sp] = fts_entry_next(s[sp]);
+			if (s[sp]->sibling) {
+				s[sp] = s[sp]->sibling;
 				break;
 			} else
 				sp--;
 		} while (sp >= 0);
 	}
 
-	/*
-	 * A filepath that was indexed but never given any content has no line
-	 * table of its own.  It still needs to point at a valid, terminated
-	 * one, or the reader's chunk walk would start on whatever happens to
-	 * be at that fileoffset... they can all share a single empty one.
-	 */
+	/* dump the filepaths and set prev */
 
-	empty_lt = 0;
-	fp = lws_container_of(lws_dll2_get_head(&t->filepath_list_owner),
-			      struct lws_fts_filepath, list);
-	while (fp) {
-		if (!fp->line_table_ofs) {
-			if (!empty_lt) {
-				memset(buf, 0, 8);
-				if (write(t->fd, buf, 8) != 8) {
-					lwsl_err("%s: empty linetable write "
-						 "failed\n", __func__);
-					goto bail;
-				}
-				empty_lt = t->c;
-				t->c += 8;
-			}
-
-			fp->line_table_ofs = empty_lt;
-		}
-
-		fp = fts_fp_next(fp);
-	}
-
-	/* dump the filepaths */
-
-	fp = lws_container_of(lws_dll2_get_head(&t->filepath_list_owner),
-			      struct lws_fts_filepath, list);
+	fp = t->filepath_list;
+	ofp = NULL;
 	bp = 0;
 	while (fp) {
 
 		fp->ofs = t->c + (unsigned int)bp;
 		n = (int)strlen(fp->filepath);
-		if (n > (int)sizeof(fp->filepath))
-			goto bail;
-		if (15 + n > (int)sizeof(buf))
-			goto bail;
 		spill(15 + n, 0);
 
 		bp += wq32(&buf[bp], fp->line_table_ofs);
@@ -1307,7 +1173,9 @@ lws_fts_serialize(struct lws_fts *t)
 		memcpy(&buf[bp], fp->filepath, (unsigned int)n);
 		bp += n;
 
-		fp = fts_fp_next(fp);
+		fp->prev = ofp;
+		ofp = fp;
+		fp = fp->next;
 	}
 
 	spill(0, 1);
@@ -1327,15 +1195,13 @@ lws_fts_serialize(struct lws_fts *t)
 
 	/* dump the filepath map, starting from index 0, which is at the tail */
 
-	fp = lws_dll2_get_tail(&t->filepath_list_owner) ?
-			lws_container_of(lws_dll2_get_tail(&t->filepath_list_owner),
-					 struct lws_fts_filepath, list) : NULL;
+	fp = ofp;
 	bp = 0;
 	while (fp) {
 		spill(5, 0);
 		g32(buf + bp, fp->ofs);
 		bp += 4;
-		fp = fts_fp_prev(fp);
+		fp = fp->prev;
 	}
 	spill(0, 1);
 
@@ -1353,7 +1219,7 @@ lws_fts_serialize(struct lws_fts *t)
 
 		/* handle any children before the parent */
 
-		if (!do_parent && lws_dll2_get_head(&s[sp]->child_list_owner)) {
+		if (!do_parent && s[sp]->child_list) {
 
 			if (sp + 1 == LWS_ARRAY_SIZE(s)) {
 				lwsl_err("Stack too deep\n");
@@ -1361,7 +1227,7 @@ lws_fts_serialize(struct lws_fts *t)
 				goto bail;
 			}
 
-			s[sp + 1] = fts_child_head(s[sp]);
+			s[sp + 1] = s[sp]->child_list;
 			sp++;
 			continue;
 		}
@@ -1376,56 +1242,43 @@ lws_fts_serialize(struct lws_fts *t)
 		spill((3 * MAX_VLI), 0);
 
 		bp += wq32(&buf[bp], e->ofs_last_inst_file);
-		bp += wq32(&buf[bp], lws_dll2_count(&e->child_list_owner));
+		bp += wq32(&buf[bp], e->child_count);
 		bp += wq32(&buf[bp], e->instance_count);
 		bp += wq32(&buf[bp], e->agg_inst_count);
 
 		/* sort the children in order of highest aggregate hits first */
 
 		do {
-			struct lws_dll2 *pd;
+			struct lws_fts_entry **pe, *te1, *te2;
 
 			stasis = 1;
 
 			/* bubble sort keeps going until nothing changed */
 
-			pd = lws_dll2_get_head(&e->child_list_owner);
-			while (pd) {
-				struct lws_dll2 *nx = lws_dll2_get_next(pd);
+			pe = &e->child_list;
+			while (*pe) {
 
-				te1 = lws_container_of(pd,
-						struct lws_fts_entry, sibling);
+				te1 = *pe;
+				te2 = te1->sibling;
 
-				if (nx) {
-					te2 = lws_container_of(nx,
-							struct lws_fts_entry,
-							sibling);
+				if (te2 && te1->agg_inst_count <
+					   te2->agg_inst_count) {
+					stasis = 0;
 
-					if (te1->agg_inst_count <
-					    te2->agg_inst_count) {
-						stasis = 0;
-
-						/* swap te1 and te2 */
-						lws_dll2_remove(pd);
-						lws_dll2_add_insert(pd, nx);
-						/* advance past the pair */
-						pd = nx;
-						continue;
-					}
+					*pe = te2;
+					te1->sibling = te2->sibling;
+					te2->sibling = te1;
 				}
 
-				pd = nx;
+				pe = &(*pe)->sibling;
 			}
 
 		} while (!stasis);
 
 		/* write the children */
 
-		e1 = fts_child_head(e);
+		e1 = e->child_list;
 		while (e1) {
-			if ((5 * MAX_VLI) + e1->suffix_len + 1 > sizeof(buf))
-				goto bail;
-
 			spill((5 * MAX_VLI) + e1->suffix_len + 1, 0);
 
 			bp += wq32(&buf[bp], e1->ofs);
@@ -1457,11 +1310,10 @@ lws_fts_serialize(struct lws_fts *t)
 				}
 
 				lwsl_err("*** %c CRI inst %d ch %d\n", e1->parent->c,
-						e1->instance_count,
-						lws_dll2_count(&e1->child_list_owner));
+						e1->instance_count, e1->child_count);
 			}
 #endif
-			e1 = fts_entry_next(e1);
+			e1 = e1->sibling;
 		}
 
 		/* if there are siblings, do those next */
@@ -1469,12 +1321,10 @@ lws_fts_serialize(struct lws_fts *t)
 		if (do_parent) {
 			do_parent = 0;
 			sp--;
-			if (sp < 0)
-				break;
 		}
 
-		if (lws_dll2_get_next(&s[sp]->sibling))
-			s[sp] = fts_entry_next(s[sp]);
+		if (s[sp]->sibling)
+			s[sp] = s[sp]->sibling;
 		else {
 			/* if there are no siblings, do the parent */
 			do_parent = 1;

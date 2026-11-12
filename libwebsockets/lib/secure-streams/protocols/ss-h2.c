@@ -188,16 +188,7 @@ secstream_connect_munge_h2(lws_ss_handle_t *h, char *buf, size_t len,
 			      &used_in, &used_out) != LSTRX_DONE)
 		return 1;
 
-	{
-		char lp[64];
-
-		/*
-		 * The tag is in every log line about the stream: show the
-		 * path without the query string, which may carry tokens
-		 */
-		__lws_lc_tag_append(&h->lc, lws_http_log_path(lp, sizeof(lp),
-							      buf));
-	}
+	__lws_lc_tag_append(&h->lc, buf);
 
 	return 0;
 }
@@ -207,7 +198,7 @@ secstream_tx_credit_add_h2(lws_ss_handle_t *h, int add)
 {
 	lwsl_info("%s: %s: add %d\n", __func__, lws_ss_tag(h), add);
 	if (h->wsi)
-		return lws_wsi_tx_credit(h->wsi, LWSTXCR_PEER_TO_US, add);
+		return lws_h2_update_peer_txcredit(h->wsi, (unsigned int)LWS_H2_STREAM_SID, add);
 
 	return 0;
 }
@@ -233,6 +224,5 @@ const struct ss_pcols ss_pcol_h2 = {
 	&protocol_secstream_h2,
 	secstream_connect_munge_h2,
 	secstream_tx_credit_add_h2,
-	secstream_tx_credit_est_h2,
-	NULL
+	secstream_tx_credit_est_h2
 };

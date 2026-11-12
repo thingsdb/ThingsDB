@@ -33,7 +33,7 @@
 #endif
 
 #define pt_to_priv_glib(_pt) ((struct lws_pt_eventlibs_glib *)(_pt)->evlib_pt)
-#define wsi_to_priv_glib(_w) ((struct lws_wsi_eventlibs_glib *)(_w)->io->evlib_wsi)
+#define wsi_to_priv_glib(_w) ((struct lws_wsi_eventlibs_glib *)(_w)->evlib_wsi)
 
 #define wsi_to_subclass(_w)	  (wsi_to_priv_glib(_w)->w_read.source)
 #define wsi_to_gsource(_w)	  ((GSource *)wsi_to_subclass(_w))
@@ -130,7 +130,7 @@ lws_glib_dispatch(GSource *src, GSourceFunc x, gpointer userData)
 		eventfd.revents |= LWS_POLLHUP;
 
 	eventfd.events = eventfd.revents;
-	eventfd.fd = sub->fd;
+	eventfd.fd = sub->wsi->desc.sockfd;
 
 	lwsl_wsi_debug(sub->wsi, "fd %d, events %d",
 				 eventfd.fd, eventfd.revents);
@@ -170,22 +170,21 @@ lws_glib_hrtimer_cb(void *p)
 	unsigned int ms;
 	lws_usec_t us;
 
-	lws_context_lock(pt->context, __func__); /* cx then pt */
 	lws_pt_lock(pt, __func__);
 
 	lws_gs_destroy(pt_to_priv_glib(pt)->hrtimer);
 
-	us = __lws_sul_service_ripe(&pt->pt_sul_owner[0].owner,
-				    LWS_COUNT_PT_SUL_OWNERS, lws_now_usecs());
+	us = __lws_sul_service_ripe(pt->pt_sul_owner, LWS_COUNT_PT_SUL_OWNERS,
+				    lws_now_usecs());
 	if (us) {
-		/* not due yet: sleep until it is, not short of it */
-		ms = (unsigned int)lws_us_to_ms_ceil(us);
+		ms = (unsigned int)(us / LWS_US_PER_MS);
+		if (!ms)
+			ms = 1;
 
 		lws_glib_set_timeout(pt, ms);
 	}
 
 	lws_pt_unlock(pt);
-	lws_context_unlock(pt->context);
 
 	lws_glib_set_idle(pt);
 
@@ -266,8 +265,7 @@ elops_accept_glib(struct lws *wsi)
 	struct lws_wsi_eventlibs_glib *wsipr = wsi_to_priv_glib(wsi);
 	int fd;
 
-	if (wsi_to_subclass(wsi))
-		return 0;
+	assert(!wsi_to_subclass(wsi));
 
 	wsi_to_subclass(wsi) = (struct lws_io_watcher_glib_subclass *)
 			g_source_new((GSourceFuncs *)&lws_glib_source_ops,
@@ -279,11 +277,10 @@ elops_accept_glib(struct lws *wsi)
 	wsi_to_subclass(wsi)->wsi = wsi;
 
 	if (wsi->role_ops->file_handle)
-		fd = wsi->io->desc.filefd;
+		fd = wsi->desc.filefd;
 	else
-		fd = wsi->io->desc.sockfd;
+		fd = wsi->desc.sockfd;
 
-	wsi_to_subclass(wsi)->fd = wsi->io->desc.sockfd;
 	wsi_to_subclass(wsi)->tag = g_source_add_unix_fd(wsi_to_gsource(wsi),
 						fd, (GIOCondition)LWS_POLLIN);
 	wsipr->w_read.actual_events = LWS_POLLIN;
@@ -380,7 +377,7 @@ elops_io_glib(struct lws *wsi, unsigned int flags)
 
 	wsipr->w_read.actual_events = (uint8_t)cond;
 
-	lwsl_wsi_debug(wsi, "fd %d, 0x%x/0x%x", wsi->io->desc.sockfd,
+	lwsl_wsi_debug(wsi, "fd %d, 0x%x/0x%x", wsi->desc.sockfd,
 						flags, (int)cond);
 
 	g_source_modify_unix_fd(wsi_to_gsource(wsi), wsi_to_subclass(wsi)->tag,
@@ -392,14 +389,8 @@ elops_run_pt_glib(struct lws_context *context, int tsi)
 {
 	struct lws_context_per_thread *pt = &context->pt[tsi];
 
-	/*
-	 * One turn of the loop per lws_service() call, like the poll loop
-	 * and the other evlib plugins: block for the next event and handle
-	 * it, then return so the app's loop condition is seen between turns.
-	 */
 	if (pt_to_loop(pt))
-		g_main_context_iteration(
-			g_main_loop_get_context(pt_to_loop(pt)), TRUE);
+		g_main_loop_run(pt_to_loop(pt));
 }
 
 static void
@@ -468,8 +459,7 @@ elops_destroy_context2_glib(struct lws_context *context)
 	int n;
 
 	for (n = 0; n < (int)context->count_threads; n++) {
-		/* the final call comes after destroy_pt took the loop away */
-		if (!pt->event_loop_foreign && pt_to_loop(pt))
+		if (!pt->event_loop_foreign)
 			g_main_loop_quit(pt_to_loop(pt));
 		pt++;
 	}
@@ -481,141 +471,6 @@ static int
 elops_wsi_logical_close_glib(struct lws *wsi)
 {
 	elops_destroy_wsi_glib(wsi);
-
-	return 0;
-}
-
-#if defined(LWS_WITH_CLIENT)
-static int
-elops_sock_accept_parallel_glib(struct lws *wsi, lws_sockfd_type fd, int pidx)
-{
-	struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
-	struct lws_wsi_eventlibs_glib *wsipr = wsi_to_priv_glib(wsi);
-
-	if (wsipr->racing[pidx].source)
-		return 0;
-
-	wsipr->racing[pidx].source = (struct lws_io_watcher_glib_subclass *)
-			g_source_new((GSourceFuncs *)&lws_glib_source_ops,
-						sizeof(*wsipr->racing[pidx].source));
-	if (!wsipr->racing[pidx].source)
-		return 1;
-
-	wsipr->racing[pidx].context = wsi->a.context;
-	wsipr->racing[pidx].source->wsi = wsi;
-	wsipr->racing[pidx].source->fd = fd;
-
-	wsipr->racing[pidx].source->tag = g_source_add_unix_fd((GSource *)wsipr->racing[pidx].source,
-						fd, (GIOCondition)LWS_POLLIN);
-	wsipr->racing[pidx].actual_events = LWS_POLLIN;
-
-	g_source_set_callback((GSource *)wsipr->racing[pidx].source,
-			G_SOURCE_FUNC(lws_service_fd), wsi->a.context, NULL);
-
-	g_source_attach((GSource *)wsipr->racing[pidx].source, pt_to_g_main_context(pt));
-
-	return 0;
-}
-
-static void
-elops_io_parallel_glib(struct lws *wsi, int pidx, unsigned int flags)
-{
-	struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
-	struct lws_wsi_eventlibs_glib *wsipr = wsi_to_priv_glib(wsi);
-	GIOCondition cond = wsipr->racing[pidx].actual_events | G_IO_ERR;
-
-	if (!pt_to_loop(pt) || wsi->a.context->being_destroyed ||
-	    pt->is_destroyed)
-		return;
-
-	if (!wsipr->racing[pidx].source)
-		return;
-
-	if (flags & LWS_EV_READ) {
-		if (flags & LWS_EV_STOP)
-			cond &= (unsigned int)~(G_IO_IN | G_IO_HUP);
-		else
-			cond |= G_IO_IN | G_IO_HUP;
-	}
-
-	if (flags & LWS_EV_WRITE) {
-		if (flags & LWS_EV_STOP)
-			cond &= (unsigned int)~G_IO_OUT;
-		else
-			cond |= G_IO_OUT;
-	}
-
-	wsipr->racing[pidx].actual_events = (uint8_t)cond;
-
-	g_source_modify_unix_fd((GSource *)wsipr->racing[pidx].source, wsipr->racing[pidx].source->tag,
-				cond);
-}
-
-static void
-elops_close_handle_manually_parallel_glib(struct lws *wsi, int pidx)
-{
-	struct lws_wsi_eventlibs_glib *wsipr = wsi_to_priv_glib(wsi);
-
-	if (!wsipr->racing[pidx].source)
-		return;
-
-	if (wsipr->racing[pidx].source->tag) {
-		g_source_remove_unix_fd((GSource *)wsipr->racing[pidx].source,
-					wsipr->racing[pidx].source->tag);
-		wsipr->racing[pidx].source->tag = NULL;
-	}
-
-	g_source_destroy((GSource *)wsipr->racing[pidx].source);
-	g_source_unref((GSource *)wsipr->racing[pidx].source);
-	wsipr->racing[pidx].source = NULL;
-
-	compatible_close(wsi->io->parallel_conns[pidx].desc.sockfd);
-}
-
-static int
-elops_promote_parallel_glib(struct lws *wsi, int pidx)
-{
-	struct lws_wsi_eventlibs_glib *wsipr = wsi_to_priv_glib(wsi);
-
-	if (wsipr->w_read.source) {
-		if (wsipr->w_read.source->tag) {
-			g_source_remove_unix_fd((GSource *)wsipr->w_read.source,
-						wsipr->w_read.source->tag);
-			wsipr->w_read.source->tag = NULL;
-		}
-
-		g_source_destroy((GSource *)wsipr->w_read.source);
-		g_source_unref((GSource *)wsipr->w_read.source);
-	}
-
-	wsipr->w_read = wsipr->racing[pidx];
-	memset(&wsipr->racing[pidx], 0, sizeof(wsipr->racing[pidx]));
-	return 0;
-}
-#endif
-
-/*
- * QUIC ALPN migration: the sources are separate allocations that carry the
- * wsi, so the block copies and the sources are pointed at the new wsi.
- */
-static int
-elops_migrate_wsi_glib(struct lws *from, struct lws *to)
-{
-	struct lws_wsi_eventlibs_glib *f = wsi_to_priv_glib(from),
-				      *t = wsi_to_priv_glib(to);
-	size_t n;
-
-	memcpy(t, f, sizeof(*t));
-	memset(f, 0, sizeof(*f));
-
-	if (t->w_read.source)
-		t->w_read.source->wsi = to;
-#if defined(LWS_WITH_CLIENT)
-	for (n = 0; n < LWS_ARRAY_SIZE(t->racing); n++)
-		if (t->racing[n].source)
-			t->racing[n].source->wsi = to;
-#endif
-	(void)n;
 
 	return 0;
 }
@@ -638,22 +493,12 @@ static const struct lws_event_loop_ops event_loop_ops_glib = {
 	/* foreign_thread */		NULL,
 	/* fake_POLLIN */		NULL,
 
-#if defined(LWS_WITH_CLIENT)
-	/* sock_accept_parallel */	elops_sock_accept_parallel_glib,
-	/* io_parallel */		elops_io_parallel_glib,
-	/* close_handle_manually_parallel */ elops_close_handle_manually_parallel_glib,
-	/* promote_parallel */		elops_promote_parallel_glib,
-#else
-	NULL, NULL, NULL, NULL,
-#endif
-
 	/* flags */			LELOF_DESTROY_FINAL,
 
 	/* evlib_size_ctx */	0,
 	/* evlib_size_pt */	sizeof(struct lws_pt_eventlibs_glib),
 	/* evlib_size_vh */	0,
-	/* evlib_size_wsi */	sizeof(struct lws_wsi_eventlibs_glib),
-	/* migrate_wsi */	elops_migrate_wsi_glib,
+	/* evlib_size_wsi */	sizeof(struct lws_io_watcher_glib),
 };
 
 #if defined(LWS_WITH_EVLIB_PLUGINS)
@@ -661,10 +506,10 @@ LWS_VISIBLE
 #endif
 const lws_plugin_evlib_t evlib_glib = {
 	.hdr = {
-		.name = "glib event loop",
-		._class = "lws_evlib_plugin",
-		.lws_build_hash = LWS_BUILD_HASH,
-		.api_magic = LWS_PLUGIN_API_MAGIC
+		"glib event loop",
+		"lws_evlib_plugin",
+		LWS_BUILD_HASH,
+		LWS_PLUGIN_API_MAGIC
 	},
 
 	.ops	= &event_loop_ops_glib

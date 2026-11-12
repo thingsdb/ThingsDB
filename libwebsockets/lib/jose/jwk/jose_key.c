@@ -35,8 +35,7 @@ static const char * const kty_names[] = {
 	"unknown",	/* LWS_GENCRYPTO_KTY_UNKNOWN */
 	"oct",		/* LWS_GENCRYPTO_KTY_OCT */
 	"RSA",		/* LWS_GENCRYPTO_KTY_RSA */
-	"EC",		/* LWS_GENCRYPTO_KTY_EC */
-	"OKP"		/* LWS_GENCRYPTO_KTY_OKP */
+	"EC"		/* LWS_GENCRYPTO_KTY_EC */
 };
 
 /*
@@ -70,181 +69,108 @@ const char * const jwk_tok[] = {
 	"keys[].x5c", "keys[].alg"
 };
 
-static unsigned int tok_map[] = {
-	F_RSA | F_EC | F_OCT | F_OKP | F_META |		 0xff,
+static unsigned short tok_map[] = {
+	F_RSA | F_EC | F_OCT | F_META |		 0xff,
 	F_RSA |				F_B64U | F_M | LWS_GENCRYPTO_RSA_KEYEL_E,
 	F_RSA |				F_B64U | F_M | LWS_GENCRYPTO_RSA_KEYEL_N,
-	F_RSA | F_EC | F_OKP |		F_B64U |       LWS_GENCRYPTO_RSA_KEYEL_D,
+	F_RSA | F_EC |			F_B64U |       LWS_GENCRYPTO_RSA_KEYEL_D,
 	F_RSA |				F_B64U |       LWS_GENCRYPTO_RSA_KEYEL_P,
 	F_RSA |				F_B64U |       LWS_GENCRYPTO_RSA_KEYEL_Q,
 	F_RSA |				F_B64U |       LWS_GENCRYPTO_RSA_KEYEL_DP,
 	F_RSA |				F_B64U |       LWS_GENCRYPTO_RSA_KEYEL_DQ,
 	F_RSA |				F_B64U |       LWS_GENCRYPTO_RSA_KEYEL_QI,
 
-	F_RSA | F_EC | F_OCT | F_OKP | F_META |		 F_M | JWK_META_KTY,
+	F_RSA | F_EC | F_OCT | F_META |		 F_M | JWK_META_KTY,
 		       F_OCT |		F_B64U | F_M | LWS_GENCRYPTO_OCT_KEYEL_K,
 
-		F_EC | F_OKP |				 F_M | LWS_GENCRYPTO_EC_KEYEL_CRV,
-		F_EC | F_OKP |		F_B64U | F_M | LWS_GENCRYPTO_EC_KEYEL_X,
+		F_EC |				 F_M | LWS_GENCRYPTO_EC_KEYEL_CRV,
+		F_EC |			F_B64U | F_M | LWS_GENCRYPTO_EC_KEYEL_X,
 		F_EC |			F_B64U | F_M | LWS_GENCRYPTO_EC_KEYEL_Y,
 
-	F_RSA | F_EC | F_OCT | F_OKP | F_META |		       JWK_META_KID,
-	F_RSA | F_EC | F_OCT | F_OKP | F_META |		       JWK_META_USE,
+	F_RSA | F_EC | F_OCT | F_META |		       JWK_META_KID,
+	F_RSA | F_EC | F_OCT | F_META |		       JWK_META_USE,
 
-	F_RSA | F_EC | F_OCT | F_OKP | F_META |		       JWK_META_KEY_OPS,
-	F_RSA | F_EC | F_OCT | F_OKP | F_META | F_B64 |	       JWK_META_X5C,
-	F_RSA | F_EC | F_OCT | F_OKP | F_META |		       JWK_META_ALG,
+	F_RSA | F_EC | F_OCT | F_META |		       JWK_META_KEY_OPS,
+	F_RSA | F_EC | F_OCT | F_META | F_B64 |	       JWK_META_X5C,
+	F_RSA | F_EC | F_OCT | F_META |		       JWK_META_ALG,
 };
-
-/*
- * Import limits on JWK meta members.  Unlike key data, these are not
- * bounded by LWS_JWE_LIMIT_KEY_ELEMENT_BYTES, only indirectly by the
- * ~1.3KB string collation buffer jps->b64; without their own caps a
- * hostile import can still carry oversized meta strings into fixed-size
- * export buffers at consumers of the imported key.
- */
-
-static const uint16_t jwk_meta_limit[LWS_COUNT_JWK_ELEMENTS] = {
-	[JWK_META_KTY]		= 8,	/* "RSA", "EC", "oct", "OKP" */
-	[JWK_META_KID]		= 256,	/* typically a short key id or URL */
-	[JWK_META_USE]		= 8,	/* "sig" or "enc" */
-	[JWK_META_KEY_OPS]	= 128,	/* all defined ops, space-separated */
-	[JWK_META_X5C]		= 8192,	/* one base64 cert from the chain */
-	[JWK_META_ALG]		= 32,	/* JWA alg name */
-};
-
-/*
- * lexico[].meta bits
- *
- * LEX_META:	a JWK metadata member (kept in jwk->meta[]), not key material
- * LEX_PRIV:	key material that is only exported with LWSJWKF_EXPORT_PRIVATE
- * LEX_THUMB:	a required member for the kty, ie, one of the members the
- *		RFC7638 thumbprint is computed over (RFC7638 3.2, RFC8037 2)
- */
-
-#define LEX_META	1
-#define LEX_PRIV	2
-#define LEX_THUMB	4
 
 struct lexico {
 	const char *name;
 	int idx;
 	char meta;
 } lexico_ec[] =  {
-	{ "alg",	JWK_META_ALG,			LEX_META },
-	{ "crv",	LWS_GENCRYPTO_EC_KEYEL_CRV,	LEX_THUMB },
-	{ "d",		LWS_GENCRYPTO_EC_KEYEL_D,	LEX_PRIV },
-	{ "key_ops",	JWK_META_KEY_OPS,		LEX_META },
-	{ "kid",	JWK_META_KID,			LEX_META },
-	{ "kty",	JWK_META_KTY,			LEX_META | LEX_THUMB },
-	{ "use",	JWK_META_USE,			LEX_META },
-	{ "x",		LWS_GENCRYPTO_EC_KEYEL_X,	LEX_THUMB },
-	{ "x5c",	JWK_META_X5C,			LEX_META },
-	{ "y",		LWS_GENCRYPTO_EC_KEYEL_Y,	LEX_THUMB }
-}, lexico_okp[] =  {
-	{ "alg",	JWK_META_ALG,			LEX_META },
-	{ "crv",	LWS_GENCRYPTO_OKP_KEYEL_CRV,	LEX_THUMB },
-	{ "d",		LWS_GENCRYPTO_OKP_KEYEL_D,	LEX_PRIV },
-	{ "key_ops",	JWK_META_KEY_OPS,		LEX_META },
-	{ "kid",	JWK_META_KID,			LEX_META },
-	{ "kty",	JWK_META_KTY,			LEX_META | LEX_THUMB },
-	{ "use",	JWK_META_USE,			LEX_META },
-	{ "x",		LWS_GENCRYPTO_OKP_KEYEL_X,	LEX_THUMB },
-	{ "x5c",	JWK_META_X5C,			LEX_META }
+	{ "alg",	JWK_META_ALG,			1 },
+	{ "crv",	LWS_GENCRYPTO_EC_KEYEL_CRV,	0 },
+	{ "d",		LWS_GENCRYPTO_EC_KEYEL_D,	2 | 0 },
+	{ "key_ops",	JWK_META_KEY_OPS,		1 },
+	{ "kid",	JWK_META_KID,			1 },
+	{ "kty",	JWK_META_KTY,			1 },
+	{ "use",	JWK_META_USE,			1 },
+	{ "x",		LWS_GENCRYPTO_EC_KEYEL_X,	0 },
+	{ "x5c",	JWK_META_X5C,			1 },
+	{ "y",		LWS_GENCRYPTO_EC_KEYEL_Y,	0 }
 }, lexico_oct[] =  {
-	/* the only key material of a symmetric key is the secret itself */
-	{ "alg",	JWK_META_ALG,			LEX_META },
-	{ "k",		LWS_GENCRYPTO_OCT_KEYEL_K,	LEX_PRIV | LEX_THUMB },
-	{ "key_ops",	JWK_META_KEY_OPS,		LEX_META },
-	{ "kid",	JWK_META_KID,			LEX_META },
-	{ "kty",	JWK_META_KTY,			LEX_META | LEX_THUMB },
-	{ "use",	JWK_META_USE,			LEX_META },
-	{ "x5c",	JWK_META_X5C,			LEX_META }
+	{ "alg",	JWK_META_ALG,			1 },
+	{ "k",		LWS_GENCRYPTO_OCT_KEYEL_K,	0 },
+	{ "key_ops",	JWK_META_KEY_OPS,		1 },
+	{ "kid",	JWK_META_KID,			1 },
+	{ "kty",	JWK_META_KTY,			1 },
+	{ "use",	JWK_META_USE,			1 },
+	{ "x5c",	JWK_META_X5C,			1 }
 }, lexico_rsa[] =  {
-	{ "alg",	JWK_META_ALG,			LEX_META },
-	{ "d",		LWS_GENCRYPTO_RSA_KEYEL_D,	LEX_PRIV },
-	{ "dp",		LWS_GENCRYPTO_RSA_KEYEL_DP,	LEX_PRIV },
-	{ "dq",		LWS_GENCRYPTO_RSA_KEYEL_DQ,	LEX_PRIV },
-	{ "e",		LWS_GENCRYPTO_RSA_KEYEL_E,	LEX_THUMB },
-	{ "key_ops",	JWK_META_KEY_OPS,		LEX_META },
-	{ "kid",	JWK_META_KID,			LEX_META },
-	{ "kty",	JWK_META_KTY,			LEX_META | LEX_THUMB },
-	{ "n",		LWS_GENCRYPTO_RSA_KEYEL_N,	LEX_THUMB },
-	{ "p",		LWS_GENCRYPTO_RSA_KEYEL_P,	LEX_PRIV },
-	{ "q",		LWS_GENCRYPTO_RSA_KEYEL_Q,	LEX_PRIV },
-	{ "qi",		LWS_GENCRYPTO_RSA_KEYEL_QI,	LEX_PRIV },
-	{ "use",	JWK_META_USE,			LEX_META },
-	{ "x5c",	JWK_META_X5C,			LEX_META }
+	{ "alg",	JWK_META_ALG,			1 },
+	{ "d",		LWS_GENCRYPTO_RSA_KEYEL_D,	2 | 0 },
+	{ "dp",		LWS_GENCRYPTO_RSA_KEYEL_DP,	2 | 0 },
+	{ "dq",		LWS_GENCRYPTO_RSA_KEYEL_DQ,	2 | 0 },
+	{ "e",		LWS_GENCRYPTO_RSA_KEYEL_E,	0 },
+	{ "key_ops",	JWK_META_KEY_OPS,		1 },
+	{ "kid",	JWK_META_KID,			1 },
+	{ "kty",	JWK_META_KTY,			1 },
+	{ "n",		LWS_GENCRYPTO_RSA_KEYEL_N,	0 },
+	{ "p",		LWS_GENCRYPTO_RSA_KEYEL_P,	2 | 0 },
+	{ "q",		LWS_GENCRYPTO_RSA_KEYEL_Q,	2 | 0 },
+	{ "qi",		LWS_GENCRYPTO_RSA_KEYEL_QI,	2 | 0 },
+	{ "use",	JWK_META_USE,			1 },
+	{ "x5c",	JWK_META_X5C,			1 }
 };
 
-/*
- * The same decoder accepts both the url and the original base64 styles.
- *
- * \p max_len is the largest decoded element we will accept, or 0 for no limit;
- * it is applied here rather than at the caller because nothing may be left
- * behind in \p e on a failure path.  Our -1 return only aborts the import if
- * the caller propagates it, and a JWK arriving inside a JOSE header is driven
- * by a foreign callback (lws_jws_jose_cb()); so an element that is refused
- * must also be gone, not merely reported.
- */
-
-/*
- * RFC7518 6.3 RSA members are unsigned big-endian integers without leading
- * zero octets, but some producers, eg, GnuTLS raw exports, prepend one when
- * the top bit is set.  Drop them, keeping at least one octet, and wipe the
- * vacated tail, since destroy only wipes up to ->len.
- */
-
-static void
-_lws_jwk_strip_lz(struct lws_gencrypto_keyelem *e)
-{
-	uint32_t n = 0;
-
-	while (n + 1 < e->len && !e->buf[n])
-		n++;
-
-	if (!n)
-		return;
-
-	memmove(e->buf, e->buf + n, e->len - n);
-	e->len -= n;
-	lws_explicit_bzero(e->buf + e->len, n);
-}
-
 static int
-_lws_jwk_set_el_jwk_b64(struct lws_gencrypto_keyelem *e, char *in, int len,
-			size_t max_len)
+_lws_jwk_set_el_jwk_b64(struct lws_gencrypto_keyelem *e, char *in, int len)
 {
-	size_t dec_size = (size_t)lws_base64_size(len);
+	size_t dec_size = (unsigned int)lws_base64_size(len);
 	int n;
-
-	/* a repeated member must not orphan the previous allocation */
-	lws_jwk_destroy_elements(e, 1);
 
 	e->buf = lws_malloc(dec_size, "jwk");
 	if (!e->buf)
 		return -1;
 
-	n = lws_b64_decode_string_len(in, len, (char *)e->buf, (int)dec_size - 1);
-	if (n < 0) {
-		lws_jwk_destroy_elements(e, 1);
+	/* same decoder accepts both url or original styles */
 
+	n = lws_b64_decode_string_len(in, len, (char *)e->buf, (int)dec_size - 1);
+	if (n < 0)
 		return -1;
-	}
 	e->len = (uint32_t)n;
 
-	/*
-	 * We may not know the kty yet, but only an RSA integer can be this
-	 * big: leading zeros it was sent with don't count against the cap
-	 */
-	if (max_len && e->len > max_len)
-		_lws_jwk_strip_lz(e);
+	return 0;
+}
 
-	if (max_len && e->len > max_len) {
-		lws_jwk_destroy_elements(e, 1);
+static int
+_lws_jwk_set_el_jwk_b64u(struct lws_gencrypto_keyelem *e, char *in, int len)
+{
+	size_t dec_size = (size_t)lws_base64_size(len);
+	int n;
 
+	e->buf = lws_malloc(dec_size, "jwk");
+	if (!e->buf)
 		return -1;
-	}
+
+	/* same decoder accepts both url or original styles */
+
+	n = lws_b64_decode_string_len(in, len, (char *)e->buf, (int)dec_size - 1);
+	if (n < 0)
+		return -1;
+	e->len = (uint32_t)n;
 
 	return 0;
 }
@@ -256,21 +182,13 @@ cb_jwk(struct lejp_ctx *ctx, char reason)
 	struct lws_jwk_parse_state *jps = (struct lws_jwk_parse_state *)ctx->user;
 	struct lws_jwk *jwk = jps->jwk;
 	unsigned int idx, n;
-	unsigned int poss;
+	unsigned short poss;
 	char dotstar[64];
 
-	/*
-	 * ->pos collates the LEJP_STRING_CHUNK pieces of one member's value.
-	 * Resetting it only at LEJPCB_VAL_STR_START is not enough on its own,
-	 * since that reason is only emitted for string values... reset it at
-	 * the member name too, so nothing can be appended to the bytes of the
-	 * member before it.
-	 */
-
-	if (reason == LEJPCB_PAIR_NAME || reason == LEJPCB_VAL_STR_START)
+	if (reason == LEJPCB_VAL_STR_START)
 		jps->pos = 0;
 
-	if (reason == LEJPCB_OBJECT_START && ctx->path_match == 0 + 1) {
+	if (reason == LEJPCB_OBJECT_START && ctx->path_match == 0 + 1)
 		/*
 		 * new keys[] member is starting
 		 *
@@ -279,29 +197,26 @@ cb_jwk(struct lejp_ctx *ctx, char reason)
 		 * ACME specifies the keys must be ordered in lexographic
 		 * order - where kty is not first.
 		 */
-		jps->possible = F_RSA | F_EC | F_OCT | F_OKP;
+		jps->possible = F_RSA | F_EC | F_OCT;
 
-		/*
-		 * lws_jwk_destroy() only frees the elements, it leaves ->kty
-		 * and ->private_key behind... without resetting them here, a
-		 * keys[] member that gives no "kty" of its own inherits the
-		 * previous key's type, and eg an RSA "e" would be handed to
-		 * the user callback as if it were an "oct" key's secret
-		 */
-		jwk->kty = LWS_GENCRYPTO_KTY_UNKNOWN;
-		jwk->private_key = 0;
+	if (reason == LEJPCB_OBJECT_END && ctx->path_match == 0 + 1) {
+		/* we completed parsing a key */
+		if (jps->per_key_cb && jps->possible) {
+			if (jps->per_key_cb(jps->jwk, jps->user)) {
+
+				lwsl_notice("%s: user cb halts import\n",
+					    __func__);
+
+				return -2;
+			}
+
+			/* clear it down */
+			lws_jwk_destroy(jps->jwk);
+			jps->possible = 0;
+		}
 	}
 
-	/*
-	 * A key is complete either at the end of a keys[] member, or at the
-	 * end of the document for a detached, single key.  Both need the same
-	 * completeness / consistency checks... the keys[] case used to get
-	 * none of them, since jps->possible was already zeroed by the time
-	 * LEJPCB_COMPLETE arrived for the document as a whole.
-	 */
-
-	if (reason == LEJPCB_COMPLETE ||
-	    (reason == LEJPCB_OBJECT_END && ctx->path_match == 0 + 1)) {
+	if (reason == LEJPCB_COMPLETE) {
 
 		/*
 		 * Now we saw the whole jwk and know the key type, let'jwk insist
@@ -384,32 +299,9 @@ cb_jwk(struct lejp_ctx *ctx, char reason)
 		}
 
 		if ((jwk->kty == LWS_GENCRYPTO_KTY_RSA ||
-		     jwk->kty == LWS_GENCRYPTO_KTY_EC ||
-		     jwk->kty == LWS_GENCRYPTO_KTY_OKP) &&
+		     jwk->kty == LWS_GENCRYPTO_KTY_EC) &&
 		    jwk->e[LWS_GENCRYPTO_RSA_KEYEL_D].buf)
-			jwk->private_key = 1;
-
-		if (jwk->kty == LWS_GENCRYPTO_KTY_RSA)
-			for (n = 0; n < LWS_GENCRYPTO_RSA_KEYEL_COUNT; n++)
-				if (jwk->e[n].buf)
-					_lws_jwk_strip_lz(&jwk->e[n]);
-	}
-
-	if (reason == LEJPCB_OBJECT_END && ctx->path_match == 0 + 1) {
-		/* we completed parsing a key, and it checked out above */
-		if (jps->per_key_cb && jps->possible) {
-			if (jps->per_key_cb(jps->jwk, jps->user)) {
-
-				lwsl_notice("%s: user cb halts import\n",
-					    __func__);
-
-				return -2;
-			}
-
-			/* clear it down */
-			lws_jwk_destroy(jps->jwk);
-			jps->possible = 0;
-		}
+		jwk->private_key = 1;
 	}
 
 	if (!(reason & LEJP_FLAG_CB_IS_VALUE) || !ctx->path_match)
@@ -417,22 +309,6 @@ cb_jwk(struct lejp_ctx *ctx, char reason)
 
 	if (ctx->path_match == 0 + 1)
 		return 0;
-
-	/*
-	 * Every JWK member we understand is a JSON string (RFC7517 4,
-	 * RFC7518 6).  Refuse a number / true / false / null: lejp reports
-	 * those with ->buf holding stale bytes from the last string it did
-	 * parse (it does not even update ->npos for true / false / null), so
-	 * accepting one silently makes key material out of an unrelated
-	 * member's characters.
-	 */
-
-	if (reason != LEJPCB_VAL_STR_CHUNK && reason != LEJPCB_VAL_STR_END) {
-		lwsl_notice("%s: %s must be a JSON string\n", __func__,
-			    jwk_tok[ctx->path_match - 1]);
-
-		return -1;
-	}
 
 	idx = tok_map[ctx->path_match - 1];
 	if ((idx & 0xff) == 0xff)
@@ -445,7 +321,7 @@ cb_jwk(struct lejp_ctx *ctx, char reason)
 	 * not trying to tell us that it'jwk RSA now when we saw a "crv"
 	 * earlier) and then reduce the possibilities to just the one that
 	 * kty told. */
-	case F_RSA | F_EC | F_OCT | F_OKP | F_META | F_M | JWK_META_KTY:
+	case F_RSA | F_EC | F_OCT | F_META | F_M | JWK_META_KTY:
 
 		if (ctx->npos == 3 && !strncmp(ctx->buf, "oct", 3)) {
 			if (!(jps->possible & F_OCT))
@@ -468,13 +344,6 @@ cb_jwk(struct lejp_ctx *ctx, char reason)
 			jps->possible = F_EC;
 			goto cont;
 		}
-		if (ctx->npos == 3 && !strncmp(ctx->buf, "OKP", 3)) {
-			if (!(jps->possible & F_OKP))
-				goto elements_mismatch;
-			jwk->kty = LWS_GENCRYPTO_KTY_OKP;
-			jps->possible = F_OKP;
-			goto cont;
-		}
 		lws_strnncpy(dotstar, ctx->buf, ctx->npos, sizeof(dotstar));
 		lwsl_err("%s: Unknown KTY '%s'\n", __func__, dotstar);
 		return -1;
@@ -492,18 +361,12 @@ cont:
 
 		/* chunking has been collated */
 
-		poss = idx & (F_RSA | F_EC | F_OCT | F_OKP);
+		poss = idx & (F_RSA | F_EC | F_OCT);
 		jps->possible &= poss;
 		if (!jps->possible)
 			goto elements_mismatch;
 
 		if (idx & F_META) {
-			if (jps->pos > (int)jwk_meta_limit[idx & 0x7f]) {
-				lwsl_notice("%s: oversize meta %s\n", __func__,
-					    jwk_tok[ctx->path_match - 1]);
-				goto bail;
-			}
-
 			if (_lws_jwk_set_el_jwk(&jwk->meta[idx & 0x7f],
 						jps->b64, (unsigned int)jps->pos) < 0)
 				goto bail;
@@ -512,17 +375,16 @@ cont:
 		}
 
 		if (idx & F_B64U) {
-			/*
-			 * Key data... do the base64 decode as needed.  The
-			 * element cap is enforced inside the setter, so an
-			 * oversize element is never stored even if our -1 is
-			 * discarded upstream
-			 */
-
-			if (_lws_jwk_set_el_jwk_b64(&jwk->e[idx & 0x7f],
-						    jps->b64, jps->pos,
-						    LWS_JWE_LIMIT_KEY_ELEMENT_BYTES) < 0)
+			/* key data... do the base64 decode as needed */
+			if (_lws_jwk_set_el_jwk_b64u(&jwk->e[idx & 0x7f],
+						     jps->b64, jps->pos) < 0)
 				goto bail;
+
+			if (jwk->e[idx & 0x7f].len >
+					LWS_JWE_LIMIT_KEY_ELEMENT_BYTES) {
+				lwsl_notice("%s: oversize keydata\n", __func__);
+				goto bail;
+			}
 
 			return 0;
 		}
@@ -531,7 +393,7 @@ cont:
 
 			/* cert data... do non-urlcoded base64 decode */
 			if (_lws_jwk_set_el_jwk_b64(&jwk->e[idx & 0x7f],
-						    jps->b64, jps->pos, 0) < 0)
+						    jps->b64, jps->pos) < 0)
 				goto bail;
 			return 0;
 		}
@@ -553,47 +415,21 @@ bail:
 	return -1;
 }
 
-/*
- * The parser and the key collation buffer together are a few KB, too much to
- * put on the stack of small embedded targets, so they live on the heap for
- * the duration of the import
- */
-
-struct lws_jwk_import_parse {
-	struct lejp_ctx			jctx;
-	struct lws_jwk_parse_state	jps;
-};
-
 int
 lws_jwk_import(struct lws_jwk *jwk, lws_jwk_key_import_callback cb, void *user,
 	       const char *in, size_t len)
 {
-	struct lws_jwk_import_parse *ip;
+	struct lejp_ctx jctx;
+	struct lws_jwk_parse_state jps;
 	int m;
 
-	ip = lws_malloc(sizeof(*ip), __func__);
-	if (!ip) {
-		/* callers may destroy the jwk after a failed import */
-		if (jwk)
-			memset(jwk, 0, sizeof(*jwk));
+	lws_jwk_init_jps(&jps, jwk, cb, user);
 
-		return -1;
-	}
+	lejp_construct(&jctx, cb_jwk, &jps, cb ? jwk_outer_tok: jwk_tok,
+		       LWS_ARRAY_SIZE(jwk_tok));
 
-	lws_jwk_init_jps(&ip->jps, jwk, cb, user);
-
-	lejp_construct(&ip->jctx, cb_jwk, &ip->jps,
-		       cb ? jwk_outer_tok: jwk_tok, LWS_ARRAY_SIZE(jwk_tok));
-
-	m = lejp_parse(&ip->jctx, (uint8_t *)in, (int)len);
-	lejp_destruct(&ip->jctx);
-
-	/*
-	 * The collation buffer and lejp's string buffer still hold the text
-	 * of the last members parsed, eg, a private d, qi or k
-	 */
-	lws_explicit_bzero(ip, sizeof(*ip));
-	lws_free(ip);
+	m = lejp_parse(&jctx, (uint8_t *)in, (int)len);
+	lejp_destruct(&jctx);
 
 	if (m < 0) {
 		lwsl_notice("%s: parse got %d\n", __func__, m);
@@ -614,116 +450,12 @@ lws_jwk_import(struct lws_jwk *jwk, lws_jwk_key_import_callback cb, void *user,
 }
 
 
-/*
- * lws_jwk_export() composition helpers.  These fail with a nonzero return if
- * the content does not fit in the caller's buffer before the end pointer,
- * instead of truncating or writing past it.  They never move *pp past end,
- * so a failed export can still NUL-terminate at *pp safely.
- */
-
-static int LWS_FORMAT(3)
-_jwk_ex_printf(char **pp, char *end, const char *format, ...)
+int
+lws_jwk_export(struct lws_jwk *jwk, int flags, char *p, int *len)
 {
-	va_list ap;
-	size_t size = lws_ptr_diff_size_t(end, *pp);
-	int n;
-
-	va_start(ap, format);
-	n = vsnprintf(*pp, size, format, ap);
-	va_end(ap);
-
-	if (n < 0 || (size_t)n >= size)
-		return 1;
-
-	*pp += n;
-
-	return 0;
-}
-
-static int
-_jwk_ex_putc(char **pp, char *end, char c)
-{
-	if (*pp >= end)
-		return 1;
-
-	*(*pp)++ = c;
-
-	return 0;
-}
-
-/*
- * Emit srclen bytes of src inside a JSON "..." context, escaping anything
- * that JSON does not allow there literally.
- *
- * Import does not restrict what a string member may contain (lejp already
- * turned any \" in the source into a literal "), so without escaping here an
- * imported key can inject its own members into its re-export, and into the
- * RFC7638 thumbprint that is computed over that same serialisation.
- */
-
-static int
-_jwk_ex_putn(char **pp, char *end, const void *src, size_t srclen)
-{
-	const char *s = (const char *)src, *hit = memchr(src, 0, srclen);
-	size_t len = hit ? (size_t)(hit - s) : srclen, n;
-	char *p = *pp;
-
-	/*
-	 * String members may have their terminating NUL included in .len
-	 * (genec stores the curve name that way), don't copy it into the
-	 * JSON... the content and a NUL must fit
-	 */
-
-	for (n = 0; n < len; n++) {
-		unsigned char c = (unsigned char)s[n];
-
-		if (c == '\"' || c == '\\') {
-			if (lws_ptr_diff_size_t(end, p) < 3)
-				return 1;
-			*p++ = '\\';
-			*p++ = (char)c;
-			continue;
-		}
-
-		if (c < 0x20) {
-			if (lws_ptr_diff_size_t(end, p) < 7)
-				return 1;
-			p += lws_snprintf(p, 7, "\\u%04X", c);
-			continue;
-		}
-
-		if (lws_ptr_diff_size_t(end, p) < 2)
-			return 1;
-
-		*p++ = (char)c;
-	}
-
-	if (p >= end)
-		return 1;
-
-	*p = '\0';
-	*pp = p;
-
-	return 0;
-}
-
-/*
- * With thumb set, only the members RFC7638 3.2 requires for the kty are
- * emitted, private or not (the thumbprint of a symmetric key is computed over
- * its secret), and flags other than the NOCRLF one make no difference
- */
-
-static int
-_lws_jwk_export(struct lws_jwk *jwk, int flags, int thumb, char *p, int *len)
-{
-	char *start = p, *end;
+	char *start = p, *end = &p[*len - 1];
 	int n, m, limit, first = 1, asym = 0;
 	struct lexico *l;
-
-	if (!p || !len || *len < 3)
-		return -1;
-
-	end = &p[*len - 1];
 
 	/* RFC7638 lexicographic order requires
 	 *  RSA: e -> kty -> n
@@ -732,8 +464,7 @@ _lws_jwk_export(struct lws_jwk *jwk, int flags, int thumb, char *p, int *len)
 	 * ie, meta and key data elements appear interleaved in name alpha order
 	 */
 
-	if (_jwk_ex_printf(&p, end, "{"))
-		goto trunc;
+	p += lws_snprintf(p, lws_ptr_diff_size_t(end, p), "{");
 
 	switch (jwk->kty) {
 	case LWS_GENCRYPTO_KTY_OCT:
@@ -750,45 +481,35 @@ _lws_jwk_export(struct lws_jwk *jwk, int flags, int thumb, char *p, int *len)
 		limit = LWS_ARRAY_SIZE(lexico_ec);
 		asym = 1;
 		break;
-	case LWS_GENCRYPTO_KTY_OKP:
-		l = lexico_okp;
-		limit = LWS_ARRAY_SIZE(lexico_okp);
-		asym = 1;
-		break;
 	default:
-		lwsl_err("%s: unknown kty %d\n", __func__, jwk->kty);
 		return -1;
 	}
 
-	for (n = 0; n < limit; n++, l++) {
+	for (n = 0; n < limit; n++) {
 		const char *q, *q_end;
 		char tok[12];
 		int pos = 0, f = 1;
 
-		if (thumb && !(l->meta & LEX_THUMB))
-			continue;
-
-		if ((l->meta & LEX_META) && (jwk->meta[l->idx].buf ||
-					     l->idx == (int)JWK_META_KTY)) {
+		if ((l->meta & 1) && (jwk->meta[l->idx].buf ||
+				      l->idx == (int)JWK_META_KTY)) {
 
 			switch (l->idx) {
 			case JWK_META_KTY:
-				if (!first && _jwk_ex_putc(&p, end, ','))
-					goto trunc;
+				if (!first)
+					*p++ = ',';
 				first = 0;
-				if (_jwk_ex_printf(&p, end, "\"%s\":\"%s\"",
-						   l->name, kty_names[jwk->kty]))
-					goto trunc;
+				p += lws_snprintf(p, lws_ptr_diff_size_t(end, p), "\"%s\":\"%s\"",
+						  l->name, kty_names[jwk->kty]);
 				break;
 			case JWK_META_KEY_OPS:
-				if (!first && _jwk_ex_putc(&p, end, ','))
-					goto trunc;
+				if (!first)
+					*p++ = ',';
 				first = 0;
 				q = (const char *)jwk->meta[l->idx].buf;
 				q_end = q + jwk->meta[l->idx].len;
 
-				if (_jwk_ex_printf(&p, end, "\"%s\":[", l->name))
-					goto trunc;
+				p += lws_snprintf(p, lws_ptr_diff_size_t(end, p),
+						  "\"%s\":[", l->name);
 				/*
 				 * For the public version, usages that
 				 * require the private part must be
@@ -806,22 +527,16 @@ _lws_jwk_export(struct lws_jwk *jwk, int flags, int thumb, char *p, int *len)
 					if ((flags & LWSJWKF_EXPORT_PRIVATE) ||
 					    !asym || (strcmp(tok, "sign") &&
 						      strcmp(tok, "encrypt"))) {
-						if (!f && _jwk_ex_putc(&p, end, ','))
-							goto trunc;
+						if (!f)
+							*p++ = ',';
 						f = 0;
-						/* tok is imported data: escape it */
-						if (_jwk_ex_putc(&p, end, '\"') ||
-						    _jwk_ex_putn(&p, end, tok,
-								 strlen(tok)))
-							goto trunc;
-						if (_jwk_ex_putc(&p, end, '\"'))
-							goto trunc;
+						p += lws_snprintf(p, lws_ptr_diff_size_t(end, p),
+							"\"%s\"", tok);
 					}
 					q++;
 				}
 
-				if (_jwk_ex_putc(&p, end, ']'))
-					goto trunc;
+				*p++ = ']';
 
 				break;
 
@@ -830,118 +545,54 @@ _lws_jwk_export(struct lws_jwk *jwk, int flags, int thumb, char *p, int *len)
 				if (!(flags & LWSJWKF_EXPORT_PRIVATE) &&
 				    asym && l->idx == (int)JWK_META_USE)
 					break;
-				if (!first && _jwk_ex_putc(&p, end, ','))
-					goto trunc;
+				if (!first)
+					*p++ = ',';
 				first = 0;
-				if (_jwk_ex_printf(&p, end, "\"%s\":\"",
-						   l->name))
-					goto trunc;
-				if (_jwk_ex_putn(&p, end, jwk->meta[l->idx].buf,
-						 jwk->meta[l->idx].len))
-					goto trunc;
-				if (_jwk_ex_printf(&p, end, "\""))
-					goto trunc;
+				p += lws_snprintf(p, lws_ptr_diff_size_t(end, p), "\"%s\":\"",
+						  l->name);
+				lws_strnncpy(p, (const char *)jwk->meta[l->idx].buf,
+					     jwk->meta[l->idx].len, end - p);
+				p += strlen(p);
+				p += lws_snprintf(p, lws_ptr_diff_size_t(end, p), "\"");
 				break;
 			}
 		}
 
-		if (!(l->meta & LEX_META) && jwk->e[l->idx].buf &&
-		    (thumb || (flags & LWSJWKF_EXPORT_PRIVATE) ||
-		     !(l->meta & LEX_PRIV))) {
-			if (!first && _jwk_ex_putc(&p, end, ','))
-				goto trunc;
+		if ((!(l->meta & 1)) && jwk->e[l->idx].buf &&
+		    ((flags & LWSJWKF_EXPORT_PRIVATE) || !(l->meta & 2))) {
+			if (!first)
+				*p++ = ',';
 			first = 0;
 
-			if (_jwk_ex_printf(&p, end, "\"%s\":\"", l->name))
-				goto trunc;
+			p += lws_snprintf(p, lws_ptr_diff_size_t(end, p), "\"%s\":\"", l->name);
 
-			if ((jwk->kty == LWS_GENCRYPTO_KTY_EC ||
-			     jwk->kty == LWS_GENCRYPTO_KTY_OKP) &&
+			if (jwk->kty == LWS_GENCRYPTO_KTY_EC &&
 			    l->idx == (int)LWS_GENCRYPTO_EC_KEYEL_CRV) {
-				if (_jwk_ex_putn(&p, end, jwk->e[l->idx].buf,
-						 jwk->e[l->idx].len))
-					goto trunc;
-			} else {
-				const uint8_t *eb = jwk->e[l->idx].buf;
-				uint32_t el = jwk->e[l->idx].len;
-
-				/*
-				 * an RSA integer goes without leading zero
-				 * octets (RFC7518 6.3), else eg, its RFC7638
-				 * thumbprint is not the one anybody else gets
-				 */
-				if (jwk->kty == LWS_GENCRYPTO_KTY_RSA)
-					while (el > 1 && !*eb) {
-						eb++;
-						el--;
-					}
-
-				/*
-				 * keep the - 4 reserve from wrapping when
-				 * the buffer is nearly exhausted
-				 */
-				if (lws_ptr_diff(end, p) < 5)
-					goto trunc;
-				m = lws_jws_base64_enc((const char *)eb, el, p,
-					lws_ptr_diff_size_t(end, p) - 4);
-				if (m < 0) {
-					lwsl_notice("%s: enc failed\n", __func__);
-					goto trunc;
-				}
-				p += m;
+				lws_strnncpy(p,
+					     (const char *)jwk->e[l->idx].buf,
+					     jwk->e[l->idx].len, end - p);
+				m = (int)strlen(p);
+			} else
+				m = lws_jws_base64_enc(
+					(const char *)jwk->e[l->idx].buf,
+					jwk->e[l->idx].len, p, lws_ptr_diff_size_t(end, p) - 4);
+			if (m < 0) {
+				lwsl_notice("%s: enc failed\n", __func__);
+				return -1;
 			}
-			if (_jwk_ex_printf(&p, end, "\""))
-				goto trunc;
+			p += m;
+			p += lws_snprintf(p, lws_ptr_diff_size_t(end, p), "\"");
 		}
+
+		l++;
 	}
 
-	if (_jwk_ex_printf(&p, end,
-			   (flags & LWSJWKF_EXPORT_NOCRLF) ? "}" : "}\n"))
-		goto trunc;
+	p += lws_snprintf(p, lws_ptr_diff_size_t(end, p),
+			  (flags & LWSJWKF_EXPORT_NOCRLF) ? "}" : "}\n");
 
 	*len -= lws_ptr_diff(p, start);
 
 	return lws_ptr_diff(p, start);
-
-trunc:
-	/* p cannot have passed end, so this stays in bounds */
-
-	*p = '\0';
-	*len = 0;
-	lwsl_notice("%s: buffer too small\n", __func__);
-
-	return -1;
-}
-
-int
-lws_jwk_export(struct lws_jwk *jwk, int flags, char *p, int *len)
-{
-	/*
-	 * The only key material of a symmetric key IS the secret, so there is
-	 * no public part of it to export.  This used to emit k regardless of
-	 * the flags, ie, anything publishing "the public part" of an oct key,
-	 * eg, a JOSE header "jwk" or a JWKS, published the secret itself.
-	 */
-
-	if (jwk->kty == LWS_GENCRYPTO_KTY_OCT &&
-	    !(flags & LWSJWKF_EXPORT_PRIVATE)) {
-		lwsl_err("%s: symmetric key has no public part to export\n",
-			 __func__);
-		if (p && len && *len > 0) {
-			*p = '\0';
-			*len = 0;
-		}
-
-		return -1;
-	}
-
-	return _lws_jwk_export(jwk, flags, 0, p, len);
-}
-
-int
-lws_jwk_export_rfc7638(struct lws_jwk *jwk, char *p, int *len)
-{
-	return _lws_jwk_export(jwk, LWSJWKF_EXPORT_NOCRLF, 1, p, len);
 }
 
 int
@@ -960,14 +611,10 @@ lws_jwk_load(struct lws_jwk *jwk, const char *filename,
 		goto bail;
 
 	n = lws_jwk_import(jwk, cb, user, buf, (unsigned int)n);
-
-	/* the file text includes any private key members */
-	lws_explicit_bzero(buf, buflen);
 	lws_free(buf);
 
 	return n;
 bail:
-	lws_explicit_bzero(buf, buflen);
 	lws_free(buf);
 
 	return -1;
@@ -976,22 +623,19 @@ bail:
 int
 lws_jwk_save(struct lws_jwk *jwk, const char *filename)
 {
-	const size_t bufsize = 4096;
-	char *buf = lws_malloc(bufsize, "jwk-save");
-	int buflen = (int)bufsize, n, m;
+	int buflen = 4096;
+	char *buf = lws_malloc((unsigned int)buflen, "jwk-save");
+	int n, m;
 
 	if (!buf)
 		return -1;
 
-	/* the export reduces buflen by what it used */
 	n = lws_jwk_export(jwk, LWSJWKF_EXPORT_PRIVATE, buf, &buflen);
 	if (n < 0)
 		goto bail;
 
 	m = lws_plat_write_file(filename, buf, (size_t)n);
 
-	/* it is the private export */
-	lws_explicit_bzero(buf, bufsize);
 	lws_free(buf);
 	if (m)
 		return -1;
@@ -999,7 +643,6 @@ lws_jwk_save(struct lws_jwk *jwk, const char *filename)
 	return 0;
 
 bail:
-	lws_explicit_bzero(buf, bufsize);
 	lws_free(buf);
 
 	return -1;

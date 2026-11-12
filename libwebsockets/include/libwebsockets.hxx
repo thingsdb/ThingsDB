@@ -39,22 +39,22 @@ class lss;
  * Exception subclass for lss-specific issues
  */
 
-class LWS_VISIBLE lssException : public std::exception
+class lssException : public std::exception
 {
 private:
 	std::string details;
 public:
-	explicit lssException(const std::string &_details) : details(_details) { }
-	const char *what() const noexcept override { return details.c_str(); }
+	lssException(std::string _details) { details = _details; }
+	~lssException() throw() { }
+	virtual const char *what() const throw() { return details.c_str(); }
 };
 
-struct lssbuf {
+typedef struct lssbuf {
 	uint8_t				*buf;
 	size_t				len;
-};
-using lssbuf_t = lssbuf;
+} lssbuf_t;
 
-class LWS_VISIBLE lssAc
+class lssAc
 {
 private:
 	struct lwsac			*ac;
@@ -73,7 +73,7 @@ public:
  * subclasses' members
  */
 
-class LWS_VISIBLE lssPriv
+class lssPriv
 {
 public:
 	struct lws_ss_handle		*m_ss;
@@ -91,32 +91,28 @@ public:
  * LWSSSCS_QOS_NACK_REMOTE:     "
  */
 
-using lsscomp_t = int (*)(lss *lss, lws_ss_constate_t state, void *arg);
+typedef int (*lsscomp_t)(lss *lss, lws_ss_constate_t state, void *arg);
 
 /*
  * Base class for Secure Stream objects
  */
 
-class LWS_VISIBLE lss
+class lss
 {
 public:
 	lss(lws_ctx_t _ctx, std::string _uri, lsscomp_t _comp, bool _psh,
 	    lws_sscb_rx rx, lws_sscb_tx tx, lws_sscb_state state);
 	virtual ~lss();
-	/* owns a C ss handle: not copyable, subclasses inherit that */
-	lss(const lss &) = delete;
-	lss &operator=(const lss &) = delete;
 	int call_completion(lws_ss_constate_t state);
 
 	lsscomp_t			comp;
 	struct lws_ss_handle		*m_ss;
 	uint64_t			rxlen;
 	lws_usec_t			us_start;
-	lws_parse_uri_t			*puri;
 
 private:
 	lws_ctx_t			ctx;
-	std::string			uri;
+	char				*uri;
 	lws_ss_policy_t			pol;
 	bool				comp_done;
 };
@@ -125,10 +121,10 @@ private:
  * Subclass of lss for atomic messages on heap
  */
 
-class LWS_VISIBLE lssMsg : public lss
+class lssMsg : public lss
 {
 public:
-	lssMsg(lws_ctx_t _ctx, lsscomp_t _comp, const std::string &_uri);
+	lssMsg(lws_ctx_t _ctx, lsscomp_t _comp, std::string _uri);
 	virtual ~lssMsg();
 };
 
@@ -136,7 +132,7 @@ public:
  * Subclass of lss for file transactions
  */
 
-class LWS_VISIBLE lssFile : public lss
+class lssFile : public lss
 {
 public:
 	lssFile(lws_ctx_t _ctx, std::string _uri, std::string _path,

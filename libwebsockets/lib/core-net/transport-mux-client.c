@@ -131,11 +131,11 @@ lws_transport_mux_ch_req_write(lws_transport_priv_t priv)
 	lws_transport_mux_t *tm;
 
 	assert_is_tmch(tmc);
-	if (!lws_dll2_owner(&tmc->list)) {
+	if (!tmc->list.owner) {
 		lwsl_err("%s: unlisted tmc %p\n", __func__, tmc);
 		return;
 	}
-	tm = lws_dll2_owner_container(&tmc->list, lws_transport_mux_t, owner);
+	tm = lws_container_of(tmc->list.owner, lws_transport_mux_t, owner);
 	assert_is_tm(tm);
 
 	lws_transport_mux_client_request_tx(tm);
@@ -157,19 +157,13 @@ static int
 lws_transport_mux_write(lws_transport_priv_t priv, uint8_t *buf, size_t len)
 {
 	lws_transport_mux_ch_t *tmc = (lws_transport_mux_ch_t *)priv;
-	lws_transport_mux_t *tm = lws_dll2_owner_container(&tmc->list,
+	lws_transport_mux_t *tm = lws_container_of(tmc->list.owner,
 						   lws_transport_mux_t, owner);
 
 	assert_is_tmch(tmc);
 	lwsl_user("%s: %d\n", __func__, (int)len);
 
 	assert(len < 0xffff);
-
-	/*
-	 * The caller gives us LWS_PRE usable behind buf (lws_sspc_txp_tx()
-	 * builds every frame behind LWS_PRE): our header goes there, and what
-	 * we pass on has LWS_PRE - 4 left behind it
-	 */
 
 	buf[-4] = LWSSSS_LLM_MUX;
 	buf[-3] = tmc->ch_idx;
@@ -184,56 +178,12 @@ lws_transport_mux_write(lws_transport_priv_t priv, uint8_t *buf, size_t len)
 static void
 lws_transport_mux_close(lws_transport_priv_t priv)
 {
-	lws_transport_mux_ch_t *tmc = (lws_transport_mux_ch_t *)priv;
-	lws_transport_mux_t *tm;
 
-	if (!tmc)
-		return;
-
-	assert_is_tmch(tmc);
-
-	/*
-	 * The sspc handle that is our channel's priv is being destroyed.  This
-	 * used to do nothing at all, leaving tmc->priv dangling at the freed
-	 * handle (any later payload or write opportunity on the channel then
-	 * used it) and leaving the channel, and the peer's conn behind it,
-	 * around for the life of the transport link.
-	 */
-
-	tmc->priv = NULL;
-
-	if (!lws_dll2_owner(&tmc->list))
-		/* not on a mux (any more)... nothing we can announce */
-		return;
-
-	tm = lws_dll2_owner_container(&tmc->list, lws_transport_mux_t, owner);
-	assert_is_tm(tm);
-
-	if (tmc->state != LWSTMC_OPERATIONAL) {
-		/*
-		 * It never reached open, so there is nothing for the peer to
-		 * close... just drop our side and release the channel index
-		 */
-		lws_transport_mux_destroy_channel(tm, &tmc);
-
-		return;
-	}
-
-	/*
-	 * Ask the peer to close it; his CHANNEL_CLOSE_ACK destroys the channel
-	 */
-
-	tmc->state = LWSTMC_PENDING_CLOSE_CHANNEL;
-	if (lws_dll2_is_detached(&tmc->list_pending_tx))
-		lws_dll2_add_tail(&tmc->list_pending_tx, &tm->pending_tx);
-
-	lws_transport_mux_client_request_tx(tm);
 }
 static void
 lws_transport_mux_stream_up(lws_transport_priv_t priv)
 {
-	/* nothing to do when a mux channel comes up: the tx path is
-	 * driven from the mux-level request_tx */
+
 }
 
 /* incoming parsed channel cbs */
@@ -241,7 +191,6 @@ lws_transport_mux_stream_up(lws_transport_priv_t priv)
 static int
 ltm_ch_payload(lws_transport_mux_ch_t *tmc, const uint8_t *buf, size_t len)
 {
-	struct lws_sspc_handle *h;
 	lws_ss_state_return_t r;
 
 //	lwsl_notice("%s: len %d\n", __func__, (int)len);
@@ -250,33 +199,12 @@ ltm_ch_payload(lws_transport_mux_ch_t *tmc, const uint8_t *buf, size_t len)
 
 //	lwsl_hexdump_notice(buf, len);
 
-	if (!tmc->priv) {
-		/* no sspc handle bound to this channel yet... drop it */
-		lwsl_warn("%s: payload on unbound ch %u\n", __func__,
-			  tmc->ch_idx);
-
-		return 0;
-	}
-
 	r = lws_txp_inside_sspc.event_read(tmc->priv, buf, len);
-	switch (r) {
-	case LWSSSSRET_OK:
-		break;
-
-	case LWSSSSRET_DESTROY_ME:
+	if (r) {
 		/*
-		 * The user code wants the stream destroyed... that closes its
-		 * channel as well
-		 */
-		h = (struct lws_sspc_handle *)tmc->priv;
-		lws_sspc_destroy(&h);
-		break;
-
-	default:
-		/*
-		 * The sspc parser hung up on what came on this channel... the
-		 * mux closes the channel, and the handle hears that its link
-		 * closed and retries
+		 * Basically the sspc parser rejected it as malformed... we
+		 * lost something somewhere
+		 *
 		 */
 		lwsl_notice("%s: r %d\n", __func__, r);
 
@@ -295,23 +223,6 @@ ltm_ch_opens(lws_transport_mux_ch_t *tmc, int determination)
 	struct lws_sspc_handle *h = (struct lws_sspc_handle *)tmc->priv;
 
 //	lws_transport_path_client_dump(&tm->info.txp_cpath, __func__);
-
-	if (!h)
-		/*
-		 * It's not a channel we asked for, so there is no sspc handle
-		 * to bind it to... we can't accept it
-		 */
-		return -1;
-
-	if (determination)
-		/*
-		 * The peer refused the channel we asked for, the mux destroys
-		 * it after this.  The handle goes back to retrying (or is
-		 * destroyed, if the user code gives up) without it... it must
-		 * not be told again that the channel closed, nor be left
-		 * pointed to by the channel
-		 */
-		tmc->priv = NULL;
 
 	lwsl_sspc_err(h, "%d", determination);
 
@@ -338,11 +249,6 @@ static int
 ltm_txp_can_write(lws_transport_mux_ch_t *tmc)
 {
 	assert_is_tmch(tmc);
-
-	if (!tmc->priv)
-		/* no sspc handle bound to this channel... nothing to write */
-		return 0;
-
 	return lws_txp_inside_sspc.event_can_write(
 			(struct lws_sspc_handle *)tmc->priv, 2048);
 }
@@ -394,29 +300,16 @@ lws_ss_state_return_t
 lws_transport_mux_event_closed(lws_transport_priv_t priv)
 {
 	lws_transport_mux_ch_t *tmc = (lws_transport_mux_ch_t *)priv;
-
-	/*
-	 * We are called from lws_transport_mux_destroy_channel() after it
-	 * already unlinked tmc->list, so the mux cannot be recovered from the
-	 * list owner here (it would come back NULL and assert_is_tm() would
-	 * dereference it in _DEBUG builds).  Nothing here needs the mux.
-	 */
-
+#if defined(_DEBUG)
+	lws_transport_mux_t *tm = lws_container_of(tmc->list.owner,
+				   lws_transport_mux_t, owner);
+#endif
 	assert_is_tmch(tmc);
+	assert_is_tm(tm);
 
 	if (tmc->priv) {
-		struct lws_sspc_handle *h = (struct lws_sspc_handle *)tmc->priv;
-
 		lwsl_notice("%s: calling sspc event closed\n", __func__);
-		tmc->priv = NULL;
-		if (lws_txp_inside_sspc.event_closed(h) == LWSSSSRET_DESTROY_ME)
-			/*
-			 * The user code gave up on the stream when it heard
-			 * its link closed... it's up to us to destroy it, and
-			 * nothing else is holding it here, the channel is
-			 * going
-			 */
-			lws_sspc_destroy(&h);
+		lws_txp_inside_sspc.event_closed(tmc->priv);
 	}
 
 	return 0;

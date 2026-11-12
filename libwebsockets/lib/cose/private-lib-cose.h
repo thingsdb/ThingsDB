@@ -22,34 +22,9 @@
  * IN THE SOFTWARE.
  */
 
-/*
- * Uncomment this by hand if you are debugging the COSE parse.
- *
- * It must not be enabled in normal builds: _LWS_LINIT enables NOTICE and WARN,
- * so it hexdumps every byte that is hashed (on the signing side, that is the
- * application's plaintext) and emits a line per parser callback, ie, it turns
- * any COSE operation into an unbounded, attacker-paced log flood.
- */
-// #define VERBOSE
+#define VERBOSE
 
 #define MAX_BLOBBED_PARAMS		96 /* largest bstr-encoded params */
-
-/*
- * For everything except cose_sign1 we have to stash the whole payload in heap
- * before we can hash it (the algs only become known after the payload).  The
- * length comes from the untrusted bstr header, so cap what we are willing to
- * allocate on the strength of it.
- */
-#define MAX_STASHED_PAYLOAD		(1024 * 1024)
-
-/*
- * Every cose_signature / recipient in the object costs us a complete hash of
- * the stashed payload and a public key verify, and the cheapest one an
- * attacker can write is a handful of bytes... so the object's cost is
- * quadratic in its size unless we bound how many of them we are willing to
- * process.  RFC9052 has no use for more than a few.
- */
-#define MAX_COSE_SIGNATURES		16
 
 enum {
 	ST_UNKNOWN,
@@ -80,9 +55,6 @@ typedef struct lws_cose_sig_alg {
 		struct lws_genrsa_ctx	rsactx;
 		struct lws_genhmac_ctx	hmacctx;
 	} u;
-	uint8_t				*eddsa_in;
-	size_t				eddsa_in_len;
-	size_t				eddsa_in_alloc;
 	cose_param_t			cose_alg;
 	int				keybits;
 	int				rhash_len;
@@ -92,15 +64,10 @@ typedef struct lws_cose_sig_alg {
 } lws_cose_sig_alg_t;
 
 typedef struct lws_cose_validate_param_stack {
-	uint8_t				ph[2][MAX_BLOBBED_PARAMS];
-	int				ph_pos[2];
-	/**< raw captures of the body ([0]) and signer / recipient ([1])
-	 * protected buckets, which go into the Sig_structure as serialized */
+	uint8_t				ph[4][MAX_BLOBBED_PARAMS];
+	int				ph_pos[4];
 	struct lws_gencrypto_keyelem	kid;
 	cose_param_t			alg;
-	char				alg_prot;
-	/**< set if .alg came from a protected bucket, so the unprotected
-	 * one (which is not covered by the signature) cannot replace it */
 } lws_cose_validate_param_stack_t;
 
 struct lws_cose_validate_context {
@@ -129,7 +96,6 @@ struct lws_cose_validate_context {
 
 	int				tli; /* toplevel item */
 	int				sp;
-	int				sigs; /* signatures / recipients seen */
 
 	uint8_t				sub;
 };

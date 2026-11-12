@@ -58,11 +58,5 @@ struct lws_vh_eventlibs_libev {
 struct lws_wsi_eventlibs_libev {
 	struct lws_io_watcher_libev w_read;
 	struct lws_io_watcher_libev w_write;
-#if defined(LWS_WITH_CLIENT)
-	struct {
-		struct lws_io_watcher_libev w_read;
-		struct lws_io_watcher_libev w_write;
-	} racing[LWS_MAX_PARALLEL_CONNS];
-#endif
 };
 

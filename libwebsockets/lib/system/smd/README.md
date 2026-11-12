@@ -96,22 +96,6 @@ possibility of messages arriving timestamped with the period they were active.
 A grace period (default 2s) is used to ensure departing peers correctly account
 for message refcounts before being destroyed.
 
-## Queue limits
-
-Messages wait in a queue until every participant that wants them has had them
-delivered.  Two things stop a participant that's slow, or not being serviced,
-from holding on to everything:
-
- - the queue holds at most `smd_queue_depth` messages (in the context creation
-   info), sending another fails until some are delivered;
-
- - a message that has waited longer than `smd_ttl_us` is dropped, delivered or
-   not.
-
-Nothing can be delivered until the context first services, so messages sent
-before that, eg, the ones lws sends while the context is being created, only
-start to age from then.  A slow context creation doesn't lose them.
-
 ## Message creation
 
 Messages may contain arbitrary text or binary data depending on the class.  JSON
@@ -161,7 +145,6 @@ Class|Schema
 LWSSMDCL_INTERACTION|lws_button events
 LWSSMDCL_NETWORK|captive portal detection requests and results
 LWSSMDCL_SYSTEM_STATE|lws_system state progression
-LWSSMDCL_CERTS|requests to certificate management, eg, the ACME client
 
 ### User interaction Button events
 
@@ -196,25 +179,6 @@ up|The button has come up, useful for duration-based response
 click|The button activity resulted in a classification as a single-click
 longclick|The button activity resulted in a classification as a long-click
 doubleclick|The button activity resulted in a classification as a double-click
-
-### Force certificate reissue
-
-Class: `LWSSMDCL_CERTS`
-
-Asks the ACME client to reissue one certificate it manages, the one with that
-common name in that domain, on its next evaluation, however much validity is
-left, and to start that evaluation now.  The dnssec monitor issues it from the
-"Force reissue" button on each row of its TLS certificates table.
-
-Schema:
-
-```
-	{
-	  "acme":        "force-reissue",
-	  "domain":      "<domain>",
-	  "common-name": "<certificate common name>"
-	}
-```
 
 ### Routing Table Change
 

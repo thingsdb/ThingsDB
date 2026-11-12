@@ -105,18 +105,11 @@ init_sigv4(struct lws *wsi, struct lws_ss_handle *h, struct sigv4 *s)
 					return -1;
 			}
 		}
-		/*
-		 * aws_region / aws_service are optional in the policy, they
-		 * are NULL if the policy did not give them
-		 */
-
-		if (h->policy->aws_region && h->metadata[m].name &&
-		    !strcmp(h->metadata[m].name, h->policy->aws_region) &&
+		if (!strcmp(h->metadata[m].name, h->policy->aws_region) &&
 		    h->metadata[m].value__may_own_heap)
 			s->region = h->metadata[m].value__may_own_heap;
 
-		if (h->policy->aws_service && h->metadata[m].name &&
-		    !strcmp(h->metadata[m].name, h->policy->aws_service) &&
+		if (!strcmp(h->metadata[m].name, h->policy->aws_service) &&
 		    h->metadata[m].value__may_own_heap)
 			s->service = h->metadata[m].value__may_own_heap;
 
@@ -141,28 +134,17 @@ init_sigv4(struct lws *wsi, struct lws_ss_handle *h, struct sigv4 *s)
 	return 0;
 }
 
-/*
- * Returns 0 if the hex + NUL fitted in olen, else nonzero having written
- * nothing... the caller's output budget can have been exhausted by
- * policy- or metadata-derived strings before we get here.
- */
-
-static int
-bin2hex(uint8_t *in, size_t len, char *out, size_t olen)
+static void
+bin2hex(uint8_t *in, size_t len, char *out)
 {
 	static const char *hex = "0123456789abcdef";
 	size_t n;
-
-	if (olen < (len * 2) + 1)
-		return 1;
 
 	for (n = 0; n < len; n++) {
 		*out++ = hex[(in[n] >> 4) & 0xf];
 		*out++ = hex[in[n] & 15];
 	}
 	*out = '\0';
-
-	return 0;
 }
 
 static int
@@ -245,7 +227,7 @@ build_sign_string(struct lws *wsi, char *buf, size_t bufsz,
 		if (hash_update_str(&hash_ctx, s->headers[i].name) ||
 		    hash_update_str(&hash_ctx, s->headers[i].value) ||
 		    hash_update_str(&hash_ctx, "\n"))
-			return -1;
+		return -1;
 
 	}
 	if (hash_update_str(&hash_ctx, "\n"))
@@ -267,8 +249,7 @@ build_sign_string(struct lws *wsi, char *buf, size_t bufsz,
 		return -1;
 	}
 
-	if (bin2hex(hash_bin, sizeof(hash_bin), hash, sizeof(hash)))
-		return -1;
+	bin2hex(hash_bin, sizeof(hash_bin), hash);
 	/*
 	 * build sign string like the following
 	 *
@@ -361,6 +342,9 @@ build_auth_string(struct lws *wsi, char * buf, size_t bufsz,
 		struct lws_ss_handle *h, struct sigv4 *s,
 		uint8_t *signature_bin)
 {
+#if defined(_DEBUG)
+	char *start = buf;
+#endif
 	char *end = &buf[bufsz - 1];
 	char *c;
 	lws_system_blob_t *ab;
@@ -378,9 +362,6 @@ build_auth_string(struct lws *wsi, char * buf, size_t bufsz,
 
 	buf += lws_snprintf(buf, lws_ptr_diff_size_t(end, buf), "%s",
 							"Credential=");
-	if (keyidlen > lws_ptr_diff_size_t(end, buf))
-		keyidlen = lws_ptr_diff_size_t(end, buf);
-
 	n = lws_system_blob_get(ab,(uint8_t *)buf, &keyidlen, 0);
 	if (n < 0)
 		return -1;
@@ -401,14 +382,13 @@ build_auth_string(struct lws *wsi, char * buf, size_t bufsz,
 
 	buf += lws_snprintf(buf, lws_ptr_diff_size_t(end, buf),
 			    "%s", " Signature=");
-	if (bin2hex(signature_bin, 32, buf,
-		    lws_ptr_diff_size_t(end, buf) + 1)) {
-		lwsl_err("%s: no room for signature\n", __func__);
+	bin2hex(signature_bin, 32, buf);
 
-		return -1;
-	}
+#if defined(_DEBUG)
+	assert(buf + 65 <= start + bufsz);
 
-	/* the result carries the key id and signature: it is never logged */
+	lwsl_debug("%s %s\n", __func__, start);
+#endif
 
 	return 0;
 
@@ -425,26 +405,9 @@ lws_ss_apply_sigv4(struct lws *wsi, struct lws_ss_handle *h,
 
 	bp = buf;
 
-	if (!h->policy->auth ||
-	    h->policy->auth->blob_index >= LWS_ARRAY_SIZE(blob_idx)) {
-		lwsl_err("%s: bad auth blob index\n", __func__);
-		return -1;
-	}
-
 	init_sigv4(wsi, h, &s);
 	if (!s.timestamp || !s.payload_hash) {
 		lwsl_err("%s missing headers\n", __func__);
-		return -1;
-	}
-
-	/*
-	 * region and service come from metadata via the policy... both are
-	 * used with %s and strlen() below, we can't sign without them
-	 */
-
-	if (!s.region || !s.service) {
-		lwsl_err("%s: no aws_region / aws_service metadata\n",
-			 __func__);
 		return -1;
 	}
 
@@ -478,7 +441,7 @@ lws_ss_sigv4_set_aws_key(struct lws_context* context, uint8_t idx,
 	lws_system_blob_t *ab;
 	int i;
 
-	if (idx >= LWS_ARRAY_SIZE(blob_idx))
+	if (idx > LWS_ARRAY_SIZE(blob_idx))
 		return -1;
 
 	for (i = 0; i < LWS_SS_SIGV4_BLOB_SLOTS; i++) {
@@ -505,92 +468,62 @@ lws_ss_sigv4_set_aws_key(struct lws_context* context, uint8_t idx,
 
 /* ie, if we have filesystem ops */
 
-/*
- * A credentials file is a few lines per profile: this is far more than any
- * real one needs, it just bounds what we read
- */
-#define LWS_AWS_CREDS_FILE_MAX 16384
-
-static void
-lws_aws_free_secret(char **p)
-{
-	if (!*p)
-		return;
-
-	lws_explicit_bzero(*p, strlen(*p));
-	free(*p);
-	*p = NULL;
-}
-
 int
 lws_aws_filesystem_credentials_helper(const char *path, const char *kid,
 				      const char *ak, char **aws_keyid,
 				      char **aws_key)
 {
-	const char *home = "", *p, *end, *eol, *str;
-	char sth[512], *buf;
-	int i, n, poff = 0;
-	size_t slen;
+	char *str = NULL, *val = NULL, *line = NULL, sth[128];
+	size_t len = sizeof(sth);
+	const char *home = "";
+	int i, poff = 0;
+	ssize_t rd;
+	FILE *fp;
 
 	*aws_keyid = *aws_key = NULL;
 
 	if (path[0] == '~') {
 		home = getenv("HOME");
-		if (!home)
-			home = "";
-		poff = 1;
-	}
+		if (home && strlen(home) > sizeof(sth) - 1) /* coverity */
+			return -1;
+		else {
+			if (!home)
+				home = "";
 
-	/* a truncated path would read some other file */
-	if (strlen(home) + strlen(path + poff) >= sizeof(sth)) {
-		lwsl_err("%s: path too long\n", __func__);
-		return -1;
+			poff = 1;
+		}
 	}
 	lws_snprintf(sth, sizeof(sth), "%s%s", home, path + poff);
 
-	/* the file holds the secret: it is scrubbed before it is freed */
-	buf = lws_malloc(LWS_AWS_CREDS_FILE_MAX, __func__);
-	if (!buf)
-		return -1;
-
-	n = lws_plat_read_file(sth, buf, LWS_AWS_CREDS_FILE_MAX);
-	if (n < 0 || n == LWS_AWS_CREDS_FILE_MAX) {
-		lwsl_err("%s: can't %s '%s'\n", __func__,
-			 n < 0 ? "read" : "use oversize", sth);
-		lws_explicit_bzero(buf, LWS_AWS_CREDS_FILE_MAX);
-		lws_free(buf);
+	fp = fopen(sth, "r");
+	if (!fp) {
+		lwsl_err("%s can't open '%s'\n", __func__, sth);
 
 		return -1;
 	}
 
-	p = buf;
-	end = buf + n;
-
-	while (p < end) {
-		eol = memchr(p, '\n', lws_ptr_diff_size_t(end, p));
-		if (!eol)
-			eol = end;
-
+	while ((rd = getline(&line, &len, fp)) != -1) {
 		for (i = 0; i < 2; i++) {
-			const char *name = i ? kid : ak;
-			char **dest = i ? aws_keyid : aws_key;
-			size_t nl = strlen(name);
+			size_t slen;
 
-			/* only read the first key for each */
-			if (*dest || lws_ptr_diff_size_t(eol, p) < nl ||
-			    strncmp(p, name, nl))
+			if (strncmp(line, i ? kid : ak, strlen(i ? kid : ak)))
 				continue;
 
-			str = memchr(p, '=', lws_ptr_diff_size_t(eol, p));
+			str = strchr(line, '=');
 			if (!str)
 				continue;
 
 			str++;
-			slen = lws_ptr_diff_size_t(eol, str);
+
+			/* only read the first key for each */
+			if (*(i ? aws_keyid : aws_key))
+				continue;
 
 			/*
 			 * Trim whitespace from the start and end
 			 */
+
+			slen = (size_t)(rd - lws_ptr_diff(str, line));
 
 			while (slen && *str == ' ') {
 				str++;
@@ -598,35 +531,43 @@ lws_aws_filesystem_credentials_helper(const char *path, const char *kid,
 			}
 
 			while (slen && (str[slen - 1] == '\r' ||
+					str[slen - 1] == '\n' ||
 					str[slen - 1] == ' '))
 				slen--;
 
-			*dest = malloc(slen + 1);
-			if (!*dest)
+			val = malloc(slen + 1);
+			if (!val)
 				goto bail;
 
-			memcpy(*dest, str, slen);
-			(*dest)[slen] = '\0';
-		}
+			strncpy(val, str, slen);
+			val[slen] = '\0';
 
-		p = eol + 1;
+			*(i ? aws_keyid : aws_key) = val;
+
+		}
 	}
 
 bail:
-	lws_explicit_bzero(buf, LWS_AWS_CREDS_FILE_MAX);
-	lws_free(buf);
+	fclose(fp);
+
+	if (line)
+		free(line);
 
 	if (!*aws_keyid || !*aws_key) {
-		lws_aws_free_secret(aws_keyid);
-		lws_aws_free_secret(aws_key);
-		lwsl_err("%s: can't find aws credentials in %s\n", __func__,
-			 path);
-
+		if (*aws_keyid) {
+			free(*aws_keyid);
+			*aws_keyid = NULL;
+		}
+		if (*aws_key) {
+			free(*aws_key);
+			*aws_key = NULL;
+		}
+		lwsl_err("%s can't find aws credentials! \
+				please check %s\n", __func__, path);
 		return -1;
 	}
 
-	/* never log the secret key, at any level */
-	lwsl_info("%s: loaded key id %s\n", __func__, *aws_keyid);
+	lwsl_info("%s: '%s' '%s'\n", __func__, *aws_keyid, *aws_key);
 
 	return 0;
 }

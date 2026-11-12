@@ -51,6 +51,5 @@ lws_display_spd1656_spi_power(lws_display_state_t *lds, int state);
 #define lws_display_spd1656_ops \
 	.init = lws_display_spd1656_spi_init, \
 	.blit = lws_display_spd1656_spi_blit, \
-	.power = lws_display_spd1656_spi_power, \
-	.bistable = 1
+	.power = lws_display_spd1656_spi_power
 #endif

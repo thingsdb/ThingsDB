@@ -52,10 +52,6 @@
 
 /* We're just tokenizing a chunk, don't treat running out of input as final */
 #define LWS_TOKENIZE_F_EXPECT_MORE	(1 << 12)
-/* Do not treat + as a terminal character, so "a+b" is one token */
-#define LWS_TOKENIZE_F_PLUS_NONTERM	(1 << 13)
-/* Emit chunks for tokens that exceed the collection max limit */
-#define LWS_TOKENIZE_F_CHUNK		(1 << 14)
 
 typedef enum {
 
@@ -81,8 +77,6 @@ typedef enum {
 	LWS_TOKZE_TOKEN_NAME_COLON,	/* token [whitespace] : (only with
 					   LWS_TOKENIZE_F_AGG_COLON flag) */
 	LWS_TOKZE_QUOTED_STRING,	/* "*", where * may have any char */
-	LWS_TOKZE_TOKEN_CHUNK,		/* a token chunk appeared */
-	LWS_TOKZE_QUOTED_STRING_CHUNK,  /* a quoted string chunk appeared */
 
 } lws_tokenize_elem;
 
@@ -105,35 +99,21 @@ typedef enum {
 } lws_tokenize_state;
 
 typedef struct lws_tokenize {
-	char collect[256]; /**< private: the token assembly buffer, and so the
-			        token length limit... a token longer than
-			        this - 1 gets LWS_TOKZE_TOO_LONG */
+	char collect[256]; /* token length limit */
 	const char *start; /**< set to the start of the string to tokenize */
-	const char *token; /**< the start of an identified token or delimiter;
-			        only valid when the last lws_tokenize() return
-			        was > 0 */
+	const char *token; /**< the start of an identified token or delimiter */
 	size_t len;	/**< set to the length of the string to tokenize */
-	size_t token_len;	/**< the length of the identified token or
-				     delimiter; only valid when the last
-				     lws_tokenize() return was > 0.  It is also
-				     used as internal scratch state between
-				     calls and can hold a sentinel value on a
-				     <= 0 return; never read it then. */
+	size_t token_len;	/**< the length of the identied token or delimiter */
 
 	lws_tokenize_state state;
 
 	int line;
 	int effline;
 
-	uint16_t flags;	/**< optional LWS_TOKENIZE_F_ flags, or 0.  This is
-			     16-bit, and lws_tokenize_init() takes an int into
-			     it, so the LWS_TOKENIZE_F_ space ends at bit 15 */
+	uint16_t flags;	/**< optional LWS_TOKENIZE_F_ flags, or 0 */
 	uint8_t delim;
 
 	int8_t e; /**< convenient for storing lws_tokenize return */
-	uint8_t utf8; /**< private: UTF-8 decode state carried between
-			   LWS_TOKENIZE_F_EXPECT_MORE calls, for a multibyte
-			   character split across two pieces of input */
 	uint8_t reset_token:1;
 	uint8_t crlf:1;
 	uint8_t dry:1;
@@ -301,7 +281,7 @@ lws_strexp_expand(lws_strexp_t *exp, const char *in, size_t len,
 /**
  * lws_strcmp_wildcard() - strcmp but the first arg can have wildcards
  *
- * \p wildcard: a string that may contain any number of *, and may lack a NUL
+ * \p wildcard: a string that may contain zero to three *, and may lack a NUL
  * \p wlen: length of the wildcard string
  * \p check: string to test to see if it matches wildcard
  * \p clen: length of check string
@@ -309,12 +289,6 @@ lws_strexp_expand(lws_strexp_t *exp, const char *in, size_t len,
  * Like strcmp, but supports patterns like "a*", "a*b", "a*b*" etc
  * where a and b are arbitrary substrings.  Both the wc and check strings need
  * not be NUL terminated, but are specified by lengths.
- *
- * '*' matches any run of bytes, including none; every other byte, including
- * '?', matches only itself.  The whole of \p check must be matched.
- *
- * Returns 0 if \p check matches \p wildcard, else nonzero.  The cost is at
- * worst proportional to wlen * clen, whatever the pattern.
  */
 LWS_VISIBLE LWS_EXTERN int
 lws_strcmp_wildcard(const char *wildcard, size_t wlen, const char *check,

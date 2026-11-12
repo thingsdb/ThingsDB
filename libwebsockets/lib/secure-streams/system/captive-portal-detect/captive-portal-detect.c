@@ -46,22 +46,13 @@ ss_cpd_state(void *userobj, void *sh, lws_ss_constate_t state,
 
 	switch (state) {
 	case LWSSSCS_CREATING:
-		lws_ss_start_timeout(m->ss, 3 * LWS_MS_PER_SEC);
+		lws_ss_start_timeout(m->ss, 3 * LWS_US_PER_SEC);
 		return lws_ss_request_tx(m->ss);
 
 	case LWSSSCS_QOS_ACK_REMOTE:
 		lws_system_cpd_set(cx, LWS_CPD_INTERNET_OK);
 		cx->ss_cpd = NULL;
 		return LWSSSSRET_DESTROY_ME;
-
-	case LWSSSCS_DESTROYING:
-		/*
-		 * We can be destroyed from outside, eg, by a policy update,
-		 * without ever seeing DISCONNECTED... the context back-pointer
-		 * must not be left dangling or CPD can never run again
-		 */
-		cx->ss_cpd = NULL;
-		break;
 
 	case LWSSSCS_TIMEOUT:
 	case LWSSSCS_ALL_RETRIES_FAILED:

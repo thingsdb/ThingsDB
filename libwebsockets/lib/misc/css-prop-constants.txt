@@ -12,7 +12,6 @@ blink
 block
 bold
 bolder
-border-box
 both
 bottom
 capitalize
@@ -22,7 +21,6 @@ circle
 close-quote
 code
 collapse
-content-box
 continuous
 crosshair
 decimal-leading-zero

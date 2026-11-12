@@ -33,21 +33,14 @@ if (NOT LWS_ONLY_SSPC)
 	list(APPEND SOURCES
 		core/alloc.c
 		core/buflist.c
-		core/flow.c
-		core/fragbuf.c
-		core/region.c
 		core/context.c
 		core/lws_map.c
-		core/adapt.c
 		core/libwebsockets.c
 		core/logs.c
 	)
 	
 	if (LWS_WITH_FILE_OPS)
 		list(APPEND SOURCES core/vfs.c)
-	endif()
-	if (LWS_WITH_FOOTPRINT)
-		list(APPEND SOURCES core/footprint.c)
 	endif()
 
 else()

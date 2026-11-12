@@ -13,7 +13,6 @@
  *
  * Usage: gcc minilex.c -o minilex && \
  * 	cat css-lextable-strings.txt | ./minilex > css-lextable.h
- *	cat css-propconst-lextable-strings.txt | ./minilex > css-propconst-lextable.h
  *
  */
 
@@ -35,7 +34,7 @@
 #define PARALLEL 30
 
 struct s {
-	int c[PARALLEL]; /* a character, or a terminal index */
+	char c[PARALLEL];
 	int s[PARALLEL];
 	int count;
 	int bytepos;
@@ -43,7 +42,7 @@ struct s {
 	int real_pos;
 };
 
-struct s s[4000];
+struct s s[1000];
 int next = 1;
 
 #define FAIL_CHAR 0x08
@@ -63,7 +62,6 @@ main(void)
 	char *line = NULL;
 	ssize_t r;
 	int setmembers = 0;
-	int ret = 1;
 
 	memset(rset, 0, sizeof(rset));
 
@@ -81,18 +79,6 @@ main(void)
 
 	free(line);
 
-	/*
-	 * The terminal index is emitted as two bytes, the first of which
-	 * must stay below LWS_MINILEX_FAIL_CODING for the parser to know it
-	 * is a terminal marker
-	 */
-
-	if (setmembers > 0x7ff) {
-		fprintf(stderr, "%s: more than 2047 terminals\n", __func__);
-
-		goto bail;
-	}
-
 	/* Step 2: produce an enum template for the strings in a comment */
 
 	printf("/* enum {\n");
@@ -101,8 +87,7 @@ main(void)
 	while (n < setmembers) {
 		char def[100];
 
-		strncpy(def, rset[n], sizeof(def) - 1);
-		def[sizeof(def) - 1] = '\0';
+		strncpy(def, rset[n], sizeof(def));
 		j = 0;
 		while (def[j]) {
 			if (def[j] == '-')
@@ -155,26 +140,6 @@ main(void)
 			 * matches on "xx" and "xxy" where "xx" is
 			 * listed first */
 
-			/*
-			 * The tables we emit are shipped in the library, so
-			 * refuse to silently produce a corrupt one
-			 */
-
-			if (s[walk].count >= PARALLEL) {
-				fprintf(stderr, "%s: more than %d branches "
-					"at one node\n", __func__, PARALLEL);
-
-				goto bail;
-			}
-
-			if (next >= (int)(sizeof(s) / sizeof(s[0]))) {
-				fprintf(stderr, "%s: more than %d states\n",
-					__func__,
-					(int)(sizeof(s) / sizeof(s[0])));
-
-				goto bail;
-			}
-
 			s[walk].count++;
 
 			if (s[walk].count > 1 &&
@@ -203,13 +168,6 @@ main(void)
 		}
 
 		/* reached the end of rset[n] */
-
-		if (s[walk].count >= PARALLEL) {
-			fprintf(stderr, "%s: more than %d branches at one "
-				"node\n", __func__, PARALLEL);
-
-			goto bail;
-		}
 
 		s[walk].c[s[walk].count] = n++;
 		s[walk].s[s[walk].count++] = 0; /* terminal marker */
@@ -266,14 +224,13 @@ main(void)
 
 				if (y > 0x7ff) {
 					fprintf(stderr, "terminal too big\n");
-					ret = 2;
-					goto bail;
+					return 2;
 				}
 
 				fprintf(stdout, "   0x%02X, 0x%02X           "
 					"       "
 					"/* - terminal marker %2d - */,\n",
-						    y >> 8, y & 0xff, y);
+						    y >> 8, y & 0xff, y & 0x7f);
 				pos += 2;
 				walk += 2;
 				continue;
@@ -300,7 +257,7 @@ main(void)
 				fprintf(stderr,
 				  "Jump > 64K bytes ahead (%d to %d)\n",
 					s[n].real_pos, s[saw].real_pos);
-				goto bail;
+				return 1;
 			}
 			fprintf(stdout, "   0x%02X /* '%c' */, 0x%02X, 0x%02X  "
 				"/* (to 0x%04X s %3d) */,\n",
@@ -321,13 +278,11 @@ main(void)
 	}
 
 	fprintf(stdout, "/* total size %d bytes */\n", pos);
-	ret = 0;
 
-bail:
-	for (n = 0; n < setmembers; n++) {
+	for (n = 0;n < setmembers; n++) {
 		free((void *)rset[n]);
 		rset[n] = NULL;
 	}
 
-	return ret;
+	return 0;
 }

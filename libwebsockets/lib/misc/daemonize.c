@@ -63,7 +63,7 @@ child_handler(int signum)
 				lock_path, errno, strerror(errno));
 			exit(0);
 		}
-		len = lws_snprintf(sz, sizeof(sz), "%u", (unsigned int)pid_daemon);
+		len = sprintf(sz, "%u", (unsigned int)pid_daemon);
 		sent = (int)write(fd, sz, (size_t)len);
 		if (sent != len)
 			fprintf(stderr,
@@ -117,17 +117,13 @@ lws_daemonize(const char *_lock_path)
 		if (fd >= 0) {
 			char buf[10];
 
-			n = (int)read(fd, buf, sizeof(buf) - 1);
+			n = (int)read(fd, buf, sizeof(buf));
 			close(fd);
-			if (n > 0) {
-				/* the file contents are untrusted... make
-				 * sure atoi() cannot run off the end of buf */
-				buf[n] = '\0';
+			if (n) {
+				int ret;
 				n = atoi(buf);
-				/* pid <= 0 would make kill() address a whole
-				 * process group, or every process we may
-				 * signal, and always "succeed" */
-				if (n > 0 && kill(n, 0) >= 0) {
+				ret = kill(n, 0);
+				if (ret >= 0) {
 					fprintf(stderr,
 					     "Daemon already running pid %d\n",
 					     n);
@@ -136,7 +132,7 @@ lws_daemonize(const char *_lock_path)
 				fprintf(stderr,
 				    "Removing stale lock %s from dead pid %d\n",
 							_lock_path, n);
-				unlink(_lock_path);
+				unlink(lock_path);
 			}
 		}
 
@@ -188,12 +184,8 @@ lws_daemonize(const char *_lock_path)
 	signal(SIGTTIN, SIG_IGN);
 	signal(SIGHUP, SIG_IGN); /* Ignore hangup signal */
 
-	/* 
-	 * Change the file mode mask.
-	 * We use 0 so that daemons can create group-writable files if needed
-	 * (e.g., for sticky group permissions coexisting with other processes).
-	 */
-	umask(0); // NOSONAR
+	/* Change the file mode mask */
+	umask(0);
 
 	/* Create a new SID for the child process */
 	sid = setsid();

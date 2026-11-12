@@ -375,19 +375,12 @@ lws_ss_client_connect(struct lws_ss_handle *h);
  *
  * \param context: lws_context
  * \param bind: if port is 0, unix domain path with leading @ for abstract.
- *		if port nonzero, NULL for loopback, or the numeric address to
- *		bind the listen socket to
+ *		if port nonzero, NULL, or network interface to bind listen to
  * \param port: tcp port to listen on
  *
  * Creates a vhost that listens either on an abstract namespace unix domain
  * socket (port = 0) or a tcp listen socket (port nonzero).  If bind is NULL
  * and port is 0, the abstract unix domain socket defaults to "proxy.ss.lws".
- *
- * The tcp link has no client authentication: anybody who can connect to it
- * can use the proxy's policy and the credentials it holds.  So with a port
- * and a NULL bind, it listens on loopback only (127.0.0.1, or ::1 if there is
- * no IPv4 support), and a bind that is not a numeric loopback address fails
- * unless the context was created with .ss_proxy_tcp_allow_remote set.
  *
  * Client connections to this proxy to Secure Streams are fulfilled using the
  * policy local to the proxy and the data passed between the client and the
@@ -645,26 +638,6 @@ LWS_VISIBLE LWS_EXTERN int
 lws_ss_add_peer_tx_credit(struct lws_ss_handle *h, int32_t add);
 
 /**
- * lws_ss_close_cause() - say why the stream's last connection ended
- *
- * \param h: secure streams handle
- * \param buf: where to render the cause
- * \param len: size of buf
- *
- * In the LWSSSCS_DISCONNECTED state callback, and until the stream connects
- * again, renders why its connection ended, as lws_wsi_close_cause() describes,
- * eg, "peer closed", "rx failed, errno 104" or "no reply to validity ping".
- *
- * Only a stream with its own connection knows this: via a proxy, the
- * connection is the proxy's.
- *
- * Returns the length of what was rendered, 0 with buf set to "" when there
- * is nothing to say.
- */
-LWS_VISIBLE LWS_EXTERN int
-lws_ss_close_cause(struct lws_ss_handle *h, char *buf, size_t len);
-
-/**
  * lws_ss_get_est_peer_tx_credit() - get our current estimate of peer's tx credit
  *
  * \param h: secure streams handle
@@ -676,21 +649,6 @@ lws_ss_close_cause(struct lws_ss_handle *h, char *buf, size_t len);
  */
 LWS_VISIBLE LWS_EXTERN int
 lws_ss_get_est_peer_tx_credit(struct lws_ss_handle *h);
-
-/**
- * lws_ss_http_rx_content_length() - the response body length, if the peer said
- *
- * \param h: secure streams handle
- * \param len: filled with the content-length from the response headers
- *
- * For http protocols, from LWSSSCS_CONNECTED onwards, returns 0 and sets
- * \p len if the response carried a content-length header, else returns
- * nonzero (chunked or unknown length, or not http).  Lets a consumer that
- * can only hold so much decide not to receive a body at all rather than
- * find out when it has already streamed most of it.
- */
-LWS_VISIBLE LWS_EXTERN int
-lws_ss_http_rx_content_length(struct lws_ss_handle *h, uint64_t *len);
 
 LWS_VISIBLE LWS_EXTERN const char *
 lws_ss_tag(struct lws_ss_handle *h);

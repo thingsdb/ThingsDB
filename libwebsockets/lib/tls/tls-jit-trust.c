@@ -35,13 +35,8 @@ lws_tls_kid_copy(union lws_tls_cert_info_results *ci, lws_tls_kid_t *kid)
 
 	if ((size_t)ci->ns.len > sizeof(kid->kid))
 		kid->kid_len = sizeof(kid->kid);
-	else {
-#if defined(__COVERITY__)
-		kid->kid_len = 0;
-#else
+	else
 		kid->kid_len = (uint8_t)ci->ns.len;
-#endif
-	}
 
 	memcpy(kid->kid, ci->ns.name, kid->kid_len);
 }
@@ -71,218 +66,112 @@ lws_tls_kid_cmp(const lws_tls_kid_t *a, const lws_tls_kid_t *b)
 /*
  * We have the SKID and AKID for every peer cert captured, but they may be
  * in any order, and eg, falsely have sent the root CA, or an attacker may
- * send unresolveable self-referencing loops of KIDs.  Certs are also not
- * obliged to carry an SKID at all: Let's Encrypt leaf certs, for one, don't.
+ * send unresolveable self-referencing loops of KIDs.
  *
  * Let's sort them into the SKID -> AKID hierarchy, so the last entry is the
  * server cert and the first entry is the highest parent that the server sent.
  * Normally the top one will be an intermediate, and its AKID is the ID of the
- * root CA cert we would need to trust to validate the chain.  Anything that
- * is not on the path up from the server cert (eg, an alternative cross-signed
- * intermediate) is kept, ahead of the path.
+ * root CA cert we would need to trust to validate the chain.
  *
- * This doesn't decide what we query, since we query every AKID anyway, so it
- * is not trying to be clever about hostile input, just to always end in a
- * bounded number of steps, whatever order and relationships we were given.
- */
-
-static void
-lws_tls_jit_trust_order_chain(lws_tls_kid_chain_t *ch)
-{
-	int n, m, leaf = -1, next, depth = 0;
-	lws_tls_kid_chain_t o;
-	uint8_t path[LWS_ARRAY_SIZE(ch->akid)];
-	unsigned int used = 0;
-
-	/*
-	 * The server cert is the one that no other cert names as its
-	 * issuer... one with no SKID can't be anybody's issuer.  If every cert
-	 * is somebody's issuer, it's a loop, just start from the first.
-	 */
-
-	for (n = 0; n < ch->count && leaf < 0; n++) {
-		for (m = 0; m < ch->count; m++)
-			if (m != n && ch->skid[n].kid_len &&
-			    !lws_tls_kid_cmp(&ch->skid[n], &ch->akid[m]))
-				break;
-		if (m == ch->count)
-			leaf = n;
-	}
-
-	if (leaf < 0)
-		leaf = 0;
-
-	/* walk up from it, following AKID -> SKID, using each cert once */
-
-	next = leaf;
-	while (next >= 0) {
-		used |= 1u << next;
-		path[depth++] = (uint8_t)next;
-		n = next;
-		next = -1;
-
-		if (!ch->akid[n].kid_len)
-			break;
-
-		for (m = 0; m < ch->count; m++)
-			if (!(used & (1u << m)) &&
-			    !lws_tls_kid_cmp(&ch->akid[n], &ch->skid[m])) {
-				next = m;
-				break;
-			}
-	}
-
-	/* the certs off the path first, then the path from the top down */
-
-	memset(&o, 0, sizeof(o));
-
-	for (n = 0; n < ch->count; n++)
-		if (!(used & (1u << n))) {
-			o.akid[o.count] = ch->akid[n];
-			o.skid[o.count++] = ch->skid[n];
-		}
-
-	while (depth--) {
-		o.akid[o.count] = ch->akid[path[depth]];
-		o.skid[o.count++] = ch->skid[path[depth]];
-	}
-
-	*ch = o;
-}
-
-/*
- * Two certs in the chain may name the same issuer, eg, the same intermediate
- * sent twice.  It's only worth asking for it once, and a CA that came back
- * twice would also cancel itself out of the xor vhost tag.
- */
-
-static int
-lws_tls_jit_trust_akid_is_repeat(const lws_tls_kid_chain_t *ch, int n)
-{
-	int m;
-
-	for (m = 0; m < n; m++)
-		if (!lws_tls_kid_cmp(&ch->akid[m], &ch->akid[n]))
-			return 1;
-
-	return 0;
-}
-
-/*
- * The trust cache and the inflights are keyed on the endpoint the trust was
- * learned from.  Another port on the same address, or another name served
- * from it, is another server, that may be validated another way... eg, by the
- * app's own CA on the vhost that a JIT Trust vhost would displace for it.
+ * It's not unknown the server is misconfigured to also send the root CA, if so
+ * the top slot's AKID is empty and we should look for its SKID in the trust
+ * blob.
  *
- * The host is the name the server is validated as, and defaults to the
- * address like it does for the tls session cache.  The address length leads,
- * so no address and host pair can spell the key of another.
- *
- * Returns 0 with the key in key[], or nonzero if there is none that fits.
- */
-
-static int
-lws_tls_jit_trust_key(char *key, size_t len, const char *address,
-		      uint16_t port, const char *host)
-{
-	int n;
-
-	if (!address || !*address)
-		return 1;
-
-	if (!host || !*host || !strcmp(host, address))
-		n = lws_snprintf(key, len, "%u:%u:%s", (unsigned int)port,
-				 (unsigned int)strlen(address), address);
-	else
-		n = lws_snprintf(key, len, "%u:%u:%s:%s", (unsigned int)port,
-				 (unsigned int)strlen(address), address, host);
-
-	return n >= (int)len;
-}
-
-/*
- * A client wsi's own endpoint key, from the same connect info that
- * lws_tls_jit_trust_vhost_bind() is given at connect (and redirect) time.
- */
-
-static int
-lws_tls_jit_trust_wsi_key(struct lws *wsi, char *key, size_t len)
-{
-	return lws_tls_jit_trust_key(key, len,
-			lws_wsi_client_stash_item(wsi, CIS_ADDRESS,
-					_WSI_TOKEN_CLIENT_PEER_ADDRESS),
-			wsi->c_port,
-			lws_wsi_client_stash_item(wsi, CIS_HOST,
-					_WSI_TOKEN_CLIENT_HOST));
-}
-
-static void
-tag_to_vh_name(char *result, size_t max, uint32_t tag)
-{
-	lws_snprintf(result, max, "jitt-%08X", (unsigned int)tag);
-}
-
-/*
- * If we return 0, we succeeded and have queried the system for every CA that
- * a cert in the chain named as its issuer.
+ * If we return 0, we succeeded and the AKID of ch[0] is the SKID we want to see
+ * try to import from the trust blob.
  *
  * If we return nonzero, we can't identify what we want and should abandon the
  * connection.
  */
 
-/*
- * Locking: with LWS_MAX_SMP > 1, the tls verify paths that end up here and
- * connection attempts binding to a JIT Trust vhost run on every service
- * thread, and an async jit_trust_query() may complete on a thread of the
- * app's.  So the context's inflight list and trust cache are only touched
- * under the context lock, by the locked entry points below; their __ bodies
- * expect it held.  It is recursive, so a synchronous jit_trust_query()
- * completing into lws_tls_jit_trust_got_cert_cb() inside the query loop is
- * fine, and it keeps any other thread's completion of the same inflight out
- * until the loop is done with it.
- */
-
-static int
-__lws_tls_jit_trust_sort_kids(struct lws *wsi, lws_tls_kid_chain_t *ch)
+int
+lws_tls_jit_trust_sort_kids(struct lws *wsi, lws_tls_kid_chain_t *ch)
 {
-	char key[LWS_JIT_TRUST_KEY_MAX];
+	size_t hl;
 	lws_tls_jit_inflight_t *inf;
-	int n, q = 0;
-	size_t kl;
+	int n, m, sanity = 10;
+	const char *host = wsi->cli_hostname_copy;
+	char more = 1;
 
 	lwsl_info("%s\n", __func__);
 
-#if defined(LWS_WITH_CLIENT)
-	/*
-	 * A connection on a vhost the app chose is never moved to a JIT Trust
-	 * vhost, so what his vhost refused is not ours to learn trust for:
-	 * the cache entry would only teach connections lws does choose for,
-	 * and other restarts, to trust what the app's own trust turned down
-	 */
-	if (wsi->client_vhost_given)
-		return 1;
+	if (!host) {
+		if (wsi->stash && wsi->stash->cis[CIS_HOST])
+			host = wsi->stash->cis[CIS_HOST];
+#if defined(LWS_ROLE_H1) || defined(LWS_ROLE_H2)
+		else
+			host = lws_hdr_simple_ptr(wsi,
+					      _WSI_TOKEN_CLIENT_PEER_ADDRESS);
+	}
 #endif
-
-	/*
-	 * The trust cache entry we are going to write below is read back by
-	 * lws_tls_jit_trust_vhost_bind() using the endpoint the connection
-	 * was asked for, so we have to key it on that too.
-	 *
-	 * lws_wsi_client_stash_item() also takes care of the case there is no
-	 * stash, and of builds with neither H1 nor H2.
-	 */
-
-	if (lws_tls_jit_trust_wsi_key(wsi, key, sizeof(key)))
+	if (!host)
 		return 1;
 
-	kl = strlen(key);
+	hl = strlen(host);
 
 	/* something to work with? */
 
-	if (!ch->count || (size_t)ch->count > LWS_ARRAY_SIZE(ch->akid))
+	if (!ch->count)
 		return 1;
 
-	lws_tls_jit_trust_order_chain(ch);
+	/* do we need to sort? */
+
+	if (ch->count > 1) {
+
+		/* okie... */
+
+		while (more) {
+
+			if (!sanity--)
+				/* let's not get fooled into spinning */
+				return 1;
+
+			more = 0;
+			for (n = 0; n < ch->count - 1; n++) {
+
+				if (!lws_tls_kid_cmp(&ch->skid[n],
+						     &ch->akid[n + 1]))
+					/* next belongs with this one */
+					continue;
+
+				/*
+				 * next doesn't belong with this one, let's
+				 * try to figure out where this one does belong
+				 * then
+				 */
+
+				for (m = 0; m < ch->count; m++) {
+					if (n == m)
+						continue;
+					if (!lws_tls_kid_cmp(&ch->skid[n],
+							     &ch->akid[m])) {
+						lws_tls_kid_t t;
+
+						/*
+						 * m references us, so we
+						 * need to go one step above m,
+						 * swap m and n
+						 */
+
+						more = 1;
+						t = ch->akid[m];
+						ch->akid[m] = ch->akid[n];
+						ch->akid[n] = t;
+						t = ch->skid[m];
+						ch->skid[m] = ch->skid[n];
+						ch->skid[n] = t;
+
+						break;
+					}
+				}
+
+				if (more)
+					break;
+			}
+		}
+
+		/* then we should be sorted */
+	}
 
 	for (n = 0; n < ch->count; n++) {
 		lwsl_info("%s: AKID[%d]\n", __func__, n);
@@ -304,47 +193,25 @@ __lws_tls_jit_trust_sort_kids(struct lws *wsi, lws_tls_kid_chain_t *ch)
 	 */
 
 	lws_start_foreach_dll(struct lws_dll2 *, d,
-			      lws_dll2_get_head(&wsi->a.context->jit_inflight)) {
+			      wsi->a.context->jit_inflight.head) {
 		inf = lws_container_of(d, lws_tls_jit_inflight_t, list);
 
-		if (!strcmp((const char *)&inf[1], key))
+		if (!strcmp((const char *)&inf[1], host))
 			/* already being handled */
 			return 1;
 
 	} lws_end_foreach_dll(d);
 
 	/*
-	 * Only AKIDs we can actually look something up with are worth a query,
-	 * and only those may be counted into the inflight refcount... a
-	 * zero-length AKID is rejected out of hand by the trust query (there is
-	 * nothing to match on), so if we counted it here the inflight would
-	 * never reach refcount 0 and would leak until context destroy.
-	 *
-	 * If none of them are usable, we cannot identify any CA to ask for, and
-	 * we must fail the connection rather than pretend we tried.
-	 */
-
-	for (n = 0; n < ch->count; n++)
-		if (ch->akid[n].kid_len &&
-		    !lws_tls_jit_trust_akid_is_repeat(ch, n))
-			q++;
-
-	if (!q) {
-		lwsl_info("%s: no usable AKID in the peer chain\n", __func__);
-
-		return 1;
-	}
-
-	/*
 	 * No... let's make an inflight entry for this host, then
 	 */
 
-	inf = lws_zalloc(sizeof(*inf) + kl + 1, __func__);
+	inf = lws_zalloc(sizeof(*inf) + hl + 1, __func__);
 	if (!inf)
 		return 1;
 
-	memcpy(&inf[1], key, kl + 1);
-	inf->refcount = (char)q;
+	memcpy(&inf[1], host, hl + 1);
+	inf->refcount = (char)ch->count;
 	lws_dll2_add_tail(&inf->list, &wsi->a.context->jit_inflight);
 
 	/*
@@ -354,76 +221,40 @@ __lws_tls_jit_trust_sort_kids(struct lws *wsi, lws_tls_kid_chain_t *ch)
 	 * multiple (the inflight accepts up to 2) CAs needed.
 	 */
 
-	for (n = 0; n < ch->count; n++) {
-		if (!ch->akid[n].kid_len ||
-		    lws_tls_jit_trust_akid_is_repeat(ch, n))
-			continue;
+	for (n = 0; n < ch->count; n++)
 		wsi->a.context->system_ops->jit_trust_query(wsi->a.context,
 			ch->akid[n].kid, (size_t)ch->akid[n].kid_len,
 			(void *)inf);
-	}
 
 	return 0;
 }
 
-int
-lws_tls_jit_trust_sort_kids(struct lws *wsi, lws_tls_kid_chain_t *ch)
+static void
+tag_to_vh_name(char *result, size_t max, uint32_t tag)
 {
-	struct lws_context *cx = wsi->a.context;
-	int n;
-
-	lws_context_lock(cx, __func__); /* ------------------------- cx { */
-	n = __lws_tls_jit_trust_sort_kids(wsi, ch);
-	lws_context_unlock(cx); /* ------------------------------------ } cx */
-
-	return n;
+	lws_snprintf(result, max, "jitt-%08X", (unsigned int)tag);
 }
 
-static int
-__lws_tls_jit_trust_vhost_bind(struct lws_context *cx, const char *address,
-			       uint16_t port, const char *host,
-			       struct lws_vhost **pvh)
+int
+lws_tls_jit_trust_vhost_bind(struct lws_context *cx, const char *address,
+			     struct lws_vhost **pvh)
 {
-	char key[LWS_JIT_TRUST_KEY_MAX], vhtag[32];
 	lws_tls_jit_cache_item_t *ci, jci;
 	lws_tls_jit_inflight_t *inf;
+	char vhtag[32];
 	size_t size;
 	int n;
 
-	if (!cx->trust_cache ||
-	    lws_tls_jit_trust_key(key, sizeof(key), address, port, host))
-		return 1;
-
-	/*
-	 * The gotten cache item may be evicted by jit_trust_query, or by the
-	 * cache's expiry on another service thread: take a copy under the
-	 * cache lock
-	 */
-
-	n = 1;
-	lws_cache_lock(cx->trust_cache);
-	if (!lws_cache_item_get(cx->trust_cache, key, (const void **)&ci,
-				&size) && size == sizeof(jci)) {
-		jci = *ci;
-		n = 0;
-	}
-	lws_cache_unlock(cx->trust_cache);
-
-	if (n)
+	if (lws_cache_item_get(cx->trust_cache, address, (const void **)&ci,
+									&size))
 		/*
 		 * There's no cached info, we have to start from scratch on
 		 * this one
 		 */
 		return 1;
 
-	if (jci.count_skids <= 0 ||
-	    jci.count_skids > (int)LWS_ARRAY_SIZE(jci.skids))
-		/*
-		 * Not something we wrote, or nothing we can query with...
-		 * count_skids is used below as a loop bound and as the inflight
-		 * refcount, so it has to be sane before we act on it
-		 */
-		return 1;
+	/* gotten cache item may be evicted by jit_trust_query */
+	jci = *ci;
 
 	/*
 	 * We have some trust cache information for this host already, it tells
@@ -438,7 +269,7 @@ __lws_tls_jit_trust_vhost_bind(struct lws_context *cx, const char *address,
 
 	*pvh = lws_get_vhost_by_name(cx, vhtag);
 	if (*pvh) {
-		lwsl_info("%s: %s -> existing %s\n", __func__, key, vhtag);
+		lwsl_info("%s: %s -> existing %s\n", __func__, address, vhtag);
 		/* hit, let's just use that then */
 		return 0;
 	}
@@ -455,15 +286,13 @@ __lws_tls_jit_trust_vhost_bind(struct lws_context *cx, const char *address,
 	 * queries use the cb to succeed or fail.
 	 */
 
-	size = strlen(key);
+	size = strlen(address);
 	inf = lws_zalloc(sizeof(*inf) + size + 1, __func__);
 	if (!inf)
 		return 1;
 
-	memcpy(&inf[1], key, size + 1);
+	memcpy(&inf[1], address, size + 1);
 	inf->refcount = (char)jci.count_skids;
-	/* what we regenerate is only good for as long as what we learned */
-	inf->expires = jci.expires;
 	lws_dll2_add_tail(&inf->list, &cx->jit_inflight);
 
 	/*
@@ -491,79 +320,6 @@ __lws_tls_jit_trust_vhost_bind(struct lws_context *cx, const char *address,
 	/* right now, nothing to offer */
 
 	return 1;
-}
-
-int
-lws_tls_jit_trust_vhost_bind(struct lws_context *cx, const char *address,
-			     uint16_t port, const char *host,
-			     struct lws_vhost **pvh)
-{
-	int n;
-
-	lws_context_lock(cx, __func__); /* ------------------------- cx { */
-	n = __lws_tls_jit_trust_vhost_bind(cx, address, port, host, pvh);
-	lws_context_unlock(cx); /* ------------------------------------ } cx */
-
-	return n;
-}
-
-/*
- * The server did not validate against the trust of the JIT Trust vhost that
- * the cache bound this connection to.  Whatever the reason (the server has
- * another chain now, or what we learned came from a handshake that was not
- * with it), that cache entry is wrong about this server: drop it, so the next
- * attempt goes back to the vhost it would have had without JIT Trust, and
- * starts over from there if that can't validate it either.  Otherwise the
- * entry would keep binding every later connection to a vhost that can't.
- *
- * If this failed handshake already taught us a new entry for the endpoint, it
- * names another vhost, and we leave it.
- */
-
-static void
-__lws_tls_jit_trust_peer_rejected(struct lws *wsi)
-{
-	struct lws_context *cx = wsi->a.context;
-	char key[LWS_JIT_TRUST_KEY_MAX], vhtag[32];
-	lws_tls_jit_cache_item_t *ci;
-	uint32_t xor_tag = 0;
-	size_t size;
-	int n = 1;
-
-	if (!cx->trust_cache || !wsi->a.vhost || !wsi->a.vhost->name ||
-	    lws_tls_jit_trust_wsi_key(wsi, key, sizeof(key)))
-		return;
-
-	/* the cache's expiry may drop it on another service thread */
-	lws_cache_lock(cx->trust_cache);
-	if (!lws_cache_item_get(cx->trust_cache, key, (const void **)&ci,
-				&size) && size == sizeof(*ci)) {
-		xor_tag = ci->xor_tag;
-		n = 0;
-	}
-	lws_cache_unlock(cx->trust_cache);
-
-	if (n)
-		return;
-
-	tag_to_vh_name(vhtag, sizeof(vhtag), xor_tag);
-	if (strcmp(vhtag, wsi->a.vhost->name))
-		return;
-
-	lwsl_wsi_notice(wsi, "%s did not validate on %s, forgetting it",
-			key, vhtag);
-
-	lws_cache_item_remove(cx->trust_cache, key);
-}
-
-void
-lws_tls_jit_trust_peer_rejected(struct lws *wsi)
-{
-	struct lws_context *cx = wsi->a.context;
-
-	lws_context_lock(cx, __func__); /* ------------------------- cx { */
-	__lws_tls_jit_trust_peer_rejected(wsi);
-	lws_context_unlock(cx); /* ------------------------------------ } cx */
 }
 
 void
@@ -596,52 +352,15 @@ lws_tls_jit_trust_inflight_destroy_all(struct lws_context *cx)
 	lws_dll2_foreach_safe(&cx->jit_inflight, cx, inflight_destroy);
 }
 
-/* is any wsi still on one of the vhost's own lists? */
-static int
-lws_vhost_wsi_listed(struct lws_vhost *vh)
-{
-	int n;
-
-	if (vh->count_bound_wsi ||
-#if defined(LWS_WITH_CLIENT)
-	    !lws_dll2_is_empty(&vh->dll_cli_active_conns_owner) ||
-#endif
-	    !lws_dll2_is_empty(&vh->vh_awaiting_socket_owner))
-		return 1;
-
-	if (vh->same_vh_protocol_owner)
-		for (n = 0; n < vh->count_protocols; n++)
-			if (!lws_dll2_is_empty(&vh->same_vh_protocol_owner[n]))
-				return 1;
-
-	return 0;
-}
-
 static void
 unref_vh_grace_cb(lws_sorted_usec_list_t *sul)
 {
 	struct lws_vhost *vh = lws_container_of(sul, struct lws_vhost,
 						sul_unref);
 
-	struct lws_context *cx = vh->context;
-
 	lwsl_info("%s: %s\n", __func__, vh->lc.gutag);
 
-	lws_context_lock(cx, __func__); /* ------ context { */
-
-	/*
-	 * Binding a wsi to the vhost cancels this, but a wsi that was moved
-	 * off it while still on one of its lists would be left pointing into
-	 * it.  That is a bug, but not one to turn into a use after free: keep
-	 * the vhost another grace period and look again.
-	 */
-	if (lws_vhost_wsi_listed(vh)) {
-		lwsl_vhost_err(vh, "unbound wsi still listed on it");
-		lws_tls_jit_trust_vh_start_grace(vh);
-	} else
-		lws_vhost_destroy(vh);
-
-	lws_context_unlock(cx); /* } context ------ */
+	lws_vhost_destroy(vh);
 }
 
 void
@@ -693,10 +412,10 @@ lws_tls_jit_trust_cert_info(const uint8_t *der, size_t der_len)
  * This processes the JIT Trust lookup results independent of the tls backend.
  */
 
-static int
-__lws_tls_jit_trust_got_cert_cb(struct lws_context *cx, void *got_opaque,
-				const uint8_t *skid, size_t skid_len,
-				const uint8_t *der, size_t der_len)
+int
+lws_tls_jit_trust_got_cert_cb(struct lws_context *cx, void *got_opaque,
+			      const uint8_t *skid, size_t skid_len,
+			      const uint8_t *der, size_t der_len)
 {
 	lws_tls_jit_inflight_t *inf = (lws_tls_jit_inflight_t *)got_opaque;
 	struct lws_context_creation_info info;
@@ -714,7 +433,7 @@ __lws_tls_jit_trust_got_cert_cb(struct lws_context *cx, void *got_opaque,
 	 * trusted CA, it will just cause temporary conn fail.
 	 */
 
-	lws_start_foreach_dll(struct lws_dll2 *, e, lws_dll2_get_head(&cx->jit_inflight)) {
+	lws_start_foreach_dll(struct lws_dll2 *, e, cx->jit_inflight.head) {
 		lws_tls_jit_inflight_t *i = lws_container_of(e,
 						lws_tls_jit_inflight_t, list);
 		if (i == inf) {
@@ -730,36 +449,8 @@ __lws_tls_jit_trust_got_cert_cb(struct lws_context *cx, void *got_opaque,
 
 	inf->refcount--;
 
-	/*
-	 * A CA cert DER is a few kB... anything wildly bigger than that is a
-	 * corrupt or hostile trust store rather than something we should
-	 * allocate for and hand to an ASN.1 parser.  And an empty one is no
-	 * CA at all: it must not name the vhost or the cache entry, nor reach
-	 * the backends as ca_mem, where no length means "load the defaults"
-	 */
-
-	if (der && (!der_len || der_len > LWS_JIT_TRUST_MAX_DER)) {
-		lwsl_warn("%s: ignoring CA DER of size %u\n", __func__,
-			  (unsigned int)der_len);
-		der = NULL;
-		der_len = 0;
-	}
-
-	/*
-	 * The tag is just an opaque commutative name for the CA set, so any
-	 * fixed byte order will do... but the skid pointer comes from the app's
-	 * trust blob at whatever alignment the packed SKID table put it, so we
-	 * must not do a naked uint32_t load through it (unaligned trap on the
-	 * mcu-class targets this feature exists for, and strict-aliasing UB
-	 * everywhere).
-	 *
-	 * Only a SKID that came back with a CA is part of the name: the cache
-	 * entry records only those, and lws_tls_jit_trust_vhost_bind() looks
-	 * for the vhost it regenerates from them by the cached tag.
-	 */
-
-	if (der && skid_len >= 4)
-		inf->tag ^= lws_ser_ru32be(skid);
+	if (skid_len >= 4)
+		inf->tag ^= *((uint32_t *)skid);
 
 	if (der && inf->ders < (int)LWS_ARRAY_SIZE(inf->der) && inf->refcount) {
 		/*
@@ -777,7 +468,7 @@ __lws_tls_jit_trust_got_cert_cb(struct lws_context *cx, void *got_opaque,
 		if (!inf->der[inf->ders])
 			return 1;
 		memcpy(inf->der[inf->ders], der, der_len);
-		inf->der_len[inf->ders] = der_len;
+		inf->der_len[inf->ders] = (short)der_len;
 		inf->ders++;
 
 		return 0;
@@ -799,15 +490,6 @@ __lws_tls_jit_trust_got_cert_cb(struct lws_context *cx, void *got_opaque,
 	if (!der && !inf->ders) {
 		lwsl_warn("%s: no trusted CA certs matching\n", __func__);
 
-		/*
-		 * If we were regenerating a vhost from a cache entry, and none
-		 * of the CAs it names can be had any more, the entry can't
-		 * make a vhost: forget it rather than try again each time
-		 */
-		if (inf->expires)
-			lws_cache_item_remove(cx->trust_cache,
-					      (const char *)&inf[1]);
-
 		goto destroy_inf;
 	}
 
@@ -818,7 +500,7 @@ __lws_tls_jit_trust_got_cert_cb(struct lws_context *cx, void *got_opaque,
 	 * or that we can handle.  So we have to process and drop the inf.
 	 *
 	 * First let's make a cache entry with a shortish ttl, mapping the
-	 * endpoint we were trying to connect to, to the SKIDs that actually
+	 * hostname we were trying to connect to, to the SKIDs that actually
 	 * had trust results.  This may come in handy later when we want to
 	 * connect to the same host again, but any vhost from before has been
 	 * removed... we can just ask for the specific CAs to regenerate the
@@ -834,16 +516,6 @@ __lws_tls_jit_trust_got_cert_cb(struct lws_context *cx, void *got_opaque,
 
 	jci.xor_tag = inf->tag;
 
-	/*
-	 * The ttl runs from when we learned it from a failed connection.  A
-	 * vhost regenerated from the entry keeps the entry's expiry, so it
-	 * can't be kept alive by using it: only by the server showing us its
-	 * chain again.
-	 */
-
-	jci.expires = inf->expires ? inf->expires :
-				     lws_now_usecs() + LWS_JIT_TRUST_CACHE_TTL_US;
-
 	/* copy the SKIDs from the inflight and params into the cache item */
 
 	for (n = 0; n < (int)LWS_ARRAY_SIZE(inf->der); n++)
@@ -851,9 +523,7 @@ __lws_tls_jit_trust_got_cert_cb(struct lws_context *cx, void *got_opaque,
 			lws_tls_kid_copy_kid(&jci.skids[jci.count_skids++],
 						&inf->kid[n]);
 
-	/* ...the last result is only one of them if it came with a CA */
-
-	if (der && skid_len) {
+	if (skid_len) {
 		if (skid_len > sizeof(inf->kid[0].kid))
 			skid_len = sizeof(inf->kid[0].kid);
 		jci.skids[jci.count_skids].kid_len = (uint8_t)skid_len;
@@ -863,10 +533,10 @@ __lws_tls_jit_trust_got_cert_cb(struct lws_context *cx, void *got_opaque,
 	lwsl_info("%s: adding cache mapping %s -> %s\n", __func__,
 			(const char *)&inf[1], vhtag);
 
-	if (jci.expires > lws_now_usecs() &&
-	    lws_cache_write_through(cx->trust_cache, (const char *)&inf[1],
+	if (lws_cache_write_through(cx->trust_cache, (const char *)&inf[1],
 				    (const uint8_t *)&jci, sizeof(jci),
-				    jci.expires, NULL))
+				    lws_now_usecs() + (3600ll *LWS_US_PER_SEC),
+				    NULL))
 		lwsl_warn("%s: add to cache failed\n", __func__);
 
 	/* is there already a vhost for this commutative-xor SKID trust? */
@@ -895,26 +565,6 @@ __lws_tls_jit_trust_got_cert_cb(struct lws_context *cx, void *got_opaque,
 	info.options = cx->options;
 
 	/*
-	 * Carry over the app's client TLS hardening... otherwise a server that
-	 * can make us JIT-trust anything also gets to move the connection onto
-	 * an SSL_CTX built with library-default protocol versions and ciphers,
-	 * and with no client cert for mTLS.  The CA trust itself stays limited
-	 * to the DER(s) we just fetched.
-	 */
-
-	info.alpn				= cx->tls.jit_client_policy.alpn;
-	info.client_ssl_cipher_list		= cx->tls.jit_client_policy.cipher_list;
-	info.client_tls_ciphers_iana		= cx->tls.jit_client_policy.ciphers_iana;
-	info.client_tls_1_3_plus_cipher_list	=
-				cx->tls.jit_client_policy.tls_1_3_plus_cipher_list;
-	info.client_ecdh_curve			= cx->tls.jit_client_policy.ecdh_curve;
-	info.client_ssl_cert_filepath		= cx->tls.jit_client_policy.cert_filepath;
-	info.client_ssl_private_key_filepath	=
-				cx->tls.jit_client_policy.private_key_filepath;
-	info.ssl_client_options_set		= cx->tls.jit_client_policy.options_set;
-	info.ssl_client_options_clear		= cx->tls.jit_client_policy.options_clear;
-
-	/*
 	 * We have to create the vhost with the first valid trusted DER...
 	 * if we have a params one, use that so the rest are all from inflight
 	 */
@@ -934,14 +584,6 @@ __lws_tls_jit_trust_got_cert_cb(struct lws_context *cx, void *got_opaque,
 				    info.client_ssl_ca_mem_len);
 #endif
 
-	/*
-	 * The rest of the DERs are added after creation: that trust must be
-	 * this vhost's alone, not shared with every JIT vhost created with
-	 * the same first DER (G-392)
-	 */
-	info.client_ssl_ctx_unshared = n < inf->ders &&
-				       n < (int)LWS_ARRAY_SIZE(inf->der);
-
 	info.protocols = cx->protocols_copy;
 
 	v = lws_create_vhost(cx, &info);
@@ -950,7 +592,6 @@ __lws_tls_jit_trust_got_cert_cb(struct lws_context *cx, void *got_opaque,
 		goto destroy_inf;
 	}
 
-	v->internal = 1;
 	v->grace_after_unref = 1;
 	lws_tls_jit_trust_vh_start_grace(v);
 
@@ -958,7 +599,7 @@ __lws_tls_jit_trust_got_cert_cb(struct lws_context *cx, void *got_opaque,
 	 * Do we need to add more trusted certs from inflight?
 	 */
 
-	while (n < inf->ders && n < (int)LWS_ARRAY_SIZE(inf->der)) {
+	while (n < inf->ders) {
 
 #if defined(_DEBUG)
 		lws_tls_jit_trust_cert_info(inf->der[n],
@@ -980,21 +621,6 @@ destroy_inf:
 	return 0;
 }
 
-int
-lws_tls_jit_trust_got_cert_cb(struct lws_context *cx, void *got_opaque,
-			      const uint8_t *skid, size_t skid_len,
-			      const uint8_t *der, size_t der_len)
-{
-	int n;
-
-	lws_context_lock(cx, __func__); /* ------------------------- cx { */
-	n = __lws_tls_jit_trust_got_cert_cb(cx, got_opaque, skid, skid_len,
-					    der, der_len);
-	lws_context_unlock(cx); /* ------------------------------------ } cx */
-
-	return n;
-}
-
 /*
  * Refer to ./READMEs/README.jit-trust.md for blob layout specification
  */
@@ -1005,16 +631,13 @@ lws_tls_jit_trust_blob_queury_skid(const void *_blob, size_t blen,
 				   const uint8_t **prpder, size_t *prder_len)
 {
 	const uint8_t *pskidlen, *pskids, *pder, *blob = (uint8_t *)_blob;
-	size_t siz, ofs_derlen, ofs_skidlen, ofs_skid;
 	const uint16_t *pderlen;
+	size_t siz;
 	int certs;
 
-	/*
-	 * Sanity check blob length and magic... a blob may be as small as the
-	 * few CAs a device trusts, it just has to hold its own header
-	 */
+	/* sanity check blob length and magic */
 
-	if (blen < LJT_OFS_DER ||
+	if (blen < 32768 ||
 	   lws_ser_ru32be(blob) != LWS_JIT_TRUST_MAGIC_BE ||
 	   lws_ser_ru32be(blob + LJT_OFS_END) != blen) {
 		lwsl_err("%s: blob not sane\n", __func__);
@@ -1025,46 +648,25 @@ lws_tls_jit_trust_blob_queury_skid(const void *_blob, size_t blen,
 	if (!skid_len)
 		return 1;
 
-	/*
-	 * The sub-tables follow the DERs, and must lie inside the blob: a
-	 * 16-bit DER length and an 8-bit SKID length per cert, then the SKIDs
-	 */
-
-	certs		= (int)lws_ser_ru16be(blob + LJT_OFS_32_COUNT_CERTS);
-	ofs_derlen	= lws_ser_ru32be(blob + LJT_OFS_32_DERLEN);
-	ofs_skidlen	= lws_ser_ru32be(blob + LJT_OFS_32_SKIDLEN);
-	ofs_skid	= lws_ser_ru32be(blob + LJT_OFS_32_SKID);
-
-	if (ofs_derlen < LJT_OFS_DER || ofs_derlen > blen ||
-	    (blen - ofs_derlen) / 2 < (size_t)certs ||
-	    ofs_skidlen < LJT_OFS_DER || ofs_skidlen > blen ||
-	    blen - ofs_skidlen < (size_t)certs ||
-	    ofs_skid < LJT_OFS_DER || ofs_skid > blen) {
-		lwsl_err("%s: blob tables not sane\n", __func__);
-
-		return -1;
-	}
-
 	/* point into the various sub-tables */
 
-	pderlen		= (uint16_t *)(blob + ofs_derlen);
-	pskidlen	= blob + ofs_skidlen;
-	pskids		= blob + ofs_skid;
+	certs		= (int)lws_ser_ru16be(blob + LJT_OFS_32_COUNT_CERTS);
+
+	pderlen		= (uint16_t *)(blob + lws_ser_ru32be(blob +
+							LJT_OFS_32_DERLEN));
+	if (pderlen >= (const uint16_t *)(blob + blen))
+		return 1;
+	pskidlen	= blob + lws_ser_ru32be(blob + LJT_OFS_32_SKIDLEN);
+	pskids		= blob + lws_ser_ru32be(blob + LJT_OFS_32_SKID);
 	pder		= blob + LJT_OFS_DER;
 
 	/* check each cert SKID in turn, return the DER if found */
 
 	while (certs--) {
 
-		/*
-		 * paranoia / sanity... these must be "are the bytes we are
-		 * about to consume inside the blob", not just "is the cursor
-		 * inside the blob": the memcmp() below reads skid_len (up to
-		 * 20) bytes from pskids, and *pskidlen is attacker-chosen
-		 * content of the same untrusted blob, so it bounds nothing.
-		 */
+		/* paranoia / sanity */
 
-		if (pskids + skid_len > blob + blen) {
+		if (pskids >= blob + blen) {
 			assert(0);
 			break;
 		}
@@ -1072,11 +674,11 @@ lws_tls_jit_trust_blob_queury_skid(const void *_blob, size_t blen,
 			assert(0);
 			break;
 		}
-		if (pskidlen + 1 > blob + blen) {
+		if (pskidlen >= blob + blen) {
 			assert(0);
 			break;
 		}
-		if ((const uint8_t *)pderlen + 2 > blob + blen) {
+		if ((uint8_t *)pderlen >= blob + blen) {
 			assert(0);
 			break;
 		}
@@ -1086,20 +688,17 @@ lws_tls_jit_trust_blob_queury_skid(const void *_blob, size_t blen,
 		if (*pskidlen >= skid_len &&
 		    !memcmp(skid, pskids, skid_len)) {
 			/*
-			 * We found a trusted CA cert of the right SKID... but
-			 * the caller only hears about it if its DER is really
-			 * there: consumers take a set *prpder as "found"
+			 * We found a trusted CA cert of the right SKID
 			 */
-			siz = lws_ser_ru16be((uint8_t *)pderlen);
+		        *prpder = pder;
+		        siz = lws_ser_ru16be((uint8_t *)pderlen);
 
-			if (!siz ||
-			    siz >= blen - lws_ptr_diff_size_t(pder, blob))
+			if (siz >= blen - lws_ptr_diff_size_t(pder, blob))
 				break;
 
-			*prpder = pder;
 			*prder_len = siz;
 
-			return 0;
+		        return 0;
 		}
 
 		pder += lws_ser_ru16be((uint8_t *)pderlen);

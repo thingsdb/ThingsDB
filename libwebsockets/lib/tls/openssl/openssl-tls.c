@@ -27,10 +27,10 @@
 
 extern int openssl_websocket_private_data_index,
 	   openssl_SSL_CTX_private_data_index;
+static int openssl_contexts_using_global_init;
 #if defined(LWS_WITH_NETWORK)
 static char openssl_ex_indexes_acquired;
 #endif
-static int openssl_contexts_using_global_init;
 
 void
 lws_tls_err_describe_clear(void)
@@ -43,7 +43,7 @@ lws_tls_err_describe_clear(void)
 		if (!l)
 			break;
 
-		ERR_error_string_n(LWS_TLS_ERR_CAST(ERR_get_error()), buf, sizeof(buf));
+		ERR_error_string_n(ERR_get_error(), buf, sizeof(buf));
 		lwsl_info("   openssl error: %s\n", buf);
 	} while (l);
 	lwsl_info("\n");
@@ -80,6 +80,21 @@ int
 lws_context_init_ssl_library(struct lws_context *cx,
                              const struct lws_context_creation_info *info)
 {
+#ifdef USE_WOLFSSL
+#ifdef USE_OLD_CYASSL
+	lwsl_cx_info(cx, " Compiled with CyaSSL support");
+#else
+	lwsl_cx_info(cx, " Compiled with wolfSSL support");
+#endif
+#else
+#if defined(LWS_WITH_BORINGSSL)
+	lwsl_cx_info(cx, " Compiled with BoringSSL support");
+#elif defined(LWS_WITH_AWSLC)
+	lwsl_cx_info(cx, " Compiled with AWS-LC support");
+#else
+	lwsl_cx_info(cx, " Compiled with OpenSSL support");
+#endif
+#endif
 	if (!lws_check_opt(info->options, LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT)) {
 #if !defined(LWS_WITH_MBEDTLS) && defined(LWS_WITH_NETWORK)
 		if (!info->provided_client_ssl_ctx)
@@ -92,6 +107,7 @@ lws_context_init_ssl_library(struct lws_context *cx,
 	/* basic openssl init */
 
 	if (!openssl_contexts_using_global_init++) {
+		lwsl_cx_info(cx, "Doing SSL library init");
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
 		SSL_library_init();
@@ -161,5 +177,10 @@ lws_context_deinit_ssl_library(struct lws_context *context)
 	}
 #endif
 
-	--openssl_contexts_using_global_init;
+	if (!--openssl_contexts_using_global_init) {
+		lwsl_cx_info(context, "Doing SSL library cleanup");
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+		OPENSSL_cleanup();
+#endif
+	}
 }

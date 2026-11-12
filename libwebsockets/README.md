@@ -2,14 +2,16 @@
 
 # Libwebsockets
 
+** v4.5 is released, you can follow it on v4.5-stable or use current tag v4.5.8 **
+
 Libwebsockets is a simple-to-use, MIT-license, pure C library providing client and server
-for **http/1**, **http/2**, **http/3**, **websockets**, **webtransport**, **MQTT** and
-other protocols in a security-minded, lightweight, configurable, scalable and flexible way.
-It's easy to build and cross-build via cmake and is suitable for tasks from embedded RTOS
-through mass cloud serving.
+for **http/1**, **http/2**, **websockets**, **MQTT** and other protocols in a security-minded,
+lightweight, configurable, scalable and flexible way.  It's easy to build and
+cross-build via cmake and is suitable for tasks from embedded RTOS through mass
+cloud serving.
 
 It supports a lot of lightweight ancilliary implementations for things like JSON,
-CBOR, JOSE, COSE, and supports OpenSSL and MbedTLS v2/3/4 out of the box for everything.
+CBOR, JOSE, COSE, and supports OpenSSL and MbedTLS v2 and v3 out of the box for everything.
 It's very gregarious when it comes to event loop sharing, supporting libuv, libevent, libev,
 sdevent, glib and uloop, as well as custom event libs.
 
@@ -17,72 +19,153 @@ sdevent, glib and uloop, as well as custom event libs.
 (public domain) for cut-and-paste, allow you to get started quickly.
 
 [There are a lot of READMEs](https://libwebsockets.org/git/libwebsockets/tree/READMEs) on a variety of topics.
-[Doxygen API docs](https://libwebsockets.org/lws-api-doc-main/html/index.html)
 
-[We do a huge amount of CI testing per push](https://libwebsockets.org/sai/)
+[We do a huge amount of CI testing per push](https://libwebsockets.org/sai/), currently 582 builds on 30 platforms.
+[You can see the lws CI rack and read about how lws-based Sai is used to coordinate all the testing](https://warmcat.com/2021/08/21/Sai-CI.html).
 
 ![overview](./doc-assets/lws-overview.png)
 
-**V5.1 now available... please upgrade to this or preferably v5.1-stable or main, as there are many
-security fixes only available on v5.1-stable and main; pre-5.1 releases are effectively deprecated.**
+News
+----
 
- - There's a continuous incremental security audit in place finding and fixing new problems all the
-time at the moment, it's not a sign the code is weak: it's a sign I am using frontier models (and
-fuzzing) to make it extremely strong.
+## HTML + CSS + JPEG + PNG display stack in lws
 
- - Code is pushed to main-dev now, Sai runs on it, if it passes, it is auto-promoted to main.
-Therefore from now on main only contains sai-tested pushes.
+Want to drive your EPD or TFT / OLED display using HTML + CSS?  Only got an ESP32?
 
-** v5.1 **
+Want remote JPEGs, PNGs, HTML, RGBA composition, gamma, error diffusion if needed?
 
-Aside from the security hardening, the major change is an internal refactor in the library that
-makes a hard split internally between "sans-io" protocol implementation - everything that
-operates on bare buffers + time-of-day passed in - and "io", everything that makes contact
-between those buffers and actual sockets.  Part of the reason for that is to ease mocking and
-measurement and tracking of api boundaries, for reasons that should become clear by the next
-release.
+Realtime render into a line buffer because you don't have enough heap for a framebuffer?
 
-Despite being a massive change in the sources, this is essentially a NOP.  The amount of api
-tests and examples that run in CI has basically been doubled and there are new CI build
-dimensions for coverage and fuzzing.
+[Take a look here...](https://libwebsockets.org/git/libwebsockets/tree/READMEs/README.html-parser.md)
 
-Despite the changes there is minimal bloat, and we still target ESP32 and microcontrollers as
-well as other embedded, cloud, android etc.
+## Perl binding for lws available
 
-** NEW features available on v5.0 **
+Thanks to Felipe Gasper, there's now a [perl binding for lws available at metacpan](https://metacpan.org/pod/Net::Libwebsockets),
+this uses the recent generic event loop support in lws to have lws as a guest on an existing perl event loop.
 
- - Support for SChannel (windows native TLS, no need for OpenSSL build!), GnuTLS, openHiTLS and BearSSL added
- - QUIC + H3 + Webtransport implementation, using aws-lc, wolfssl, boringssl, libressl, gnutls, and schannel (OpenSSL is h1/h2 -only; mbedtls can do it via a patch)
- - WebRTC mixing (like your own zoom)
- - HLS serving
+## Lws examples switching to Secure Streams
 
-|LWS version|Platform|Protocols|Default TLS|
-|---|---|---|---|
-|<= 4.5|non-FreeRTOS|any|OpenSSL|
-|<= 4.5|FreeRTOS|any|mbedTLS|
-|5.0+|Windows|any|schannel|
-|5.0+|*nix|h1, h2|OpenSSL|
-|5.0+|*nix|quic/h3|GnuTLS|
-|5.0+|FreeRTOS|any|mbedTLS|
+![Secure Streams direct](./doc-assets/ss-api1.png)
 
-quic/h3 is enabled for build by default... necessitating GnuTLS instead of OpenSSL to make quic/h3 work.
+**Secure Streams** support in lws was introduced a couple of years ago, it's a
+higher-level interface to lws `wsi`-level apis that simplifies connectivity by
+segregating connection policy like protocol and endpoint information into a
+separate [JSON policy file](./minimal-examples/client/hello_world/example-policy.json), and just having the [code deal with payloads](./minimal-examples/clients/hello_world/hello_world-ss.c); as many
+details of the wire protocol as possible are hidden or moved to the policy, so
+user code is almost identical even if the wire protocol changes.
 
-| TLS Library | Server TLS | Client TLS | QUIC Transport (TLS 1.3) | WSS / HTTPS | MQTT over TLS | ALPN (HTTP/2) | DTLS (WebRTC) | Session Cache | JIT Trust | GenCrypto |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **GnuTLS**    | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** | **No** | **Yes** |
-| **OpenSSL**   | **Yes** | **Yes** | **No*** | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** |
-| **LibreSSL**  | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** | **No** | **Yes** |
-| **AWS-LC**    | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** | **No** | **Yes** |
-| **BoringSSL** | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** | **No** | **Yes** |
-| **wolfSSL**   | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** | **No** | **Yes** |
-| **mbedTLS**   | **Yes** | **Yes** | Needs patch | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** |
-| **SChannel**  | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** | **No** | **Yes** |
-| **BearSSL**   | **Yes** | **Yes** | **No** | **Yes** | **Yes** | **Yes** | **No** | **Yes** | **Yes** | **Yes** |
-| **openHiTLS** | **Yes** | **Yes** | **No** | **Yes** | **Yes** | **Yes** | Yes (not SRTP) | **Yes** | **Yes** | **Yes** |
+The user code just asks to create a SS by "streamtype name", it is created
+according to the details (protocol, endpoint, etc) under the same name in the
+policy.
+
+Key policy entries like endpoint can contain `${metadata-name}` string
+substitutions to handle runtime adaptations via metadata.  h1, h2, ws and mqtt
+are supported.
+
+As a layer on top of the `wsi` apis, SS provides a higher-level way to access
+the existing wsi-level capabilities, both kinds of API will remain supported.
+Secure Streams are longer-lived than a single wsi, so an SS can coordinate
+retries by itself.  SS-based user code is typically significantly smaller and
+more maintainable than wsi layer.
+
+In main branch I have moved the older examples into `./minimal-examples-lowlevel`
+and am starting to port more cases from there into SS-based examples.
+
+### Comparison between wsi and SS level lws usage
+
+|Feature|"low-level" wsi way|Secure Streams way|
+|---|---|---|
+|Create context|code|same|
+|Loop support, sul scheduler|default, event libs|same|
+|Supports comms mode|Client, Server, Raw|same|
+|Supports protocols|h1, h2, ws, mqtt (client)|same|
+|TLS support|mbedtls (including v3), openssl (including v3), wolfssl, boringssl, aws-lc, libressl|same|
+|Serializable, proxiable, muxable, transportable|No|Yes|
+|Auto-allocated per-connection user object|pss specified in lws_protocols|Specified in ss info struct|
+|Connection User API|Protocol-specific lws_protocols cbs (> 100)|SS API (rx, tx, state callbacks only)|
+|Sending adaptation|lws_callback_on_writeable()  + WRITEABLE|lws_ss_request_write() + tx() cb|
+|Sending buffer|User-chosen + malloc'd partial handling|SS-provided, no partials|
+|Create vhosts|code|**JSON policy**|
+|TLS validation|cert bundle or code|**JSON policy**, or cert bundle|
+|Connection retry / backoff|code|**JSON policy**, Auto|
+|Nailing up|code|**JSON policy**, Auto|
+|Endpoint and protocol details|spread around the code|**JSON policy**|
+|Protocol selection, pipeline / stream sharing|code|**JSON policy**|
+|ws subprotocol selection|code|**JSON policy**|
+|ws binary / text|code|**JSON policy**|
+|Protocol-specific metadata|Protocol-specific apis in code (eg, lws_hdr)|**JSON policy**, generic metadata apis in code|
+|Connection validity rules|struct|**JSON policy**, Auto|
+|Stream as Long Poll|code|**JSON policy**|
+|Auth|code|**JSON policy** + automatic rotation if provider supported, else code|
+
+### Serialized Secure Streams
+
+![Secure Streams direct](./doc-assets/ss-api2.png)
+
+Secure Streams APIs are also **serializable**, the exact same client code can
+fulfil the connection directly in the same process as you would expect, or
+forward the actions, metadata and payloads to an [SS Proxy](./minimal-examples/ssproxy/ssproxy-socket) that owns the policy
+over a Unix Domain or TCP socket connection to be fulfilled centrally.  This
+allows, eg, h2 streams from different processes sharing a single connection.
+
+![Secure Streams direct](./doc-assets/ss-api3.png)
+
+The serialized SS can also travel over generic transports like UART, an [example
+is provided implementing the Binance example on an RPi Pico](./minimal-examples/embedded/pico/pico-sspc-binance) with a UART transport
+to a [UART transport SS proxy](./minimal-examples/ssproxy/ssproxy-custom-transport-uart), where the pico itself has no network stack, tls, compression or
+wss stack, but can send and receive to and from the endpoint as if it did.
+
+The optional `lws_trasport_mux` is used to interpose between the UART transport
+and the SSPC layer, allowing a single pipe to carry many separate SS connections.
+
+The user SS code is identical however it is transported, muxed and fulfilled.
 
 
-\* *Note: 1) Upstream OpenSSL does not provide the necessary QUIC TLS API (`SSL_set_quic_method`) to act as a cryptographic engine for LWS's QUIC transport. If you need QUIC/HTTP3 support, we recommend using BoringSSL or GnuTLS.*
-\* *Note: 2) openHiTLS does not provide the necessary QUIC TLS API *
+## v4.3 is released
 
- - DHT support built-in: `-DLWS_WITH_DHT=1`
+See the [changelog](https://libwebsockets.org/git/libwebsockets/tree/changelog)
 
+
+## Support
+
+This is the libwebsockets C library for lightweight websocket clients and
+servers.  For support, visit
+
+ https://libwebsockets.org
+
+You can get the latest version of the library from git:
+
+- https://libwebsockets.org/git
+
+Doxygen API docs for development: https://libwebsockets.org/lws-api-doc-main/html/index.html
+
+### Patching with AI
+
+In 2025, writing actual code with AI is quite scary while at the same time offering a way
+forward for the thankless and lonely task of maintaining FOSS code.  I have been using Google's
+Gemini 2.5 and now 3.0, while it's very good at looking at the code and what I am asking
+and producing something sane (much better than a year ago or self-hosted generic models),
+it falls down badly on being able to complete the scope of the patch that it figured out it
+wants to do, and simply stops too early and drops the rest on the floor.
+
+It deserves praise for being able to work with quite complicated apis in lws like `lws_struct`
+with both JSON and sqlite3 serializations and deserializations, well, mostly.
+
+It is much more interested in making new structures and messages for whatever today's problem
+is and much less interested in looking at what's already there and thinking about how that
+could be adapted or unified.  In short it doesn't care at all about mantainability.
+
+It's also suffering from being strong with its mental model of what's going on and what the
+change does, but very weak when it has to be told that its patch doesn't do what it expected.
+Where a human would 'trap' the difference between its mental model and reality so they can
+see where the model broke, they will often avoid adding logging and instead go down very
+unlikely rabbit holes for hours.
+
+At the same time, it knows that maintainability and security are supposed to be desirable
+traits.  But it knows it in the same way it knows layered patches are desirable, it can't
+take care of these considerations properly yet, although it can talk about the concepts.
+
+In short in 2025, although I will continue to use it for some tasks, it's not at the state
+where someone who was unable to do the work carefully themselves can use it for lws.  It's
+too easy to wave through code that is not understood perhaps by anybody and then deal with
+security problems and other breakage for the rest of your life.

@@ -35,11 +35,6 @@ static const struct ss_pcols *ss_pcols[] = {
 #else
 	NULL,
 #endif
-#if defined(LWS_ROLE_H3)
-	&ss_pcol_h3,		/* LWSSSP_H3 */
-#else
-	NULL,
-#endif
 #if defined(LWS_ROLE_WS)
 	&ss_pcol_ws,		/* LWSSSP_WS */
 #else
@@ -95,6 +90,7 @@ const uint32_t ss_state_txn_validity[] = {
 	[LWSSSCS_CREATING]		= (1 << LWSSSCS_CONNECTING) |
 					  (1 << LWSSSCS_TIMEOUT) |
 					  (1 << LWSSSCS_POLL) |
+					  (1 << LWSSSCS_SERVER_UPGRADE) |
 					  (1 << LWSSSCS_DESTROYING),
 
 	[LWSSSCS_DISCONNECTED]		= (1 << LWSSSCS_CONNECTING) |
@@ -135,12 +131,6 @@ const uint32_t ss_state_txn_validity[] = {
 					  (1 << LWSSSCS_AUTH_FAILED) |
 					  (1 << LWSSSCS_CONNECTING) |
 					  (1 << LWSSSCS_CONNECTED) |
-					  /*
-					   * an accepted server stream holds back
-					   * CONNECTED until it sees if the peer
-					   * upgrades
-					   */
-					  (1 << LWSSSCS_SERVER_UPGRADE) |
 					  (1 << LWSSSCS_QOS_ACK_REMOTE) |
 					  (1 << LWSSSCS_QOS_NACK_REMOTE) |
 					  (1 << LWSSSCS_TIMEOUT) |
@@ -200,13 +190,10 @@ const uint32_t ss_state_txn_validity[] = {
 	[LWSSSCS_SERVER_TXN]		= (1 << LWSSSCS_DISCONNECTED) |
 					  (1 << LWSSSCS_TIMEOUT) |
 					  (1 << LWSSSCS_SERVER_TXN) |
-					  /* h1 keep-alive: upgrade after a txn */
-					  (1 << LWSSSCS_SERVER_UPGRADE) |
 					  (1 << LWSSSCS_DESTROYING),
 
-	[LWSSSCS_SERVER_UPGRADE]	= (1 << LWSSSCS_SERVER_TXN) |
-					  /* the upgraded protocol established */
-					  (1 << LWSSSCS_CONNECTED) |
+	[LWSSSCS_SERVER_UPGRADE]	= (1 << LWSSSCS_SERVER_UPGRADE) |
+                      (1 << LWSSSCS_SERVER_TXN) |
 					  (1 << LWSSSCS_TIMEOUT) |
 					  (1 << LWSSSCS_DISCONNECTED) |
 					  (1 << LWSSSCS_DESTROYING),
@@ -295,13 +282,10 @@ lws_conmon_ss_json(lws_ss_handle_t *h)
 	if (h->proxy_onward) {
 
 		/*
-		 * ask to forward it on the proxy link, if the client is still
-		 * there to take it
+		 * ask to forward it on the proxy link
 		 */
 
-		if (h->conn_if_sspc_onw &&
-		    h->conn_if_sspc_onw->txp_path.priv_onw)
-			h->conn_if_sspc_onw->txp_path.ops_onw->proxy_req_write(
+		h->conn_if_sspc_onw->txp_path.ops_onw->proxy_req_write(
 				h->conn_if_sspc_onw->txp_path.priv_onw);
 
 		return LWSSSSRET_OK;
@@ -446,17 +430,10 @@ lws_ss_event_helper(lws_ss_handle_t *h, lws_ss_constate_t cs)
 	if (lws_ss_check_next_state_ss(h, &h->prev_ss_state, cs))
 		return LWSSSSRET_DESTROY_ME;
 
-	if (cs == LWSSSCS_CONNECTED) {
+	if (cs == LWSSSCS_CONNECTED)
 		h->ss_dangling_connected = 1;
-		h->close_cause = NULL;
-		h->close_cause_arg = 0;
-	}
 	if (cs == LWSSSCS_DISCONNECTED) {
 		h->ss_dangling_connected = 0;
-
-		/* the wsi goes now, keep why it ended for the state cb */
-		h->close_cause = h->wsi ? h->wsi->close_cause : NULL;
-		h->close_cause_arg = h->wsi ? h->wsi->close_cause_arg : 0;
 
 		h->subseq = 0;
 		h->txn_ok = 0;
@@ -464,7 +441,7 @@ lws_ss_event_helper(lws_ss_handle_t *h, lws_ss_constate_t cs)
 		h->txn_resp_pending = 0;
 		h->hanging_som = 0;
 		h->inside_msg = 0;
-		/* inside_connect belongs to the connect call, not the state */
+		h->inside_connect = 0;
 		h->proxy_onward = 0;
 		h->wsi = NULL;
 		h->u.http.good_respcode = 0;
@@ -472,19 +449,11 @@ lws_ss_event_helper(lws_ss_handle_t *h, lws_ss_constate_t cs)
 	}
 
 	if (h->info.state) {
-		/*
-		 * The user code may cause another event on this handle from
-		 * inside its callback, eg, connect from CREATING.  When that
-		 * returns, we are still inside the outer callback, and must
-		 * still refuse to destroy the handle under it.
-		 */
-		lws_ss_handle_t *h_in_svc_prev = h->h_in_svc;
-
 		h->h_in_svc = h;
 		r = h->info.state(ss_to_userobj(h), NULL, cs,
 			cs == LWSSSCS_UNREACHABLE &&
-			h->wsi && h->wsi->io->dns_reachability);
-		h->h_in_svc = h_in_svc_prev;
+			h->wsi && h->wsi->dns_reachability);
+		h->h_in_svc = NULL;
 
 #if defined(LWS_WITH_SERVER)
 		if ((h->info.flags & LWSSSINFLAGS_ACCEPTED) &&
@@ -497,9 +466,6 @@ lws_ss_event_helper(lws_ss_handle_t *h, lws_ss_constate_t cs)
 	return LWSSSSRET_OK;
 }
 
-static void
-lws_ss_timeout_sul_check_cb(lws_sorted_usec_list_t *sul);
-
 int
 _lws_ss_handle_state_ret_CAN_DESTROY_HANDLE(lws_ss_state_return_t r, struct lws *wsi,
 			 lws_ss_handle_t **ph)
@@ -507,74 +473,18 @@ _lws_ss_handle_state_ret_CAN_DESTROY_HANDLE(lws_ss_state_return_t r, struct lws 
 	if (r == LWSSSSRET_DESTROY_ME) {
 		lwsl_info("%s: DESTROY ME: %s, %s\n", __func__,
 				lws_wsi_tag(wsi), lws_ss_tag(*ph));
-		/*
-		 * We NULL h->wsi below, since we can be inside its own
-		 * callback and must kill it async... that means
-		 * lws_ss_destroy() will not see it and cannot do this
-		 * bookkeeping for us.
-		 */
-
-		if ((*ph)->wsi && (*ph)->wsi->bound_ss_proxy_conn) {
-			struct lws_sss_proxy_conn *conn =
-				(struct lws_sss_proxy_conn *)
-				   lws_get_opaque_user_data((*ph)->wsi);
-
-			if (conn)
-				conn->ss = NULL;
-		}
-
-		/*
-		 * We may be holding two different wsi here, the one the
-		 * callback came in on and h->wsi.  Since we are about to free
-		 * the handle, both of them must stop pointing at it, or the
-		 * one we left behind does a UAF on the handle when it closes.
-		 */
-
-		if ((*ph)->wsi && (*ph)->wsi != wsi) {
-			lws_set_opaque_user_data((*ph)->wsi, NULL);
-			lws_set_timeout((*ph)->wsi, 1, LWS_TO_KILL_ASYNC);
-		}
-
 		if (wsi) {
 			lws_set_opaque_user_data(wsi, NULL);
 			lws_set_timeout(wsi, 1, LWS_TO_KILL_ASYNC);
+		} else {
+			if ((*ph)->wsi) {
+				lws_set_opaque_user_data((*ph)->wsi, NULL);
+				lws_set_timeout((*ph)->wsi, 1, LWS_TO_KILL_ASYNC);
+			}
 		}
-
 		(*ph)->wsi = NULL;
-
-		if ((*ph)->inside_connect) {
-			/*
-			 * The connection attempt failed inside
-			 * _lws_ss_client_connect() for this handle, eg, a
-			 * CONNECTION_ERROR for a name cached as NXDOMAIN.
-			 * That, and its callers, still use the handle when the
-			 * connect call returns: it hands DESTROY_ME up to
-			 * whoever asked for the connection, who destroys it.
-			 * In case they can't, the retry sul does it next time
-			 * around the event loop.
-			 */
-			(*ph)->pending_ret = LWSSSSRET_DESTROY_ME;
-			(*ph)->destroy_pending = 1;
-			lws_sul_schedule((*ph)->context, (*ph)->tsi,
-					 &(*ph)->sul,
-					 lws_ss_timeout_sul_check_cb, 1);
-
-			return -1; /* close connection */
-		}
-
 		lws_ss_destroy(ph);
-
-		return -1; /* close connection */
 	}
-
-	if (r == LWSSSSRET_DISCONNECT_ME && !wsi && (*ph)->wsi)
-		/*
-		 * We're not being called from a wsi callback that will close
-		 * its wsi on our -1 return, eg, it's from a sul or stream
-		 * creation... but the stream has a connection, so we must
-		 * start disconnecting it ourselves
-		 */
-		lws_set_timeout((*ph)->wsi, 1, LWS_TO_KILL_ASYNC);
 
 	return -1; /* close connection */
 }
@@ -584,15 +494,6 @@ lws_ss_timeout_sul_check_cb(lws_sorted_usec_list_t *sul)
 {
 	lws_ss_state_return_t r;
 	lws_ss_handle_t *h = lws_container_of(sul, lws_ss_handle_t, sul);
-
-	if (h->destroy_pending) {
-		/*
-		 * The user code gave up on us inside a connect call, and
-		 * whoever made that call did not destroy us
-		 */
-		lws_ss_destroy(&h);
-		return;
-	}
 
 	lwsl_info("%s: retrying %s after backoff\n", __func__, lws_ss_tag(h));
 	/* we want to retry... */
@@ -628,9 +529,6 @@ lws_ss_exp_cb_metadata(void *priv, const char *name, char *out, size_t *pos,
 
 	total = hmd->length;
 
-	if (*pos >= olen) /* no room at all... don't underflow the budget */
-		return LSTRX_FILLED_OUT;
-
 	budget = olen - *pos;
 	total -= *exp_ofs;
 	if (total < budget)
@@ -652,12 +550,10 @@ lws_ss_set_timeout_us(lws_ss_handle_t *h, lws_usec_t us)
 {
 	struct lws_context_per_thread *pt = &h->context->pt[h->tsi];
 
-	lws_pt_lock(pt, __func__);
 	h->sul.cb = lws_ss_timeout_sul_check_cb;
-	__lws_sul_insert_us(pt,
-		!!(h->policy->flags & LWSSSPOLF_WAKE_SUSPEND__VALIDITY),
-		&h->sul, us);
-	lws_pt_unlock(pt);
+	__lws_sul_insert_us(&pt->pt_sul_owner[
+	            !!(h->policy->flags & LWSSSPOLF_WAKE_SUSPEND__VALIDITY)],
+		    &h->sul, us);
 
 	return 0;
 }
@@ -742,7 +638,7 @@ lws_smd_ss_cb(void *opaque, lws_smd_class_t _class,
 	lws_ser_wu64be(p + 8, (uint64_t)timestamp);
 
 	if (h->info.rx)
-		h->info.rx(ss_to_userobj(h), p, len + LWS_SMD_SS_RX_HEADER_LEN,
+		h->info.rx((void *)(h + 1), p, len + LWS_SMD_SS_RX_HEADER_LEN,
 		      LWSSS_FLAG_SOM | LWSSS_FLAG_EOM);
 
 	return 0;
@@ -762,7 +658,7 @@ lws_ss_smd_tx_cb(lws_sorted_usec_list_t *sul)
 	if (!h->info.tx)
 		return;
 
-	n = h->info.tx(ss_to_userobj(h), h->txord++, buf, &len, &flags);
+	n = h->info.tx(h + 1, h->txord++, buf, &len, &flags);
 	if (n)
 		/* nonzero return means don't want to send anything */
 		return;
@@ -803,168 +699,43 @@ lws_ss_fops_sul_cb(lws_sorted_usec_list_t *sul)
 	if (lws_vfs_file_read(h->fop_fd, &amount, lump, sizeof(lump)))
 		goto disconn;
 
-	if (!h->info.rx)
-		goto disconn;
-
-	r = h->info.rx(ss_to_userobj(h), lump, (size_t)amount,
+	r = h->info.rx(h + 1, lump, (size_t)amount,
 			(!h->fop_fd->pos ? LWSSS_FLAG_SOM : 0) |
 			(h->fop_fd->pos == h->fop_fd->len ?
 					LWSSS_FLAG_EOM : 0));
-	if (!r && h->fop_fd->pos != h->fop_fd->len) {
-		lws_sul_schedule(h->context, 0, &h->fops_sul,
-				 lws_ss_fops_sul_cb, 1);
+	if (!r) {
+		if (h->fop_fd->pos != h->fop_fd->len)
+			lws_sul_schedule(h->context, 0, &h->fops_sul,
+					 lws_ss_fops_sul_cb, 1);
 		return;
 	}
-
-	/*
-	 * The rx callback asked for it, or the file has all been delivered:
-	 * either way the stream is over, as an http one is after its
-	 * transaction, and the user learns that from DISCONNECTED
-	 */
 
 disconn:
 	lws_vfs_file_close(&h->fop_fd);
 
-	/*
-	 * Either the rx callback or the DISCONNECTED state callback (which
-	 * forces it for accepted handles) can ask for the destroy... we must
-	 * not let the event_helper return swallow the rx one, or the handle
-	 * leaks
-	 */
-
-	if (lws_ss_event_helper(h, LWSSSCS_DISCONNECTED) ==
-						LWSSSSRET_DESTROY_ME)
-		r = LWSSSSRET_DESTROY_ME;
+	if (lws_ss_event_helper(h, LWSSSCS_DISCONNECTED))
+		return;
 
 	if (r == LWSSSSRET_DESTROY_ME)
 		lws_ss_destroy(&h);
 }
 #endif
 
-/*
- * Expanding ${metadata} into the endpoint, we also note if any value that
- * went into it came from outside the process (an ss proxy client set it, or
- * it was captured from a response header), rather than from our own app.
- *
- * If the policy endpoint is exactly one "${name}", the policy hands that
- * metadata the whole endpoint, url and all (eg, __default's "${endpoint}"),
- * and only the file:// and '+' rules apply to it.  Otherwise the policy
- * wrote some of the endpoint literally, eg, "${bucket}.s3.amazonaws.com",
- * and a value from outside may only fill in its own piece of it: if it
- * could carry url structure, it could make itself the scheme, host, port or
- * userinfo, and push what the policy wrote into the path or query, eg,
- * "https://elsewhere/".  So outside values going into such an endpoint
- * may not contain any url delimiters.
- */
-
-typedef struct lws_ss_ep_exp {
-	lws_ss_handle_t		*h;
-	const char		*structural; /* name of outside md with url
-					      * delimiters, or NULL */
-	char			whole;	     /* endpoint is one "${name}" */
-	char			from_outside;
-} lws_ss_ep_exp_t;
-
-static int
-lws_ss_endpoint_is_whole_subst(const char *ep)
-{
-	const char *e;
-
-	if (strncmp(ep, "${", 2))
-		return 0;
-
-	e = strchr(ep + 2, '}');
-
-	return e && !e[1];
-}
-
-/*
- * The url delimiters (RFC3986 gen-delims, '\\' that browsers treat as '/', and
- * '%' that would start an escape), which an outside value can't bring into an
- * endpoint the policy wrote part of literally.  A NUL counts too: it would
- * cut off the rest of the expanded endpoint, including the policy's suffix
- */
-
-static int
-lws_ss_ep_value_has_url_delim(const char *v, size_t len)
-{
-	while (len--) {
-		if (!*v || strchr(":/\\@?#[]%", *v))
-			return 1;
-		v++;
-	}
-
-	return 0;
-}
-
-static int
-lws_ss_exp_cb_endpoint(void *priv, const char *name, char *out, size_t *pos,
-		       size_t olen, size_t *exp_ofs)
-{
-	lws_ss_ep_exp_t *ee = (lws_ss_ep_exp_t *)priv;
-	lws_ss_metadata_t *hmd = lws_ss_get_handle_metadata(ee->h, name);
-
-	if (hmd && hmd->value_from_outside && hmd->length) {
-		ee->from_outside = 1;
-
-		if (!ee->whole && !ee->structural && hmd->value__may_own_heap &&
-		    lws_ss_ep_value_has_url_delim(
-				(const char *)hmd->value__may_own_heap,
-				hmd->length))
-			ee->structural = hmd->name;
-	}
-
-	return lws_ss_exp_cb_metadata(ee->h, name, out, pos, olen, exp_ofs);
-}
-
-/*
- * The offset in the expanded endpoint \p ep where the address we connect to
- * starts: after the scheme's "://" (and an IPv6 literal's '[') when
- * lws_parse_uri_create() split it up (\p parsed), else ep is used whole
- */
-
-static size_t
-lws_ss_endpoint_host_ofs(const char *ep, int parsed)
-{
-	const char *p;
-	size_t ofs = 0;
-
-	if (!parsed)
-		return 0;
-
-	p = strstr(ep, "://");
-	if (p)
-		ofs = lws_ptr_diff_size_t(p, ep) + 3;
-	if (ep[ofs] == '[')
-		ofs++;
-
-	return ofs;
-}
-
 lws_ss_state_return_t
 _lws_ss_client_connect(lws_ss_handle_t *h, int is_retry, void *conn_if_sspc_onw)
 {
-	const char *prot, *ipath, *ads;
+	const char *prot, *_prot, *ipath, *_ipath, *ads, *_ads;
 	struct lws_client_connect_info i;
 	const struct ss_pcols *ssp;
 	size_t used_in, used_out;
 	union lws_ss_contemp ct;
-	lws_parse_uri_t *puri = NULL;
 	lws_ss_state_return_t r;
-	int port, tls, subst, n;
-	char *path, ep[LHP_URL_LEN];
-	lws_ss_ep_exp_t ee;
-	const char *dollar;
-	size_t lit = 0;
+	int port, _port, tls;
+	char *path, ep[192];
 	lws_strexp_t exp;
-	char inside_connect_prev;
 	struct lws *wsi;
 
 	lws_service_assert_loop_thread(h->context, h->tsi);
-
-	if (h->destroy_pending)
-		/* the user code already gave up on this stream */
-		return LWSSSSRET_DESTROY_ME;
 
 	if (!h->policy) {
 		lwsl_err("%s: ss with no policy\n", __func__);
@@ -1015,114 +786,14 @@ _lws_ss_client_connect(lws_ss_handle_t *h, int is_retry, void *conn_if_sspc_onw)
 	 * time, so this can be set dynamically...
 	 */
 
-	dollar = h->policy->endpoint ? strstr(h->policy->endpoint, "${") : NULL;
-	subst = !!dollar;
-	if (dollar)
-		/*
-		 * The expansion copies the policy's literal text before the
-		 * first ${ verbatim, so ep[0 .. lit) is what the policy author
-		 * wrote; anything at or after lit may have come from metadata
-		 */
-		lit = lws_ptr_diff_size_t(dollar, h->policy->endpoint);
+	lws_strexp_init(&exp, (void *)h, lws_ss_exp_cb_metadata, ep, sizeof(ep));
 
-	ee.h = h;
-	ee.structural = NULL;
-	ee.whole = (char)(dollar && lws_ss_endpoint_is_whole_subst(
-						h->policy->endpoint));
-	ee.from_outside = 0;
-	lws_strexp_init(&exp, (void *)&ee, lws_ss_exp_cb_endpoint, ep,
-			sizeof(ep));
-
-	n = lws_strexp_expand(&exp, h->policy->endpoint,
+	if (lws_strexp_expand(&exp, h->policy->endpoint,
 			      strlen(h->policy->endpoint),
-			      &used_in, &used_out);
-	if (n != LSTRX_DONE) {
-		if (n == LSTRX_FILLED_OUT)
-			lwsl_ss_err(h, "endpoint does not fit in %d",
-				    (int)sizeof(ep));
-		else
-			lwsl_err("%s: address strexp failed\n", __func__);
+			      &used_in, &used_out) != LSTRX_DONE) {
+		lwsl_err("%s: address strexp failed\n", __func__);
 
 		return LWSSSSRET_TX_DONT_SEND;
-	}
-
-	if (ee.structural) {
-		/*
-		 * A value from outside tried to bring url structure into an
-		 * endpoint the policy wrote part of.  Don't connect anywhere:
-		 * like a refused file://, the attempt starts and fails, since
-		 * UNREACHABLE is only legal after CONNECTING
-		 */
-		lwsl_ss_warn(h, "refusing url delimiters in outside metadata "
-				"%s substituted into endpoint", ee.structural);
-		r = lws_ss_event_helper(h, LWSSSCS_CONNECTING);
-		if (r)
-			return r;
-
-		goto fail_out;
-	}
-
-	if (subst) {
-		const unsigned char *pp = (const unsigned char *)ep;
-
-		/*
-		 * Metadata is untrusted (a proxy peer sets it, or it was
-		 * captured from a server response header), and this ends up as
-		 * the Host: header and the SNI name... CTL, SP or DEL in there
-		 * would let whoever set it inject extra headers
-		 */
-
-		while (*pp) {
-			if (*pp <= ' ' || *pp == 0x7f) {
-				lwsl_ss_err(h, "bad char in endpoint");
-
-				return LWSSSSRET_TX_DONT_SEND;
-			}
-			pp++;
-		}
-
-		if (!ep[0]) {
-			/*
-			 * The endpoint was all ${metadata} and nobody set it
-			 * yet, eg, the stream asked to tx from CREATING before
-			 * the app had a chance to.  There is nothing to connect
-			 * to, and handing "" to DNS asks for the root zone...
-			 * treat it as unreachable so the retry policy has
-			 * another go later, by which time it may be set.
-			 *
-			 * UNREACHABLE is only legal after CONNECTING, so as
-			 * with a file:// that won't open, the attempt starts
-			 * and fails
-			 */
-			lwsl_ss_warn(h, "empty endpoint after substitution");
-			r = lws_ss_event_helper(h, LWSSSCS_CONNECTING);
-			if (r)
-				return r;
-
-			goto fail_out;
-		}
-	}
-
-	/*
-	 * A value from outside the process may fill in where in the network
-	 * the stream goes, but it may not take the stream out of the network:
-	 * the endpoint can't become a file:// url, or have a host starting
-	 * with '+' (a unix domain socket path, or with "+@" an abstract one),
-	 * unless the policy author wrote that literally, before the first ${.
-	 * It's the rule lws_client_retarget_allowed() applies to redirects.
-	 * Values our own app set are its business, eg, lhp setting the
-	 * __default streamtype's ${endpoint} to a file:// url.
-	 */
-
-	if (ee.from_outside && !strncmp(ep, "file://", 7) && lit < 7) {
-		lwsl_ss_warn(h, "refusing file:// from outside metadata");
-
-		/* UNREACHABLE is only legal after CONNECTING, as above */
-		r = lws_ss_event_helper(h, LWSSSCS_CONNECTING);
-		if (r)
-			return r;
-
-		goto fail_out;
 	}
 
 	/*
@@ -1133,10 +804,10 @@ _lws_ss_client_connect(lws_ss_handle_t *h, int is_retry, void *conn_if_sspc_onw)
 	 * that was given for at least server, port and the url path.
 	 */
 
-	port = h->policy->port;
-	prot = NULL;
-	ipath = "";
-	ads = ep;
+	_port = port = h->policy->port;
+	_prot = prot = NULL;
+	_ipath = ipath = "";
+	_ads = ads = ep;
 
 #if defined(LWS_WITH_FILE_OPS)
 	if (!strncmp(ep, "file://", 7)) {
@@ -1171,41 +842,14 @@ _lws_ss_client_connect(lws_ss_handle_t *h, int is_retry, void *conn_if_sspc_onw)
 	}
 #endif
 
-	if (strchr(ep, ':'))
-		puri = lws_parse_uri_create(ep);
-
-	if (puri) {
-		if (!puri->scheme[0] && !puri->host[0])
-			lws_parse_uri_destroy(&puri);
-		else {
-#if (_LWS_ENABLED_LOGS & LLL_DEBUG) && \
-    (defined(LWS_ROLE_H1) || defined(LWS_ROLE_H2) || defined(LWS_ROLE_H3))
-			char lp[128];
-
-			/* the endpoint may be metadata-expanded: no query */
-			lwsl_debug("%s: using uri parse results '%s' '%s' %d '%s'\n",
-					__func__, puri->scheme, puri->host, puri->port,
-					lws_http_log_path(lp, sizeof(lp), puri->path));
-#endif
-			prot = puri->scheme;
-			ads = puri->host;
-			port = puri->port;
-			ipath = puri->path;
-		}
-	}
-
-	if (ee.from_outside && ads[0] == '+' &&
-	    lws_ss_endpoint_host_ofs(ep, !!puri) >= lit) {
-		lwsl_ss_warn(h, "refusing unix socket from outside metadata");
-		if (puri)
-			lws_parse_uri_destroy(&puri);
-
-		/* UNREACHABLE is only legal after CONNECTING, as above */
-		r = lws_ss_event_helper(h, LWSSSCS_CONNECTING);
-		if (r)
-			return r;
-
-		goto fail_out;
+	if (strchr(ep, ':') &&
+	    !lws_parse_uri(ep, &_prot, &_ads, &_port, &_ipath)) {
+		lwsl_debug("%s: using uri parse results '%s' '%s' %d '%s'\n",
+				__func__, _prot, _ads, _port, _ipath);
+		prot = _prot;
+		ads = _ads;
+		port = _port;
+		ipath = _ipath;
 	}
 
 	memset(&i, 0, sizeof i); /* otherwise uninitialized garbage */
@@ -1213,20 +857,8 @@ _lws_ss_client_connect(lws_ss_handle_t *h, int is_retry, void *conn_if_sspc_onw)
 	tls = !!(h->policy->flags & LWSSSPOLF_TLS);
 
 	if (prot && (!strcmp(prot, "http") || !strcmp(prot, "ws") ||
-		     !strcmp(prot, "mqtt"))) {
-		/*
-		 * The scheme in the endpoint asks for no tls.  That's the
-		 * policy author's business if he wrote the scheme himself...
-		 * but if the endpoint contains a ${metadata} substitution, the
-		 * scheme may have come from an untrusted place, and it must
-		 * not be able to turn off tls the policy mandated.
-		 */
-		if (tls && subst)
-			lwsl_ss_warn(h, "ignoring non-tls scheme from "
-					"endpoint substitution");
-		else
-			tls = 0;
-	}
+		     !strcmp(prot, "mqtt")))
+		tls = 0;
 
 	if (tls) {
 		lwsl_info("%s: using tls\n", __func__);
@@ -1243,8 +875,6 @@ _lws_ss_client_connect(lws_ss_handle_t *h, int is_retry, void *conn_if_sspc_onw)
 					 __func__,
 					 h->policy->trust.store->name);
 
-				if (puri)
-					lws_parse_uri_destroy(&puri);
 				return -1;
 			}
 		}
@@ -1272,14 +902,6 @@ _lws_ss_client_connect(lws_ss_handle_t *h, int is_retry, void *conn_if_sspc_onw)
 
 	i.ssl_connection |= LCCSCF_SECSTREAM_CLIENT;
 
-	/*
-	 * A proxied stream's onward connection may also start from
-	 * _lws_ss_request_tx(), a retry, or a nailed-up create, which don't
-	 * pass the conn; it's the same conn for all of them
-	 */
-	if (!conn_if_sspc_onw)
-		conn_if_sspc_onw = h->conn_if_sspc_onw;
-
 	if (conn_if_sspc_onw) {
 		i.ssl_connection |= LCCSCF_SECSTREAM_PROXY_ONWARD;
 		h->conn_if_sspc_onw = conn_if_sspc_onw;
@@ -1303,8 +925,6 @@ _lws_ss_client_connect(lws_ss_handle_t *h, int is_retry, void *conn_if_sspc_onw)
 	if (!ssp) {
 		lwsl_err("%s: unsupported protocol\n", __func__);
 
-		if (puri)
-			lws_parse_uri_destroy(&puri);
 		return LWSSSSRET_TX_DONT_SEND;
 	}
 	i.alpn = ssp->alpn;
@@ -1320,55 +940,16 @@ _lws_ss_client_connect(lws_ss_handle_t *h, int is_retry, void *conn_if_sspc_onw)
 	path = lws_malloc(h->context->max_http_header_data, __func__);
 	if (!path) {
 		lwsl_warn("%s: OOM on path prealloc\n", __func__);
-		if (puri)
-			lws_parse_uri_destroy(&puri);
 		return LWSSSSRET_TX_DONT_SEND;
 	}
 
-	if (ssp->munge) { /* eg, raw doesn't use; endpoint strexp already done */
-
-		/*
-		 * The munge fails if, eg, a ${metadata} in the policy url is
-		 * unknown or did not fit the path buffer.  We must not connect
-		 * with a half-composed path, nor (for mqtt) with connect
-		 * parameters the munge did not get as far as filling in.
-		 */
-
-		if (ssp->munge(h, path, h->context->max_http_header_data,
-			       &i, &ct)) {
-			lwsl_err("%s: %s: munge failed\n", __func__,
-				 lws_ss_tag(h));
-			goto bail_path;
-		}
-
-		/*
-		 * Metadata substituted into the request path is untrusted, and
-		 * unlike header values (which lws_hdr_add_value_bad() filters)
-		 * the path goes into the request line verbatim.  Any CTL, SP or
-		 * DEL in there would let the peer that set the metadata inject
-		 * a second request line or extra headers.
-		 */
-
-		if (i.path) {
-			const unsigned char *pp = (const unsigned char *)i.path;
-
-			while (*pp) {
-				if (*pp <= ' ' || *pp == 0x7f) {
-					lwsl_err("%s: %s: bad char in path\n",
-						 __func__, lws_ss_tag(h));
-					goto bail_path;
-				}
-				pp++;
-			}
-		}
-	}
+	if (ssp->munge) /* eg, raw doesn't use; endpoint strexp already done */
+		ssp->munge(h, path, h->context->max_http_header_data, &i, &ct);
 
 	i.pwsi = &h->wsi;
 
-	lwsl_info("%s: connecting %s, '%s' '%s' %s\n", __func__,
-			i.method ? i.method : "(null)",
-			i.alpn ? i.alpn : "(null)", i.address,
-			i.path ? i.path : "(null)");
+	lwsl_info("%s: connecting %s, '%s' '%s' %s\n", __func__, i.method,
+			i.alpn, i.address, i.path);
 
 #if defined(LWS_WITH_SYS_METRICS)
 	/* possibly already hanging connect retry... */
@@ -1384,58 +965,26 @@ _lws_ss_client_connect(lws_ss_handle_t *h, int is_retry, void *conn_if_sspc_onw)
 	r = lws_ss_event_helper(h, LWSSSCS_CONNECTING);
 	if (r) {
 		lws_free(path);
-		if (puri)
-			lws_parse_uri_destroy(&puri);
 		return r;
 	}
 
-	/*
-	 * The user code may connect again from a state callback we issue
-	 * from inside this connect call: we are still inside it after the
-	 * inner one returns
-	 */
-	inside_connect_prev = (char)h->inside_connect;
 	h->inside_connect = 1;
-	if (!inside_connect_prev)
-		h->pending_ret = LWSSSSRET_OK;
+	h->pending_ret = LWSSSSRET_OK;
 	wsi = lws_client_connect_via_info(&i);
-	h->inside_connect = (uint8_t)(inside_connect_prev & 1);
+	h->inside_connect = 0;
 	lws_free(path);
-
-	if (h->destroy_pending) {
-		/* the user code gave up on us inside the connect call */
-		if (puri)
-			lws_parse_uri_destroy(&puri);
-
-		return LWSSSSRET_DESTROY_ME;
-	}
-
 	if (!wsi) {
 		/*
 		 * We already found that we could not connect, without even
 		 * having to go around the event loop
 		 */
 
-		if (h->pending_ret) {
-			if (puri)
-				lws_parse_uri_destroy(&puri);
+		if (h->pending_ret)
 			return h->pending_ret;
-		}
 
-		if (h->wsi) {
-			/*
-			 * The user code connected again from a state callback
-			 * we issued for our failed attempt, eg, from
-			 * ALL_RETRIES_FAILED... that connection is in flight
-			 * now, don't report UNREACHABLE and start a retry
-			 * over it, or a second one joins it on this handle
-			 */
-			if (puri)
-				lws_parse_uri_destroy(&puri);
-			return LWSSSSRET_OK;
-		}
-
+#if defined(LWS_WITH_FILE_OPS)
 fail_out:
+#endif
 		if (h->prev_ss_state != LWSSSCS_UNREACHABLE &&
 		    h->prev_ss_state != LWSSSCS_ALL_RETRIES_FAILED) {
 			/*
@@ -1443,35 +992,18 @@ fail_out:
 			 * CCE, and unreachable can get to ALL_RETRIES_FAILED
 			 */
 			r = lws_ss_event_helper(h, LWSSSCS_UNREACHABLE);
-			if (r) {
-				if (puri)
-					lws_parse_uri_destroy(&puri);
+			if (r)
 				return r;
-			}
 
 			r = lws_ss_backoff(h);
-			if (r) {
-				if (puri)
-					lws_parse_uri_destroy(&puri);
+			if (r)
 				return r;
-			}
 		}
 
-		if (puri)
-			lws_parse_uri_destroy(&puri);
 		return LWSSSSRET_TX_DONT_SEND;
 	}
 
-	if (puri)
-		lws_parse_uri_destroy(&puri);
 	return LWSSSSRET_OK;
-
-bail_path:
-	lws_free(path);
-	if (puri)
-		lws_parse_uri_destroy(&puri);
-
-	return LWSSSSRET_TX_DONT_SEND;
 }
 
 lws_ss_state_return_t
@@ -1537,9 +1069,9 @@ lws_ss_adopt_raw(struct lws_ss_handle *h, lws_sock_file_fd_type fd)
 	return 0;
 
 bail:
-	do {
-		r = lws_ss_event_helper(h, LWSSSCS_DISCONNECTED);
-	} while (r);
+	r = lws_ss_event_helper(h, LWSSSCS_DISCONNECTED);
+	if (r)
+		goto bail;
 
 	lws_close_free_wsi(wsi, LWS_CLOSE_STATUS_NOSTATUS,
 					   "ss adopt skt fail");
@@ -1612,22 +1144,6 @@ lws_ss_create(struct lws_context *context, int tsi, const lws_ss_info_t *ssi,
 #endif
 
 #if defined(LWS_WITH_SERVER)
-	if ((ssi->flags & LWSSSINFLAGS_PROXIED) &&
-	    (pol->flags & LWSSSPOLF_SERVER)) {
-		/*
-		 * A serialized ss proxy client can only drive client streams.
-		 * The serialization has no way to represent a server's
-		 * accepted connections to the client, and the server ss
-		 * becomes the vhost's ss_handle, which must not be something
-		 * a local client process can create, or take over for an
-		 * existing "!vhost".
-		 */
-		lwsl_cx_err(context, "proxied %s is a server streamtype",
-			    ssi->streamtype);
-
-		return 1;
-	}
-
 	if (ssi->flags & LWSSSINFLAGS_REGISTER_SINK) {
 
 		/*
@@ -1682,12 +1198,6 @@ lws_ss_create(struct lws_context *context, int tsi, const lws_ss_info_t *ssi,
 	if (!h)
 		return 2;
 
-	/*
-	 * Everything that can fail from here, even before the rest of the
-	 * handle is filled in, is undone by lws_ss_destroy(), which needs these
-	 */
-	h->context = context;
-	h->tsi = (uint8_t)tsi;
 	h->lc.log_cx = context->log_cx;
 
 	n = LWSLCG_WSI_SS_CLIENT;
@@ -1712,7 +1222,7 @@ lws_ss_create(struct lws_context *context, int tsi, const lws_ss_info_t *ssi,
 #if defined(LWS_WITH_SYS_FAULT_INJECTION)
 	h->fic.name = "ss";
 	lws_xos_init(&h->fic.xos, lws_xos(&context->fic.xos));
-	if (lws_dll2_count(&ssi->fic.fi_owner))
+	if (ssi->fic.fi_owner.count)
 		lws_fi_import(&h->fic, &ssi->fic);
 
 	lws_fi_inherit_copy(&h->fic, &context->fic, "ss", ssi->streamtype);
@@ -1739,15 +1249,15 @@ lws_ss_create(struct lws_context *context, int tsi, const lws_ss_info_t *ssi,
 					      lws_dll2_get_head(&context->sinks)) {
 				sn = lws_container_of(d, lws_ss_sinks_t, list);
 
-				if (sn->info.streamtype && ssi->streamtype && !strcmp(sn->info.streamtype, ssi->streamtype)) {
+				if (!strcmp(sn->info.streamtype, ssi->streamtype)) {
 					lws_ss_handle_t *has;
 
 					/*
 					 * How does the sink feel about us joining?
 					 */
 
-					if (sn->info.state(ss_to_userobj(h), h, LWSSSCS_SINK_JOIN,
-							    lws_dll2_count(&sn->accepts))) {
+					if (sn->info.state(h + 1, h, LWSSSCS_SINK_JOIN,
+							    sn->accepts.count)) {
 						lwsl_ss_notice(h, "sink rejected");
 						goto fail_creation;
 					}
@@ -1782,20 +1292,14 @@ lws_ss_create(struct lws_context *context, int tsi, const lws_ss_info_t *ssi,
 
 	h->info = *ssi;
 	h->policy = pol;
+	h->context = context;
+	h->tsi = (uint8_t)tsi;
 
-	if (h->info.flags & LWSSSINFLAGS_PROXIED) {
-		/*
-		 * The proxy creates us with its conn for the client as our
-		 * opaque user data, bind it now so it's there however our
-		 * first onward connect comes
-		 */
+	if (h->info.flags & LWSSSINFLAGS_PROXIED)
 		h->proxy_onward = 1;
-		h->conn_if_sspc_onw = (struct lws_sss_proxy_conn *)
-							opaque_user_data;
-	}
 
 	/* start of overallocated area */
-	p = (char *)ss_to_userobj(h);
+	p = (char *)(h + 1);
 
 	/* set the handle pointer in the user data struct */
 	v = (void **)(p + ssi->handle_offset);
@@ -1940,15 +1444,8 @@ lws_ss_create(struct lws_context *context, int tsi, const lws_ss_info_t *ssi,
 
 #if defined(LWS_WITH_TLS)
 		if (h->policy->flags & LWSSSPOLF_TLS) {
-			/*
-			 * With no cert or key DER, the vhost would quietly
-			 * come up listening without tls
-			 */
-			if (!h->policy->trust.server.cert ||
-			    !h->policy->trust.server.key ||
-			    !h->policy->trust.server.cert->ca_der ||
-			    !h->policy->trust.server.key->ca_der) {
-				lwsl_ss_err(h, "Policy lacks tls cert or key");
+			if (!h->policy->trust.server.cert) {
+				lwsl_ss_err(h, "Policy lacks tls cert");
 				goto fail_creation;
 			}
 			i.options |= LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
@@ -2026,10 +1523,6 @@ extant:
 	    lws_fi(&h->fic, "ss_create_destroy_me"))
 		goto fail_creation;
 
-	if (r == LWSSSSRET_DISCONNECT_ME)
-		/* if he connected in CREATING, disconnect it again */
-		_lws_ss_handle_state_ret_CAN_DESTROY_HANDLE(r, NULL, &h);
-
 	n = 0;
 #if defined(LWS_WITH_SYS_SMD)
 	if (!(ssi->flags & LWSSSINFLAGS_PROXIED) &&
@@ -2085,16 +1578,6 @@ fail_creation:
 		*ppss = NULL;
 
 #if defined(LWS_WITH_SERVER)
-	if ((ssi->flags & LWSSSINFLAGS_ACCEPTED_SINK) && h->sink_local_bind) {
-		/*
-		 * We are the accepted sink being created for a source that is
-		 * still inside its own lws_ss_create(), which fails and cleans
-		 * itself up when we do.  Our destroy must not reach it through
-		 * the bind, or it frees the source under that create.
-		 */
-		h->sink_local_bind->sink_local_bind = NULL;
-		h->sink_local_bind = NULL;
-	}
 	lws_dll2_remove(&h->sink_bind);
 #endif
 	lws_ss_destroy(&h);
@@ -2105,7 +1588,7 @@ fail_creation:
 void *
 lws_ss_to_user_object(struct lws_ss_handle *h)
 {
-	return ss_to_userobj(h);
+	return (void *)(h + 1);
 }
 
 void
@@ -2143,6 +1626,7 @@ lws_ss_destroy(lws_ss_handle_t **ppss)
 #endif
 
 	if (h->wsi) {
+
 		lwsl_warn("%s: conn->ss->wsi %d %d\n", __func__,
 				h->wsi->bound_ss_proxy_conn, h->wsi->client_proxy_onward);
 
@@ -2150,14 +1634,10 @@ lws_ss_destroy(lws_ss_handle_t **ppss)
 			struct lws_sss_proxy_conn *conn = (struct lws_sss_proxy_conn *)
 				lws_get_opaque_user_data(h->wsi);
 
-			/*
-			 * We already latched h->destroying, we must not return
-			 * from here or the handle is never freed and never
-			 * leaves pt->ss_owner
-			 */
+			if (!conn)
+				return;
 
-			if (conn)
-				conn->ss = NULL;
+			conn->ss = NULL;
 		}
 
 		/*
@@ -2166,15 +1646,6 @@ lws_ss_destroy(lws_ss_handle_t **ppss)
 		 */
 		lws_set_opaque_user_data(h->wsi, NULL);
 		lws_set_timeout(h->wsi, 1, LWS_TO_KILL_SYNC);
-
-		/*
-		 * KILL_SYNC freed the wsi inline, and since we cleared its
-		 * opaque_user_data above, the close path did not clear h->wsi
-		 * for us... the DESTROYING callback below can call SS apis
-		 * that use h->wsi, so it must not be left dangling
-		 */
-
-		h->wsi = NULL;
 	}
 
 #if defined(LWS_WITH_SERVER)
@@ -2197,34 +1668,6 @@ lws_ss_destroy(lws_ss_handle_t **ppss)
 #endif
 
 	pt = &h->context->pt[h->tsi];
-
-#if defined(LWS_WITH_SERVER)
-	/*
-	 * If we are a server stream, the streams we accepted are listed on
-	 * us: they must stop pointing to us before we are freed, or each of
-	 * them writes into us when it closes.  They were accepted for us, so
-	 * their connections close too, and those take the accepted streams
-	 * with them when they go.
-	 */
-	do {
-		lws_ss_handle_t *hh = NULL;
-		struct lws_dll2 *d;
-
-		lws_pt_lock(pt, __func__);
-		d = lws_dll2_get_head(&h->src_list);
-		if (d) {
-			hh = lws_container_of(d, lws_ss_handle_t, cli_list);
-			lws_dll2_remove(d);
-		}
-		lws_pt_unlock(pt);
-
-		if (!hh)
-			break;
-
-		if (hh->wsi)
-			lws_set_timeout(hh->wsi, 1, LWS_TO_KILL_ASYNC);
-	} while (1);
-#endif
 
 	lws_pt_lock(pt, __func__);
 	*ppss = NULL;
@@ -2249,34 +1692,13 @@ lws_ss_destroy(lws_ss_handle_t **ppss)
 	lws_sul_cancel(&h->sul_timeout);
 
 	/*
-	 * What the protocol binding keeps on the handle for its connection:
-	 * the connection is gone, or no longer points to us, so its close
-	 * will not free it for us
-	 */
-
-	if (h->policy && ss_pcols[(int)h->policy->protocol] &&
-	    ss_pcols[(int)h->policy->protocol]->destroy)
-		ss_pcols[(int)h->policy->protocol]->destroy(h);
-
-	/*
 	 * for lss, DESTROYING deletes the C++ lss object, making the
 	 * self-defined h->policy radioactive
 	 */
 
 #if defined(LWS_WITH_SERVER)
-	if (h->policy && (h->policy->flags & LWSSSPOLF_SERVER)) {
-		/*
-		 * Whichever vhost we are the server ss for, the one we made or
-		 * an existing one we bound to with "!vhost", must not keep
-		 * pointing to us for its next accepted connection
-		 */
-		lws_start_foreach_vhost(vh, h->context) {
-			if (vh->ss_handle == h)
-				vh->ss_handle = NULL;
-		} lws_end_foreach_vhost(vh);
-
+	if (h->policy && (h->policy->flags & LWSSSPOLF_SERVER))
 		v = lws_get_vhost_by_name(h->context, h->policy->streamtype);
-	}
 #endif
 
 	/*
@@ -2345,8 +1767,7 @@ lws_ss_destroy(lws_ss_handle_t **ppss)
 		lws_ss_policy_unref_trust_store(h->context, h->policy);
 #else
 #if defined(LWS_WITH_SECURE_STREAMS_CPP)
-	/* a create that failed early may not have got as far as a policy */
-	if (h->policy && (!h->info.streamtype || !*(h->info.streamtype)))
+	if (!h->info.streamtype || !*(h->info.streamtype))
 		lws_ss_policy_unref_trust_store(h->context, h->policy);
 #endif
 #endif
@@ -2398,7 +1819,7 @@ void
 lws_ss_server_foreach_client(struct lws_ss_handle *h, lws_sssfec_cb cb,
 			     void *arg)
 {
-	lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1, lws_dll2_get_head(&h->src_list)) {
+	lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1, h->src_list.head) {
 		struct lws_ss_handle *hh =
 			lws_container_of(d, struct lws_ss_handle, cli_list);
 
@@ -2426,14 +1847,8 @@ lws_ss_sink_txreq_cb(lws_sorted_usec_list_t *sul)
 
 	assert(h->sink_local_bind);
 
-	if (!h->info.tx) {
-		/* eg, a sink that only receives */
-		lwsl_ss_info(h, "No TX cb");
-		return;
-	}
-
 	/* collect the source tx */
-	r = h->info.tx(ss_to_userobj(h), 0, buf + LWS_PRE, &size, &flags);
+	r = h->info.tx(h + 1, 0, buf + LWS_PRE, &size, &flags);
 	switch (r) {
 	case LWSSSSRET_OK:
 		if (!h->sink_local_bind->info.rx) {
@@ -2472,10 +1887,6 @@ _lws_ss_request_tx(lws_ss_handle_t *h)
 	// lwsl_notice("%s: h %p, wsi %p\n", __func__, h, h->wsi);
 
 	lws_service_assert_loop_thread(h->context, h->tsi);
-
-	if (h->destroy_pending)
-		/* the user code already gave up on this stream */
-		return LWSSSSRET_DESTROY_ME;
 
 	if (h->wsi) {
 		lws_callback_on_writable(h->wsi);
@@ -2561,7 +1972,6 @@ lws_ss_request_tx_len(lws_ss_handle_t *h, unsigned long len)
 	if (h->wsi && h->policy &&
 	    (h->policy->protocol == LWSSSP_H1 ||
 	     h->policy->protocol == LWSSSP_H2 ||
-	     h->policy->protocol == LWSSSP_H3 ||
 	     h->policy->protocol == LWSSSP_WS))
 		h->wsi->http.writeable_len = len;
 	else
@@ -2637,33 +2047,6 @@ lws_ss_add_peer_tx_credit(struct lws_ss_handle *h, int32_t bump)
 }
 
 int
-lws_ss_http_rx_content_length(struct lws_ss_handle *h, uint64_t *len)
-{
-#if defined(LWS_ROLE_H1) || defined(LWS_ROLE_H2) || defined(LWS_ROLE_H3)
-	lws_service_assert_loop_thread(h->context, h->tsi);
-
-	if (!h->wsi || !lwsi_role_http(h->wsi) ||
-	    !h->wsi->http.content_length_given)
-		return 1;
-
-	*len = (uint64_t)h->wsi->http.rx_content_length;
-
-	return 0;
-#else
-	(void)h;
-	(void)len;
-	return 1;
-#endif
-}
-
-int
-lws_ss_close_cause(struct lws_ss_handle *h, char *buf, size_t len)
-{
-	return lws_close_cause_render(buf, len, h->close_cause,
-				      h->close_cause_arg);
-}
-
-int
 lws_ss_get_est_peer_tx_credit(struct lws_ss_handle *h)
 {
 	const struct ss_pcols *ssp;
@@ -2688,6 +2071,8 @@ lws_ss_to_cb(lws_sorted_usec_list_t *sul)
 	lws_ss_handle_t *h = lws_container_of(sul, lws_ss_handle_t, sul_timeout);
 	lws_ss_state_return_t r;
 
+	lwsl_info("%s: %s timeout fired\n", __func__, lws_ss_tag(h));
+
 	r = lws_ss_event_helper(h, LWSSSCS_TIMEOUT);
 	if (r != LWSSSSRET_DISCONNECT_ME && r != LWSSSSRET_DESTROY_ME)
 		return;
@@ -2698,7 +2083,6 @@ lws_ss_to_cb(lws_sorted_usec_list_t *sul)
 	_lws_ss_handle_state_ret_CAN_DESTROY_HANDLE(r, h->wsi, &h);
 }
 
-
 void
 lws_ss_start_timeout(struct lws_ss_handle *h, unsigned int timeout_ms)
 {
@@ -2706,7 +2090,6 @@ lws_ss_start_timeout(struct lws_ss_handle *h, unsigned int timeout_ms)
 
 	if (!timeout_ms && !h->policy->timeout_ms)
 		return;
-
 
 	lws_sul_schedule(h->context, 0, &h->sul_timeout, lws_ss_to_cb,
 			 (timeout_ms ? timeout_ms : h->policy->timeout_ms) *
@@ -2772,52 +2155,13 @@ lws_ss_validity_confirmed(struct lws_ss_handle *h)
 }
 
 
-/*
- * The network got better, eg, a route appeared: a stream sitting out its
- * backoff after failing to connect, likely because it had no way out then,
- * tries again now rather than when its backoff runs out, which may be many
- * seconds after it could have connected.  Its backoff starts again from the
- * beginning, since what it was backing off from has changed.
- */
-
-void
-lws_ss_network_improved(struct lws_context *cx)
-{
-	int n;
-
-	for (n = 0; n < cx->count_threads; n++) {
-		struct lws_context_per_thread *pt = &cx->pt[n];
-
-		lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1,
-					   lws_dll2_get_head(&pt->ss_owner)) {
-			struct lws_ss_handle *h = lws_container_of(d,
-						struct lws_ss_handle, list);
-
-			if (h->seqstate == SSSEQ_RECONNECT_WAIT &&
-			    !h->destroy_pending) {
-				/*
-				 * Rare, and it says when the network really
-				 * came, which a failing connection can't
-				 */
-				lwsl_notice("%s: %s: network improved, "
-					    "retrying now\n", __func__,
-					    lws_ss_tag(h));
-				h->retry = 0;
-				lws_sul_cancel(&h->sul);
-				lws_ss_set_timeout_us(h, 1);
-			}
-
-		} lws_end_foreach_dll_safe(d, d1);
-	}
-}
-
 #if defined(_DEBUG)
 void
 lws_ss_assert_extant(struct lws_context *cx, int tsi, struct lws_ss_handle *h)
 {
 	struct lws_context_per_thread *pt = &cx->pt[tsi];
 
-	lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1, lws_dll2_get_head(&pt->ss_owner)) {
+	lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1, pt->ss_owner.head) {
 		struct lws_ss_handle *h1 = lws_container_of(d,
 						struct lws_ss_handle, list);
 
@@ -2840,9 +2184,9 @@ lws_ss_dump_extant(struct lws_context *cx, int tsi)
 #if (_LWS_ENABLED_LOGS & LLL_NOTICE)
 	struct lws_context_per_thread *pt = &cx->pt[tsi];
 
-	lwsl_cx_notice(cx, "pt%d SS Rollcall (%d members)", tsi, (int)lws_dll2_count(&pt->ss_owner));
+	lwsl_cx_notice(cx, "pt%d SS Rollcall (%d members)", tsi, (int)pt->ss_owner.count);
 
-	lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1, lws_dll2_get_head(&pt->ss_owner)) {
+	lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1, pt->ss_owner.head) {
 		struct lws_ss_handle *h = lws_container_of(d,
 						struct lws_ss_handle, list);
 
@@ -2851,108 +2195,3 @@ lws_ss_dump_extant(struct lws_context *cx, int tsi)
 #endif
 }
 
-#if defined(LWS_WITH_SERVER)
-/*
- * A connection a vhost with a server ss accepted (a socket, or a stream of
- * a mux connection): create the accepted ss from the server's pieces and
- * bind it to the wsi, giving it CREATING and CONNECTING; CONNECTED waits on
- * whether it upgrades.  Returns 0 (bound, or the vhost has no server ss),
- * 1 on failure, eg, the user code refused it in CREATING or CONNECTING.  On
- * failure no ss is bound to new_wsi any more, and it is still the caller's
- * to close.  The socket's options are IO's to apply.
- */
-int
-lws_ss_server_accept_bind(struct lws *new_wsi)
-{
-	struct lws_context_per_thread *pt =
-			&new_wsi->a.context->pt[(int)new_wsi->tsi];
-	lws_ss_handle_t *h;
-	void *pv, **ppv;
-
-	if (!new_wsi->a.vhost->ss_handle)
-		return 0;
-
-	pv = (char *)&new_wsi->a.vhost->ss_handle[1];
-
-	/*
-	 * Yes... the vhost is pointing to its secure stream representing the
-	 * server... we want to create an accepted SS and bind it to new_wsi,
-	 * the info/ssi from the server SS (so the SS callbacks defined there),
-	 * the opaque_user_data of the server object and the policy of it.
-	 */
-
-	ppv = (void **)((char *)pv +
-	      new_wsi->a.vhost->ss_handle->info.opaque_user_data_offset);
-
-	/*
-	 * indicate we are an accepted connection referencing the
-	 * server object
-	 */
-
-	new_wsi->a.vhost->ss_handle->info.flags |= LWSSSINFLAGS_SERVER;
-
-	if (lws_ss_create(new_wsi->a.context, new_wsi->tsi,
-			  &new_wsi->a.vhost->ss_handle->info,
-			  *ppv, &h, NULL, NULL)) {
-		lwsl_wsi_err(new_wsi, "accept ss creation failed");
-		goto fail1;
-	}
-
-	/*
-	 * We made a fresh accepted SS conn from the server pieces,
-	 * now bind the wsi... the problem is, this is the nwsi if it's
-	 * h2.
-	 */
-
-	h->wsi = new_wsi;
-	new_wsi->a.opaque_user_data = h;
-	h->info.flags |= LWSSSINFLAGS_ACCEPTED;
-	/* indicate wsi should invalidate any ss link to it on close */
-	new_wsi->for_ss = 1;
-
-	// lwsl_wsi_notice(new_wsi, "%s: opaq %p, role %s",
-	//			     new_wsi->a.opaque_user_data,
-	//			     new_wsi->role_ops->name);
-
-	h->policy = new_wsi->a.vhost->ss_handle->policy;
-
-	/*
-	 * add us to the list of clients that came in from the server
-	 */
-
-	lws_pt_lock(pt, __func__);
-	lws_dll2_add_tail(&h->cli_list, &new_wsi->a.vhost->ss_handle->src_list);
-	lws_pt_unlock(pt);
-
-	/*
-	 * Let's give it appropriate state notifications
-	 */
-
-	if (lws_ss_event_helper(h, LWSSSCS_CREATING))
-		goto fail;
-	if (lws_ss_event_helper(h, LWSSSCS_CONNECTING))
-		goto fail;
-
-	/* defer CONNECTED until we see if he is upgrading */
-
-//	if (lws_ss_event_helper(h, LWSSSCS_CONNECTED))
-//		goto fail;
-
-	// lwsl_notice("%s: accepted ss complete, pcol %s\n", __func__,
-	//		new_wsi->a.protocol->name);
-
-	return 0;
-
-fail:
-	/*
-	 * new_wsi belongs to our caller, who is going to close it.  Unbind
-	 * it first, or lws_ss_destroy() closes and frees it under him.
-	 */
-	h->wsi = NULL;
-	new_wsi->a.opaque_user_data = NULL;
-	new_wsi->for_ss = 0;
-	lws_ss_destroy(&h);
-fail1:
-	return 1;
-}
-#endif

@@ -25,15 +25,6 @@
 #include "private-lib-core.h"
 #include "private-lib-tls-mbedtls.h"
 #include <mbedtls/oid.h>
-#if !defined(LWS_HAVE_MBEDTLS_V4)
-#include <mbedtls/asn1write.h>
-#endif
-#include <mbedtls/x509_csr.h>
-#if defined(LWS_HAVE_MBEDTLS_V4)
-#include <psa/crypto.h>
-#include <mbedtls/pk.h>
-#include <mbedtls/private/pk_private.h>
-#endif
 
 #if defined(LWS_PLAT_OPTEE) || defined(OPTEE_DEV_KIT)
 struct tm {
@@ -64,115 +55,44 @@ lws_tls_mbedtls_time_to_unix(mbedtls_x509_time *xtime)
 	memset(&t, 0, sizeof(t));
 
 	t.tm_year = xtime->MBEDTLS_PRIVATE_V30_ONLY(year) - 1900;
-	t.tm_mon = xtime->MBEDTLS_PRIVATE_V30_ONLY(mon) - 1; /* mbedtls months are 1+, tm_mon is 0+ */
-	/* tm_mon is 0-based, but tm_mday is 1-based like the cert field */
-	t.tm_mday = xtime->MBEDTLS_PRIVATE_V30_ONLY(day);
+	t.tm_mon = xtime->MBEDTLS_PRIVATE_V30_ONLY(mon) - 1; /* mbedtls months are 1+, tm are 0+ */
+	t.tm_mday = xtime->MBEDTLS_PRIVATE_V30_ONLY(day) - 1; /* mbedtls days are 1+, tm are 0+ */
 	t.tm_hour = xtime->MBEDTLS_PRIVATE_V30_ONLY(hour);
 	t.tm_min = xtime->MBEDTLS_PRIVATE_V30_ONLY(min);
 	t.tm_sec = xtime->MBEDTLS_PRIVATE_V30_ONLY(sec);
-	t.tm_isdst = 0;
+	t.tm_isdst = -1;
 
-	/*
-	 * X.509 times are UTC, so they must not be reinterpreted in the local
-	 * timezone... mktime() is only a fallback for platforms lacking a UTC
-	 * conversion, and skews the result by the local UTC offset.
-	 */
-
-#if defined(WIN32)
-	return _mkgmtime(&t);
-#else
-#if defined(LWS_HAVE_TIMEGM) && !defined(LWS_PLAT_OPTEE) && \
-    !defined(OPTEE_DEV_KIT)
-	return timegm(&t);
-#else
 	return mktime(&t);
-#endif
-#endif
 }
 
-/*
- * Return the value of the first RDN in the name list carrying the given OID,
- * eg, id-at-commonName.  Without the OID filter, this would return every
- * subject attribute value concatenated, ie, a peer able to get a CA to sign
- * any other attribute of its choosing could dictate what an app that
- * authorizes on the "CN" sees.  The other backends return only the CN, so
- * this also keeps the api meaning the same thing on every backend.
- */
-
 static int
-lws_tls_mbedtls_get_x509_rdn(mbedtls_x509_name *name, const char *oid,
-			     size_t oid_len,
-			     union lws_tls_cert_info_results *buf, size_t len)
+lws_tls_mbedtls_get_x509_name(mbedtls_x509_name *name,
+			      union lws_tls_cert_info_results *buf, size_t len)
 {
-	size_t n;
+	int r = -1;
 
 	buf->ns.len = 0;
-	buf->ns.name[0] = '\0';
 
 	while (name) {
-		if (name->MBEDTLS_PRIVATE_V30_ONLY(oid).MBEDTLS_PRIVATE_V30_ONLY(len) == oid_len &&
-		    name->MBEDTLS_PRIVATE_V30_ONLY(oid).MBEDTLS_PRIVATE_V30_ONLY(p) &&
-		    !memcmp(name->MBEDTLS_PRIVATE_V30_ONLY(oid).MBEDTLS_PRIVATE_V30_ONLY(p),
-			    oid, oid_len)) {
-			const unsigned char *vp = name->MBEDTLS_PRIVATE_V30_ONLY(val).MBEDTLS_PRIVATE_V30_ONLY(p);
-			size_t vl = name->MBEDTLS_PRIVATE_V30_ONLY(val).MBEDTLS_PRIVATE_V30_ONLY(len);
-
-			/*
-			 * The copy below stops at a NUL and at the caller's
-			 * buffer size, either of which would hand back a
-			 * prefix of the real value as if it were all of it:
-			 * "victim.example\0.attacker.example" must not read
-			 * as "victim.example".  An empty value, one with an
-			 * embedded NUL (which is also how a BMPString or
-			 * UniversalString CN looks here), or one too big for
-			 * the buffer is no CN at all, as on openssl.
-			 */
-
-			if (!vp || !vl || vl >= len || memchr(vp, 0, vl))
-				return -1;
-
-			lws_strnncpy(buf->ns.name, (const char *)vp, vl, len);
-
-			/*
-			 * The value is attacker-chosen and ends up in logs and
-			 * app string handling... let no control characters
-			 * (eg, CR / LF log injection) out of here.
-			 */
-
-			for (n = 0; buf->ns.name[n]; n++)
-				if ((unsigned char)buf->ns.name[n] < 0x20 ||
-				    (unsigned char)buf->ns.name[n] == 0x7f)
-					buf->ns.name[n] = '?';
-
-			buf->ns.len = (int)n;
-
-			return 0;
+		/*
+		if (MBEDTLS_OID_CMP(type, &name->oid)) {
+			name = name->next;
+			continue;
 		}
+*/
+		lws_strnncpy(&buf->ns.name[buf->ns.len],
+			     (const char *)name->MBEDTLS_PRIVATE_V30_ONLY(val).MBEDTLS_PRIVATE_V30_ONLY(p),
+			     name->MBEDTLS_PRIVATE_V30_ONLY(val).MBEDTLS_PRIVATE_V30_ONLY(len),
+			     len - (size_t)buf->ns.len);
+		buf->ns.len = (int)strlen(buf->ns.name);
 
+		r = 0;
 		name = name->MBEDTLS_PRIVATE_V30_ONLY(next);
 	}
 
-	return -1;
+	return r;
 }
 
-
-/* lws_x509_get_crt_ext() chains any authorityCertIssuer entries onto
- * akid->authorityCertIssuer; free the allocated chain tail again
- * (the head is embedded in the caller's stack akid) */
-static void
-lws_x509_akid_issuer_destroy(lws_mbedtls_x509_authority *akid)
-{
-	mbedtls_x509_sequence *n =
-			akid->authorityCertIssuer.MBEDTLS_PRIVATE_V30_ONLY(next), *n1;
-
-	while (n) {
-		n1 = n->MBEDTLS_PRIVATE_V30_ONLY(next);
-		lws_free(n);
-		n = n1;
-	}
-
-	akid->authorityCertIssuer.MBEDTLS_PRIVATE_V30_ONLY(next) = NULL;
-}
 
 int
 lws_tls_mbedtls_cert_info(mbedtls_x509_crt *x509, enum lws_tls_cert_info type,
@@ -201,27 +121,10 @@ lws_tls_mbedtls_cert_info(mbedtls_x509_crt *x509, enum lws_tls_cert_info type,
 		break;
 
 	case LWS_TLS_CERT_INFO_COMMON_NAME:
-	{
-		static const char cn_oid[] = MBEDTLS_OID_AT_CN;
-
-		return lws_tls_mbedtls_get_x509_rdn(
-				&x509->MBEDTLS_PRIVATE_V30_ONLY(subject),
-				cn_oid, sizeof(cn_oid) - 1, buf, len);
-	}
+		return lws_tls_mbedtls_get_x509_name(&x509->MBEDTLS_PRIVATE_V30_ONLY(subject), buf, len);
 
 	case LWS_TLS_CERT_INFO_ISSUER_NAME:
-	{
-		/* the other backends give the whole issuer DN for this */
-		int n = mbedtls_x509_dn_gets(buf->ns.name, len,
-					     &x509->MBEDTLS_PRIVATE_V30_ONLY(issuer));
-
-		if (n < 0)
-			return -1;
-
-		buf->ns.len = (int)strlen(buf->ns.name);
-
-		return 0;
-	}
+		return lws_tls_mbedtls_get_x509_name(&x509->MBEDTLS_PRIVATE_V30_ONLY(issuer), buf, len);
 
 	case LWS_TLS_CERT_INFO_USAGE:
 		buf->usage = x509->MBEDTLS_PRIVATE(key_usage);
@@ -229,10 +132,6 @@ lws_tls_mbedtls_cert_info(mbedtls_x509_crt *x509, enum lws_tls_cert_info type,
 
 	case LWS_TLS_CERT_INFO_OPAQUE_PUBLIC_KEY:
 	{
-#if defined(LWS_HAVE_MBEDTLS_V4)
-		lwsl_err("LWS_TLS_CERT_INFO_OPAQUE_PUBLIC_KEY not yet implemented for MbedTLS v4\n");
-		return -1;
-#else
 		char *p = buf->ns.name;
 		size_t r = len, u;
 
@@ -278,7 +177,6 @@ lws_tls_mbedtls_cert_info(mbedtls_x509_crt *x509, enum lws_tls_cert_info type,
 			return -1;
 		}
 		break;
-#endif
 	}
 	case LWS_TLS_CERT_INFO_DER_RAW:
 
@@ -295,43 +193,12 @@ lws_tls_mbedtls_cert_info(mbedtls_x509_crt *x509, enum lws_tls_cert_info type,
 				x509->MBEDTLS_PRIVATE_V30_ONLY(raw).MBEDTLS_PRIVATE_V30_ONLY(len));
 		break;
 
-	case LWS_TLS_CERT_INFO_DER_SPKI:
-	{
-		uint8_t *tmp;
-		int ret;
-		
-		/* mbedtls writes to the end of the buffer, so allocate a temporary one */
-		/* SPKI won't exceed a few KB */
-		tmp = lws_malloc(4096, "mbedtls_spki_der");
-		if (!tmp)
-			return -1;
-
-		ret = mbedtls_pk_write_pubkey_der(&x509->MBEDTLS_PRIVATE_V30_ONLY(pk), tmp, 4096);
-		if (ret < 0) {
-			lws_free(tmp);
-			return -1;
-		}
-
-		buf->ns.len = ret;
-
-		if (len < (size_t)ret) {
-			lws_free(tmp);
-			return -1;
-		}
-
-		/* the result is written backwards, ending at tmp + 4096 */
-		memcpy(buf->ns.name, tmp + 4096 - ret, (size_t)ret);
-		lws_free(tmp);
-		break;
-	}
-
 	case LWS_TLS_CERT_INFO_AUTHORITY_KEY_ID:
 
 		memset(&akid, 0, sizeof(akid));
 		memset(&skid, 0, sizeof(skid));
 
 		lws_x509_get_crt_ext(x509, &skid, &akid);
-		lws_x509_akid_issuer_destroy(&akid);
 		if (akid.keyIdentifier.MBEDTLS_PRIVATE_V30_ONLY(tag) != MBEDTLS_ASN1_OCTET_STRING)
 			return 1;
 		buf->ns.len = (int)akid.keyIdentifier.MBEDTLS_PRIVATE_V30_ONLY(len);
@@ -354,31 +221,18 @@ lws_tls_mbedtls_cert_info(mbedtls_x509_crt *x509, enum lws_tls_cert_info type,
 		buf->ns.len = 0;
 
 		while (ip) {
-			size_t used = (size_t)buf->ns.len, cl;
-
 			if (akid.keyIdentifier.MBEDTLS_PRIVATE_V30_ONLY(tag) != MBEDTLS_ASN1_OCTET_STRING ||
 			    !ip->MBEDTLS_PRIVATE_V30_ONLY(buf).MBEDTLS_PRIVATE_V30_ONLY(p) ||
-			    ip->MBEDTLS_PRIVATE_V30_ONLY(buf).MBEDTLS_PRIVATE_V30_ONLY(len) < 9)
-				break;
+			    ip->MBEDTLS_PRIVATE_V30_ONLY(buf).MBEDTLS_PRIVATE_V30_ONLY(len) < 9 ||
+			    len < (size_t)ip->MBEDTLS_PRIVATE_V30_ONLY(buf).MBEDTLS_PRIVATE_V30_ONLY(len) - 9u)
+			break;
 
-			/*
-			 * Skip the 9-byte per-RDN header (30 LL 06 03 55 04
-			 * tt 13 ss) and append the value string; it must fit
-			 * in the space remaining after entries already
-			 * copied, leaving room for a NUL
-			 */
-			cl = (size_t)ip->MBEDTLS_PRIVATE_V30_ONLY(buf).MBEDTLS_PRIVATE_V30_ONLY(len) - 9u;
-			if (used > len || cl >= len - used)
-				break;
-
-			memcpy(buf->ns.name + used,
-			       ip->MBEDTLS_PRIVATE_V30_ONLY(buf).MBEDTLS_PRIVATE_V30_ONLY(p) + 9, cl);
-			buf->ns.len = (int)(used + cl);
-			buf->ns.name[buf->ns.len] = '\0';
+			memcpy(buf->ns.name + buf->ns.len, ip->MBEDTLS_PRIVATE_V30_ONLY(buf).MBEDTLS_PRIVATE_V30_ONLY(p),
+					(size_t)ip->MBEDTLS_PRIVATE_V30_ONLY(buf).MBEDTLS_PRIVATE_V30_ONLY(len) - 9);
+			buf->ns.len = buf->ns.len + (int)ip->MBEDTLS_PRIVATE_V30_ONLY(buf).MBEDTLS_PRIVATE_V30_ONLY(len) - 9;
 
 			ip = ip->MBEDTLS_PRIVATE_V30_ONLY(next);
 		}
-		lws_x509_akid_issuer_destroy(&akid);
 		break;
 	}
 	case LWS_TLS_CERT_INFO_AUTHORITY_KEY_ID_SERIAL:
@@ -387,7 +241,6 @@ lws_tls_mbedtls_cert_info(mbedtls_x509_crt *x509, enum lws_tls_cert_info type,
 		memset(&skid, 0, sizeof(skid));
 
 		lws_x509_get_crt_ext(x509, &skid, &akid);
-		lws_x509_akid_issuer_destroy(&akid);
 
 		if (akid.authorityCertSerialNumber.MBEDTLS_PRIVATE_V30_ONLY(tag) != MBEDTLS_ASN1_OCTET_STRING)
 			return 1;
@@ -405,7 +258,6 @@ lws_tls_mbedtls_cert_info(mbedtls_x509_crt *x509, enum lws_tls_cert_info type,
 		memset(&skid, 0, sizeof(skid));
 
 		lws_x509_get_crt_ext(x509, &skid, &akid);
-		lws_x509_akid_issuer_destroy(&akid);
 
 		if (skid.MBEDTLS_PRIVATE_V30_ONLY(tag) != MBEDTLS_ASN1_OCTET_STRING)
 			return 1;
@@ -422,17 +274,13 @@ lws_tls_mbedtls_cert_info(mbedtls_x509_crt *x509, enum lws_tls_cert_info type,
 }
 
 #if defined(LWS_WITH_NETWORK)
-
 int
 lws_tls_vhost_cert_info(struct lws_vhost *vhost, enum lws_tls_cert_info type,
 		        union lws_tls_cert_info_results *buf, size_t len)
 {
 	mbedtls_x509_crt *x509;
 
-	if (!vhost->tls.ssl_ctx)
-		return -1;
-
-	x509 = vhost->tls.ssl_ctx->chain;
+	x509 = ssl_ctx_get_mbedtls_x509_crt(vhost->tls.ssl_ctx);
 
 	return lws_tls_mbedtls_cert_info(x509, type, buf, len);
 }
@@ -445,17 +293,17 @@ lws_tls_peer_cert_info(struct lws *wsi, enum lws_tls_cert_info type,
 
 	wsi = lws_get_network_wsi(wsi);
 
-	if (!wsi->io->tls.ssl)
+	if (!wsi->tls.ssl)
 		return -1;
 
-	x509 = (mbedtls_x509_crt *)mbedtls_ssl_get_peer_cert(&wsi->io->tls.ssl->ssl);
+	x509 = ssl_get_peer_mbedtls_x509_crt(wsi->tls.ssl);
 
 	if (!x509)
 		return -1;
 
 	switch (type) {
 	case LWS_TLS_CERT_INFO_VERIFIED:
-		buf->verified = lws_mbedtls_verify_result(wsi) == 0;
+		buf->verified = SSL_get_verify_result(wsi->tls.ssl) == X509_V_OK;
 		return 0;
 	default:
 		return lws_tls_mbedtls_cert_info(x509, type, buf, len);
@@ -476,18 +324,8 @@ int
 lws_x509_create(struct lws_x509_cert **x509)
 {
 	*x509 = lws_malloc(sizeof(**x509), __func__);
-	if (!*x509)
-		return 1;
 
-	/*
-	 * The mbedtls_x509_crt is embedded by value and lws_x509_destroy()
-	 * frees it unconditionally... it must be in a valid, empty state even
-	 * if the caller never manages to parse anything into it.
-	 */
-
-	mbedtls_x509_crt_init(&(*x509)->cert);
-
-	return 0;
+	return !(*x509);
 }
 
 /*
@@ -544,121 +382,6 @@ int
 lws_x509_public_to_jwk(struct lws_jwk *jwk, struct lws_x509_cert *x509,
 		       const char *curves, int rsa_min_bits)
 {
-#if defined(LWS_HAVE_MBEDTLS_V4)
-	int ret = -1;
-	unsigned char der[4096];
-	int der_len = mbedtls_pk_write_pubkey_der(&x509->cert.pk, der, sizeof(der));
-	if (der_len < 0) {
-		lwsl_err("%s: write pubkey der failed\n", __func__);
-		return -1;
-	}
-	unsigned char *p = der + sizeof(der) - der_len;
-	const unsigned char *end = der + sizeof(der);
-	size_t asn1_len;
-
-	psa_key_attributes_t attr = PSA_KEY_ATTRIBUTES_INIT;
-	mbedtls_pk_get_psa_attributes(&x509->cert.pk, PSA_KEY_USAGE_VERIFY_HASH, &attr);
-	psa_key_type_t type = psa_get_key_type(&attr);
-
-	memset(jwk, 0, sizeof(*jwk));
-
-	/* SubjectPublicKeyInfo ::= SEQUENCE */
-	if (mbedtls_asn1_get_tag(&p, end, &asn1_len, MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE)) goto bail;
-	/* algorithm AlgorithmIdentifier ::= SEQUENCE */
-	if (mbedtls_asn1_get_tag(&p, end, &asn1_len, MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE)) goto bail;
-	p += asn1_len; /* skip algorithm details */
-	
-	/* subjectPublicKey BIT STRING */
-	if (mbedtls_asn1_get_tag(&p, end, &asn1_len, MBEDTLS_ASN1_BIT_STRING)) goto bail;
-	if (*p == 0x00) { p++; asn1_len--; } /* Skip unused bits */
-
-	if (PSA_KEY_TYPE_IS_RSA(type)) {
-		jwk->kty = LWS_GENCRYPTO_KTY_RSA;
-
-		if (rsa_min_bits && psa_get_key_bits(&attr) < (size_t)rsa_min_bits) {
-			lwsl_err("%s: key bits %u less than minimum %d\n",
-				 __func__, (unsigned)psa_get_key_bits(&attr), rsa_min_bits);
-			goto bail;
-		}
-
-		/* RSAPublicKey ::= SEQUENCE */
-		if (mbedtls_asn1_get_tag(&p, end, &asn1_len, MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE)) goto bail;
-		/* Modulus N */
-		if (mbedtls_asn1_get_tag(&p, end, &asn1_len, MBEDTLS_ASN1_INTEGER)) goto bail;
-		if (*p == 0x00) { p++; asn1_len--; }
-		jwk->e[LWS_GENCRYPTO_RSA_KEYEL_N].buf = lws_malloc(asn1_len, "jwk_N");
-		if (!jwk->e[LWS_GENCRYPTO_RSA_KEYEL_N].buf) goto bail;
-		jwk->e[LWS_GENCRYPTO_RSA_KEYEL_N].len = (uint32_t)asn1_len;
-		memcpy(jwk->e[LWS_GENCRYPTO_RSA_KEYEL_N].buf, p, asn1_len);
-		p += asn1_len;
-		
-		/* Exponent E */
-		if (mbedtls_asn1_get_tag(&p, end, &asn1_len, MBEDTLS_ASN1_INTEGER)) goto bail;
-		if (*p == 0x00) { p++; asn1_len--; }
-		jwk->e[LWS_GENCRYPTO_RSA_KEYEL_E].buf = lws_malloc(asn1_len, "jwk_E");
-		if (!jwk->e[LWS_GENCRYPTO_RSA_KEYEL_E].buf) goto bail;
-		jwk->e[LWS_GENCRYPTO_RSA_KEYEL_E].len = (uint32_t)asn1_len;
-		memcpy(jwk->e[LWS_GENCRYPTO_RSA_KEYEL_E].buf, p, asn1_len);
-	} else if (PSA_KEY_TYPE_IS_ECC(type)) {
-		jwk->kty = LWS_GENCRYPTO_KTY_EC;
-		
-		if (asn1_len < 1 || *p != 0x04) {
-			lwsl_err("Only uncompressed EC points supported\n");
-			goto bail;
-		}
-		p++; asn1_len--;
-		if (asn1_len % 2 != 0) goto bail;
-		size_t coord_len = asn1_len / 2;
-		
-		jwk->e[LWS_GENCRYPTO_EC_KEYEL_X].buf = lws_malloc(coord_len, "jwk_X");
-		if (!jwk->e[LWS_GENCRYPTO_EC_KEYEL_X].buf) goto bail;
-		jwk->e[LWS_GENCRYPTO_EC_KEYEL_X].len = (uint32_t)coord_len;
-		memcpy(jwk->e[LWS_GENCRYPTO_EC_KEYEL_X].buf, p, coord_len);
-		p += coord_len;
-		
-		jwk->e[LWS_GENCRYPTO_EC_KEYEL_Y].buf = lws_malloc(coord_len, "jwk_Y");
-		if (!jwk->e[LWS_GENCRYPTO_EC_KEYEL_Y].buf) goto bail;
-		jwk->e[LWS_GENCRYPTO_EC_KEYEL_Y].len = (uint32_t)coord_len;
-		memcpy(jwk->e[LWS_GENCRYPTO_EC_KEYEL_Y].buf, p, coord_len);
-
-		psa_ecc_family_t family = PSA_KEY_TYPE_ECC_GET_FAMILY(type);
-		size_t bits = psa_get_key_bits(&attr);
-		const struct lws_ec_curves *curve;
-		const char *crv = NULL;
-
-		if (family == PSA_ECC_FAMILY_SECP_R1) {
-			if (bits == 256) crv = "P-256";
-			else if (bits == 384) crv = "P-384";
-			else if (bits == 521) crv = "P-521";
-		}
-		
-		if (!crv || !(curve = lws_genec_curve(lws_ec_curves, crv))) {
-			lwsl_err("Unsupported curve family=%d bits=%u\n", (int)family, (unsigned)bits);
-			goto bail;
-		}
-
-		/* the caller's curve allow-list applies, as on mbedtls 3 */
-
-		if (!curves) {
-			lwsl_err("%s: ec curves not allowed\n", __func__);
-			goto bail;
-		}
-
-		if (lws_genec_confirm_curve_allowed_by_tls_id(curves,
-					curve->tls_lib_nid, jwk))
-			/* already logged; sets the jwk crv if allowed */
-			goto bail;
-	} else {
-		lwsl_err("%s: key type %d not supported\n", __func__, (int)type);
-		return -1;
-	}
-
-	ret = 0;
-
-bail:
-	if (ret) lws_jwk_destroy(jwk);
-	return ret;
-#else
 	int kt = (int)mbedtls_pk_get_type(&x509->cert.MBEDTLS_PRIVATE_V30_ONLY(pk)),
 			n, count = 0, ret = -1;
 	mbedtls_rsa_context *rsactx;
@@ -672,13 +395,6 @@ bail:
 		lwsl_notice("%s: RSA key\n", __func__);
 		jwk->kty = LWS_GENCRYPTO_KTY_RSA;
 		rsactx = mbedtls_pk_rsa(x509->cert.MBEDTLS_PRIVATE_V30_ONLY(pk));
-
-		if (rsa_min_bits && mbedtls_pk_get_bitlen(&x509->cert.MBEDTLS_PRIVATE_V30_ONLY(pk)) < (size_t)rsa_min_bits) {
-			lwsl_err("%s: key bits %u less than minimum %d\n",
-				 __func__, (unsigned)mbedtls_pk_get_bitlen(&x509->cert.MBEDTLS_PRIVATE_V30_ONLY(pk)),
-				 rsa_min_bits);
-			goto bail;
-		}
 
 		mpi[LWS_GENCRYPTO_RSA_KEYEL_E] = &rsactx->MBEDTLS_PRIVATE(E);
 		mpi[LWS_GENCRYPTO_RSA_KEYEL_N] = &rsactx->MBEDTLS_PRIVATE(N);
@@ -700,11 +416,6 @@ bail:
 		mpi[LWS_GENCRYPTO_EC_KEYEL_X] = &ecpctx->MBEDTLS_PRIVATE(Q).MBEDTLS_PRIVATE(X);
 		mpi[LWS_GENCRYPTO_EC_KEYEL_D] = &ecpctx->MBEDTLS_PRIVATE(d);
 		mpi[LWS_GENCRYPTO_EC_KEYEL_Y] = &ecpctx->MBEDTLS_PRIVATE(Q).MBEDTLS_PRIVATE(Y);
-
-		if (!curves) {
-			lwsl_err("%s: ec curves not allowed\n", __func__);
-			goto bail;
-		}
 
 		if (lws_genec_confirm_curve_allowed_by_tls_id(curves,
 				(int)ecpctx->MBEDTLS_PRIVATE(grp).id, jwk))
@@ -739,234 +450,17 @@ bail:
 		lws_jwk_destroy(jwk);
 
 	return ret;
-#endif
 }
-
-#if defined(LWS_HAVE_MBEDTLS_V4)
-/*
- * Compare two big-endian unsigned integers of possibly different lengths,
- * ignoring leading zeros, as mbedtls_mpi_cmp_mpi() does on mbedtls 3
- */
-static int
-lws_mbedtls_uint_cmp(const uint8_t *a, size_t al, const uint8_t *b, size_t bl)
-{
-	while (al && !*a) {
-		a++;
-		al--;
-	}
-	while (bl && !*b) {
-		b++;
-		bl--;
-	}
-
-	return al != bl || (al && memcmp(a, b, al));
-}
-#endif
 
 int
 lws_x509_jwk_privkey_pem(struct lws_context *cx, struct lws_jwk *jwk,
 			 void *pem, size_t len, const char *passphrase)
 {
-#if defined(LWS_HAVE_MBEDTLS_V4)
-	mbedtls_pk_context pk;
-	int n, ret = -1;
-	unsigned char der[4096];
-	int der_len;
-
-	mbedtls_pk_init(&pk);
-	n = passphrase ? (int)strlen(passphrase) : 0;
-	n = mbedtls_pk_parse_key(&pk, pem, len, (uint8_t *)passphrase, (size_t)n);
-	if (n) {
-		lwsl_err("%s: parse PEM key failed: -0x%x\n", __func__, -n);
-		return -1;
-	}
-
-	der_len = mbedtls_pk_write_key_der(&pk, der, sizeof(der));
-	if (der_len < 0) {
-		lwsl_err("%s: write key der failed\n", __func__);
-		goto bail;
-	}
-
-	psa_key_attributes_t attr = PSA_KEY_ATTRIBUTES_INIT;
-	mbedtls_pk_get_psa_attributes(&pk, PSA_KEY_USAGE_SIGN_HASH, &attr);
-	psa_key_type_t type = psa_get_key_type(&attr);
-
-	unsigned char *p = der + sizeof(der) - der_len, *d;
-	const unsigned char *end = der + sizeof(der);
-	size_t asn1_len, dlen;
-
-	if (PSA_KEY_TYPE_IS_RSA(type)) {
-		if (jwk->kty != LWS_GENCRYPTO_KTY_RSA) {
-			lwsl_err("%s: RSA privkey, non-RSA jwk\n", __func__);
-			goto bail;
-		}
-		
-		/* RSAPrivateKey ::= SEQUENCE */
-		if (mbedtls_asn1_get_tag(&p, end, &asn1_len, MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE)) goto bail;
-		/* version Version */
-		if (mbedtls_asn1_get_tag(&p, end, &asn1_len, MBEDTLS_ASN1_INTEGER)) goto bail;
-		p += asn1_len;
-		
-		/* Modulus N */
-		if (mbedtls_asn1_get_tag(&p, end, &asn1_len, MBEDTLS_ASN1_INTEGER)) goto bail;
-		if (*p == 0x00) { p++; asn1_len--; }
-		if (asn1_len != jwk->e[LWS_GENCRYPTO_RSA_KEYEL_N].len ||
-		    memcmp(p, jwk->e[LWS_GENCRYPTO_RSA_KEYEL_N].buf, asn1_len)) {
-			lwsl_err("%s: privkey N doesn't match jwk pubkey\n", __func__);
-			goto bail;
-		}
-		p += asn1_len;
-
-		/* Exponent E */
-		if (mbedtls_asn1_get_tag(&p, end, &asn1_len, MBEDTLS_ASN1_INTEGER)) goto bail;
-		if (*p == 0x00) { p++; asn1_len--; }
-		if (asn1_len != jwk->e[LWS_GENCRYPTO_RSA_KEYEL_E].len ||
-		    memcmp(p, jwk->e[LWS_GENCRYPTO_RSA_KEYEL_E].buf, asn1_len)) {
-			lwsl_err("%s: privkey E doesn't match jwk pubkey\n", __func__);
-			goto bail;
-		}
-		p += asn1_len;
-
-		/* Exponent D */
-		if (mbedtls_asn1_get_tag(&p, end, &asn1_len, MBEDTLS_ASN1_INTEGER)) goto bail;
-		if (*p == 0x00) { p++; asn1_len--; }
-		jwk->e[LWS_GENCRYPTO_RSA_KEYEL_D].buf = lws_malloc(asn1_len, "jwk_D");
-		if (!jwk->e[LWS_GENCRYPTO_RSA_KEYEL_D].buf) goto bail;
-		jwk->e[LWS_GENCRYPTO_RSA_KEYEL_D].len = (uint32_t)asn1_len;
-		memcpy(jwk->e[LWS_GENCRYPTO_RSA_KEYEL_D].buf, p, asn1_len);
-		p += asn1_len;
-
-		/* Prime P */
-		if (mbedtls_asn1_get_tag(&p, end, &asn1_len, MBEDTLS_ASN1_INTEGER)) goto bail;
-		if (*p == 0x00) { p++; asn1_len--; }
-		jwk->e[LWS_GENCRYPTO_RSA_KEYEL_P].buf = lws_malloc(asn1_len, "jwk_P");
-		if (!jwk->e[LWS_GENCRYPTO_RSA_KEYEL_P].buf) goto bail;
-		jwk->e[LWS_GENCRYPTO_RSA_KEYEL_P].len = (uint32_t)asn1_len;
-		memcpy(jwk->e[LWS_GENCRYPTO_RSA_KEYEL_P].buf, p, asn1_len);
-		p += asn1_len;
-
-		/* Prime Q */
-		if (mbedtls_asn1_get_tag(&p, end, &asn1_len, MBEDTLS_ASN1_INTEGER)) goto bail;
-		if (*p == 0x00) { p++; asn1_len--; }
-		jwk->e[LWS_GENCRYPTO_RSA_KEYEL_Q].buf = lws_malloc(asn1_len, "jwk_Q");
-		if (!jwk->e[LWS_GENCRYPTO_RSA_KEYEL_Q].buf) goto bail;
-		jwk->e[LWS_GENCRYPTO_RSA_KEYEL_Q].len = (uint32_t)asn1_len;
-		memcpy(jwk->e[LWS_GENCRYPTO_RSA_KEYEL_Q].buf, p, asn1_len);
-		p += asn1_len;
-
-		/* Exponent DP */
-		if (mbedtls_asn1_get_tag(&p, end, &asn1_len, MBEDTLS_ASN1_INTEGER)) goto bail;
-		if (*p == 0x00) { p++; asn1_len--; }
-		jwk->e[LWS_GENCRYPTO_RSA_KEYEL_DP].buf = lws_malloc(asn1_len, "jwk_DP");
-		if (!jwk->e[LWS_GENCRYPTO_RSA_KEYEL_DP].buf) goto bail;
-		jwk->e[LWS_GENCRYPTO_RSA_KEYEL_DP].len = (uint32_t)asn1_len;
-		memcpy(jwk->e[LWS_GENCRYPTO_RSA_KEYEL_DP].buf, p, asn1_len);
-		p += asn1_len;
-
-		/* Exponent DQ */
-		if (mbedtls_asn1_get_tag(&p, end, &asn1_len, MBEDTLS_ASN1_INTEGER)) goto bail;
-		if (*p == 0x00) { p++; asn1_len--; }
-		jwk->e[LWS_GENCRYPTO_RSA_KEYEL_DQ].buf = lws_malloc(asn1_len, "jwk_DQ");
-		if (!jwk->e[LWS_GENCRYPTO_RSA_KEYEL_DQ].buf) goto bail;
-		jwk->e[LWS_GENCRYPTO_RSA_KEYEL_DQ].len = (uint32_t)asn1_len;
-		memcpy(jwk->e[LWS_GENCRYPTO_RSA_KEYEL_DQ].buf, p, asn1_len);
-		p += asn1_len;
-
-		/* Coefficient QI */
-		if (mbedtls_asn1_get_tag(&p, end, &asn1_len, MBEDTLS_ASN1_INTEGER)) goto bail;
-		if (*p == 0x00) { p++; asn1_len--; }
-		jwk->e[LWS_GENCRYPTO_RSA_KEYEL_QI].buf = lws_malloc(asn1_len, "jwk_QI");
-		if (!jwk->e[LWS_GENCRYPTO_RSA_KEYEL_QI].buf) goto bail;
-		jwk->e[LWS_GENCRYPTO_RSA_KEYEL_QI].len = (uint32_t)asn1_len;
-		memcpy(jwk->e[LWS_GENCRYPTO_RSA_KEYEL_QI].buf, p, asn1_len);
-		p += asn1_len;
-
-	} else if (PSA_KEY_TYPE_IS_ECC(type)) {
-		if (jwk->kty != LWS_GENCRYPTO_KTY_EC) {
-			lwsl_err("%s: EC privkey, non-EC jwk\n", __func__);
-			goto bail;
-		}
-
-		/* ECPrivateKey ::= SEQUENCE */
-		if (mbedtls_asn1_get_tag(&p, end, &asn1_len, MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE)) goto bail;
-		/* version Version */
-		if (mbedtls_asn1_get_tag(&p, end, &asn1_len, MBEDTLS_ASN1_INTEGER)) goto bail;
-		p += asn1_len;
-		/* privateKey OCTET STRING */
-		if (mbedtls_asn1_get_tag(&p, end, &asn1_len, MBEDTLS_ASN1_OCTET_STRING)) goto bail;
-		d = p;
-		dlen = asn1_len;
-		p += asn1_len;
-
-		/*
-		 * Without this, any other key on the same curve is accepted,
-		 * since every P-256 x is 32 bytes... confirm the public point
-		 * belongs to this private key, the way the RSA arm above
-		 * confirms N and E.  The point is the ECPrivateKey's optional
-		 * publicKey [1], after the optional parameters [0]
-		 */
-
-		if (!mbedtls_asn1_get_tag(&p, end, &asn1_len,
-					  MBEDTLS_ASN1_CONTEXT_SPECIFIC |
-					  MBEDTLS_ASN1_CONSTRUCTED | 0))
-			p += asn1_len;
-
-		if (mbedtls_asn1_get_tag(&p, end, &asn1_len,
-					 MBEDTLS_ASN1_CONTEXT_SPECIFIC |
-					 MBEDTLS_ASN1_CONSTRUCTED | 1) ||
-		    mbedtls_asn1_get_bitstring_null(&p, end, &asn1_len) ||
-		    asn1_len < 3 || !(asn1_len & 1) || p[0] != 0x04) {
-			lwsl_err("%s: no usable EC pubkey point\n", __func__);
-			goto bail;
-		}
-
-		if (!jwk->e[LWS_GENCRYPTO_EC_KEYEL_X].buf ||
-		    !jwk->e[LWS_GENCRYPTO_EC_KEYEL_Y].buf) {
-			lwsl_err("%s: jwk has no EC pubkey\n", __func__);
-			goto bail;
-		}
-
-		if (lws_mbedtls_uint_cmp(p + 1, (asn1_len - 1) / 2,
-				jwk->e[LWS_GENCRYPTO_EC_KEYEL_X].buf,
-				jwk->e[LWS_GENCRYPTO_EC_KEYEL_X].len) ||
-		    lws_mbedtls_uint_cmp(p + 1 + (asn1_len - 1) / 2,
-				(asn1_len - 1) / 2,
-				jwk->e[LWS_GENCRYPTO_EC_KEYEL_Y].buf,
-				jwk->e[LWS_GENCRYPTO_EC_KEYEL_Y].len)) {
-			lwsl_err("%s: EC privkey doesn't match jwk pubkey\n",
-				 __func__);
-			goto bail;
-		}
-
-		jwk->e[LWS_GENCRYPTO_EC_KEYEL_D].buf = lws_malloc(dlen, "jwk_D");
-		if (!jwk->e[LWS_GENCRYPTO_EC_KEYEL_D].buf) goto bail;
-		jwk->e[LWS_GENCRYPTO_EC_KEYEL_D].len = (uint32_t)dlen;
-		memcpy(jwk->e[LWS_GENCRYPTO_EC_KEYEL_D].buf, d, dlen);
-
-	} else {
-		lwsl_err("%s: key type %d not supported\n", __func__, (int)type);
-		goto bail;
-	}
-
-	ret = 0;
-
-bail:
-	/* der holds the whole private key */
-	lws_explicit_bzero(der, sizeof(der));
-	mbedtls_pk_free(&pk);
-	return ret;
-#else
 	mbedtls_rsa_context *rsactx;
 	mbedtls_ecp_keypair *ecpctx;
 	mbedtls_pk_context pk;
 	mbedtls_mpi *mpi[LWS_GENCRYPTO_RSA_KEYEL_COUNT];
 	int n, ret = -1, count = 0;
-
-#if defined(LWS_MBEDTLS_PSA_RNG)
-	/* the key parse RNG is PSA's: idempotent, and there may be no context */
-	if (psa_crypto_init() != PSA_SUCCESS)
-		return -1;
-#endif
 
 	mbedtls_pk_init(&pk);
 
@@ -974,8 +468,8 @@ bail:
 	if (passphrase)
 		n = (int)strlen(passphrase);
 	n = mbedtls_pk_parse_key(&pk, pem, len, (uint8_t *)passphrase, (unsigned int)n
-#if defined(MBEDTLS_VERSION_NUMBER) && MBEDTLS_VERSION_NUMBER >= 0x03000000 && !defined(LWS_HAVE_MBEDTLS_V4)
-					, LWS_MBEDTLS_F_RNG, lws_mbedtls_cx_p_rng(cx)
+#if defined(MBEDTLS_VERSION_NUMBER) && MBEDTLS_VERSION_NUMBER >= 0x03000000
+					, mbedtls_ctr_drbg_random, &cx->mcdc
 #endif
 			);
 	if (n) {
@@ -992,25 +486,6 @@ bail:
 			goto bail;
 		}
 		rsactx = mbedtls_pk_rsa(pk);
-
-		{
-			mbedtls_mpi tmpN, tmpE;
-			int match = 0;
-			mbedtls_mpi_init(&tmpN);
-			mbedtls_mpi_init(&tmpE);
-			mbedtls_mpi_read_binary(&tmpN, jwk->e[LWS_GENCRYPTO_RSA_KEYEL_N].buf, jwk->e[LWS_GENCRYPTO_RSA_KEYEL_N].len);
-			mbedtls_mpi_read_binary(&tmpE, jwk->e[LWS_GENCRYPTO_RSA_KEYEL_E].buf, jwk->e[LWS_GENCRYPTO_RSA_KEYEL_E].len);
-			if (mbedtls_mpi_cmp_mpi(&tmpN, &rsactx->MBEDTLS_PRIVATE(N)) ||
-			    mbedtls_mpi_cmp_mpi(&tmpE, &rsactx->MBEDTLS_PRIVATE(E))) {
-				lwsl_err("%s: privkey doesn't match jwk pubkey\n", __func__);
-			} else {
-				match = 1;
-			}
-			mbedtls_mpi_free(&tmpN);
-			mbedtls_mpi_free(&tmpE);
-			if (!match) goto bail;
-		}
-
 		mpi[LWS_GENCRYPTO_RSA_KEYEL_D] = &rsactx->MBEDTLS_PRIVATE(D);
 		mpi[LWS_GENCRYPTO_RSA_KEYEL_P] = &rsactx->MBEDTLS_PRIVATE(P);
 		mpi[LWS_GENCRYPTO_RSA_KEYEL_Q] = &rsactx->MBEDTLS_PRIVATE(Q);
@@ -1023,46 +498,6 @@ bail:
 			goto bail;
 		}
 		ecpctx = mbedtls_pk_ec(pk);
-
-		{
-			mbedtls_mpi tmpX, tmpY;
-			int match = 0;
-
-			/*
-			 * Without this, any other key on the same curve is
-			 * accepted, since every P-256 x is 32 bytes... confirm
-			 * the public point belongs to this private key, the
-			 * way the RSA arm above confirms n and e
-			 */
-
-			if (!jwk->e[LWS_GENCRYPTO_EC_KEYEL_X].buf ||
-			    !jwk->e[LWS_GENCRYPTO_EC_KEYEL_Y].buf) {
-				lwsl_err("%s: jwk has no EC pubkey\n", __func__);
-				goto bail;
-			}
-
-			mbedtls_mpi_init(&tmpX);
-			mbedtls_mpi_init(&tmpY);
-			mbedtls_mpi_read_binary(&tmpX,
-				jwk->e[LWS_GENCRYPTO_EC_KEYEL_X].buf,
-				jwk->e[LWS_GENCRYPTO_EC_KEYEL_X].len);
-			mbedtls_mpi_read_binary(&tmpY,
-				jwk->e[LWS_GENCRYPTO_EC_KEYEL_Y].buf,
-				jwk->e[LWS_GENCRYPTO_EC_KEYEL_Y].len);
-			if (mbedtls_mpi_cmp_mpi(&tmpX,
-			      &ecpctx->MBEDTLS_PRIVATE(Q).MBEDTLS_PRIVATE(X)) ||
-			    mbedtls_mpi_cmp_mpi(&tmpY,
-			      &ecpctx->MBEDTLS_PRIVATE(Q).MBEDTLS_PRIVATE(Y)))
-				lwsl_err("%s: EC privkey doesn't match jwk "
-					 "pubkey\n", __func__);
-			else
-				match = 1;
-			mbedtls_mpi_free(&tmpX);
-			mbedtls_mpi_free(&tmpY);
-			if (!match)
-				goto bail;
-		}
-
 		mpi[LWS_GENCRYPTO_EC_KEYEL_D] = &ecpctx->MBEDTLS_PRIVATE(d);
 		n = LWS_GENCRYPTO_EC_KEYEL_D;
 		count = n + 1;
@@ -1092,7 +527,6 @@ bail:
 	mbedtls_pk_free(&pk);
 
 	return ret;
-#endif
 }
 #endif
 
@@ -1105,399 +539,4 @@ lws_x509_destroy(struct lws_x509_cert **x509)
 	mbedtls_x509_crt_free(&(*x509)->cert);
 
 	lws_free_set_NULL(*x509);
-}
-
-/*
- * Certificate creation needs the mbedtls x509 writer, which is a separate
- * module (MBEDTLS_X509_CRT_WRITE_C) that a build of mbedtls can leave out:
- * ESP-IDF's does unless CONFIG_MBEDTLS_X509_CREATE_C is selected.  Without it
- * lws_x509_create_cert() is still part of the api, but reports failure.
- */
-#if defined(MBEDTLS_X509_CRT_WRITE_C)
-
-/*
- * Fill buf with len random bytes from the backend's RNG.  Before mbedtls 4,
- * that is the context's ctr_drbg (or a private one when there is no context);
- * on mbedtls 4 it is the PSA RNG, which has no per-caller state.
- */
-#if defined(LWS_HAVE_MBEDTLS_V4)
-static int
-lws_x509_mbedtls_random(uint8_t *buf, size_t len)
-{
-	return psa_generate_random(buf, len) != PSA_SUCCESS;
-}
-#else
-static int
-lws_x509_mbedtls_random(mbedtls_ctr_drbg_context *pdrbg, uint8_t *buf,
-			size_t len)
-{
-	return !!LWS_MBEDTLS_F_RNG(LWS_MBEDTLS_P_RNG(pdrbg), buf, len);
-}
-#endif
-
-/*
- * Generate the new cert's keypair into key.  On mbedtls 4 the legacy
- * mbedtls_pk_setup() + mbedtls_rsa_gen_key() / mbedtls_ecp_gen_key() path is
- * gone: PSA generates the key and the material is copied into the pk context,
- * which then owns it independently of PSA like a parsed key would.
- */
-static int
-lws_x509_mbedtls_gen_key(mbedtls_pk_context *key,
-#if !defined(LWS_HAVE_MBEDTLS_V4)
-			 mbedtls_ctr_drbg_context *pdrbg,
-#endif
-			 const struct lws_x509_cert_gen_info *info)
-{
-	unsigned int bits = (unsigned int)(info->key_bits ? info->key_bits : 2048);
-#if defined(LWS_HAVE_MBEDTLS_V4)
-	psa_key_attributes_t attr = PSA_KEY_ATTRIBUTES_INIT;
-	mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
-	psa_status_t st;
-	int n;
-
-	if (info->curve_name) {
-		if (!strcmp(info->curve_name, "P-521"))
-			bits = 521;
-		else if (!strcmp(info->curve_name, "P-384"))
-			bits = 384;
-		else if (!strcmp(info->curve_name, "P-256"))
-			bits = 256;
-		else {
-			lwsl_err("%s: unknown curve %s\n", __func__,
-				 info->curve_name);
-			return 1;
-		}
-
-		psa_set_key_type(&attr, PSA_KEY_TYPE_ECC_KEY_PAIR(
-						PSA_ECC_FAMILY_SECP_R1));
-		psa_set_key_algorithm(&attr, PSA_ALG_ECDSA(PSA_ALG_ANY_HASH));
-	} else {
-		psa_set_key_type(&attr, PSA_KEY_TYPE_RSA_KEY_PAIR);
-		psa_set_key_algorithm(&attr,
-				      PSA_ALG_RSA_PKCS1V15_SIGN(PSA_ALG_ANY_HASH));
-	}
-
-	psa_set_key_bits(&attr, bits);
-	/* EXPORT is what lets mbedtls_pk_copy_from_psa() take the material */
-	psa_set_key_usage_flags(&attr, PSA_KEY_USAGE_SIGN_HASH |
-				       PSA_KEY_USAGE_EXPORT);
-
-	st = psa_generate_key(&attr, &key_id);
-	if (st != PSA_SUCCESS) {
-		lwsl_err("%s: psa_generate_key failed %d\n", __func__, (int)st);
-		return 1;
-	}
-
-	n = mbedtls_pk_copy_from_psa(key_id, key);
-	psa_destroy_key(key_id);
-	if (n) {
-		lwsl_err("%s: pk_copy_from_psa failed -0x%x\n", __func__, -n);
-		return 1;
-	}
-
-	return 0;
-#else
-	if (info->curve_name) {
-		mbedtls_ecp_group_id grp_id = MBEDTLS_ECP_DP_NONE;
-
-		if (!strcmp(info->curve_name, "P-521"))
-			grp_id = MBEDTLS_ECP_DP_SECP521R1;
-		else if (!strcmp(info->curve_name, "P-384"))
-			grp_id = MBEDTLS_ECP_DP_SECP384R1;
-		else if (!strcmp(info->curve_name, "P-256"))
-			grp_id = MBEDTLS_ECP_DP_SECP256R1;
-
-		if (grp_id == MBEDTLS_ECP_DP_NONE) {
-			lwsl_err("%s: unknown curve %s\n", __func__,
-				 info->curve_name);
-			return 1;
-		}
-
-		if (mbedtls_pk_setup(key,
-				     mbedtls_pk_info_from_type(MBEDTLS_PK_ECKEY)))
-			return 1;
-
-		return !!mbedtls_ecp_gen_key(grp_id, mbedtls_pk_ec(*key),
-					     LWS_MBEDTLS_F_RNG,
-					     LWS_MBEDTLS_P_RNG(pdrbg));
-	}
-
-	if (mbedtls_pk_setup(key, mbedtls_pk_info_from_type(MBEDTLS_PK_RSA)))
-		return 1;
-
-	return !!mbedtls_rsa_gen_key(mbedtls_pk_rsa(*key), LWS_MBEDTLS_F_RNG,
-				     LWS_MBEDTLS_P_RNG(pdrbg), bits, 65537);
-#endif
-}
-
-int
-lws_x509_create_cert(struct lws_context *context,
-		     uint8_t **cert_buf, size_t *cert_len,
-		     uint8_t **key_buf, size_t *key_len,
-		     const struct lws_x509_cert_gen_info *info)
-{
-	mbedtls_x509write_cert crt;
-	mbedtls_pk_context key;
-	mbedtls_x509_crt issuer_crt;
-	mbedtls_pk_context issuer_key;
-#if !defined(LWS_MBEDTLS_PSA_RNG)
-	mbedtls_entropy_context entropy;
-	mbedtls_ctr_drbg_context ctr_drbg;
-	mbedtls_ctr_drbg_context *pdrbg = &ctr_drbg;
-#elif !defined(LWS_HAVE_MBEDTLS_V4)
-	/* only ever passed to LWS_MBEDTLS_P_RNG(), which doesn't use it here */
-	mbedtls_ctr_drbg_context *pdrbg = NULL;
-#endif
-	unsigned char buf[4096];
-	uint8_t serial_val[8];
-	char name[128];
-	int ret = 1, len, n;
-
-	/*
-	 * ret stays 1 on every path until the cert and key have both been
-	 * handed to the caller: mbedtls results go in n, never in ret, so no
-	 * failure after an earlier successful mbedtls call can return 0
-	 */
-
-	if (!info || !info->san)
-		return 1;
-
-	mbedtls_x509write_crt_init(&crt);
-	mbedtls_pk_init(&key);
-	mbedtls_x509_crt_init(&issuer_crt);
-	mbedtls_pk_init(&issuer_key);
-
-#if defined(LWS_MBEDTLS_PSA_RNG)
-	/*
-	 * Context creation already did this, but there may be no context:
-	 * psa_crypto_init() is idempotent
-	 */
-	if (psa_crypto_init() != PSA_SUCCESS)
-		goto bail;
-#else
-	if (context) {
-		pdrbg = lws_mbedtls_cx_p_rng(context);
-	} else {
-		mbedtls_ctr_drbg_init(&ctr_drbg);
-		mbedtls_entropy_init(&entropy);
-		if (mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy,
-					  (const unsigned char *)"lws_cert_gen", 12))
-			goto bail;
-	}
-#endif
-
-	if (lws_x509_mbedtls_gen_key(&key,
-#if !defined(LWS_HAVE_MBEDTLS_V4)
-				     pdrbg,
-#endif
-				     info))
-		goto bail;
-
-	mbedtls_x509write_crt_set_version(&crt, MBEDTLS_X509_CRT_VERSION_3);
-	mbedtls_x509write_crt_set_subject_key(&crt, &key);
-
-	/* on failure serial_val[] would be uninitialised stack */
-	if (lws_x509_mbedtls_random(
-#if !defined(LWS_HAVE_MBEDTLS_V4)
-				    pdrbg,
-#endif
-				    serial_val, sizeof(serial_val)))
-		goto bail;
-	serial_val[0] &= 0x7f; /* Positive */
-
-#if defined(MBEDTLS_VERSION_NUMBER) && MBEDTLS_VERSION_NUMBER >= 0x03000000
-	if (mbedtls_x509write_crt_set_serial_raw(&crt, serial_val,
-						 sizeof(serial_val)))
-		goto bail;
-#else
-	{
-		mbedtls_mpi serial;
-
-		mbedtls_mpi_init(&serial);
-		n = mbedtls_mpi_read_binary(&serial, serial_val,
-					    sizeof(serial_val));
-		if (!n)
-			n = mbedtls_x509write_crt_set_serial(&crt, &serial);
-		mbedtls_mpi_free(&serial);
-		if (n)
-			goto bail;
-	}
-#endif
-
-	lws_snprintf(name, sizeof(name), "CN=%s", info->san);
-	if (mbedtls_x509write_crt_set_subject_name(&crt, name))
-		goto bail;
-
-	if (info->ca_cert_pem && info->ca_key_pem) {
-		char issuer_name[256];
-
-		if (mbedtls_x509_crt_parse(&issuer_crt,
-					   (const unsigned char *)info->ca_cert_pem,
-					   strlen(info->ca_cert_pem) + 1))
-			goto bail;
-
-		n = mbedtls_pk_parse_key(&issuer_key,
-					 (const unsigned char *)info->ca_key_pem,
-					 strlen(info->ca_key_pem) + 1, NULL, 0
-#if defined(MBEDTLS_VERSION_NUMBER) && MBEDTLS_VERSION_NUMBER >= 0x03000000 && !defined(LWS_HAVE_MBEDTLS_V4)
-					 , LWS_MBEDTLS_F_RNG, LWS_MBEDTLS_P_RNG(pdrbg)
-#endif
-		);
-		if (n)
-			goto bail;
-
-		mbedtls_x509write_crt_set_issuer_key(&crt, &issuer_key);
-
-		if (mbedtls_x509_dn_gets(issuer_name, sizeof(issuer_name),
-				&issuer_crt.MBEDTLS_PRIVATE_V30_ONLY(subject)) < 0)
-			goto bail;
-		if (mbedtls_x509write_crt_set_issuer_name(&crt, issuer_name))
-			goto bail;
-	} else {
-		mbedtls_x509write_crt_set_issuer_key(&crt, &key);
-		if (mbedtls_x509write_crt_set_issuer_name(&crt, name))
-			goto bail;
-	}
-
-	{
-		char not_before[16], not_after[16];
-		time_t t;
-		struct tm *tm;
-
-		time(&t);
-		t -= 86400;
-#if defined(LWS_HAVE_GMTIME_R)
-		struct tm tm_s;
-		tm = gmtime_r(&t, &tm_s);
-#else
-		tm = gmtime(&t);
-#endif
-		if (!tm)
-			goto bail;
-		lws_snprintf(not_before, sizeof(not_before), "%04d%02d%02d%02d%02d%02d",
-			tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
-			tm->tm_hour, tm->tm_min, tm->tm_sec);
-
-		t += 86400;
-		t += (time_t)(info->validity_days ? info->validity_days : 365) * 24 * 3600;
-#if defined(LWS_HAVE_GMTIME_R)
-		tm = gmtime_r(&t, &tm_s);
-#else
-		tm = gmtime(&t);
-#endif
-		if (!tm)
-			goto bail;
-		lws_snprintf(not_after, sizeof(not_after), "%04d%02d%02d%02d%02d%02d",
-			tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
-			tm->tm_hour, tm->tm_min, tm->tm_sec);
-
-		if (mbedtls_x509write_crt_set_validity(&crt, not_before, not_after))
-			goto bail;
-	}
-
-	mbedtls_x509write_crt_set_md_alg(&crt, MBEDTLS_MD_SHA256);
-
-	/* Extensions */
-	if (mbedtls_x509write_crt_set_basic_constraints(&crt, info->is_ca ? 1 : 0, -1))
-		goto bail;
-
-	if (info->is_ca)
-		n = mbedtls_x509write_crt_set_key_usage(&crt, MBEDTLS_X509_KU_KEY_CERT_SIGN |
-							      MBEDTLS_X509_KU_CRL_SIGN);
-	else
-		n = mbedtls_x509write_crt_set_key_usage(&crt, MBEDTLS_X509_KU_DIGITAL_SIGNATURE |
-							      MBEDTLS_X509_KU_KEY_ENCIPHERMENT);
-	if (n)
-		goto bail;
-
-	/* Cert Output */
-	len = mbedtls_x509write_crt_der(&crt, buf, sizeof(buf)
-#if !defined(LWS_HAVE_MBEDTLS_V4)
-					, LWS_MBEDTLS_F_RNG, LWS_MBEDTLS_P_RNG(pdrbg)
-#endif
-			);
-	if (len <= 0) {
-		lwsl_err("%s: crt_der failed %d\n", __func__, len);
-		goto bail;
-	}
-
-	/* mbedtls writes to end of buffer */
-	*cert_buf = malloc((size_t)len);
-	if (!*cert_buf) goto bail;
-	memcpy(*cert_buf, buf + sizeof(buf) - len, (size_t)len);
-	*cert_len = (size_t)len;
-
-	/* Key Output - writes to end of buffer */
-	len = mbedtls_pk_write_key_der(&key, buf, sizeof(buf));
-	if (len <= 0) {
-		free(*cert_buf);
-		*cert_buf = NULL; /* we return failure: don't leave it dangling */
-		goto bail;
-	}
-
-	*key_buf = malloc((size_t)len);
-	if (!*key_buf) {
-		free(*cert_buf);
-		*cert_buf = NULL; /* we return failure: don't leave it dangling */
-		goto bail;
-	}
-	memcpy(*key_buf, buf + sizeof(buf) - len, (size_t)len);
-	*key_len = (size_t)len;
-
-	ret = 0;
-
-bail:
-	/* the tail of buf may hold the private key DER */
-	lws_explicit_bzero(buf, sizeof(buf));
-	mbedtls_x509write_crt_free(&crt);
-	mbedtls_pk_free(&key);
-	mbedtls_x509_crt_free(&issuer_crt);
-	mbedtls_pk_free(&issuer_key);
-#if !defined(LWS_MBEDTLS_PSA_RNG)
-	if (!context) {
-		mbedtls_ctr_drbg_free(&ctr_drbg);
-		mbedtls_entropy_free(&entropy);
-	}
-#endif
-
-	return ret;
-}
-
-#else /* !MBEDTLS_X509_CRT_WRITE_C */
-
-int
-lws_x509_create_cert(struct lws_context *context,
-		     uint8_t **cert_buf, size_t *cert_len,
-		     uint8_t **key_buf, size_t *key_len,
-		     const struct lws_x509_cert_gen_info *info)
-{
-	(void)context;
-	(void)cert_buf;
-	(void)cert_len;
-	(void)key_buf;
-	(void)key_len;
-	(void)info;
-
-	lwsl_err("%s: mbedtls built without MBEDTLS_X509_CRT_WRITE_C\n",
-		 __func__);
-
-	return 1;
-}
-
-#endif /* MBEDTLS_X509_CRT_WRITE_C */
-
-int
-lws_x509_create_self_signed(struct lws_context *context,
-			    uint8_t **cert_buf, size_t *cert_len,
-			    uint8_t **key_buf, size_t *key_len,
-			    const char *san, int key_bits)
-{
-	struct lws_x509_cert_gen_info info;
-
-	memset(&info, 0, sizeof(info));
-	info.san = san ? san : "localhost";
-	info.key_bits = key_bits;
-	info.is_server = 1;
-
-	return lws_x509_create_cert(context, cert_buf, cert_len, key_buf, key_len, &info);
 }

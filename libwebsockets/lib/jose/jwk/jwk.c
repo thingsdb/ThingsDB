@@ -48,11 +48,6 @@ static const char *ec_names[] = {
 };
 static const char ec_b64[] = { 0, 1, 1, 1 };
 
-static const char *okp_names[] = {
-	"crv", "x", "d",
-};
-static const char okp_b64[] = { 0, 1, 1 };
-
 int
 lws_jwk_dump(struct lws_jwk *jwk)
 {
@@ -84,11 +79,6 @@ lws_jwk_dump(struct lws_jwk *jwk)
 		enames = ec_names;
 		b64 = ec_b64;
 		break;
-	case LWS_GENCRYPTO_KTY_OKP:
-		elems = LWS_GENCRYPTO_OKP_KEYEL_COUNT;
-		enames = okp_names;
-		b64 = okp_b64;
-		break;
 	}
 
 	lwsl_info("%s: jwk %p\n", __func__, jwk);
@@ -116,17 +106,8 @@ lws_jwk_dump(struct lws_jwk *jwk)
 }
 
 int
-_lws_jwk_set_el_jwk(struct lws_gencrypto_keyelem *e, const char *in,
-		    size_t len)
+_lws_jwk_set_el_jwk(struct lws_gencrypto_keyelem *e, char *in, size_t len)
 {
-	/*
-	 * JSON does not stop anybody sending the same member twice, and lejp
-	 * is a streaming parser that reports each occurrence... without this,
-	 * occurrence n orphans the allocation from occurrence n - 1, which is
-	 * an unauthenticated heap leak for a JWK arriving in a JOSE header
-	 */
-	lws_jwk_destroy_elements(e, 1);
-
 	e->buf = lws_malloc(len + 1, "jwk");
 	if (!e->buf)
 		return -1;
@@ -168,7 +149,7 @@ lws_jwk_init_jps(struct lws_jwk_parse_state *jps,
 		memset(jwk, 0, sizeof(*jwk));
 
 	jps->jwk		= jwk;
-	jps->possible		= F_RSA | F_EC | F_OCT | F_OKP;
+	jps->possible		= F_RSA | F_EC | F_OCT;
 	jps->per_key_cb		= cb;
 	jps->user		= user;
 	jps->pos		= 0;
@@ -181,22 +162,14 @@ lws_jwk_dup_oct(struct lws_jwk *jwk, const void *key, int len)
 {
 	unsigned int ulen = (unsigned int)len;
 
-	/*
-	 * e[] is indexed by *key element* (LWS_GENCRYPTO_OCT_KEYEL_K == 0),
-	 * not by *key type* (LWS_GENCRYPTO_KTY_OCT == 1)... using the kty here
-	 * put the key bytes in e[1] while the length went to e[0], so every
-	 * consumer got a NULL buf with a nonzero len
-	 */
-
-	jwk->kty = LWS_GENCRYPTO_KTY_OCT;
-
-	jwk->e[LWS_GENCRYPTO_OCT_KEYEL_K].buf = lws_malloc(ulen, __func__);
-	if (!jwk->e[LWS_GENCRYPTO_OCT_KEYEL_K].buf)
+	jwk->e[LWS_GENCRYPTO_KTY_OCT].buf = lws_malloc(ulen, __func__);
+	if (!jwk->e[LWS_GENCRYPTO_KTY_OCT].buf)
 		return -1;
 
+	jwk->kty = LWS_GENCRYPTO_KTY_OCT;
 	jwk->e[LWS_GENCRYPTO_OCT_KEYEL_K].len = ulen;
 
-	memcpy(jwk->e[LWS_GENCRYPTO_OCT_KEYEL_K].buf, key, ulen);
+	memcpy(jwk->e[LWS_GENCRYPTO_KTY_OCT].buf, key, ulen);
 
 	return 0;
 }
@@ -217,8 +190,6 @@ lws_jwk_generate(struct lws_context *context, struct lws_jwk *jwk,
 	case LWS_GENCRYPTO_KTY_RSA:
 	{
 		struct lws_genrsa_ctx ctx;
-
-		memset(&ctx, 0, sizeof(ctx));
 
 		lwsl_notice("%s: generating %d bit RSA key\n", __func__, bits);
 		n = lws_genrsa_new_keypair(context, &ctx, LGRSAM_PKCS1_1_5,
@@ -246,8 +217,6 @@ lws_jwk_generate(struct lws_context *context, struct lws_jwk *jwk,
 	{
 		struct lws_genec_ctx ctx;
 
-		memset(&ctx, 0, sizeof(ctx));
-
 		if (!curve) {
 			lwsl_err("%s: must have a named curve\n", __func__);
 
@@ -264,33 +233,6 @@ lws_jwk_generate(struct lws_context *context, struct lws_jwk *jwk,
 		lws_genec_destroy(&ctx);
 		if (n) {
 			lwsl_err("%s: problem generating ECDSA key\n", __func__);
-			return 1;
-		}
-	}
-		break;
-
-	case LWS_GENCRYPTO_KTY_OKP:
-	{
-		struct lws_genec_ctx ctx;
-
-		memset(&ctx, 0, sizeof(ctx));
-
-		if (!curve) {
-			lwsl_err("%s: must have a named curve\n", __func__);
-
-			return 1;
-		}
-
-		if (lws_geneddsa_create(&ctx, context, NULL))
-			return 1;
-
-		lwsl_notice("%s: generating EdDSA key on curve %s\n", __func__,
-				curve);
-
-		n = lws_geneddsa_new_keypair(&ctx, curve, jwk->e);
-		lws_genec_destroy(&ctx);
-		if (n) {
-			lwsl_err("%s: problem generating EdDSA key\n", __func__);
 			return 1;
 		}
 	}
@@ -314,17 +256,8 @@ lws_jwk_rfc7638_fingerprint(struct lws_jwk *jwk, char *digest32)
 	int n, m = (int)tmpsize;
 
 	tmp = lws_malloc(tmpsize, "rfc7638 tmp");
-	if (!tmp)
-		return -1;
 
-	/*
-	 * RFC7638 3.2: the hash input is only the required members for the
-	 * kty... using the general export here used to fold in alg, kid,
-	 * key_ops, x5c etc, so the thumbprint of a key carrying any of them
-	 * did not match anybody else's for the same key
-	 */
-
-	n = lws_jwk_export_rfc7638(jwk, tmp, &m);
+	n = lws_jwk_export(jwk, LWSJWKF_EXPORT_NOCRLF, tmp, &m);
 	if (n < 0)
 		goto bail;
 
@@ -336,9 +269,6 @@ lws_jwk_rfc7638_fingerprint(struct lws_jwk *jwk, char *digest32)
 
 		goto bail;
 	}
-
-	/* for an oct key, tmp holds the secret */
-	lws_explicit_bzero(tmp, tmpsize);
 	lws_free(tmp);
 
 	if (lws_genhash_destroy(&hash_ctx, digest32))
@@ -347,7 +277,6 @@ lws_jwk_rfc7638_fingerprint(struct lws_jwk *jwk, char *digest32)
 	return 0;
 
 bail:
-	lws_explicit_bzero(tmp, tmpsize);
 	lws_free(tmp);
 
 	return -1;
@@ -357,16 +286,12 @@ int
 lws_jwk_strdup_meta(struct lws_jwk *jwk, enum enum_jwk_meta_tok idx,
 		    const char *in, int len)
 {
-	if ((unsigned int)idx >= LWS_ARRAY_SIZE(jwk->meta) || len < 0)
+	jwk->meta[idx].buf = lws_malloc((unsigned int)len, __func__);
+	if (!jwk->meta[idx].buf)
 		return 1;
+	jwk->meta[idx].len = (uint32_t)(unsigned int)len;
+	memcpy(jwk->meta[idx].buf, in, (unsigned int)len);
 
-	/*
-	 * Store it the same way an imported meta member is, in its own
-	 * NUL-terminated allocation, freeing any previous one: this used to
-	 * copy exactly len bytes, and lws_jwk_dump() prints non-base64 meta
-	 * with %s, reading past the end of the allocation
-	 */
-
-	return !!_lws_jwk_set_el_jwk(&jwk->meta[idx], in, (size_t)len);
+	return 0;
 }
 

@@ -62,15 +62,9 @@ static const char * const jws_jose[] = {
 	"p2c"  /* valid for JWE PBES2 only */
 };
 
-/*
- * The two parse contexts and the jwk collation buffer are a few KB, so this
- * lives on the heap for the duration of the parse, not on the stack
- */
-
 struct jose_cb_args {
 	struct lws_jose *jose;
 
-	struct lejp_ctx jctx;	  /* the JOSE header parse */
 	struct lejp_ctx jwk_jctx; /* fake lejp context used to parse epk */
 	struct lws_jwk_parse_state jps; /* fake jwk parse state */
 
@@ -79,9 +73,7 @@ struct jose_cb_args {
 
 	unsigned int is_jwe;
 	unsigned int recipients_array;
-	unsigned int in_jwk;	/* inside a header-embedded jwk / epk object */
 
-	int jwk_sp;		/* lejp sp the jwk / epk object started at */
 	int recip;
 };
 
@@ -163,19 +155,6 @@ struct jose_cb_args {
  * either the "unprotected" member or the "header" member, or in both.
  */
 
-/*
- * Is path the matched token path itself, or something nested inside it?
- */
-
-static int
-lws_jose_path_inside(const char *path, const char *matched)
-{
-	size_t n = strlen(matched);
-
-	return !strncmp(path, matched, n) &&
-	       (!path[n] || path[n] == '.' || path[n] == '[');
-}
-
 static signed char
 lws_jws_jose_cb(struct lejp_ctx *ctx, char reason)
 {
@@ -183,135 +162,34 @@ lws_jws_jose_cb(struct lejp_ctx *ctx, char reason)
 	int n; //, dest;
 
 	/*
-	 * The sub-parser only ever sees the members, never the start or end
-	 * of its own document, so without this it skips the completeness and
-	 * consistency checks that cb_jwk() does at LEJPCB_COMPLETE, and a
-	 * header key with eg a kty but no mandatory elements would be
-	 * accepted with NULL element pointers in it.
-	 *
-	 * We can't recognize the end of the object by its path: lejp only
-	 * truncates ctx->path back to the object's own level at
-	 * LEJPCB_OBJECT_END if the resulting ctx->sp is nonzero (see
-	 * pop_level_l() in lib/misc/lejp.c).  A jwk / epk sitting directly in
-	 * the JOSE header lives at sp 0, so what we see at its OBJECT_END is
-	 * still the path of its last member, eg "jwk.kty".  Note the sp the
-	 * object started at instead, and match on that.
-	 */
-
-	if (reason == LEJPCB_OBJECT_START && !args->in_jwk &&
-	    ((args->is_jwe && !strcmp(ctx->path, "epk")) ||
-	     !strcmp(ctx->path, "jwk"))) {
-		args->in_jwk = 1;
-		args->jwk_sp = ctx->sp;
-	}
-
-	if (reason == LEJPCB_OBJECT_END && args->in_jwk &&
-	    ctx->sp == args->jwk_sp) {
-		args->in_jwk = 0;
-		args->jwk_jctx.path[0] = '\0';
-		args->jwk_jctx.path_match = 0;
-
-		if (args->jwk_jctx.pst[args->jwk_jctx.pst_sp].
-				callback(&args->jwk_jctx, LEJPCB_COMPLETE))
-			return -1;
-
-		return 0;
-	}
-
-	/*
 	 * In JOSE JSON, the element "epk" contains a fully-formed JWK.
 	 *
-	 * For JOSE paths beginning "epk." or "jwk.", we pass them through to a JWK
+	 * For JOSE paths beginning "epk.", we pass them through to a JWK
 	 * LEJP subcontext to parse using the JWK parser directly.
 	 */
 
-	if ((args->is_jwe && !strncmp(ctx->path, "epk.", 4)) ||
-	    !strncmp(ctx->path, "jwk.", 4)) {
+	if (args->is_jwe && !strncmp(ctx->path, "epk.", 4)) {
 		memcpy(args->jwk_jctx.path, ctx->path + 4,
 		       sizeof(ctx->path) - 4);
 		memcpy(args->jwk_jctx.buf, ctx->buf, ctx->npos);
 		args->jwk_jctx.npos = ctx->npos;
 
-		/*
-		 * lejp_check_path_match() leaves an existing match alone when
-		 * nothing matches the new path; in a real parse it is lejp
-		 * that lets go of a match, as the path shrinks back past it.
-		 * Nothing drives this sub-context's path that way, and the
-		 * outer context's match, which we used to go by, is "jwk" /
-		 * "epk" itself from the second member on (lejp matches the
-		 * object's own path again at each ','), so a member matching
-		 * no token inherited the previous member's match and cb_jwk()
-		 * stored its value as that member's.  Like lejp, keep a match
-		 * only while the path is still inside what it matched.
-		 */
-
-		if (args->jwk_jctx.path_match &&
-		    !lws_jose_path_inside(args->jwk_jctx.path,
-				jwk_tok[args->jwk_jctx.path_match - 1]))
+		if (!ctx->path_match)
 			args->jwk_jctx.path_match = 0;
 		lejp_check_path_match(&args->jwk_jctx);
 
-		/*
-		 * cb_jwk()'s refusals (unknown kty, inconsistent elements,
-		 * oversize key data...) are the only validation a
-		 * header-embedded key gets, so its return must fail the JOSE
-		 * parse rather than be discarded here
-		 */
-
-		if (args->jwk_jctx.path_match &&
-		    args->jwk_jctx.pst[args->jwk_jctx.pst_sp].
-				callback(&args->jwk_jctx, reason))
-			return -1;
-
-		return 0;
+		if (args->jwk_jctx.path_match)
+			args->jwk_jctx.pst[args->jwk_jctx.pst_sp].
+				callback(&args->jwk_jctx, reason);
 	}
 
 	// lwsl_notice("%s: %s %d (%d)\n", __func__, ctx->path, reason, ctx->sp);
 
-	/*
-	 * RFC7515 4.1.11 (and RFC7516 4.1.13): if the header carries "crit",
-	 * the recipient MUST reject the object unless it understands and
-	 * processes every extension named in it.  We implement no crit
-	 * extension at all, so any "crit" must be refused... that also covers
-	 * the RFC-forbidden empty array, since we never look inside it.
-	 *
-	 * The array members arrive with the lejp path "crit[]", which matches
-	 * no token in jws_jose[], so this has to be tested on the raw path
-	 * before the path_match filter below.  Match it wherever it appears as
-	 * a whole member name, so a crit inside a JWE recipients[] header is
-	 * refused as well.
-	 */
-
-	n = (int)strlen(ctx->path);
-	if (n >= 2 && !strcmp(ctx->path + n - 2, "[]"))
-		n -= 2;
-
-	if (n >= 4 && !strncmp(ctx->path + n - 4, "crit", 4) &&
-	    (n == 4 || ctx->path[n - 5] == '.')) {
-		lwsl_notice("%s: unsupported crit header\n", __func__);
-
-		return -1;
-	}
-
-	/*
-	 * At the end of each recipients[] entry, bump recipients count...
-	 * the count is used as an index into the fixed-size recipient[]
-	 * array (here, and on the lws_jwe_encrypt() error path), so a header
-	 * that declares more recipients than we can hold must be refused
-	 * rather than allowed to run the index off the end.
-	 */
+	/* at the end of each recipients[] entry, bump recipients count */
 
 	if (args->is_jwe && reason == LEJPCB_OBJECT_END && ctx->sp == 1 &&
-	    !strcmp(ctx->path, "recipients[]")) {
-		if (args->jose->recipients >=
-			      (int)LWS_ARRAY_SIZE(args->jose->recipient)) {
-			lwsl_notice("%s: too many recipients\n", __func__);
-
-			return -1;
-		}
-
+	    !strcmp(ctx->path, "recipients[]"))
 		args->jose->recipients++;
-	}
 
 	if (!(reason & LEJP_FLAG_CB_IS_VALUE) || !ctx->path_match)
 		return 0;
@@ -472,18 +350,6 @@ append_string:
 		return -1;
 	}
 
-	/*
-	 * A member given twice in one header: RFC 7515 4 leaves it undefined
-	 * and the second value appended to the first was a corrupt element,
-	 * so it is refused.  (Inside a recipients[] array each recipient has
-	 * its own encrypted_key, which this collects as before.)
-	 */
-	if (args->jose->edone[ctx->path_match - 1] && !args->recipients_array) {
-		lwsl_err("%s: duplicate JOSE member %s\n", __func__,
-			 jws_jose[ctx->path_match - 1]);
-		return -1;
-	}
-
 	if (!args->jose->e[ctx->path_match - 1].buf) {
 		args->jose->e[ctx->path_match - 1].buf = (uint8_t *)args->temp;
 		args->jose->e[ctx->path_match - 1].len = 0;
@@ -546,79 +412,42 @@ static int
 lws_jose_parse(struct lws_jose *jose, const uint8_t *buf, int n,
 	       char *temp, int *temp_len, int is_jwe)
 {
-	struct jose_cb_args *args;
-	int m, ret = -1;
-
-	/*
-	 * ->recipients is the slot we are about to fill in, and it comes in
-	 * from whatever the last parse or lws_jwe_encrypt() left behind...
-	 * confirm it can be used as an index before we do so
-	 */
-
-	if (jose->recipients < 0 ||
-	    jose->recipients >= (int)LWS_ARRAY_SIZE(jose->recipient)) {
-		lwsl_err("%s: recipients %d out of range\n", __func__,
-			 jose->recipients);
-
-		return -1;
-	}
-
-	args = lws_zalloc(sizeof(*args), __func__);
-	if (!args)
-		return -1;
+	struct lejp_ctx jctx;
+	struct jose_cb_args args;
+	int m;
 
 	if (is_jwe) {
 		/* prepare a context for JOSE epk ephemeral jwk parsing */
-		lws_jwk_init_jps(&args->jps,
+		lws_jwk_init_jps(&args.jps,
 				 &jose->recipient[jose->recipients].jwk_ephemeral,
 				 NULL, NULL);
-	} else {
-		/* prepare a context for JOSE jwk embedded public key parsing */
-		lws_jwk_init_jps(&args->jps,
-				 &jose->recipient[jose->recipients].jwk,
-				 NULL, NULL);
+		lejp_construct(&args.jwk_jctx, cb_jwk, &args.jps,
+				jwk_tok, LWS_ARRAY_SIZE(jwk_tok));
 	}
-	lejp_construct(&args->jwk_jctx, cb_jwk, &args->jps,
-			jwk_tok, LWS_ARRAY_SIZE(jwk_tok));
 
-	args->is_jwe		= (unsigned int)is_jwe;
-	args->temp		= temp;
-	args->temp_len		= temp_len;
-	args->jose		= jose;
+	args.is_jwe		= (unsigned int)is_jwe;
+	args.temp		= temp;
+	args.temp_len		= temp_len;
+	args.jose		= jose;
+	args.recip		= 0;
+	args.recipients_array	= 0;
 	jose->recipients	= 0;
 
-	/*
-	 * The b64 members (apu, apv, iv, tag, x5t...) point into the temp of
-	 * the parse that decoded them.  A header parsed again into the same
-	 * jose, as lws_jwe_encrypt() does after a caller's own parse, must
-	 * start from nothing, or the second parse appends to the first's
-	 * elements and the KDF and the rendered header disagree
-	 */
-	memset(jose->e, 0, sizeof(jose->e));
-	memset(jose->edone, 0, sizeof(jose->edone));
-
-	lejp_construct(&args->jctx, lws_jws_jose_cb, args, jws_jose,
+	lejp_construct(&jctx, lws_jws_jose_cb, &args, jws_jose,
 		       LWS_ARRAY_SIZE(jws_jose));
 
-	m = lejp_parse(&args->jctx, (uint8_t *)buf, n);
-	lejp_destruct(&args->jctx);
+	m = lejp_parse(&jctx, (uint8_t *)buf, n);
+	lejp_destruct(&jctx);
 	if (m < 0) {
 		lwsl_notice("%s: parse returned %d\n", __func__, m);
-		goto bail;
+		return -1;
 	}
 
-	if (!args->recipients_array && jose->recipient[0].unprot[LJJHI_ALG].buf)
+	if (!args.recipients_array && jose->recipient[0].unprot[LJJHI_ALG].buf)
 		/* if no explicit recipients[], we got one */
 		jose->recipients++;
 
-	ret = 0;
-
-bail:
-	/* the collation buffers may hold the text of a header jwk or epk */
-	lws_explicit_bzero(args, sizeof(*args));
-	lws_free(args);
-
-	return ret;
+	return 0;
 }
 
 int
@@ -647,10 +476,6 @@ lws_jose_render(struct lws_jose *jose, struct lws_jwk *aux_jwk,
 
 	/* JOSE requires an alg */
 	if (!jose->alg || !jose->alg->alg)
-		goto bail;
-
-	/* we need room for at least the "{" and the "}" */
-	if (out_len < 2)
 		goto bail;
 
 	*out++ = '{';
@@ -724,15 +549,6 @@ lws_jose_render(struct lws_jose *jose, struct lws_jwk *aux_jwk,
 			if (!jwk || !jwk->kty)
 				break;
 
-			/*
-			 * A symmetric key (eg, the A*KW key-encryption key or
-			 * a "dir" CEK) has no public part, it is entirely the
-			 * secret, and the recipient must already hold it...
-			 * it must never appear in a header
-			 */
-			if (jwk->kty == LWS_GENCRYPTO_KTY_OCT)
-				break;
-
 			out += lws_snprintf(out, lws_ptr_diff_size_t(end, out), "%s\"%s\":",
 					    sub ? ",\n" : "", jws_jose[n]);
 			sub = 1;
@@ -749,8 +565,7 @@ lws_jose_render(struct lws_jose *jose, struct lws_jwk *aux_jwk,
 
 		case LJJHI_CRIT:/* Optional for send, REQUIRED: array of strings:
 				 * mustn't contain standardized strings or null set */
-			/* RFC7515 4.1.11: the empty array is not allowed */
-			if (!jose->e[n].buf || !jose->e[n].len)
+			if (!jose->e[n].buf)
 				break;
 
 			out += lws_snprintf(out, lws_ptr_diff_size_t(end, out),
@@ -759,13 +574,7 @@ lws_jose_render(struct lws_jose *jose, struct lws_jwk *aux_jwk,
 
 			m = 0;
 			f = 1;
-			/*
-			 * one iteration can emit up to 3 bytes (',', '"' and
-			 * the payload byte), and we must still be able to
-			 * close the string, the array and the object after
-			 */
-			while ((unsigned int)m < jose->e[n].len &&
-			       lws_ptr_diff(end, out) > 3) {
+			while ((unsigned int)m < jose->e[n].len && (end - out) > 1) {
 				if (jose->e[n].buf[m] == ' ') {
 					if (!f)
 						*out++ = '\"';
@@ -786,29 +595,14 @@ lws_jose_render(struct lws_jose *jose, struct lws_jwk *aux_jwk,
 				m++;
 			}
 
-			/*
-			 * Truncation here would emit an unterminated array,
-			 * ie, invalid JSON... refuse instead
-			 */
-
-			if ((unsigned int)m != jose->e[n].len ||
-			    lws_ptr_diff(end, out) < (f ? 2 : 3))
-				return -1;
-
-			if (!f)
-				*out++ = '\"';
-
-			*out++ = ']';
-
 			break;
 		}
 	}
 
-	/* bounds-check before the write, not after it */
-	if (out >= end)
-		return -1;
-
 	*out++ = '}';
+
+	if (out > end - 2)
+		return -1;
 
 	return lws_ptr_diff(out_len, (end - out)) - 1;
 

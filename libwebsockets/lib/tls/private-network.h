@@ -27,34 +27,7 @@
 struct lws_context_per_thread;
 struct lws_tls_ops {
 	int (*fake_POLLIN_for_buffered)(struct lws_context_per_thread *pt);
-	void (*process_cleanup)(void);
 };
-
-#if defined(LWS_WITH_TLS_JIT_TRUST)
-/*
- * JIT Trust creates client vhosts of its own, long after the app's creation
- * info went out of scope.  Without a copy of the app's client-side TLS
- * hardening, those vhosts would silently come up with library-default protocol
- * versions and ciphers, and without the app's client cert... ie, a remote
- * server could downgrade the client's policy just by presenting a chain we
- * have to JIT-trust.  So we keep the client-side parts of the info here.
- *
- * These are all pointers into the app's own creation info, which lws already
- * treats as having context lifetime (eg, .protocols).
- */
-struct lws_tls_client_policy {
-	const char	*alpn;
-	const char	*cipher_list;
-	const char	*ciphers_iana;
-	const char	*tls_1_3_plus_cipher_list;
-	const char	*ecdh_curve;
-	const char	*cert_filepath;
-	const char	*private_key_filepath;
-	long		options_set;
-	long		options_clear;
-	char		captured;
-};
-#endif
 
 struct lws_context_tls {
 	char alpn_discovered[32];
@@ -62,14 +35,6 @@ struct lws_context_tls {
 	time_t last_cert_check_s;
 	struct lws_dll2_owner cc_owner;
 	int count_client_contexts;
-#if defined(LWS_TLS_CERT_WATCH)
-	/* see tls-cert-watch.c */
-	lws_sorted_usec_list_t sul_cert_watch;
-	struct lws_dll2_owner cert_watch_dirs;
-#endif
-#if defined(LWS_WITH_TLS_JIT_TRUST)
-	struct lws_tls_client_policy jit_client_policy;
-#endif
 };
 
 struct lws_pt_tls {
@@ -78,256 +43,65 @@ struct lws_pt_tls {
 
 struct lws_tls_ss_pieces;
 
-/*
- * A server's alpn list in wire format, as each transport may select from it:
- * h3 only on quic, the h1 / h2 role alpns only on tcp, see
- * lws_alpn_for_transport()
- */
 struct alpn_ctx {
-	uint8_t data[23];	/* tcp */
+	uint8_t data[23];
 	uint8_t len;
-	uint8_t data_quic[23];
-	uint8_t len_quic;
 };
-
-/*
- * A tls ctx and who holds it: the vhost while it is the vhost's active one,
- * and every connection that handshaked under it.  A connection can outlive
- * the vhost, eg, after a Host: rebind onto another vhost, so a vhost's
- * destruction leaves the refs connections still hold to the last of them,
- * with vh NULLed: the ref's lifetime, and its lock, are not the vhost's
- * (C-669).  Counted under the context lock.
- */
-struct lws_tls_ctx_ref {
-	lws_dll2_t list;	/* on the vhost's retired_ctx_list, if retired */
-	struct lws_context *cx;
-	struct lws_vhost *vh;	/* whose ctx, NULL once that vhost is gone */
-	lws_tls_ctx *ctx;
-	int refcount;
-};
-
-#if defined(LWS_TLS_CERT_WATCH)
-/*
- * Which file a path led to, and the version of it: a renewal that writes a
- * new file and moves a symlink onto it changes the file, one that rewrites it
- * in place changes its size or mtime.  stat() follows symlinks, so this is
- * the file the tls library would read.
- */
-struct lws_tls_cert_file_id {
-	uint64_t	dev;
-	uint64_t	ino;
-	int64_t		size;
-	int64_t		mtime;
-	uint8_t		valid;	/* stat() succeeded */
-};
-#endif
-
-/*
- * A tls ctx made for a vhost's renewed cert, set up like its first one but
- * not served yet, see lws_tls_vhost_cert_prepare()
- */
-struct lws_tls_vhost_cert_new {
-	struct lws_tls_ctx_ref		*ref;
-#if defined(LWS_TLS_CERT_WATCH)
-	/* the configured files as they were before the ctx was made */
-	struct lws_tls_cert_file_id	cert;
-	struct lws_tls_cert_file_id	key;
-#endif
-	time_t				not_after; /* 0 if unknown */
-	uint8_t				skipped_certs;
-	uint8_t				from_mem; /* not the files */
-};
-
-/*
- * Length of the digest that stands in for "which CA store is this", see
- * lws_tls_vhost_set_client_ca_id()
- */
-
-#define LWS_TLS_CA_ID_LEN 8
 
 struct lws_vhost_tls {
 	lws_tls_ctx *ssl_ctx;
-	struct lws_tls_ctx_ref *active_ctx_ref;
-	lws_dll2_owner_t retired_ctx_list;
-
 	lws_tls_ctx *ssl_client_ctx;
 	struct lws_tls_client_reuse *tcr;
 	const char *alpn;
 	struct lws_tls_ss_pieces *ss; /* for acme tls certs */
-	char *cfg_alloc_cert_path;
-	char *cfg_key_path;
-	char *cfg_ssl_cipher_list;
-	char *cfg_tls1_3_plus_cipher_list;
-	char *cfg_tls_client_cipher_list;
-	char *cfg_tls_ciphers_iana;
-	char *cfg_ssl_ca_filepath;
-	char *cfg_ecdh_curve;
-#if defined(LWS_WITH_CLIENT)
-	char *cfg_client_ecdh_curve;
-#endif
-	const void *cfg_server_ssl_cert_mem;
-	unsigned int cfg_server_ssl_cert_mem_len;
-	const void *cfg_server_ssl_privkey_mem;
-	unsigned int cfg_server_ssl_privkey_mem_len;
-	const void *cfg_server_ssl_ca_mem;
-	unsigned int cfg_server_ssl_ca_mem_len;
-#if defined(LWS_WITH_CLIENT)
-	/*
-	 * the client-side file paths have to be kept around as well as the
-	 * in-memory blobs, so a client ctx that is only created lazily (at the
-	 * first client connection on a vhost that was made without client tls
-	 * init) can still apply the vhost's pinned CA and mTLS cert + key
-	 */
-	char *cfg_client_ssl_ca_filepath;
-	char *cfg_client_ssl_cert_filepath;
-	char *cfg_client_ssl_private_key_filepath;
-	const void *cfg_client_ssl_ca_mem;
-	unsigned int cfg_client_ssl_ca_mem_len;
-	const void *cfg_client_ssl_cert_mem;
-	unsigned int cfg_client_ssl_cert_mem_len;
-	const void *cfg_client_ssl_key_mem;
-	unsigned int cfg_client_ssl_key_mem_len;
-#endif
-	long ssl_options_set;
-	long ssl_options_clear;
+	char *alloc_cert_path;
+	char *key_path;
 #if defined(LWS_WITH_MBEDTLS)
 	lws_tls_x509 *x509_client_CA;
 #endif
+	char ecdh_curve[16];
 	struct alpn_ctx alpn_ctx;
-
-	/*
-	 * Identity of the CA store this vhost verifies *client* certificates
-	 * against, derived once from its client CA config (see
-	 * lws_tls_vhost_set_client_ca_id()).  All-zero means the vhost has no
-	 * client CA of its own.
-	 */
-	uint8_t client_ca_id[LWS_TLS_CA_ID_LEN];
 
 	int use_ssl;
 	int allow_non_ssl_on_ssl_port;
 	int ssl_info_event_mask;
 
-#if defined(LWS_WITH_MBEDTLS) || defined(LWS_WITH_BEARSSL) || defined(LWS_WITH_GNUTLS)
+#if defined(LWS_WITH_MBEDTLS)
 	uint32_t tls_session_cache_ttl;
-#endif
-
-#if defined(LWS_WITH_GNUTLS)
-	struct gnutls_anti_replay_st *anti_replay;
-	void *anti_replay_owner;
-#endif
-
-#if defined(LWS_TLS_CERT_WATCH)
-	/* the cert + key files the active ctx was loaded from */
-	struct lws_tls_cert_file_id watch_cert;
-	struct lws_tls_cert_file_id watch_key;
-	/* the last changed pair we noticed, and when we may retry it */
-	struct lws_tls_cert_file_id seen_cert;
-	struct lws_tls_cert_file_id seen_key;
-	time_t watch_retry_at;
-	uint32_t watch_backoff_s;
-	uint32_t cert_grace_secs;
-	/* a renewal made ready, served from pending_due, after its grace */
-	struct lws_tls_vhost_cert_new pending;
-	time_t pending_due;
-	unsigned int watched:1;
-	unsigned int watch_dirs_added:1;
-	unsigned int watch_unseen:1;
 #endif
 
 	unsigned int user_supplied_ssl_ctx:1;
 	unsigned int skipped_certs:1;
-	/*
-	 * The client ctx is being created from the vhost's creation info: CAs
-	 * it loads now are part of the configuration its sharing was decided
-	 * on, see lws_tls_client_vhost_extra_cert_mem()
-	 */
-	unsigned int client_ctx_creating:1;
 };
 
 struct lws_lws_tls {
 	lws_tls_conn		*ssl;
-	struct lws_tls_ctx_ref  *ctx_ref;
 	lws_tls_bio		*client_bio;
 #if defined(LWS_TLS_SYNTHESIZE_CB)
 	lws_sorted_usec_list_t	sul_cb_synth;
 #endif
-#if defined(LWS_WITH_TLS_JIT_TRUST)
-	/* key identifiers of the peer chain, collected during validation */
+#if !defined(LWS_WITH_MBEDTLS) && defined(LWS_WITH_TLS_JIT_TRUST)
+	/* mbedtls has this in the wrapper, since no wsi ptr at validation */
 	lws_tls_kid_chain_t	kid_chain;
 #endif
 	struct lws_dll2		dll_pending_tls;
 	char			err_helper[64];
-
-	uint8_t			*quic_tp_recv;
-	size_t			quic_tp_recv_len;
-	const uint8_t		*quic_tp_send;
-	size_t			quic_tp_send_len;
-	lws_tls_quic_secret_cb	quic_secret_cb;
-	int			quic_alert;
-	uint8_t			quic_aead; /* enum lws_tls_quic_aead, set by the
-					    * TLS backend from the negotiated
-					    * TLS 1.3 cipher suite */
-
-	/*
-	 * Which vhost's client-cert CA store did this connection's peer
-	 * certificate actually get verified against?  Recorded as that
-	 * vhost's client_ca_id rather than a vhost pointer, so it stays
-	 * meaningful if the vhost is destroyed while the connection lives on.
-	 *
-	 * A later rebind (Host:, :authority) onto a vhost that requires a
-	 * valid client cert is only allowed if that vhost's client CA store
-	 * is the same one, ie, a cert verified under vhost A's CA does not
-	 * satisfy vhost B's mTLS requirement under a different CA (C-318).
-	 */
-	uint8_t			hs_ca_id[LWS_TLS_CA_ID_LEN];
-
-	unsigned int		ssl_accept_in_bg:1;
-	unsigned int		hs_ca_id_valid:1;
-	/* a writeable was asked for while the server tls accept had POLLOUT */
-	unsigned int		want_write_after_accept:1;
-	/* a staged close: our close_notify has gone, the write side is shut */
-	unsigned int		close_notify_sent:1;
-#if defined(LWS_WITH_GNUTLS) && defined(LWS_WITH_TLS_SESSIONS)
-	/* the client cache has had this connection's session (gnutls) */
-	unsigned int		sess_cached:1;
-	/* the client accepted the server's cert, the session may be cached */
-	unsigned int		peer_confirmed:1;
-#endif
+	unsigned int		use_ssl;
+	unsigned int		redirect_to_https:1;
 };
 
 
 void
-lws_tls_vhost_set_client_ca_id(struct lws_vhost *vh);
-
-void
-lws_tls_wsi_record_hs_ca(struct lws *wsi, struct lws_vhost *vh);
-
-void
-lws_tls_sni_bind(struct lws_vhost *vh, struct lws *wsi);
-/* what sansIO may ask of the session is in private-lib-sansio-seam.h */
-
-void
 lws_context_init_alpn(struct lws_vhost *vhost);
-#if defined(LWS_WITH_TCP_TLS)
 int LWS_WARN_UNUSED_RESULT
 lws_ssl_capable_read(struct lws *wsi, unsigned char *buf, size_t len);
 int LWS_WARN_UNUSED_RESULT
 lws_ssl_capable_write(struct lws *wsi, unsigned char *buf, size_t len);
 int LWS_WARN_UNUSED_RESULT
 lws_ssl_pending(struct lws *wsi);
-#else
-#define lws_ssl_capable_read lws_ssl_capable_read_no_ssl
-#define lws_ssl_capable_write lws_ssl_capable_write_no_ssl
-#define lws_ssl_pending lws_ssl_pending_no_ssl
-#endif
-
-#if defined(LWS_WITH_SERVER) && defined(LWS_WITH_TCP_TLS)
 int LWS_WARN_UNUSED_RESULT
 lws_server_socket_service_ssl(struct lws *new_wsi, lws_sockfd_type accept_fd,
 				char is_pollin);
-#else
-#define lws_server_socket_service_ssl(_a, _b, _c) (0)
-#endif
 
 void
 lws_sess_cache_synth_cb(lws_sorted_usec_list_t *sul);
@@ -345,12 +119,8 @@ lws_ssl_remove_wsi_from_buffered_list(struct lws *wsi);
 int
 lws_ssl_client_bio_create(struct lws *wsi);
 
-#if defined(LWS_WITH_TCP_TLS)
 int
 lws_ssl_client_connect2(struct lws *wsi, char *errbuf, size_t len);
-#else
-#define lws_ssl_client_connect2(_a, _b, _c) (-1)
-#endif
 int
 lws_tls_fake_POLLIN_for_buffered(struct lws_context_per_thread *pt);
 int
@@ -372,42 +142,11 @@ lws_tls_generic_cert_checks(struct lws_vhost *vhost, const char *cert,
  int
  lws_context_init_server_ssl(const struct lws_context_creation_info *info,
 			     struct lws_vhost *vhost);
- int
- lws_tls_server_vhost_ctx_setup(struct lws_vhost *vhost, struct lws *wsi);
  void
  lws_tls_acme_sni_cert_destroy(struct lws_vhost *vhost);
- int
- lws_tls_vhost_cert_prepare(struct lws_vhost *v,
-			    const char *mem_cert, size_t len_mem_cert,
-			    const char *mem_privkey, size_t len_mem_privkey,
-			    struct lws_tls_vhost_cert_new *n);
- void
- lws_tls_vhost_cert_commit(struct lws_vhost *v,
-			   struct lws_tls_vhost_cert_new *n);
- int
- lws_tls_vhost_cert_reload(struct lws_vhost *v,
-			   const char *mem_cert, size_t len_mem_cert,
-			   const char *mem_privkey, size_t len_mem_privkey);
 #else
  #define lws_context_init_server_ssl(_a, _b) (0)
  #define lws_tls_acme_sni_cert_destroy(_a)
-#endif
-
-#if defined(LWS_TLS_CERT_WATCH)
- int
- lws_tls_cert_file_id_get(const char *path, struct lws_tls_cert_file_id *id);
- void
- lws_tls_cert_watch_vhost(struct lws_vhost *v,
-			  const struct lws_tls_cert_file_id *cert,
-			  const struct lws_tls_cert_file_id *key);
- void
- lws_tls_cert_watch_destroy(struct lws_context *cx);
- int
- lws_tls_cert_watch_updated(struct lws_vhost *v,
-			    const char *mem_cert, size_t len_mem_cert,
-			    const char *mem_privkey, size_t len_mem_privkey);
-#else
- #define lws_tls_cert_watch_destroy(_a)
 #endif
 
 void
@@ -423,106 +162,21 @@ int
 lws_tls_server_vhost_backend_init(const struct lws_context_creation_info *info,
 			  struct lws_vhost *vhost, struct lws *wsi);
 int
-lws_tls_vhost_backend_create_ctx(struct lws_vhost *vhost);
-
-void
-lws_tls_vhost_backend_free_ctx(lws_tls_ctx *ctx);
-
-struct lws_tls_ctx_ref *
-lws_tls_ctx_ref_create(struct lws_vhost *vh, lws_tls_ctx *ctx);
-
-struct lws_tls_ctx_ref *
-lws_tls_ctx_ref_get(struct lws_vhost *vh);
-
-void
-lws_tls_ctx_ref_unref(struct lws_tls_ctx_ref *ref);
-
-void
-lws_tls_ctx_ref_destroy_all(struct lws_vhost *vhost);
-int
 lws_tls_server_new_nonblocking(struct lws *wsi, lws_sockfd_type accept_fd);
 
-#if defined(LWS_WITH_SERVER)
 enum lws_ssl_capable_status
 lws_tls_server_accept(struct lws *wsi);
-int
-lws_tls_server_accept_completed(struct lws *wsi, int n);
-/*
- * The backend's judgement of the client cert a completed server handshake
- * presented, under the policy of the vhost the connection is bound to: 0 if
- * he may go on.  The backends that carry quic implement it, since quic's
- * handshake completion never passes through their lws_tls_server_accept().
- */
-int
-lws_tls_server_client_cert_check(struct lws *wsi);
-#if defined(LWS_ROLE_QUIC)
-int
-lws_tls_quic_server_confirm_peer(struct lws *wsi, char *ebuf, size_t ebuf_len);
-#endif
+
 enum lws_ssl_capable_status
 lws_tls_server_abort_connection(struct lws *wsi);
-#else
-#define lws_tls_server_accept(_a) (0)
-#define lws_tls_server_accept_completed(_a, _b) (0)
-#define lws_tls_server_abort_connection(_a) (0)
-#endif
-
-#if defined(LWS_WITH_SERVER)
-
-/*
- * Server-side SNI for the backends whose TLS library gives us no servername
- * callback in time to change the certificate, the client-cert policy and the
- * ALPN list (BearSSL, Schannel): they read the name out of the ClientHello
- * themselves before handing the first record over.  See the block comment at
- * the top of lib/tls/tls-server.c.
- */
-
-/*
- * The most of a ClientHello, with its record headers, we will gather from
- * several records to find the name in.  Real ones are a few KB, even with
- * post-quantum key shares; one bigger than this is treated as naming nothing.
- */
-#define LWS_TLS_CH_MAX	(32 * 1024)
-
-enum {
-	LWS_TLS_CH_SNI_BAD	= -1, /* a server_name we will not act on */
-	LWS_TLS_CH_SNI_MORE	=  0, /* not enough of the ClientHello yet */
-	LWS_TLS_CH_SNI_NONE	=  1, /* no SNI: keep the accepting vhost */
-	LWS_TLS_CH_SNI_FOUND	=  2  /* the name is in \p name */
-};
-
-int
-lws_tls_client_hello_sni(const uint8_t *buf, size_t len, char *name,
-			 size_t name_len);
-
-int
-lws_tls_client_hello_msg_sni(const uint8_t *buf, size_t len, char *name,
-			     size_t name_len);
-
-size_t
-lws_tls_client_hello_want(const uint8_t *buf, size_t len);
-
-void
-lws_tls_server_send_alert(struct lws *wsi, const uint8_t *ver, uint8_t desc);
-
-/* RFC 6066 unrecognized_name */
-#define LWS_TLS_ALERT_UNRECOGNIZED_NAME 112
-
-int
-lws_tls_server_sni_select(struct lws *wsi, const char *servername);
-
-#if (_LWS_ENABLED_LOGS & LLL_NOTICE)
-void
-lws_tls_server_sni_refused(int port, const char *servername);
-#else
-#define lws_tls_server_sni_refused(_port, _servername)
-#endif
-
-#endif
 
 enum lws_ssl_capable_status
 __lws_tls_shutdown(struct lws *wsi);
 
+enum lws_ssl_capable_status
+lws_tls_client_connect(struct lws *wsi, char *errbuf, size_t len);
+int
+lws_tls_client_confirm_peer_cert(struct lws *wsi, char *ebuf, size_t ebuf_len);
 int
 lws_tls_client_create_vhost_context(struct lws_vhost *vh,
 			    const struct lws_context_creation_info *info,

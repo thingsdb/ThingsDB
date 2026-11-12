@@ -74,6 +74,7 @@ const uint32_t ss_state_txn_validity[] = {
 	[LWSSSCS_CREATING]		= (1 << LWSSSCS_CONNECTING) |
 					  (1 << LWSSSCS_TIMEOUT) |
 					  (1 << LWSSSCS_POLL) |
+					  (1 << LWSSSCS_SERVER_UPGRADE) |
 					  (1 << LWSSSCS_DESTROYING),
 
 	[LWSSSCS_DISCONNECTED]		= (1 << LWSSSCS_CONNECTING) |
@@ -166,10 +167,6 @@ const uint32_t ss_state_txn_validity[] = {
 char *
 lws_strncpy(char *dest, const char *src, size_t size)
 {
-	if (!size)
-		/* size - 1 would be SIZE_MAX, ie, an unbounded strncpy() */
-		return dest;
-
 	strncpy(dest, src, size - 1);
 	dest[size - 1] = '\0';
 
@@ -295,20 +292,6 @@ lws_sspc_create(struct lws_context *context, int tsi, const lws_ss_info_t *ssi,
 	lws_service_assert_loop_thread(context, tsi);
 #endif
 
-	/*
-	 * The streamtype has to survive serialization to the proxy, which
-	 * can only accept streamtypes up to a fixed maximum length.  Reject
-	 * it here rather than trying to serialize an over-long name.
-	 */
-
-	if (strlen(ssi->streamtype) > LWS_SS_SER_STREAMTYPE_MAX_LEN) {
-		lwsl_cx_err(context, "sspc streamtype '%s' too long (%u > %u)",
-			    ssi->streamtype,
-			    (unsigned int)strlen(ssi->streamtype),
-			    LWS_SS_SER_STREAMTYPE_MAX_LEN);
-		return 1;
-	}
-
 	/* allocate the handle (including ssi), the user alloc,
 	 * and the streamname */
 
@@ -325,7 +308,7 @@ lws_sspc_create(struct lws_context *context, int tsi, const lws_ss_info_t *ssi,
 #if !defined(STANDALONE) && defined(LWS_WITH_SYS_FAULT_INJECTION)
 	h->fic.name = "sspc";
 	lws_xos_init(&h->fic.xos, lws_xos(&context->fic.xos));
-	if (lws_dll2_count(&ssi->fic.fi_owner))
+	if (ssi->fic.fi_owner.count)
 		lws_fi_import(&h->fic, &ssi->fic);
 
 	lws_fi_inherit_copy(&h->fic, &context->fic, "ss", ssi->streamtype);
@@ -394,20 +377,7 @@ lws_sspc_create(struct lws_context *context, int tsi, const lws_ss_info_t *ssi,
 
 	/* try the actual connect */
 
-	lws_sspc_connect_attempt(h);
-
-	if (h->destroy_pending) {
-		/*
-		 * The first attempt failed at once and the user code gave up
-		 * on it in its UPSTREAM_LINK_RETRY handler... the create
-		 * failed
-		 */
-		lws_sspc_destroy(&h);
-		if (ppss)
-			*ppss = NULL;
-
-		return 1;
-	}
+	lws_sspc_sul_retry_cb(&h->sul_retry);
 
 	return 0;
 }
@@ -426,10 +396,10 @@ lws_sspc_destroy_dll(struct lws_dll2 *d, void *user)
 }
 
 void
-lws_sspc_metadata_list_destroy(lws_dll2_owner_t *owner)
+lws_sspc_rxmetadata_destroy(lws_sspc_handle_t *h)
 {
 	lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1,
-			lws_dll2_get_head(owner)) {
+			lws_dll2_get_head(&h->metadata_owner_rx)) {
 		lws_sspc_metadata_t *md =
 				lws_container_of(d, lws_sspc_metadata_t, list);
 
@@ -488,20 +458,19 @@ lws_sspc_destroy(lws_sspc_handle_t **ph)
 
 	h->txp_path.ops_onw->_close(h->txp_path.priv_onw);
 
-	/*
-	 * clean out any pending metadata changes that didn't make it, the
-	 * copies we kept for recreating the proxy side stream, and what the
-	 * proxy told us
-	 */
+	/* clean out any pending metadata changes that didn't make it */
 
-	lws_sspc_metadata_list_destroy(&h->metadata_owner);
-	lws_sspc_metadata_list_destroy(&h->metadata_owner_synced);
-	lws_sspc_metadata_list_destroy(&h->metadata_owner_rx);
-	if (h->parser.rxmd) {
-		/* a metadata value that was still arriving */
-		lws_free(h->parser.rxmd);
-		h->parser.rxmd = NULL;
-	}
+	lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1,
+			lws_dll2_get_head(&(*ph)->metadata_owner)) {
+		lws_sspc_metadata_t *md =
+				lws_container_of(d, lws_sspc_metadata_t, list);
+
+		lws_dll2_remove(&md->list);
+		lws_free(md);
+
+	} lws_end_foreach_dll_safe(d, d1);
+
+	lws_sspc_rxmetadata_destroy(h);
 
 	lws_sspc_event_helper(h, LWSSSCS_DESTROYING, 0);
 	*ph = NULL;
@@ -537,7 +506,6 @@ lws_sspc_request_tx(lws_sspc_handle_t *h)
 			(unsigned int)h->state,
 			(unsigned int)h->conn_req_state);
 
-	h->onward_wanted = 1;
 	if (h->state == LPCSCLI_LOCAL_CONNECTED &&
 	    h->conn_req_state == LWSSSPC_ONW_NONE)
 		h->conn_req_state = LWSSSPC_ONW_REQ;
@@ -587,7 +555,6 @@ lws_sspc_request_tx_len(lws_sspc_handle_t *h, unsigned long len)
 	if (!h->us_earliest_write_req)
 		h->us_earliest_write_req = lws_now_usecs();
 
-	h->onward_wanted = 1;
 	if (h->state == LPCSCLI_LOCAL_CONNECTED &&
 	    h->conn_req_state == LWSSSPC_ONW_NONE)
 		h->conn_req_state = LWSSSPC_ONW_REQ;
@@ -613,7 +580,6 @@ lws_sspc_client_connect(struct lws_sspc_handle *h)
 #endif
 
 	assert(h->state == LPCSCLI_LOCAL_CONNECTED);
-	h->onward_wanted = 1;
 	if (h->state == LPCSCLI_LOCAL_CONNECTED &&
 	    h->conn_req_state == LWSSSPC_ONW_NONE)
 		h->conn_req_state = LWSSSPC_ONW_REQ;
@@ -675,22 +641,20 @@ _lws_sspc_set_metadata(struct lws_sspc_handle *h, const char *name,
 	 * efficient to do this but user code can do what it likes... let's
 	 * optimize away the old one.
 	 *
-	 * Tx credit adjust always has name "", but they are cumulative and
-	 * must each be sent, they don't replace one another.
+	 * Tx credit adjust always has name ""
 	 */
 
-	if (name[0])
-		lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1,
-				lws_dll2_get_head(&h->metadata_owner)) {
-			md = lws_container_of(d, lws_sspc_metadata_t, list);
+	lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1,
+				   lws_dll2_get_head(&h->metadata_owner)) {
+		md = lws_container_of(d, lws_sspc_metadata_t, list);
 
-			if (!strcmp(name, md->name)) {
-				lws_dll2_remove(&md->list);
-				lws_free(md);
-				break;
-			}
+		if (!strcmp(name, md->name)) {
+			lws_dll2_remove(&md->list);
+			lws_free(md);
+			break;
+		}
 
-		} lws_end_foreach_dll_safe(d, d1);
+	} lws_end_foreach_dll_safe(d, d1);
 
 	/*
 	 * We have to stash the metadata and pass it to the proxy
@@ -721,8 +685,8 @@ _lws_sspc_set_metadata(struct lws_sspc_handle *h, const char *name,
 
 	if (len) {
 #if !defined(STANDALONE)
-		/* metadata may be a credential: never log the value */
-		lwsl_sspc_info(h, "set metadata %s (len %d)", name, (int)len);
+		lwsl_sspc_info(h, "set metadata %s", name);
+		lwsl_hexdump_sspc_info(h, value, len);
 #endif
 	} else
 		lwsl_sspc_info(h, "serializing tx cr adj %d",
@@ -807,16 +771,11 @@ lws_sspc_start_timeout(struct lws_sspc_handle *h, unsigned int timeout_ms)
 #if !defined(STANDALONE)
 	lws_service_assert_loop_thread(h->context, 0);
 #endif
+	if (!h->txp_path.priv_onw)
+		/* we can't fulfil it */
+		return;
 	h->timeout_ms = (uint32_t)timeout_ms;
 	h->pending_timeout_update = 1;
-	/* remember it so a recreated proxy side stream can get the rest */
-	h->us_timeout_set = lws_now_usecs();
-	h->timeout_armed = timeout_ms != (unsigned int)-1;
-
-	if (!h->txp_path.priv_onw)
-		/* we can't fulfil it yet */
-		return;
-
 	h->txp_path.ops_onw->req_write(h->txp_path.priv_onw);
 }
 

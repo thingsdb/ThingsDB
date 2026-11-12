@@ -36,15 +36,28 @@
 #endif
 #endif
 
-/*
- * would the socket under wsi, the connection owning it, block a write now.
- * Asked by IO's lws_io_tx_choked_pollfd() only for a valid socket that is
- * not under a transport.
- */
 int
-lws_plat_tx_choked(struct lws *wsi)
-{
-	return (int)wsi->io->sock_send_blocking;
+lws_send_pipe_choked(struct lws *wsi)
+{	struct lws *wsi_eff;
+
+#if defined(LWS_WITH_HTTP2)
+	wsi_eff = lws_get_network_wsi(wsi);
+#else
+	wsi_eff = wsi;
+#endif
+	/* the fact we checked implies we avoided back-to-back writes */
+	wsi_eff->could_have_pending = 0;
+
+	/* treat the fact we got a truncated send pending as if we're choked */
+	if (lws_has_buffered_out(wsi_eff)
+#if defined(LWS_WITH_HTTP_STREAM_COMPRESSION)
+	    ||wsi->http.comp_ctx.buflist_comp ||
+	      wsi->http.comp_ctx.may_have_more
+#endif
+	)
+		return 1;
+
+	return (int)wsi_eff->sock_send_blocking;
 }
 
 int
@@ -74,30 +87,6 @@ lws_plat_set_nonblocking(lws_sockfd_type fd)
 }
 
 int
-lws_plat_set_udp_bufs(lws_sockfd_type fd)
-{
-	int opt = 4 * 1024 * 1024;
-
-	return setsockopt(fd, SOL_SOCKET, SO_RCVBUF, (const char *)&opt,
-			  sizeof(opt)) < 0 ||
-	       setsockopt(fd, SOL_SOCKET, SO_SNDBUF, (const char *)&opt,
-			  sizeof(opt)) < 0;
-}
-
-int
-lws_plat_rx_pending(lws_sockfd_type fd, size_t *pending)
-{
-	u_long n = 0;
-
-	if (ioctlsocket(fd, FIONREAD, &n))
-		return -1;
-
-	*pending = (size_t)n;
-
-	return 0;
-}
-
-int
 lws_plat_set_socket_options(struct lws_vhost *vhost, lws_sockfd_type fd,
 			    int unix_skt)
 {
@@ -105,9 +94,10 @@ lws_plat_set_socket_options(struct lws_vhost *vhost, lws_sockfd_type fd,
 	int optlen = sizeof(optval);
 	DWORD dwBytesRet;
 	struct tcp_keepalive alive;
-
-	if (unix_skt)
-		return lws_plat_set_nonblocking(fd);
+	int protonbr;
+#ifndef _WIN32_WCE
+	struct protoent *tcp_proto;
+#endif
 
 	if (vhost->ka_time) {
 		/* enable keepalive on this socket */
@@ -135,10 +125,22 @@ lws_plat_set_socket_options(struct lws_vhost *vhost, lws_sockfd_type fd,
 
 	/* Disable Nagle */
 	optval = 1;
+#ifndef _WIN32_WCE
+	tcp_proto = getprotobyname("TCP");
+	if (!tcp_proto) {
+#if (_LWS_ENABLED_LOGS & LLL_WARN)
+		lwsl_warn("getprotobyname(\"TCP\") failed with error, falling back to 6 %d\n", LWS_ERRNO);
+#endif
+		protonbr = 6;  /* IPPROTO_TCP */
+	} else
+		protonbr = tcp_proto->p_proto;
+#else
+	protonbr = 6;
+#endif
 
-	if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (const char *)&optval, optlen) ) {
-#if (_LWS_ENABLED_LOGS & LLL_INFO)
-		lwsl_info("setsockopt TCP_NODELAY 1 failed with error %d\n", LWS_ERRNO);
+	if (setsockopt(fd, protonbr, TCP_NODELAY, (const char *)&optval, optlen) ) {
+#if (_LWS_ENABLED_LOGS & LLL_WARN)
+		lwsl_warn("setsockopt TCP_NODELAY 1 failed with error %d\n", LWS_ERRNO);
 #endif
 	}
 
@@ -146,57 +148,12 @@ lws_plat_set_socket_options(struct lws_vhost *vhost, lws_sockfd_type fd,
 }
 
 int
-lws_plat_set_socket_dontfrag(lws_sockfd_type fd, int af)
-{
-	DWORD v = 1;
-	int ret = 0;
-
-	(void)v;
-
-#if defined(LWS_WITH_IPV6)
-	if (af == AF_INET6) {
-#if defined(IPV6_DONTFRAG)
-		ret = setsockopt(fd, IPPROTO_IPV6, IPV6_DONTFRAG,
-				 (const char *)&v, sizeof(v));
-#endif
-		/* a dual stack socket's IPv4 datagrams too, where it can */
-#if defined(IP_DONTFRAGMENT)
-		(void)setsockopt(fd, IPPROTO_IP, IP_DONTFRAGMENT,
-				 (const char *)&v, sizeof(v));
-#endif
-
-		return ret;
-	}
-#endif
-
-	(void)af;
-
-#if defined(IP_DONTFRAGMENT)
-	ret = setsockopt(fd, IPPROTO_IP, IP_DONTFRAGMENT,
-			 (const char *)&v, sizeof(v));
-#endif
-
-	return ret;
-}
-
-int
 lws_plat_set_socket_options_ip(lws_sockfd_type fd, uint8_t pri, int lws_flags)
 {	
 	int optval = 1, ret = 0;
 	socklen_t optlen = sizeof(optval);
-#if defined(LWS_WITH_UNIX_SOCK)
-	WSAPROTOCOL_INFOW info;
-	int info_len = sizeof(info);
-#endif
 #if (_LWS_ENABLED_LOGS & LLL_WARN)
 	int en;
-#endif
-
-#if defined(LWS_WITH_UNIX_SOCK)
-	if (getsockopt(fd, SOL_SOCKET, SO_PROTOCOL_INFOW, (char *)&info, &info_len) == 0) {
-		if (info.iAddressFamily == AF_UNIX)
-			return 0;
-	}
 #endif
 
 	/*
@@ -263,59 +220,26 @@ lws_interface_to_sa(int ipv6,
 	struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)addr;
 
 	if (ipv6) {
-		if (addrlen < sizeof(*addr6))
-			return LWS_ITOSA_NOT_USABLE;
-
 		if (lws_plat_inet_pton(AF_INET6, ifname, &addr6->sin6_addr) == 1) {
 			return LWS_ITOSA_USABLE;
 		}
 	}
 #endif
 
-#if defined(LWS_WITH_IPV4)
 	address = inet_addr(ifname);
 
 	if (address == INADDR_NONE) {
-		struct addrinfo hints, *res = NULL;
-
-		memset(&hints, 0, sizeof(hints));
-		hints.ai_family = AF_INET;
-		hints.ai_socktype = SOCK_STREAM;
-
-		/*
-		 * A name can resolve without having any address of the family
-		 * we asked about, in which case getaddrinfo() fails or gives
-		 * us nothing usable
-		 */
-
-		if (!getaddrinfo(ifname, NULL, &hints, &res) && res &&
-		    res->ai_family == AF_INET && res->ai_addr &&
-		    res->ai_addrlen >= sizeof(struct sockaddr_in))
-			address = ((struct sockaddr_in *)res->ai_addr)->
-							sin_addr.s_addr;
-
-		if (res)
-			freeaddrinfo(res);
+		struct hostent *entry = gethostbyname(ifname);
+		if (entry)
+			address = ((struct in_addr *)entry->h_addr_list[0])->s_addr;
 	}
 
 	if (address == INADDR_NONE)
 		return LWS_ITOSA_NOT_EXIST;
 
-	if (ipv6 || addrlen < sizeof(*addr))
-		/*
-		 * We only have an IPv4 address for it.  Written as a struct
-		 * sockaddr_in into the caller's struct sockaddr_in6, it would
-		 * land in sin6_flowinfo and leave sin6_addr the wildcard the
-		 * caller prefilled... it exists, but not for this family
-		 */
-		return LWS_ITOSA_NOT_USABLE;
-
 	addr->sin_addr.s_addr = (unsigned long)(lws_intptr_t)address;
 
 	return LWS_ITOSA_USABLE;
-#else
-	return LWS_ITOSA_NOT_EXIST;
-#endif
 }
 
 void
@@ -324,14 +248,14 @@ lws_plat_insert_socket_into_fds(struct lws_context *context, struct lws *wsi)
 	struct lws_context_per_thread *pt = &context->pt[(int)wsi->tsi];
 
 #if defined(LWS_WITH_UDP)
-	if (wsi->io->udp) {
+	if (wsi->udp) {
 		lwsl_info("%s: UDP\n", __func__);
 		pt->fds[pt->fds_count].events |= LWS_POLLIN;
 	}
 #endif
 
-	if (context->event_loop_ops->io || context->event_loop_ops->io_parallel)
-		_lws_event_loop_ops_io(wsi, LWS_EV_START | LWS_EV_READ);
+	if (context->event_loop_ops->io)
+		context->event_loop_ops->io(wsi, LWS_EV_START | LWS_EV_READ);
 
 	pt->fds[pt->fds_count++].revents = 0;
 
@@ -354,7 +278,7 @@ lws_plat_check_connection_error(struct lws *wsi)
 	int optVal;
 	int optLen = sizeof(int);
 
-	if (getsockopt(wsi->io->desc.sockfd, SOL_SOCKET, SO_ERROR,
+	if (getsockopt(wsi->desc.sockfd, SOL_SOCKET, SO_ERROR,
 			   (char*)&optVal, &optLen) != SOCKET_ERROR && optVal &&
 		optVal != LWS_EALREADY && optVal != LWS_EINPROGRESS &&
 		optVal != LWS_EWOULDBLOCK && optVal != WSAEINVAL) {
@@ -379,7 +303,7 @@ lws_plat_change_pollfd(struct lws_context *context, struct lws *wsi,
 int
 lws_plat_vhost_tls_client_ctx_init(struct lws_vhost *vhost)
 {
-#if !defined(LWS_WITH_MBEDTLS) && !defined(LWS_WITH_SCHANNEL) && defined(LWS_SSL_CLIENT_USE_OS_CA_CERTS)
+#if !defined(LWS_WITH_MBEDTLS) && defined(LWS_SSL_CLIENT_USE_OS_CA_CERTS)
 	PCCERT_CONTEXT pcc = NULL;
 	CERT_ENHKEY_USAGE* ceu = NULL;
 	DWORD ceu_alloc = 0;
@@ -548,7 +472,6 @@ lws_plat_inet_ntop(int af, const void *src, char *dst, socklen_t cnt)
 		return NULL;
 	}
 
-#if defined(LWS_WITH_IPV4)
 	if (af == AF_INET) {
 		struct sockaddr_in srcaddr;
 		memset(&srcaddr, 0, sizeof(srcaddr));
@@ -559,14 +482,8 @@ lws_plat_inet_ntop(int af, const void *src, char *dst, socklen_t cnt)
 					sizeof(srcaddr), 0, buffer,
 					(LPDWORD)&bufferlen))
 			ok = TRUE;
-
-#endif
 #ifdef LWS_WITH_IPV6
-#if defined(LWS_WITH_IPV4)
 	} else if (af == AF_INET6) {
-#else
-	if (af == AF_INET6) {
-#endif
 		struct sockaddr_in6 srcaddr;
 		memset(&srcaddr, 0, sizeof(srcaddr));
 		srcaddr.sin6_family = AF_INET6;
@@ -593,59 +510,12 @@ lws_plat_inet_ntop(int af, const void *src, char *dst, socklen_t cnt)
 	return ok ? dst : NULL;
 }
 
-/*
- * WSAStringToAddressW() is not inet_pton()... it implements the much looser
- * Winsock address-string grammar, so it also accepts "1.2.3.4:80",
- * "[::1]:80" and "fe80::1%3", filling in a port / scope that we then throw
- * away and returning success.  lws uses lws_plat_inet_pton() as the "is this
- * a literal numeric address?" oracle, so it has to answer the same as POSIX
- * inet_pton() does on the other platforms.
- */
-
-static int
-lws_plat_pton_strict(int af, const char *src)
-{
-	int dots = 0, field = 0;
-	const char *p = src;
-
-	if (!*src)
-		return 0;
-
-	while (*p) {
-		if (af == AF_INET) {
-			if (*p == '.') {
-				if (!field || ++dots > 3)
-					return 0;
-				field = 0;
-			} else {
-				if (*p < '0' || *p > '9' || ++field > 3)
-					return 0;
-			}
-		} else
-			if (*p != ':' && *p != '.' &&
-			    !(*p >= '0' && *p <= '9') &&
-			    !(*p >= 'a' && *p <= 'f') &&
-			    !(*p >= 'A' && *p <= 'F'))
-				return 0;
-
-		p++;
-	}
-
-	if (af == AF_INET && (dots != 3 || !field))
-		return 0;
-
-	return 1;
-}
-
 int
 lws_plat_inet_pton(int af, const char *src, void *dst)
 {
 	WCHAR *buffer;
 	size_t bufferlen = strlen(src) + 1;
 	BOOL ok = FALSE;
-
-	if (!lws_plat_pton_strict(af, src))
-		return 0;
 
 	buffer = lws_malloc(bufferlen * 2, "inet_pton");
 	if (!buffer) {
@@ -660,7 +530,6 @@ lws_plat_inet_pton(int af, const char *src, void *dst)
 		return -1;
 	}
 
-#if defined(LWS_WITH_IPV4)
 	if (af == AF_INET) {
 		struct sockaddr_in dstaddr;
 		int dstaddrlen = sizeof(dstaddr);
@@ -672,14 +541,8 @@ lws_plat_inet_pton(int af, const char *src, void *dst)
 			ok = TRUE;
 			memcpy(dst, &dstaddr.sin_addr, sizeof(dstaddr.sin_addr));
 		}
-
-#endif
 #ifdef LWS_WITH_IPV6
-#if defined(LWS_WITH_IPV4)
 	} else if (af == AF_INET6) {
-#else
-	if (af == AF_INET6) {
-#endif
 		struct sockaddr_in6 dstaddr;
 		int dstaddrlen = sizeof(dstaddr);
 
@@ -731,10 +594,6 @@ lws_plat_if_up(const char *ifname, int fd, int up)
 int
 lws_plat_BINDTODEVICE(lws_sockfd_type fd, const char *ifname)
 {
-	/* if no interface specified, it's a no-op everywhere */
-	if (!ifname || !ifname[0])
-		return 0;
-
 	lwsl_err("%s: UNIMPLEMENTED on this platform\n", __func__);
 
 	return -1;
@@ -763,15 +622,7 @@ lws_plat_mbedtls_net_send(void *ctx, const uint8_t *buf, size_t len)
 		return ret;
 
 	en = LWS_ERRNO;
-	/*
-	 * On Windows LWS_ERRNO is WSAGetLastError(), so a full socket send
-	 * buffer reports WSAEWOULDBLOCK, not the CRT EWOULDBLOCK.  Without
-	 * matching it here a backed-up send (e.g. a large HTTP/2 upload) is
-	 * misreported as a fatal MBEDTLS_ERR_NET_SEND_FAILED instead of a
-	 * retryable want-write, killing the connection.  net_recv() below
-	 * already handles WSAEWOULDBLOCK; mirror it.
-	 */
-	if (en == EAGAIN || en == EWOULDBLOCK || en == WSAEWOULDBLOCK)
+	if (en == EAGAIN || en == EWOULDBLOCK)
 		return MBEDTLS_ERR_SSL_WANT_WRITE;
 
 	ret = WSAGetLastError();

@@ -30,13 +30,10 @@
 void
 lssAc::start(bool atomic)
 {
-	if (atomic && ac && lwsac_get_next(ac)) {
+	if (atomic && ac->next) {
 		struct lwsac *ac2 = NULL, *i;
-		size_t total = (size_t)lwsac_total_alloc(ac), used = 0;
+		size_t total = (size_t)lwsac_total_alloc(ac);
 		uint8_t *p = (uint8_t *)lwsac_use(&ac2, total, total);
-
-		if (!p)
-			throw lssException("oom");
 
 		/*
 		 * He wants a single linear buffer, and we have more than one
@@ -46,16 +43,10 @@ lssAc::start(bool atomic)
 
 		i = ac;
 		while (i) {
-			size_t hdr = lwsac_sizeof(i == ac),
-			       bl = lwsac_get_tail_pos(i) - hdr;
-
-			if (bl > total - used)
-				bl = total - used;
-
-			memcpy(p + used, (uint8_t *)i + hdr, bl);
-			used += bl;
-
-			i = lwsac_get_next(i);
+			size_t bl = lwsac_get_tail_pos(i) -
+						lwsac_sizeof(i == ac);
+			memcpy(p, (uint8_t *)i + lwsac_sizeof(i == ac), bl);
+			p += bl;
 		}
 
 		lwsac_free(&ac);
@@ -68,12 +59,12 @@ lssAc::start(bool atomic)
 int
 lssAc::get(lssbuf_t *lb)
 {
-	if (!ac || !iter)
+	if (!ac)
 		return 1;
 
 	lb->buf = (uint8_t *)iter + lwsac_sizeof(iter == ac);
 	lb->len = lwsac_get_tail_pos(iter) - lwsac_sizeof(iter == ac);
-	iter = lwsac_get_next(iter);
+	iter = iter->next;
 
 	return 0;
 }

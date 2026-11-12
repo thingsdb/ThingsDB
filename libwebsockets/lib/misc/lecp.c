@@ -169,25 +169,6 @@ lecp_check_path_match(struct lecp_ctx *ctx)
 		ctx->wildcount = 0;
 }
 
-/*
- * The path is going back to ppos.  lecp_check_path_match() only looks for a
- * match while none is active, so a match found at or beyond this point, which
- * no longer describes where we are, has to be let go of here, or it is
- * reported for everything that follows.  A match on a shorter prefix of the
- * path still covers us and stays.  Callers check again for a match on the
- * shortened path afterwards.
- */
-
-static void
-lecp_path_truncate(struct lecp_ctx *ctx, uint8_t ppos)
-{
-	ctx->pst[ctx->pst_sp].ppos	= ppos;
-	ctx->path[ppos]			= '\0';
-
-	if (ctx->path_match && ppos <= ctx->path_match_len)
-		ctx->path_match = 0;
-}
-
 int
 lecp_push(struct lecp_ctx *ctx, char s_start, char s_end, char state)
 {
@@ -236,7 +217,8 @@ lecp_pop(struct lecp_ctx *ctx)
 		ctx->ipos--;
 	}
 
-	lecp_path_truncate(ctx, st->p);
+	ctx->pst[ctx->pst_sp].ppos = st->p;
+	ctx->path[st->p] = '\0';
 	lecp_check_path_match(ctx);
 
 	lwsl_lecp("%s: popping to sp %d, parent "
@@ -335,33 +317,6 @@ lwcp_is_indet_string(struct lecp_ctx *ctx)
 	return 0;
 }
 
-/*
- * Returns the stack level of the map key whose content we are collecting, or
- * 0 if what we are collecting is not a map key.  The fragments of an
- * indefinite-length string are one level below the string itself, it is the
- * string that is (or isn't) the key.
- */
-
-static int
-lecp_collating_key_level(struct lecp_ctx *ctx)
-{
-	int sp = ctx->sp;
-
-	if (sp && !ctx->st[sp].barrier && ctx->st[sp - 1].indet &&
-	    (ctx->st[sp - 1].opcode == LWS_CBOR_MAJTYP_BSTR ||
-	     ctx->st[sp - 1].opcode == LWS_CBOR_MAJTYP_TSTR))
-		sp--;
-
-	if (!sp || ctx->st[sp].barrier)
-		return 0;
-
-	if (ctx->st[sp - 1].opcode != LWS_CBOR_MAJTYP_MAP ||
-	    (ctx->st[sp - 1].ordinal & 1))
-		return 0;
-
-	return sp;
-}
-
 static int
 report_raw_cbor(struct lecp_ctx *ctx)
 {
@@ -370,11 +325,10 @@ report_raw_cbor(struct lecp_ctx *ctx)
 	if (!ctx->cbor_pos)
 		return 0;
 
-	ctx->cbor_len = ctx->cbor_pos;
-	ctx->cbor_pos = 0;                /* reset BEFORE callback */
-
 	if (pst->cb(ctx, LECPCB_LITERAL_CBOR))
 		return 1;
+
+	ctx->cbor_pos = 0;
 
 	return 0;
 }
@@ -389,21 +343,6 @@ lecp_parse_report_raw(struct lecp_ctx *ctx, int on)
 int
 lecp_parse_map_is_key(struct lecp_ctx *ctx)
 {
-	/*
-	 * This is public api, so we can't rely on the caller having checked
-	 * there is a parent level... at sp 0 there's no map to be a key of
-	 */
-	if (!ctx->sp)
-		return 0;
-
-	/*
-	 * At the base level of a subtree parse, the "parent" is a level of the
-	 * outer parse on the far side of the barrier... it is not our map, and
-	 * a bstr at the top of the subtree is not one of its keys
-	 */
-	if (ctx->st[ctx->sp].barrier)
-		return 0;
-
 	return lwcp_st_parent(ctx)->opcode == LWS_CBOR_MAJTYP_MAP &&
 	       !(lwcp_st_parent(ctx)->ordinal & 1);
 }
@@ -411,66 +350,19 @@ lecp_parse_map_is_key(struct lecp_ctx *ctx)
 int
 lecp_parse_subtree(struct lecp_ctx *ctx, const uint8_t *in, size_t len)
 {
-	uint8_t sp = ctx->sp, ipos = ctx->ipos;
-	uint8_t ppos = ctx->pst[ctx->pst_sp].ppos;
-	uint8_t path_match = ctx->path_match,
-		path_match_len = ctx->path_match_len,
-		wildcount = ctx->wildcount;
-	uint16_t wild[LWS_ARRAY_SIZE(ctx->wild)];
-	struct _lecp_stack *st;
+	struct _lecp_stack *st = &ctx->st[++ctx->sp];
 	int n;
 
-	/*
-	 * We're pushing a level for the subtree parse ourselves, we have to
-	 * bounds-check it the same as lecp_push() does
-	 */
-	if ((size_t)ctx->sp + 1u >= LWS_ARRAY_SIZE(ctx->st))
-		return LECP_STACK_OVERFLOW;
-
-	memcpy(wild, ctx->wild, sizeof(wild));
-
-	st = &ctx->st[++ctx->sp];
-
-	/*
-	 * Zero the whole level, so p / pop_iss / opcode / tag can't be
-	 * inherited from whatever deeper parse last used this slot (a stale
-	 * pop_iss of LECPCB_ARRAY_END would wrongly decrement ctx->ipos when
-	 * we are popped back to)
-	 */
-	memset(st, 0, sizeof(*st));
-	st->p			= ctx->pst[ctx->pst_sp].ppos;
+	st->s			= 0;
+	st->collect_rem		= 0;
+	st->intermediate	= 0;
+	st->indet		= 0;
+	st->ordinal		= 0;
+	st->send_new_array_item = 0;
 	st->barrier		= 1;
 
 	n = lecp_parse(ctx, in, len);
-
-	/*
-	 * The embedded item has to be complete inside the subtree bytes.  If
-	 * the parse ran out of input with a container still open (or mid-way
-	 * through a string or multibyte value), the levels it pushed and the
-	 * array index depth it took are still live above our barrier: only
-	 * decrementing sp would hand the outer parse a stack that no longer
-	 * matches its ipos, which is what lwcp_completed()'s assert(il)
-	 * catches in debug builds and becomes an i[-1] write in release ones.
-	 * Treat a truncated subtree as malformed and unwind to where we
-	 * started regardless.
-	 */
-	if (n == LECP_CONTINUE &&
-	    (ctx->sp != (uint8_t)(sp + 1) || ctx->st[sp + 1].s != LECP_OPC))
-		n = LECP_REJECT_BAD_CODING;
-
-	/*
-	 * Map keys inside the subtree append themselves to the shared path,
-	 * and path matching follows it; whatever they did to it, it belongs to
-	 * the outer parse, put it back
-	 */
-	ctx->sp = sp;
-	ctx->ipos = ipos;
-	ctx->pst[ctx->pst_sp].ppos = ppos;
-	ctx->path[ppos] = '\0';
-	ctx->path_match = path_match;
-	ctx->path_match_len = path_match_len;
-	ctx->wildcount = wildcount;
-	memcpy(ctx->wild, wild, sizeof(wild));
+	ctx->sp--;
 
 	return n;
 }
@@ -481,30 +373,12 @@ lecp_parse(struct lecp_ctx *ctx, const uint8_t *cbor, size_t len)
 	size_t olen = len;
 	int ret;
 
-	/*
-	 * A rejected parse stops wherever it was, with its stacks and string
-	 * chunk half-updated: a caller that goes on feeding us after a reject
-	 * just gets the reject again
-	 */
-	if (ctx->failed) {
-		ctx->used_in = 0;
-		return ctx->failed;
-	}
-
-	/*
-	 * Notice we must consume len inside the loop... `while (len--)` leaves
-	 * len at (size_t)-1 after the last byte, making the used_in computation
-	 * below report one more byte than we were given
-	 */
-
-	while (len) {
+	while (len--) {
 		struct _lecp_parsing_stack *pst = &ctx->pst[ctx->pst_sp];
 		struct _lecp_stack *st = &ctx->st[ctx->sp];
 		uint8_t c, sm, o;
-		int kl;
 		char to;
 
-		len--;
 		c = *cbor++;
 
 		/*
@@ -514,11 +388,10 @@ lecp_parse(struct lecp_ctx *ctx, const uint8_t *cbor, size_t len)
 		 */
 
 		if (ctx->literal_cbor_report) {
-			if (ctx->cbor_pos >= sizeof(ctx->cbor)) {
-				if (report_raw_cbor(ctx))
-					goto reject_callback;
-			}
 			ctx->cbor[ctx->cbor_pos++] = c;
+			if (ctx->cbor_pos == sizeof(ctx->cbor) &&
+			    report_raw_cbor(ctx))
+				goto reject_callback;
 		}
 
 		switch (st->s) {
@@ -529,38 +402,6 @@ lecp_parse(struct lecp_ctx *ctx, const uint8_t *cbor, size_t len)
 			st->opcode = ctx->item.opcode = c & LWS_CBOR_MAJTYP_MASK;
 			sm = c & LWS_CBOR_SUBMASK;
 			to = 0;
-
-			/*
-			 * st->indet describes the item at this level we are
-			 * parsing right now, and nothing else... an item that
-			 * sets it always pushes a level immediately, so by the
-			 * time we are back here looking at a new opcode, any
-			 * indefinite item at this level is finished with.
-			 *
-			 * Leaving it set makes lwcp_completed()'s "parent needs
-			 * indet" check abandon the walk forever, wedging the
-			 * context, and lets a BREAK close something that is not
-			 * an indefinite-length container.  The individual
-			 * opcodes below set it again if they need it
-			 */
-			st->indet = 0;
-
-			/*
-			 * The same goes for the fields this level keeps about
-			 * the children of the container it opened last: they
-			 * are written by the items one level down, and
-			 * lecp_push() only ever resets the new child level.
-			 * Carried over into the next container at this level,
-			 * a stale ordinal inverts that map's key / value
-			 * parity, a stale intermediate suppresses the START of
-			 * its first string, and a stale send_new_array_item
-			 * issues an ARRAY_ITEM_START inside something that is
-			 * not an array.  The ARRAY opcode sets
-			 * send_new_array_item again when it needs it
-			 */
-			st->ordinal		= 0;
-			st->intermediate	= 0;
-			st->send_new_array_item	= 0;
 
 			lwsl_lecp("%s: %d: OPC %d|%d\n", __func__, ctx->sp,
 					c >> 5, sm);
@@ -573,20 +414,6 @@ lecp_parse(struct lecp_ctx *ctx, const uint8_t *cbor, size_t len)
 					goto reject_callback;
 			}
 
-			if (c != 0xff && lecp_parse_map_is_key(ctx)) {
-				/*
-				 * A new map key replaces the previous key's
-				 * name on the path, whatever type either of
-				 * them is: go back to just after the map's own
-				 * '.', whose position the MAP opcode left in
-				 * the map level's p.  A string key's content
-				 * is appended as it is collected.
-				 */
-				lecp_path_truncate(ctx,
-					(uint8_t)(lwcp_st_parent(ctx)->p + 1));
-				lecp_check_path_match(ctx);
-			}
-
 			switch (st->opcode) {
 			case LWS_CBOR_MAJTYP_UINT:
 				ctx->present = LECPCB_VAL_NUM_UINT;
@@ -594,7 +421,7 @@ lecp_parse(struct lecp_ctx *ctx, const uint8_t *cbor, size_t len)
 					ctx->item.u.i64 = (int64_t)sm;
 					goto issue;
 				}
-				goto i2_l;
+				goto i2;
 
 			case LWS_CBOR_MAJTYP_INT_NEG:
 				ctx->present = LECPCB_VAL_NUM_INT;
@@ -602,28 +429,12 @@ lecp_parse(struct lecp_ctx *ctx, const uint8_t *cbor, size_t len)
 					ctx->item.u.i64 = (-1ll) - (int64_t)sm;
 					goto issue;
 				}
-i2_l:
+i2:
 				if (sm >= LWS_CBOR_RESERVED)
 					goto bad_coding;
-				/*
-				 * Long-form items are always definite-length...
-				 * an earlier indeterminite item at this level
-				 * must not leave st->indet set, or this item
-				 * gets treated as indeterminite too
-				 */
-				st->indet = 0;
 				ctx->item.u.u64 = 0;
 				o = (uint8_t)(1 << (sm - LWS_CBOR_1));
-				/*
-				 * LECP_COLLECT fills BE targets forwards from
-				 * the start we give it, so a 1, 2 or 4-byte
-				 * argument has to be aimed at the LOW-order
-				 * bytes of the 8-byte u64 (the float cases
-				 * below use a target the same size as the
-				 * count, so they're unaffected)
-				 */
-				ex(ctx, (uint8_t *)&ctx->item.u.u64 +
-					(ctx->be ? (unsigned int)(8 - o) : 0u), o);
+				ex(ctx, (uint8_t *)&ctx->item.u.u64, o);
 				break;
 
 			case LWS_CBOR_MAJTYP_BSTR:
@@ -643,15 +454,6 @@ i2_l:
 				ctx->npos = 0;
 				ctx->buf[0] = '\0';
 
-				/*
-				 * item.u.u64 is the string length the START
-				 * callback sees; for a zero-length or an
-				 * indefinite-length string nothing below sets
-				 * it, so a consumer would read whatever the
-				 * previous item left there
-				 */
-				ctx->item.u.u64 = 0;
-
 				if (!sm) {
 					if ((!ctx->sp || (ctx->sp &&
 					    !ctx->st[ctx->sp - 1].intermediate)) &&
@@ -660,8 +462,7 @@ i2_l:
 
 					if (pst->cb(ctx, (char)(LECPCB_VAL_STR_END + to)))
 						goto reject_callback;
-					if (lwcp_completed(ctx, 0))
-						goto reject_callback;
+					lwcp_completed(ctx, 0);
 					break;
 				}
 
@@ -679,7 +480,7 @@ i2_l:
 				}
 
 				if (sm < LWS_CBOR_RESERVED)
-					goto i2_l;
+					goto i2;
 
 				if (sm != LWS_CBOR_INDETERMINITE)
 					goto bad_coding;
@@ -692,11 +493,8 @@ i2_l:
 				st->indet = 1;
 
 				st->p = pst->ppos;
-				ret = lecp_push(ctx, 0,
-						(char)(LECPCB_VAL_STR_END + to),
-						LECP_ONLY_SAME);
-				if (ret)
-					goto reject;
+				lecp_push(ctx, 0, (char)(LECPCB_VAL_STR_END + to),
+						  LECP_ONLY_SAME);
 				break;
 
 			case LWS_CBOR_MAJTYP_ARRAY:
@@ -716,9 +514,6 @@ i2_l:
 				if (ctx->ipos + 1u >= LWS_ARRAY_SIZE(ctx->i))
 					goto reject_overflow;
 
-#if defined(__COVERITY__)
-				ctx->ipos = 0;
-#endif
 				ctx->i[ctx->ipos++] = 0;
 
 				if (pst->cb(ctx, LECPCB_ARRAY_START))
@@ -727,12 +522,12 @@ i2_l:
 				if (!sm) {
 					if (pst->cb(ctx, LECPCB_ARRAY_END))
 						goto reject_callback;
-					lecp_path_truncate(ctx, st->p);
+					pst->ppos = st->p;
+					ctx->path[pst->ppos] = '\0';
 					if (ctx->ipos) /* cov */
 						ctx->ipos--;
 					lecp_check_path_match(ctx);
-					if (lwcp_completed(ctx, 0))
-						goto reject_callback;
+					lwcp_completed(ctx, 0);
 					break;
 				}
 
@@ -745,17 +540,14 @@ i2_l:
 				}
 
 				if (sm < LWS_CBOR_RESERVED)
-					goto i2_l;
+					goto i2;
 
 				if (sm != LWS_CBOR_INDETERMINITE)
 					goto bad_coding;
 
 				st->indet = 1;
 push_a:
-				ret = lecp_push(ctx, 0, LECPCB_ARRAY_END,
-						LECP_OPC);
-				if (ret)
-					goto reject;
+				lecp_push(ctx, 0, LECPCB_ARRAY_END, LECP_OPC);
 				break;
 
 			case LWS_CBOR_MAJTYP_MAP:
@@ -777,10 +569,10 @@ push_a:
 				if (!sm) {
 					if (pst->cb(ctx, LECPCB_OBJECT_END))
 						goto reject_callback;
-					lecp_path_truncate(ctx, st->p);
+					pst->ppos = st->p;
+					ctx->path[pst->ppos] = '\0';
 					lecp_check_path_match(ctx);
-					if (lwcp_completed(ctx, 0))
-						goto reject_callback;
+					lwcp_completed(ctx, 0);
 					break;
 				}
 				if (sm < LWS_CBOR_1) {
@@ -790,17 +582,14 @@ push_a:
 				}
 
 				if (sm < LWS_CBOR_RESERVED)
-					goto i2_l;
+					goto i2;
 
 				if (sm != LWS_CBOR_INDETERMINITE)
 					goto bad_coding;
 
 				st->indet = 1;
 push_m:
-				ret = lecp_push(ctx, 0, LECPCB_OBJECT_END,
-						LECP_OPC);
-				if (ret)
-					goto reject;
+				lecp_push(ctx, 0, LECPCB_OBJECT_END, LECP_OPC);
 				break;
 
 			case LWS_CBOR_MAJTYP_TAG:
@@ -817,7 +606,7 @@ push_m:
 				 * We have to do more stuff to get the tag
 				 * number...
 				 */
-				goto i2_l;
+				goto i2;
 
 			case LWS_CBOR_MAJTYP_FLOAT:
 				/*
@@ -867,29 +656,13 @@ push_m:
 					    !ctx->st[ctx->sp - 1].indet)
 						goto bad_coding;
 
-					if (lwcp_completed(ctx, 1))
-						goto reject_callback;
+					lwcp_completed(ctx, 1);
 					break;
 
 				default:
-					/*
-					 * 28, 29 and 30 are not well-formed
-					 * per RFC8949 3.3
-					 */
-					if (sm >= LWS_CBOR_RESERVED)
-						goto bad_coding;
-
 					/* handle as simple */
 					ctx->item.u.u64 = (uint64_t)sm;
 					if (pst->cb(ctx, LECPCB_VAL_SIMPLE))
-						goto reject_callback;
-					/*
-					 * A simple value is a complete item, if
-					 * we don't say so it doesn't count
-					 * against the enclosing container's
-					 * item count
-					 */
-					if (lwcp_completed(ctx, 0))
 						goto reject_callback;
 					break;
 				}
@@ -930,55 +703,9 @@ push_m:
 			switch (st->opcode) {
 			case LWS_CBOR_MAJTYP_BSTR:
 			case LWS_CBOR_MAJTYP_TSTR:
-				to = (char)(st->opcode == LWS_CBOR_MAJTYP_BSTR ?
-					    LECPCB_VAL_BLOB_END -
-						    LECPCB_VAL_STR_END : 0);
-
-				if (!ctx->item.u.u64) {
-					/*
-					 * A zero length written in the long
-					 * form is still a zero length string...
-					 * we must not enter LECP_COLLATE with
-					 * collect_rem 0, since that consumes
-					 * the next byte of the stream as if it
-					 * was the string content
-					 */
-
-					if (lwcp_is_indet_string(ctx)) {
-						/*
-						 * Just an empty fragment... the
-						 * next thing at this level is
-						 * another fragment or the BREAK
-						 */
-						st->s = LECP_ONLY_SAME;
-						break;
-					}
-
-					if ((!ctx->sp ||
-					     !ctx->st[ctx->sp - 1].intermediate) &&
-					    pst->cb(ctx, (char)(
-						    LECPCB_VAL_STR_START + to)))
-						goto reject_callback;
-					if (pst->cb(ctx, (char)(
-						    LECPCB_VAL_STR_END + to)))
-						goto reject_callback;
-					if (lwcp_completed(ctx, 0))
-						goto reject_callback;
-					break;
-				}
-
-				/*
-				 * A long-form fragment of an indefinite-length
-				 * string is not a string of its own: the START
-				 * went out for the whole string when it opened,
-				 * as the zero-length and short-form fragment
-				 * paths already know.  The parent's
-				 * intermediate flag is only set once a first
-				 * fragment has spilled, so testing that let a
-				 * long-form first fragment issue a second START
-				 */
 				st->collect_rem = ctx->item.u.u64;
-				if (!lwcp_is_indet_string(ctx) &&
+				if ((!ctx->sp || (ctx->sp &&
+				    !ctx->st[ctx->sp - 1].intermediate)) &&
 				    pst->cb(ctx, (char)((st->opcode ==
 						    LWS_CBOR_MAJTYP_TSTR) ?
 							LECPCB_VAL_STR_START :
@@ -988,58 +715,13 @@ push_m:
 				break;
 
 			case LWS_CBOR_MAJTYP_ARRAY:
-				if (!ctx->item.u.u64) {
-					/*
-					 * Long-form array(0)... it's complete
-					 * as it stands, pushing a level with
-					 * collect_rem 0 would make it swallow
-					 * the following item
-					 */
-					if (pst->cb(ctx, LECPCB_ARRAY_END))
-						goto reject_callback;
-					lecp_path_truncate(ctx, st->p);
-					if (ctx->ipos) /* cov */
-						ctx->ipos--;
-					st->send_new_array_item = 0;
-					lecp_check_path_match(ctx);
-					if (lwcp_completed(ctx, 0))
-						goto reject_callback;
-					break;
-				}
-
 				st->collect_rem = ctx->item.u.u64;
-				ret = lecp_push(ctx, 0, LECPCB_ARRAY_END,
-						LECP_OPC);
-				if (ret)
-					goto reject;
+				lecp_push(ctx, 0, LECPCB_ARRAY_END, LECP_OPC);
 				break;
 
 			case LWS_CBOR_MAJTYP_MAP:
-				if (!ctx->item.u.u64) {
-					/* long-form map(0), same as above */
-					if (pst->cb(ctx, LECPCB_OBJECT_END))
-						goto reject_callback;
-					lecp_path_truncate(ctx, st->p);
-					lecp_check_path_match(ctx);
-					if (lwcp_completed(ctx, 0))
-						goto reject_callback;
-					break;
-				}
-
-				/*
-				 * The pair count is doubled to get the item
-				 * count... a count that would wrap can't be
-				 * satisfied by any stream, refuse it rather
-				 * than let it alias a small count
-				 */
-				if (ctx->item.u.u64 > 0x7fffffffffffffffull)
-					goto bad_coding;
-
 				st->collect_rem = ctx->item.u.u64 * 2;
-				ret = lecp_push(ctx, 0, LECPCB_OBJECT_END,
-						LECP_OPC);
-				if (ret)
-					goto reject;
+				lecp_push(ctx, 0, LECPCB_OBJECT_END, LECP_OPC);
 				break;
 
 			case LWS_CBOR_MAJTYP_TAG:
@@ -1053,19 +735,7 @@ push_m:
 				 */
 
 				if (st->opcode == LWS_CBOR_MAJTYP_INT_NEG)
-					/*
-					 * Major type 1 means -1 - n... for
-					 * n > INT64_MAX that needs 65 bits and
-					 * doesn't fit the int64_t we report it
-					 * in.  RFC8949 3.1 acknowledges it.
-					 * Do the (-1 - n) in unsigned so the
-					 * unrepresentable ones wrap defined,
-					 * rather than signed overflow UB.
-					 * Consumers that care can tell from
-					 * item.opcode + u.u64.
-					 */
-					ctx->item.u.i64 =
-						(int64_t)(~ctx->item.u.u64);
+					ctx->item.u.i64 = (-1ll) - ctx->item.u.i64;
 
 				goto issue;
 			}
@@ -1087,8 +757,7 @@ push_m:
 			if (pst->cb(ctx, LECPCB_VAL_SIMPLE))
 				goto reject_callback;
 
-			if (lwcp_completed(ctx, 0))
-				goto reject_callback;
+			lwcp_completed(ctx, 0);
 			break;
 
 		case LECP_COLLATE:
@@ -1109,28 +778,16 @@ push_m:
 			/* spill */
 			ctx->buf[ctx->npos] = '\0';
 
-			/*
-			 * If it's (a piece of) a map key, add it to the path...
-			 * the key's start already took the path back to the
-			 * map's '.'.  When the key is an indefinite-length
-			 * string, the pop at its BREAK restores the path to the
-			 * key level's p, so keep that at the end of the key.
-			 */
-			kl = lecp_collating_key_level(ctx);
-			if (kl) {
-				/*
-				 * The path is a C string: a NUL in the key
-				 * would hide the rest of the key, and all that
-				 * is nested under it, from path matching
-				 */
-				if (memchr(ctx->buf, '\0', (size_t)ctx->npos))
-					goto bad_coding;
-				if (pst->ppos + ctx->npos >= sizeof(ctx->path))
+			/* if it's a map name, deal with the path */
+			if (ctx->sp && lecp_parse_map_is_key(ctx)) {
+				if (lwcp_st_parent(ctx)->ordinal)
+					pst->ppos = st->p;
+				st->p = pst->ppos;
+				if (pst->ppos + ctx->npos > sizeof(ctx->path))
 					goto reject_overflow;
 				memcpy(&ctx->path[pst->ppos], ctx->buf,
 				       (size_t)(ctx->npos + 1));
 				pst->ppos = (uint8_t)(pst->ppos + ctx->npos);
-				ctx->st[kl].p = pst->ppos;
 				lecp_check_path_match(ctx);
 			}
 
@@ -1153,27 +810,10 @@ push_m:
 			ctx->npos = 0;
 			ctx->buf[0] = '\0';
 
-			/*
-			 * We may only leave LECP_COLLATE when the piece we
-			 * were collecting is actually finished... a nonzero
-			 * collect_rem means we just spilled a full buffer of a
-			 * longer definite-length string and its remaining
-			 * content is still to come.
-			 *
-			 * When it is finished, if it was a definite-length
-			 * fragment of an indefinite-length string, go back to
-			 * accepting only same-type fragments (or the BREAK) at
-			 * this level; otherwise lwcp_completed() below moves us
-			 * on.  Testing the parent's indet instead would fire
-			 * for any indefinite container, and abandon a definite-
-			 * length string after LECP_STRING_CHUNK bytes, parsing
-			 * the rest of its content as opcodes
-			 */
-			if (!st->collect_rem && lwcp_is_indet_string(ctx))
-				st->s = LECP_ONLY_SAME;
-			if (o == LECPCB_VAL_STR_END + to &&
-			    lwcp_completed(ctx, 0))
-				goto reject_callback;
+			if (ctx->sp && lwcp_st_parent(ctx)->indet)
+				st->s = LECP_OPC;
+			if (o == LECPCB_VAL_STR_END + to)
+				lwcp_completed(ctx, 0);
 
 			break;
 
@@ -1207,17 +847,11 @@ push_m:
 				break;
 			}
 
-			/*
-			 * Fragments have to be definite-length strings of the
-			 * same major type as the enclosing indefinite-length
-			 * string.  Take the type from the fragment header we
-			 * are looking at... our own st->opcode was copied from
-			 * the parent by lecp_push() and so would always match
-			 */
-			st->opcode = ctx->item.opcode =
-					(uint8_t)(c & LWS_CBOR_MAJTYP_MASK);
-
 			if (st->opcode != lwcp_st_parent(ctx)->opcode)
+				/*
+				 * Fragments have to be of the same type as the
+				 * outer opcode
+				 */
 				goto bad_coding;
 
 			sm = c & LWS_CBOR_SUBMASK;
@@ -1228,19 +862,6 @@ push_m:
 
 			if (sm < LWS_CBOR_1) {
 				st->indet = 0;
-
-				if (!sm)
-					/*
-					 * A zero-length fragment written in the
-					 * short form is still an empty
-					 * fragment... we must not enter
-					 * LECP_COLLATE with collect_rem 0,
-					 * since that consumes the next byte of
-					 * the stream as if it was the string
-					 * content
-					 */
-					break;
-
 				st->collect_rem = (uint64_t)sm;
 				st->s = LECP_COLLATE;
 				break;
@@ -1249,7 +870,7 @@ push_m:
 			if (sm >= LWS_CBOR_RESERVED)
 				goto bad_coding;
 
-			goto i2_l;
+			goto i2;
 
 		default:
 			assert(0);
@@ -1262,7 +883,7 @@ start_tag_enclosure:
 		st->p = pst->ppos;
 		ret = lecp_push(ctx, LECPCB_TAG_START, LECPCB_TAG_END, LECP_OPC);
 		if (ret)
-			goto reject;
+			return ret;
 
 		continue;
 
@@ -1277,8 +898,8 @@ issue:
 		if (pst->cb(ctx, ctx->present))
 			goto reject_callback;
 
-		if (lwcp_completed(ctx, 0))
-			goto reject_callback;
+		lwcp_completed(ctx, 0);
+
 	}
 
 	ctx->used_in = olen - len;
@@ -1300,13 +921,6 @@ reject_callback:
 	ret = LECP_REJECT_CALLBACK;
 
 reject:
-	/*
-	 * We stopped on the byte we were looking at, tell the caller how much
-	 * of his buffer we ate before that so he can account for it too
-	 */
-	ctx->used_in = olen - len;
-	ctx->failed = (int8_t)ret;
-
 	ctx->pst[ctx->pst_sp].cb(ctx, LECPCB_FAILED);
 
 	return ret;
@@ -1329,11 +943,7 @@ lws_lec_setbuf(lws_lec_pctx_t *ctx, uint8_t *buf, size_t len)
 	ctx->start = ctx->buf = buf;
 	ctx->end = ctx->start + len;
 	ctx->used = 0;
-	/*
-	 * vaa_pos is how many va_args the format being resumed has already
-	 * consumed, it must survive to the next call so they are skipped...
-	 * it is reset when a format finishes or fails
-	 */
+	ctx->vaa_pos = 0;
 }
 
 enum lws_lec_pctx_ret
@@ -1417,10 +1027,7 @@ format_scan(const char *fmt)
 
 		if (*fmt == '\'') {
 			bump("c");
-			if (sp + 1 >= (int)LWS_ARRAY_SIZE(stack))
-				return -2;
 			sp++;
-			count[sp] = 0;
 			literal = 1;
 			fmt++;
 			continue;
@@ -1466,11 +1073,7 @@ format_scan(const char *fmt)
 		case '[':
 		case '(':
 		case '{':
-			/*
-			 * We write stack[sp] / count[sp] after the increment,
-			 * so we must have room for sp + 1
-			 */
-			if (sp + 1 >= (int)LWS_ARRAY_SIZE(stack))
+			if (sp == sizeof(stack))
 				return -2;
 
 			bump("d");
@@ -1494,19 +1097,19 @@ format_scan(const char *fmt)
 		case ']':
 			if (stack[sp] != '[')
 				goto mismatch;
-			goto pop_l;
+			goto pop;
 		case ')':
 			if (stack[sp] != '(')
 				goto mismatch;
-			goto pop_l;
+			goto pop;
 		case '}':
 			if (stack[sp] != '{')
 				goto mismatch;
-			goto pop_l;
+			goto pop;
 		case '>':
 			if (stack[sp] != '<')
 				goto mismatch;
-pop_l:
+pop:
 			if (sp) {
 				sp--;
 				break;
@@ -1646,17 +1249,6 @@ lws_lec_scratch(lws_lec_pctx_t *ctx)
 	ctx->buf += s;
 	ctx->scratch_len = (uint8_t)(ctx->scratch_len - (uint8_t)s);
 
-	/*
-	 * If the output buffer filled before the scratch emptied, the unsent
-	 * tail has to move to the front: the next call copies from
-	 * scratch[0], and callers append to scratch[scratch_len].  Without
-	 * this the next buffer got the first bytes of the item again, eg, a
-	 * bstr head 58 20 split across buffers came out as 58 58.
-	 */
-
-	if (ctx->scratch_len)
-		memmove(ctx->scratch, ctx->scratch + s, ctx->scratch_len);
-
 	return ctx->buf == ctx->end;
 }
 
@@ -1699,18 +1291,16 @@ lws_lec_vsprintf(lws_lec_pctx_t *ctx, const char *fmt, va_list args)
 			(void)va_arg(args, double);
 			break;
 		}
+		if (ctx->state == CBPS_STRING_BODY)
+			/*
+			 * when copying out text or binary strings, we reload
+			 * the %s or %.*s pointer on subsequent calls, in case
+			 * it was on the stack.  The length and contents should
+			 * not change between calls, but it's OK if the source
+			 * address does.
+			 */
+			ctx->ongoing_src = va_arg(args, uint8_t *);
 	}
-
-	if (ctx->state == CBPS_STRING_BODY)
-		/*
-		 * when copying out text or binary strings, we reload the %s or
-		 * %.*s pointer on subsequent calls, in case it was on the
-		 * stack.  The length and contents should not change between
-		 * calls, but it's OK if the source address does.  Its vaa is
-		 * only recorded when the body is done, so it is the next arg
-		 * after the ones skipped above.
-		 */
-		ctx->ongoing_src = va_arg(args, uint8_t *);
 
 	while (ctx->buf != ctx->end) {
 
@@ -1744,17 +1334,17 @@ lws_lec_vsprintf(lws_lec_pctx_t *ctx, const char *fmt, va_list args)
 			case '[':
 				n = format_scan(&fmt[ctx->fmt_pos]);
 				if (n == -2)
-					goto fail;
+					return LWS_LECPCTX_RET_FAIL;
 				lws_lec_int(ctx, LWS_CBOR_MAJTYP_ARRAY, n == -1,
 							(uint64_t)n);
-				goto stack_push_l;
+				goto stack_push;
 			case '{':
 				n = format_scan(&fmt[ctx->fmt_pos]);
 				if (n == -2)
-					goto fail;
+					return LWS_LECPCTX_RET_FAIL;
 				lws_lec_int(ctx, LWS_CBOR_MAJTYP_MAP, n == -1,
 							(uint64_t)n);
-				goto stack_push_l;
+				goto stack_push;
 			case '(':
 				/* must be preceded by a number */
 				goto fail;
@@ -1765,12 +1355,12 @@ lws_lec_vsprintf(lws_lec_pctx_t *ctx, const char *fmt, va_list args)
 
 			case ']':
 				if (!ctx->sp || ctx->stack[ctx->sp - 1] != '[')
-					goto fail;
+					return LWS_LECPCTX_RET_FAIL;
 				ctx->sp--;
 				break;
 			case '}':
 				if (!ctx->sp || ctx->stack[ctx->sp - 1] != '{')
-					goto fail;
+					return LWS_LECPCTX_RET_FAIL;
 				ctx->sp--;
 				break;
 			case ')':
@@ -1783,7 +1373,7 @@ lws_lec_vsprintf(lws_lec_pctx_t *ctx, const char *fmt, va_list args)
 				break;
 			case '>':
 				if (!ctx->sp || ctx->stack[ctx->sp - 1] != '<')
-					goto fail;
+					return LWS_LECPCTX_RET_FAIL;
 				ctx->scratch[ctx->scratch_len++] =
 						(uint8_t)(LWS_CBOR_MAJTYP_FLOAT |
 							LWS_CBOR_M7_BREAK);
@@ -1793,7 +1383,7 @@ lws_lec_vsprintf(lws_lec_pctx_t *ctx, const char *fmt, va_list args)
 				n = format_scan(&fmt[ctx->fmt_pos]);
 				// lwsl_notice("%s: quote fs %d\n", __func__, n);
 				if (n < 0)
-					goto fail;
+					return LWS_LECPCTX_RET_FAIL;
 				lws_lec_int(ctx, LWS_CBOR_MAJTYP_TSTR, 0,
 								(uint64_t)n);
 				ctx->state = CBPS_STRING_LIT;
@@ -1959,7 +1549,7 @@ lws_lec_vsprintf(lws_lec_pctx_t *ctx, const char *fmt, va_list args)
 				c = fmt[ctx->fmt_pos];
 				if (c != '(')
 					goto fail;
-				goto tag_body_l;
+				goto tag_body;
 #if defined(LWS_WITH_CBOR_FLOAT)
 			case 'f': /* floating point double */
 				dbl = va_arg(args, double);
@@ -2041,7 +1631,7 @@ lws_lec_vsprintf(lws_lec_pctx_t *ctx, const char *fmt, va_list args)
 				ctx->item.u.i64--;
 
 			if (c == '(') { /* tag qualifier */
-tag_body_l:
+tag_body:
 				n = format_scan(&fmt[ctx->fmt_pos]);
 				if (n == -2)
 					goto fail;
@@ -2054,9 +1644,9 @@ tag_body_l:
 				lws_lec_int(ctx, LWS_CBOR_MAJTYP_TAG, 0,
 							ctx->item.u.u64);
 
-stack_push_l:
+stack_push:
 				if (ctx->sp >= sizeof(ctx->stack))
-					goto fail;
+					return LWS_LECPCTX_RET_FAIL;
 				ctx->stack[ctx->sp] = (uint8_t)c;
 				ctx->indet[ctx->sp++] = (uint8_t)(n == -1);
 				// lwsl_notice("%s: pushed %c\n", __func__, c);
@@ -2087,13 +1677,13 @@ stack_push_l:
 
 		case CBPS_CONTYPE:
 			if (c != 't' && c != 'b')
-				goto fail;
+				return LWS_LECPCTX_RET_FAIL;
 
 			lws_lec_int(ctx, c == 't' ? LWS_CBOR_MAJTYP_TSTR :
 						    LWS_CBOR_MAJTYP_BSTR, 1, 0);
 			c = '<';
 			n = 0;
-			goto stack_push_l;
+			goto stack_push;
 		}
 
 		ctx->fmt_pos++;
@@ -2113,16 +1703,7 @@ stack_push_l:
 fail:
 	lwsl_notice("%s: failed\n", __func__);
 
-	/*
-	 * What the failed format emitted is incomplete, but the context must
-	 * not stay part-way through it: the next format would resume from the
-	 * failed one's position and parser state
-	 */
-
-	ctx->fmt_pos	= 0;
-	ctx->vaa_pos	= 0;
-	ctx->state	= CBPS_IDLE;
-	ctx->escflag	= 0;
+	ctx->fmt_pos = 0;
 
 	return LWS_LECPCTX_RET_FAIL;
 }

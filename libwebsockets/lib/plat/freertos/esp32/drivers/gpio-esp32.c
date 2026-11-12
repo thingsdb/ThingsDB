@@ -37,12 +37,10 @@ lws_gpio_esp32_mode(_lws_plat_gpio_t gpio, int flags)
 		mode = GPIO_MODE_INPUT;
 		break;
 	case LWSGGPIO_FL_WRITE:
-		mode = flags & LWSGGPIO_FL_OPEN_DRAIN ? GPIO_MODE_OUTPUT_OD :
-							GPIO_MODE_OUTPUT;
+		mode = GPIO_MODE_OUTPUT;
 		break;
 	case LWSGGPIO_FL_READ | LWSGGPIO_FL_WRITE:
-		mode = flags & LWSGGPIO_FL_OPEN_DRAIN ? GPIO_MODE_INPUT_OUTPUT_OD :
-							GPIO_MODE_INPUT_OUTPUT;
+		mode = GPIO_MODE_INPUT_OUTPUT;
 		break;
 	}
 

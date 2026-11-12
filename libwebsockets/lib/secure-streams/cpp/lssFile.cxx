@@ -82,9 +82,6 @@ lssfile_state(void *userobj, void *h_src, lws_ss_constate_t state,
 		}
 
 		break;
-
-	default:
-		break;
 	}
 
 	return LWSSSSRET_OK;
@@ -99,7 +96,7 @@ lws_ss_state_return_t lssFile::write(const uint8_t *buf, size_t len, int flags)
 			return LWSSSSRET_DESTROY_ME;
 	}
 
-	if (::write(fd, buf, len) != (ssize_t)len) {
+	if (::write(fd, buf, len) != len) {
 		close(fd);
 		fd = LWS_INVALID_FILE;
 

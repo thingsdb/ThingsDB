@@ -97,20 +97,6 @@ response there may look like
 		lws_ss_request_tx_len(m->ss, 128);
 ```
 
-For http servers, when `LWSSSCS_SERVER_TXN` is signalled, lws has set some of
-the stream's metadata from the request, if the policy declares it:
-
- - `path`, `method` and `auth` (the Authorization header) are set from the
-   request itself
-
- - metadata without an http header association, eg `{ "my_arg": "" }`, is set
-   from a URL argument of the same name, if the request has one.  A URL argument
-   can't set `path`, `method` or `auth`, or metadata associated with a header,
-   which the server emits as that response header (eg, `"mime": "Content-Type:"`)
-
-All of these are unset at the start of each request, so on a keep-alive
-connection nothing a previous request provided is seen as part of the next one.
-
 Otherwise the general api usage is very similar to client usage.
 
 ## Convention for rx and tx callback return
@@ -147,12 +133,12 @@ JSON.
 		}
 	}],
 	"certs": [{
-		"isrg_root_x2": "MIIFazCCA1OgAw...AnX5iItreGCc="
+		"isrg_root_x1": "MIIFazCCA1OgAw...AnX5iItreGCc="
 	}, {
-		"LEX3_isrg_root_x2": "MIIFjTCCA3WgAwIB...WEsikxqEt"
+		"LEX3_isrg_root_x1": "MIIFjTCCA3WgAwIB...WEsikxqEt"
 	}],
 	"trust_stores": [{
-		"le_via_isrg": ["isrg_root_x2", "LEX3_isrg_root_x2"]
+		"le_via_isrg": ["isrg_root_x1", "LEX3_isrg_root_x1"]
 	}],
 	"s": [{
 		"mintest": {
@@ -278,29 +264,6 @@ define the endpoint as, eg, `${region}.mysite.com`, and before
 attempting the connection setting the stream's metadata item
 "region" to the desired value, eg, "uk".
 
-A metadata value that came from outside the process, ie, one an SS
-proxy client set, or one captured from a server's response header,
-fills in the endpoint like any other, but it can't make it a
-`file://` url or a `+` Unix Domain Socket address (below): such a
-connection attempt fails, unless the policy endpoint has the
-`file://` or `+` literally, before the first `${`.
-
-If the policy endpoint is anything more than a single `${name}`, eg,
-`${region}.mysite.com` or `https://${host}/`, the policy wrote part of
-the address itself, and an outside value may only fill in its own piece
-of it.  If the value contains any url delimiter, ie, any of
-`:` `/` `\` `@` `?` `#` `[` `]` `%`, it could otherwise make itself the
-scheme, host, port or userinfo and push what the policy wrote into the
-path, eg, `https://elsewhere/` in `${region}.mysite.com`.  So the
-connection attempt fails instead.  An outside value can't give a port
-or an IPv6 literal there either.  An endpoint that is exactly one
-`${name}`, like `__default`'s `${endpoint}`, gives the whole endpoint,
-url and all, to that metadata, so its value may still be a url like
-`https://mysite.com:1234/path` when it comes through an SS proxy.
-
-Values the app set itself with `lws_ss_set_metadata()` are not
-restricted.
-
 If the endpoint string begins with `+`, then it's understood to
 mean a connection to a Unix Domain Socket, for Linux `+@` means
 the following Unix Domain Socket is in the Linux Abstract
@@ -346,31 +309,6 @@ of message boundaries, for that reason SOM and EOM are ignored with raw.
 
 By default redirects are not followed, if you wish a streamtype to observe them, eg,
 because that's how it responds to a POST, set `"allow_redirects": true`
-
-The request a redirect leads to sends the stream's headers again, to wherever the
-server's `Location` takes it.  If the stream carries credentials in them, the
-redirect is only followed over https with strict tls verification, to the host the
-stream started with or a subdomain of it (the rule Go's net/http uses), or to a host
-`redirect_credentials_to` names; any other redirect is refused, and the stream fails
-as it does for any connection error, rather than following it without them.  Those
-headers are
-
- - the blob headers (`http_auth_header`, `http_dsn_header`, `http_fwv_header`,
-   `http_devtype_header`)
- - cached cookies (`http_cookies`)
- - whatever an `auth` binding (`use_auth`, eg, sigv4) adds
- - the headers `metadata` and instant metadata (`direct_proto_str`) are sent as,
-   unless lws knows the header name as an ordinary one, eg `accept:` or
-   `user-agent:`; one like `authorization:` or `x-api-key:` counts
-
-A stream carrying none of these follows a redirect anywhere.
-
-### `redirect_credentials_to`
-
-An array of host names (or addresses), eg, `"redirect_credentials_to":
-["example.com"]`, that a redirect may take the stream's credentials to as well as the
-stream's own host, together with their subdomains.  The redirect must still be over
-https with strict tls verification.  See `allow_redirects`.
 
 ### `tls`
 
@@ -819,12 +757,7 @@ An example overlay fragment looks like this
 ie the overlay fragment completely follows the structure of the main policy,
 just misses out anything it doesn't override.
 
-Currently ONLY streamtypes may be overridden.  An overlay that defines
-anything of its own, a new streamtype, a cert, a trust store, an auth, a
-backoff scheme or metrics, is rejected at that point and the overlay fails;
-overrides earlier in the same fragment have already been applied to the live
-streamtypes, since they are written in place.  A completed overlay leaves no
-parse behind, so another may follow it.
+Currently ONLY streamtypes may be overridden.
 
 You can see an example of this in use in `minimal-secure-streams` example
 where `--force-portal` and `--force-no-internet` options cause the captive
@@ -871,25 +804,6 @@ onward proxying).
 
 Each Secure Stream that is created then in turn creates a private Unix Domain
 Socket connection to the proxy for each stream.
-
-Anything that can use the proxy can make connections as described by the
-proxy's policy, so the proxy restricts who may connect to its Unix Domain
-Socket.  By default that is processes running as the proxy's own user, or with
-the proxy's group as their primary group, or as root; the context creation
-info member `.ss_proxy_perms` can name a different `"user:group"`, or be `"*"`
-to allow any local process.  For a socket in the Linux abstract namespace (the
-default, `@proxy.ss.lws`), which has no filesystem permissions, the proxy
-checks each client's credentials when it connects.  For a socket path in the
-filesystem, the socket file's owner and mode control it.  A proxy listening on
-tcp has no client authentication at all: by default it listens on loopback
-only, and lws refuses a bind address that is not loopback unless the creation
-info sets `.ss_proxy_tcp_allow_remote` (see READMEs/README.secure-streams.md).
-
-Clients do not check who the proxy is in turn.  A name in the abstract
-namespace can be bound by any local user while the proxy is not listening, who
-then sees what the clients send and answers them; where that matters, use a
-socket path in the filesystem, in a directory only the proxy's user may create
-files in (see READMEs/README.secure-streams.md).
 
 In this case the proxy uses secure-streams.c and policy.c as before to fulfil
 the inbound proxy streams, but uses secure-streams-serialize.c to serialize and
@@ -1004,14 +918,6 @@ state `LWSSSCS_SERVER_UPGRADE`, so subsequent rx and tx can be understood to
 have come from the upgraded protocol.  To allow separation of rx and tx
 handling between http and ws, there's a ss api `lws_ss_change_handlers()`
 which allows dynamically setting SS handlers.
-
-Each incoming connection (or h2 stream) gets its own accepted stream created
-from the server streamtype, and it's that accepted stream that sees
-`LWSSSCS_SERVER_UPGRADE`, over h1 and h2 alike... the server stream you created
-to bring up the listening vhost never does.  An accepted stream that is
-upgraded without an http transaction first sees `LWSSSCS_CREATING`,
-`LWSSSCS_CONNECTING`, `LWSSSCS_SERVER_UPGRADE`, then `LWSSSCS_CONNECTED` when
-the ws connection is established.
 
 Since the http and ws upgrade identity is encapsulated in one streamtype, the
 user object for the server streamtype should contain related user data for both

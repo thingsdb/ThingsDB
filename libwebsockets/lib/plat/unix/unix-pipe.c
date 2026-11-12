@@ -41,17 +41,9 @@ lws_plat_pipe_create(struct lws *wsi)
 	goto set;
 
 #elif defined(LWS_HAVE_PIPE2)
-	n = pipe2(pt->dummy_pipe_fds, O_NONBLOCK | O_CLOEXEC);
+	n = pipe2(pt->dummy_pipe_fds, O_NONBLOCK);
 #else
 	n = pipe(pt->dummy_pipe_fds);
-	if (n >= 0 &&
-	    (lws_plat_apply_FD_CLOEXEC(pt->dummy_pipe_fds[0]) ||
-	     lws_plat_apply_FD_CLOEXEC(pt->dummy_pipe_fds[1])))
-		/*
-		 * Not fatal, but a spawned child then holds the service pipe
-		 * open across its exec
-		 */
-		lwsl_info("%s: FD_CLOEXEC didn't stick\n", __func__);
 #endif
 
 #if defined(LWS_HAVE_EVENTFD)
@@ -92,17 +84,17 @@ lws_plat_pipe_close(struct lws *wsi)
 {
 	struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
 
-	if (pt->dummy_pipe_fds[0] != LWS_SOCK_INVALID) {
-		if (wsi->io->desc.sockfd == pt->dummy_pipe_fds[0])
-			wsi->io->desc.sockfd = LWS_SOCK_INVALID;
+	if (pt->dummy_pipe_fds[0] && pt->dummy_pipe_fds[0] != -1) {
+		if (wsi->desc.sockfd == pt->dummy_pipe_fds[0])
+			wsi->desc.sockfd = LWS_SOCK_INVALID;
 		close(pt->dummy_pipe_fds[0]);
-		pt->dummy_pipe_fds[0] = LWS_SOCK_INVALID;
+		pt->dummy_pipe_fds[0] = -1;
 	}
-	if (pt->dummy_pipe_fds[1] != LWS_SOCK_INVALID) {
-		if (wsi->io->desc.sockfd == pt->dummy_pipe_fds[1])
-			wsi->io->desc.sockfd = LWS_SOCK_INVALID;
+	if (pt->dummy_pipe_fds[1] && pt->dummy_pipe_fds[1] != -1) {
+		if (wsi->desc.sockfd == pt->dummy_pipe_fds[1])
+			wsi->desc.sockfd = LWS_SOCK_INVALID;
 		close(pt->dummy_pipe_fds[1]);
-		pt->dummy_pipe_fds[1] = LWS_SOCK_INVALID;
+		pt->dummy_pipe_fds[1] = -1;
 	}
 }
 

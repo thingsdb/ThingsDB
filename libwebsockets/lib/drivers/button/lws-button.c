@@ -85,14 +85,14 @@ static const lws_button_regime_t default_regime = {
  * All the buttons point here and use one timer per button controller.  An
  * interrupt here means, "something happened to one or more buttons"
  */
-#if defined(LWS_PLAT_TIMER_START_FROM_ISR)
+#if defined(LWS_PLAT_TIMER_START)
 void
 lws_button_irq_cb_t(void *arg)
 {
 	lws_button_each_t *each = (lws_button_each_t *)arg;
 
 	each->isr_pending = 1;
-	LWS_PLAT_TIMER_START_FROM_ISR(each->bcs->timer);
+	LWS_PLAT_TIMER_START(each->bcs->timer);
 }
 #endif
 
@@ -467,14 +467,8 @@ lws_button_controller_create(struct lws_context *ctx,
 void
 lws_button_controller_destroy(struct lws_button_state *bcs)
 {
-	/*
-	 * Disable them all... the GPIO ISR opaques point into the block we are
-	 * about to free, so this has to actually reset the irq mode, ie, the
-	 * reset mask must have all the button bits set (an empty reset mask
-	 * leaves enable_bitmap unchanged and disables nothing)
-	 */
-
-	lws_button_enable(bcs, (lws_button_idx_t)~0u, 0);
+	/* disable them all */
+	lws_button_enable(bcs, 0, 0);
 
 #if defined(LWS_PLAT_TIMER_DELETE)
 	LWS_PLAT_TIMER_DELETE(bcs->timer);

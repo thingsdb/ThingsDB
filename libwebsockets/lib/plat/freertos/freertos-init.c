@@ -33,7 +33,7 @@ lws_plat_context_early_init(void)
 void
 lws_plat_context_early_destroy(struct lws_context *context)
 {
-#if defined(LWS_AMAZON_RTOS) && defined(LWS_WITH_MBEDTLS) && !defined(LWS_MBEDTLS_PSA_RNG)
+#if defined(LWS_AMAZON_RTOS) && defined(LWS_WITH_MBEDTLS)
 	mbedtls_ctr_drbg_free(&context->mcdc);
 	mbedtls_entropy_free(&context->mec);
 #endif
@@ -58,22 +58,12 @@ lws_plat_context_late_destroy(struct lws_context *context)
  */
 const struct http2_settings lws_h2_defaults_esp32 = { {
 	1,
-	/* H2SET_HEADER_TABLE_SIZE */			2048,
+	/* H2SET_HEADER_TABLE_SIZE */			 512,
 	/* H2SET_ENABLE_PUSH */				   0,
 	/* H2SET_MAX_CONCURRENT_STREAMS */		   16,
 	/* H2SET_INITIAL_WINDOW_SIZE */		           0,
 	/* H2SET_MAX_FRAME_SIZE */		       16384,
-	/* H2SET_MAX_HEADER_LIST_SIZE */	       65536,
-	/*< This is advisory to the peer and costs us nothing to raise: it
-	 * bounds the hpack input byte count for one header block, it does
-	 * not size any allocation.  The header storage is bounded
-	 * separately by max_http_header_data.
-	 *
-	 * Like the stock settings, the old value of 2048 was smaller than
-	 * the response headers many real servers send (Cloudflare, GFE,
-	 * github.com), so their streams were GOAWAY'd with
-	 * ENHANCE_YOUR_CALM before the headers had even been stored.
-	 */
+	/* H2SET_MAX_HEADER_LIST_SIZE */	 	 512,
 	/* H2SET_RESERVED7 */				   0,
 	/* H2SET_ENABLE_CONNECT_PROTOCOL */		   1,
 }};
@@ -86,7 +76,6 @@ lws_plat_init(struct lws_context *context,
 #if defined(LWS_AMAZON_RTOS) && defined(LWS_WITH_MBEDTLS)
 	int n;
 
-#if !defined(LWS_MBEDTLS_PSA_RNG)
 	/* initialize platform random through mbedtls */
 	mbedtls_entropy_init(&context->mec);
 	mbedtls_ctr_drbg_init(&context->mcdc);
@@ -99,30 +88,11 @@ lws_plat_init(struct lws_context *context,
 
 		return 1;
 	}
-#else
-	/* mbedTLS 4 removed ctr_drbg/entropy; PSA owns the RNG */
-	n = psa_crypto_init();
-	if (n) {
-		lwsl_err("%s: psa_crypto_init() returned 0x%x\n", __func__, n);
-
-		return 1;
-	}
-#endif
 #endif
 
-	/*
-	 * Context has the global fd lookup array.
-	 *
-	 * It is indexed by the lwip socket slot number, which lwip allocates
-	 * globally to everything in the image; it is not related to
-	 * context->max_fds (which the user may have tuned down with
-	 * info.fd_limit_per_thread).  So size it for the whole socket index
-	 * space rather than for how many fds lws intends to use.
-	 */
-
+	/* context has the global fd lookup array */
 	context->lws_lookup = lws_zalloc(sizeof(struct lws *) *
-					 lws_plat_lookup_entries(),
-					 "esp32 lws_lookup");
+					 context->max_fds, "esp32 lws_lookup");
 	if (context->lws_lookup == NULL) {
 		lwsl_err("OOM on lws_lookup array for %d connections\n",
 			 context->max_fds);
@@ -130,8 +100,7 @@ lws_plat_init(struct lws_context *context,
 	}
 
 	lwsl_notice(" mem: platform fd map: %5lu bytes\n",
-		    (unsigned long)(sizeof(struct lws *) *
-				    lws_plat_lookup_entries()));
+		    (unsigned long)(sizeof(struct lws *) * context->max_fds));
 
 #ifdef LWS_WITH_PLUGINS
 	if (info->plugin_dirs)

@@ -48,14 +48,6 @@ lws_sss_transport_wsi_cb(struct lws *wsi, enum lws_callback_reasons reason,
 	case LWS_CALLBACK_CLIENT_CONNECTION_ERROR:
 		lwsl_warn("%s: CCE: %s\n", __func__,
 			  in ? (const char *)in : "null");
-		if (!h)
-			/*
-			 * The stream was destroyed while its link was still
-			 * connecting: lws_sss_transport_wsi_close() unbound it
-			 * and closes the wsi, and closing a wsi that never
-			 * connected reports it as a connection error
-			 */
-			break;
 #if defined(LWS_WITH_SYS_METRICS)
 		/*
 		 * If any hanging caliper measurement, dump it, and free
@@ -69,30 +61,6 @@ lws_sss_transport_wsi_cb(struct lws *wsi, enum lws_callback_reasons reason,
 
         case LWS_CALLBACK_RAW_CONNECTED:
         	lwsl_user("%s: CONNECTED\n", __func__);
-		if (!h)
-			/*
-			 * The stream was destroyed while its link was still
-			 * connecting, the wsi is already being closed
-			 */
-			return -1;
-#if defined(LWS_WITH_UNIX_SOCK) && !defined(WIN32)
-		if (!h->context->ss_proxy_port) {
-			lws_sockfd_type fd = lws_get_socket_fd(wsi);
-			uid_t uid;
-			gid_t gid;
-
-			/*
-			 * We don't require anything of the proxy's identity,
-			 * but a name in the abstract namespace belongs to
-			 * whoever bound it first, so say who we are talking to
-			 */
-			if (fd >= 0 && !lws_plat_unix_peer_ids(fd, &uid, &gid))
-				lwsl_sspc_notice(h, "proxy is uid %u, gid %u",
-						 (unsigned int)uid,
-						 (unsigned int)gid);
-		}
-#endif
-		h->txp_path.priv_in = (lws_transport_priv_t)wsi;
         	if (h->txp_path.ops_in->event_connect_disposition(h, 0))
         		return -1;
 		/*

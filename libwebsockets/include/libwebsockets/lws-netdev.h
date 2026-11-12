@@ -62,13 +62,6 @@ typedef struct lws_netdev_ops {
 	int (*connect)(struct lws_netdev_instance *wnd, const char *ssid,
 			    const char *passphrase, uint8_t *bssid);
 	void (*scan)(struct lws_netdev_instance *nd);
-	int (*rssi)(struct lws_netdev_instance *nd, int *rssi);
-	/**< NULL, or if associated, set *rssi to the signal strength of the
-	 * AP, in dBm, and return 0, else nonzero */
-	int (*hostname)(struct lws_netdev_instance *nd, const char *name);
-	/**< NULL, or use name, see lws_netdev_hostname_get(), as the
-	 * hostname the netdev gives when it acquires or renews an address,
-	 * eg, by DHCP, from now on */
 } lws_netdev_ops_t;
 
 /*
@@ -175,34 +168,13 @@ typedef enum {
  * Generic WIFI credentials
  */
 
-/* how the last attempt to join an AP with its credentials went */
-
-typedef enum {
-	LWS_WIFI_JOIN_UNKNOWN,		/* not tried since they were stored */
-	LWS_WIFI_JOIN_OK,		/* joined it and got an address */
-	LWS_WIFI_JOIN_AUTH_FAILED,	/* it refused us, eg, wrong passphrase */
-	LWS_WIFI_JOIN_FAILED,		/* couldn't join it for another reason */
-} lws_wifi_join_t;
-
 typedef struct lws_wifi_creds {
 	lws_dll2_t			list;
 
 	uint8_t				bssid[LWS_ETH_ALEN];
-	/**< binary form of the AP MAC, this is what the netdev ops use */
-	char				bssid_hex[(LWS_ETH_ALEN * 2) + 1];
-	/**< ascii hex form of .bssid... an in-struct byte array cannot be
-	 * described to lws_struct, so this is the member that is actually
-	 * serialized to and from settings as "bssid".  lws keeps the two in
-	 * step when it stores or restores the credentials.
-	 */
 	char				passphrase[64];
 	char				ssid[33];
 	uint8_t				alg;
-	uint8_t				last_join;
-	/**< lws_wifi_join_t: how the last attempt to join the AP went.  It
-	 * goes back to LWS_WIFI_JOIN_UNKNOWN when the passphrase changes */
-	uint8_t				internet;
-	/**< nonzero once captive portal detection passed while joined to it */
 } lws_wifi_creds_t;
 
 /*
@@ -224,27 +196,11 @@ typedef struct lws_netdev_instance_wifi {
 
 	uint8_t				flags;
 	uint8_t				state; /* lws_netdev_wifi_state_t */
-	uint8_t				joined;
-	/**< current_attempt_ssid was joined and gave us an address */
 } lws_netdev_instance_wifi_t;
 
 /*
  * Logical scan results sorted list item
  */
-
-/* how an AP authenticates, as the scan saw it */
-
-typedef enum {
-	LWS_WIFI_AUTH_OPEN,		/* no passphrase */
-	LWS_WIFI_AUTH_WEP,
-	LWS_WIFI_AUTH_WPA,
-	LWS_WIFI_AUTH_WPA2,
-	LWS_WIFI_AUTH_WPA_WPA2,
-	LWS_WIFI_AUTH_WPA3,
-	LWS_WIFI_AUTH_WPA2_WPA3,
-	LWS_WIFI_AUTH_ENTERPRISE,	/* 802.1X, not a passphrase */
-	LWS_WIFI_AUTH_OTHER,		/* none of those, or unknown */
-} lws_wifi_auth_t;
 
 typedef struct lws_wifi_sta {
 	lws_dll2_t			list;
@@ -259,7 +215,6 @@ typedef struct lws_wifi_sta {
 	lws_wifi_rssi_t			rssi[8];
 	int16_t				rssi_avg;
 	uint8_t				authmode;
-	/**< lws_wifi_auth_t */
 
 	uint8_t				rssi_count;
 	uint8_t				rssi_next;
@@ -280,150 +235,6 @@ lws_netdev_credentials_settings_set(lws_netdevs_t *nds);
 LWS_VISIBLE LWS_EXTERN int
 lws_netdev_credentials_settings_get(lws_netdevs_t *nds);
 
-/**
- * lws_netdev_credentials_add() - store credentials for an AP
- *
- * \param nds: the netdevs
- * \param ssid: the AP's SSID
- * \param passphrase: its passphrase, "" for an open AP
- *
- * Adds the credentials to those stored in the settings, replacing any for
- * the same SSID, and stores them all again.  If the passphrase changed, how
- * the last attempt to join went is forgotten.  Credentials for any number of
- * APs can be stored: the wifi netdev joins the strongest AP it sees that it
- * has credentials for, trying the others in turn if that fails.  It scans
- * every few seconds while it is not joined, so it finds the AP by itself.
- *
- * Returns 0 if they were stored, else nonzero.
- */
-LWS_VISIBLE LWS_EXTERN int
-lws_netdev_credentials_add(lws_netdevs_t *nds, const char *ssid,
-			   const char *passphrase);
-
-/**
- * lws_netdev_credentials_remove() - forget the credentials for an AP
- *
- * \param nds: the netdevs
- * \param ssid: the AP's SSID
- *
- * Returns 0 if there were credentials for it, and the rest were stored
- * again without them, else nonzero.
- */
-LWS_VISIBLE LWS_EXTERN int
-lws_netdev_credentials_remove(lws_netdevs_t *nds, const char *ssid);
-
-/**
- * lws_netdev_credentials_has() - are credentials stored for an AP
- *
- * \param nds: the netdevs
- * \param ssid: the AP's SSID
- *
- * Returns 1 if they are, else 0.  The passphrase isn't given out.
- */
-LWS_VISIBLE LWS_EXTERN int
-lws_netdev_credentials_has(lws_netdevs_t *nds, const char *ssid);
-
-/**
- * lws_netdev_credentials_hold() - bring the stored credentials into memory
- *
- * \param nds: the netdevs
- *
- * Reads the credentials from the settings into nds->owner_creds, a list of
- * lws_wifi_creds_t, if nothing is holding them already, and holds them
- * until lws_netdev_credentials_release().  If none are stored, the list is
- * empty.
- */
-LWS_VISIBLE LWS_EXTERN void
-lws_netdev_credentials_hold(lws_netdevs_t *nds);
-
-/**
- * lws_netdev_credentials_release() - let go of the credentials
- *
- * \param nds: the netdevs
- *
- * When nothing else holds them, the passphrases are cleared and the
- * credentials are freed.
- */
-LWS_VISIBLE LWS_EXTERN void
-lws_netdev_credentials_release(lws_netdevs_t *nds);
-
-/**
- * lws_wifi_auth_name() - a short name for how an AP authenticates
- *
- * \param auth: lws_wifi_auth_t
- *
- * Returns eg, "WPA2", or "Open", for showing to the user.
- */
-LWS_VISIBLE LWS_EXTERN const char *
-lws_wifi_auth_name(lws_wifi_auth_t auth);
-
-/**
- * lws_netdev_wifi_link_lost() - the platform lost, or failed to make, the link
- *
- * \param wnd: the wifi netdev
- * \param auth_failed: nonzero if the AP refused us, eg, the passphrase is wrong
- *
- * The platform calls this when it loses the association to the AP it was
- * trying, current_attempt_ssid, or fails to make it.  If the AP refused us, or
- * we never got an address from it this time, it's recorded with its
- * credentials, see lws_wifi_creds_t .last_join.
- */
-LWS_VISIBLE LWS_EXTERN void
-lws_netdev_wifi_link_lost(lws_netdev_instance_wifi_t *wnd, int auth_failed);
-
-/*
- * The hostname, at most this many characters
- */
-
-#define LWS_NETDEV_HOSTNAME_MAX		32
-
-/**
- * lws_netdev_hostname_get() - the hostname the device gives eg, DHCP
- *
- * \param nds: the netdevs
- * \param buf: where to put it
- * \param len: the size of buf, at least LWS_NETDEV_HOSTNAME_MAX + 1
- *
- * The hostname stored with lws_netdev_hostname_set(), or if there isn't one,
- * "lws-" and the last three bytes of the first netdev's MAC address in hex,
- * eg, "lws-a1b2c3", so devices are told apart, eg, in a DHCP server's local
- * DNS.  Netdevs use it when they acquire an address.
- *
- * Returns 0 if a stored hostname was given, 1 if the default was, or -1 if
- * neither can be, eg, no netdev knows its MAC address yet.
- */
-LWS_VISIBLE LWS_EXTERN int
-lws_netdev_hostname_get(lws_netdevs_t *nds, char *buf, size_t len);
-
-/**
- * lws_netdev_hostname_set() - store the hostname
- *
- * \param nds: the netdevs
- * \param name: the hostname, or NULL or "" to forget it, and use the default
- *
- * The hostname must be a single DNS label, 1 to LWS_NETDEV_HOSTNAME_MAX of
- * a-z, 0-9 and '-', not starting or ending with '-'.  Upper case letters are
- * stored as lower case.  It's stored in the settings, and each netdev that can
- * is told, so it is given when it next acquires or renews an address.
- *
- * Returns 0 if it was stored, or nonzero if it isn't a valid hostname or it
- * couldn't be stored.
- */
-LWS_VISIBLE LWS_EXTERN int
-lws_netdev_hostname_set(lws_netdevs_t *nds, const char *name);
-
-/**
- * lws_netdev_wifi_rssi() - how strong the associated AP's signal is
- *
- * \param nd: the netdev
- * \param rssi: set to the signal strength, in dBm
- *
- * Returns 0 if *rssi was set, or nonzero if the netdev isn't associated, or
- * can't say.
- */
-LWS_VISIBLE LWS_EXTERN int
-lws_netdev_wifi_rssi(lws_netdev_instance_t *nd, int *rssi);
-
 LWS_VISIBLE LWS_EXTERN struct lws_netdev_instance *
 lws_netdev_wifi_create_plat(struct lws_context *ctx,
 			    const lws_netdev_ops_t *ops, const char *name,
@@ -442,10 +253,6 @@ LWS_VISIBLE LWS_EXTERN void
 lws_netdev_wifi_destroy_plat(struct lws_netdev_instance **pnd);
 LWS_VISIBLE LWS_EXTERN void
 lws_netdev_wifi_scan_plat(lws_netdev_instance_t *nd);
-LWS_VISIBLE LWS_EXTERN int
-lws_netdev_wifi_rssi_plat(lws_netdev_instance_t *nd, int *rssi);
-LWS_VISIBLE LWS_EXTERN int
-lws_netdev_wifi_hostname_plat(lws_netdev_instance_t *nd, const char *name);
 
 LWS_VISIBLE LWS_EXTERN int
 lws_netdev_wifi_connect_plat(lws_netdev_instance_t *wnd, const char *ssid,
@@ -462,8 +269,6 @@ lws_netdev_find(lws_netdevs_t *netdevs, const char *ifname);
 	.down				= lws_netdev_wifi_down_plat, \
 	.connect			= lws_netdev_wifi_connect_plat, \
 	.scan				= lws_netdev_wifi_scan_plat, \
-	.rssi				= lws_netdev_wifi_rssi_plat, \
-	.hostname			= lws_netdev_wifi_hostname_plat, \
 	.destroy			= lws_netdev_wifi_destroy_plat
 
 /*

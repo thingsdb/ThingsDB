@@ -35,38 +35,12 @@ extern int openssl_websocket_private_data_index,
 
 int lws_openssl_describe_cipher(struct lws *wsi);
 
-/*
- * Which vhost is this connection actually using the SSL_CTX of?
- *
- * On a shared listener, lws_ssl_server_name_cb() may have moved the SSL onto
- * a different vhost's ctx, verify mode and client CA list than the vhost that
- * accepted, and the wsi is not rebound to it until after SSL_accept() has
- * completed.  So during the handshake wsi->a.vhost is still the listening
- * vhost, and anything deciding policy from it is looking at the wrong one.
- */
-
-static struct lws_vhost *
-lws_tls_vhost_from_ssl_ctx(struct lws_context *cx, SSL *ssl)
-{
-	SSL_CTX *ctx = SSL_get_SSL_CTX(ssl);
-	struct lws_vhost *vh = lws_vhost_first(cx);
-
-	while (vh) {
-		if (!vh->being_destroyed && vh->tls.ssl_ctx == ctx)
-			return vh;
-		vh = lws_vhost_next(vh);
-	}
-
-	return NULL;
-}
-
 static int
 OpenSSL_verify_callback(int preverify_ok, X509_STORE_CTX *x509_ctx)
 {
 	SSL *ssl;
 	int n;
 	struct lws *wsi;
-	struct lws_vhost *vh;
 	union lws_tls_cert_info_results ir;
 	X509 *topcert = X509_STORE_CTX_get_current_cert(x509_ctx);
 
@@ -81,18 +55,6 @@ OpenSSL_verify_callback(int preverify_ok, X509_STORE_CTX *x509_ctx)
 	if (!wsi)
 		return 0; /* OpenSSL failure */
 
-	/*
-	 * The chain was verified against the CA store of the vhost whose
-	 * SSL_CTX is on this SSL, which after SNI is not necessarily
-	 * wsi->a.vhost.  The application's accept / overrule decision must be
-	 * asked of that same vhost's protocols[0], else a peer picks whose
-	 * client-cert policy runs by picking an SNI name.
-	 */
-
-	vh = lws_tls_vhost_from_ssl_ctx(wsi->a.context, ssl);
-	if (!vh)
-		vh = wsi->a.vhost;
-
 	n = lws_tls_openssl_cert_info(topcert, LWS_TLS_CERT_INFO_COMMON_NAME,
 				      &ir, sizeof(ir.ns.name));
 	if (!n)
@@ -100,38 +62,12 @@ OpenSSL_verify_callback(int preverify_ok, X509_STORE_CTX *x509_ctx)
 	else
 		lwsl_info("%s: couldn't get client cert CN\n", __func__);
 
-	n = vh->protocols[0].callback(wsi,
+	n = wsi->a.vhost->protocols[0].callback(wsi,
 			LWS_CALLBACK_OPENSSL_PERFORM_CLIENT_CERT_VERIFICATION,
 					   x509_ctx, ssl, (unsigned int)preverify_ok);
 
-	if (n)
-		/* the user callback explicitly rejected the cert */
-		return 0;
-
-	/*
-	 * The vhost asked for a *valid* client cert.  A protocols[0] handler
-	 * that does not implement this callback (eg, lws_callback_http_dummy)
-	 * also returns 0, so silence from the user code must not be taken as
-	 * acceptance of a cert openssl already refused.
-	 *
-	 * As on the client side, user code that means to overrule the failure
-	 * must say so by clearing the error with
-	 * X509_STORE_CTX_set_error(x509_ctx, X509_V_OK) before returning 0.
-	 */
-
-	if (!preverify_ok && X509_STORE_CTX_get_error(x509_ctx) != X509_V_OK) {
-		/* no local for the error: LWS_WITH_NO_LOGS would leave it unused */
-		lwsl_notice("%s: vh %s: client cert rejected: %s (depth %d)\n",
-			    __func__, vh->name,
-			    X509_verify_cert_error_string(
-				    X509_STORE_CTX_get_error(x509_ctx)),
-			    X509_STORE_CTX_get_error_depth(x509_ctx));
-
-		return 0;
-	}
-
 	/* convert return code from 0 = OK to 1 = OK */
-	return 1;
+	return !n;
 }
 
 int
@@ -149,16 +85,8 @@ lws_tls_server_client_cert_verify_config(struct lws_vhost *vh)
 			   LWS_SERVER_OPTION_PEER_CERT_NOT_REQUIRED))
 		verify_options |= SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
 
-	/*
-	 * The session id context must differ between vhosts that have
-	 * different client cert policies, or a session established under one
-	 * may be resumed under another.  Casting the context pointer to
-	 * uint8_t * hashed the first bytes of the context *object* (the same
-	 * for every vhost); use the vhost pointer's own value instead
-	 */
-
-	SSL_CTX_set_session_id_context(vh->tls.ssl_ctx, (uint8_t *)&vh,
-				       sizeof(vh));
+	SSL_CTX_set_session_id_context(vh->tls.ssl_ctx, (uint8_t *)vh->context,
+				       sizeof(void *));
 
 	/* absolutely require the client cert */
 	SSL_CTX_set_verify(vh->tls.ssl_ctx, verify_options,
@@ -168,127 +96,32 @@ lws_tls_server_client_cert_verify_config(struct lws_vhost *vh)
 }
 
 #if defined(SSL_TLSEXT_ERR_NOACK) && !defined(OPENSSL_NO_TLSEXT)
-
-#if !defined(SSL_AD_UNRECOGNIZED_NAME)
-/* not all the openssl-alikes carry the RFC 6066 alert number */
-#define SSL_AD_UNRECOGNIZED_NAME 112
-#endif
-#if !defined(SSL_AD_INTERNAL_ERROR)
-#define SSL_AD_INTERNAL_ERROR 80
-#endif
-#if !defined(SSL_AD_HANDSHAKE_FAILURE)
-#define SSL_AD_HANDSHAKE_FAILURE 40
-#endif
-
-/*
- * OpenSSL decides a resumption, TLS 1.3 tickets included, while the SSL is
- * still on the accepting vhost's ctx, before the SNI callback below runs.
- * Tickets are sealed with the accepting ctx's keys whichever vhost served the
- * handshake that made them, and a session's id context is fixed when the
- * session is made, which is also before the SNI switch: neither tells the SNI
- * vhosts on one listener apart.  And a resumed handshake asks for no client
- * cert: the one in the session, and its verify result, are whatever the
- * handshake that made the session verified, under that vhost's CA store.
- *
- * So a new session is stamped with the client CA identity of the vhost whose
- * policy its handshake runs under, as ticket app data (which OpenSSL carries
- * in the ticket, and in cached or duplicated sessions), and a resumption is
- * only allowed onto a vhost with the same identity.  Otherwise a cert that
- * vhost A's CA vouched for is served by vhost S, requiring certs from another
- * CA, just by naming S when resuming a session made on A (C-658).
- *
- * Returns 0 if the handshake may go on under vh's client-cert policy.
- */
-
-static int
-lws_tls_openssl_session_policy(SSL *ssl, struct lws_vhost *vh)
-{
-	uint8_t zero[LWS_TLS_CA_ID_LEN];
-	SSL_SESSION *sess;
-#if defined(LWS_HAVE_SSL_SESSION_set1_ticket_appdata)
-	void *stamp = NULL;
-	size_t stamp_len = 0;
-#endif
-
-	sess = SSL_get_session(ssl);
-	if (!sess)
-		return 0;
-
-	memset(zero, 0, sizeof(zero));
-
-#if defined(LWS_HAVE_SSL_SESSION_set1_ticket_appdata)
-	if (!SSL_session_reused(ssl)) {
-		/*
-		 * If the stamp can't be applied, a resumption of the session
-		 * is only allowed onto a vhost without a client CA
-		 */
-		if (SSL_SESSION_set1_ticket_appdata(sess, vh->tls.client_ca_id,
-					sizeof(vh->tls.client_ca_id)) != 1)
-			lwsl_vhost_warn(vh, "unable to stamp the session");
-
-		return 0;
-	}
-
-	if (SSL_SESSION_get0_ticket_appdata(sess, &stamp, &stamp_len) != 1 ||
-	    !stamp || !stamp_len) {
-		/* unstamped: it was made under no client CA we know of */
-		stamp = zero;
-		stamp_len = sizeof(zero);
-	}
-
-	if (stamp_len == sizeof(vh->tls.client_ca_id) &&
-	    !memcmp(stamp, vh->tls.client_ca_id, stamp_len))
-		return 0;
-#else
-	/*
-	 * Without ticket app data there's no telling which vhost made the
-	 * session.  A TLS <= 1.2 resumption is set up under the session's own
-	 * SNI name, so comes back to the vhost that made it; a TLS 1.3 one
-	 * onto a vhost with a client CA has to be refused.
-	 */
-	if (!SSL_session_reused(ssl))
-		return 0;
-#if defined(TLS1_3_VERSION)
-	if (SSL_version(ssl) < TLS1_3_VERSION)
-		return 0;
-#endif
-	if (!memcmp(zero, vh->tls.client_ca_id, sizeof(zero)))
-		return 0;
-#endif
-
-	lwsl_vhost_info(vh, "refusing to resume a session made under another "
-			    "client CA");
-
-	return 1;
-}
-
 static int
 lws_ssl_server_name_cb(SSL *ssl, int *ad, void *arg)
 {
 	struct lws_context *context = (struct lws_context *)arg;
 	struct lws_vhost *vhost, *vh;
 	const char *servername;
-	struct lws *wsi;
 
 	if (!ssl)
 		return SSL_TLSEXT_ERR_NOACK;
 
 	/*
-	 * Which vhost accepted him?  Only vhosts sharing the listener he
-	 * arrived on (same port and interface) are candidates for his SNI
-	 * name.  The SSL was made from the accepting
-	 * vhost's ctx, but a cert rotation since then may have retired that
-	 * ctx, so ask the connection, which stays bound to the accepting vhost
-	 * until the handshake has completed.
+	 * We can only get ssl accepted connections by using a vhost's ssl_ctx
+	 * find out which listening one took us and only match vhosts on the
+	 * same port.
 	 */
-	wsi = SSL_get_ex_data(ssl, openssl_websocket_private_data_index);
-	vh = wsi && wsi->a.vhost ? wsi->a.vhost :
-				   lws_tls_vhost_from_ssl_ctx(context, ssl);
-	if (!vh) {
-		lwsl_cx_warn(context, "SNI: can't find the accepting vhost");
-		*ad = SSL_AD_INTERNAL_ERROR;
+	vh = context->vhost_list;
+	while (vh) {
+		if (!vh->being_destroyed &&
+		    vh->tls.ssl_ctx == SSL_get_SSL_CTX(ssl))
+			break;
+		vh = vh->vhost_next;
+	}
 
-		return SSL_TLSEXT_ERR_ALERT_FATAL;
+	if (!vh) {
+		assert(vh); /* can't match the incoming vh? */
+		return SSL_TLSEXT_ERR_OK;
 	}
 
 	servername = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
@@ -296,62 +129,20 @@ lws_ssl_server_name_cb(SSL *ssl, int *ad, void *arg)
 		/* the client doesn't know what hostname it wants */
 		lwsl_info("SNI: Unknown ServerName\n");
 
-		goto stay;
+		return SSL_TLSEXT_ERR_OK;
 	}
 
-	vhost = lws_select_vhost_sni(vh, servername);
+	vhost = lws_select_vhost(context, vh->listen_port, servername);
 	if (!vhost) {
-		/*
-		 * He named something that is not served on this listener, and
-		 * no vhost there is the nominated sni-fallback.  Refuse him
-		 * rather than let him pick an arbitrary vhost's certificate
-		 * and client-certificate policy with an unknown name.
-		 */
+		lwsl_info("SNI: none: %s:%d\n", servername, vh->listen_port);
 
-		lws_tls_server_sni_refused(vh->listen_port, servername);
-
-		*ad = SSL_AD_UNRECOGNIZED_NAME;
-
-		return SSL_TLSEXT_ERR_ALERT_FATAL;
+		return SSL_TLSEXT_ERR_OK;
 	}
 
 	lwsl_info("SNI: Found: %s:%d\n", servername, vh->listen_port);
 
-	if (!vhost->tls.ssl_ctx) {
-		lwsl_info("SNI: %s has no tls ctx yet\n", servername);
-
-		goto stay;
-	}
-
-	if (lws_tls_openssl_session_policy(ssl, vhost)) {
-		*ad = SSL_AD_HANDSHAKE_FAILURE;
-
-		return SSL_TLSEXT_ERR_ALERT_FATAL;
-	}
-
 	/* select the ssl ctx from the selected vhost for this conn */
 	SSL_set_SSL_CTX(ssl, vhost->tls.ssl_ctx);
-
-	/*
-	 * OpenSSL's SSL_set_SSL_CTX does NOT copy the verify mode or client CA list
-	 * from the new context to the active SSL object! We must do it manually
-	 * so SNI vhosts can have different client cert requirements than the default vhost.
-	 */
-	SSL_set_verify(ssl, SSL_CTX_get_verify_mode(vhost->tls.ssl_ctx),
-		       SSL_CTX_get_verify_callback(vhost->tls.ssl_ctx));
-
-	if (SSL_CTX_get_client_CA_list(vhost->tls.ssl_ctx))
-		SSL_set_client_CA_list(ssl, SSL_dup_CA_list(SSL_CTX_get_client_CA_list(vhost->tls.ssl_ctx)));
-
-	return SSL_TLSEXT_ERR_OK;
-
-stay:
-	/* the handshake stays under the accepting vhost's policy */
-	if (lws_tls_openssl_session_policy(ssl, vh)) {
-		*ad = SSL_AD_HANDSHAKE_FAILURE;
-
-		return SSL_TLSEXT_ERR_ALERT_FATAL;
-	}
 
 	return SSL_TLSEXT_ERR_OK;
 }
@@ -367,14 +158,7 @@ lws_tls_server_certs_load(struct lws_vhost *vhost, struct lws *wsi,
 			  const char *mem_cert, size_t mem_cert_len,
 			  const char *mem_privkey, size_t mem_privkey_len)
 {
-	/*
-	 * The tmp ECDH apis are only used on old OpenSSL that lacks
-	 * SSL_CTX_set1_groups_list(); where the groups list api exists, the
-	 * vhost group list is applied on the SSL_CTX in
-	 * lws_tls_vhost_backend_create_ctx() instead.
-	 */
 #if !defined(OPENSSL_NO_EC) && defined(LWS_HAVE_EC_KEY_new_by_curve_name) && \
-    !defined(LWS_HAVE_SSL_CTX_set1_groups_list) && \
     ((OPENSSL_VERSION_NUMBER < 0x30000000l) || \
      defined(LWS_SUPPRESS_DEPRECATED_API_WARNINGS))
 	const char *ecdh_curve = "prime256v1";
@@ -432,9 +216,8 @@ lws_tls_server_certs_load(struct lws_vhost *vhost, struct lws *wsi,
 		m = SSL_CTX_use_certificate_chain_file(vhost->tls.ssl_ctx, cert);
 		if (m != 1) {
 			const char *s;
-			char buf[256];
 			error = ERR_peek_error();
-			s = ERR_error_string(LWS_TLS_ERR_CAST(ERR_get_error()), buf);
+			s = ERR_error_string(ERR_get_error(), (char *)vhost->context->pt[0].serv_buf);
 
 			lwsl_err("problem getting cert '%s' %lu: %s\n",
 				 cert, error, s);
@@ -450,9 +233,8 @@ lws_tls_server_certs_load(struct lws_vhost *vhost, struct lws *wsi,
 			if (SSL_CTX_use_PrivateKey_file(vhost->tls.ssl_ctx, private_key,
 							SSL_FILETYPE_PEM) != 1) {
 				const char *s;
-				char buf[256];
 				error = ERR_peek_error();
-				s = ERR_error_string(LWS_TLS_ERR_CAST(ERR_get_error()), buf);
+				s = ERR_error_string(ERR_get_error(), (char *)vhost->context->pt[0].serv_buf);
 				lwsl_err("ssl problem getting key '%s' %lu: %s\n",
 					 private_key, error, s);
 				return 1;
@@ -472,7 +254,7 @@ lws_tls_server_certs_load(struct lws_vhost *vhost, struct lws *wsi,
 	}
 
 #if !defined(USE_WOLFSSL)
-	ret = SSL_CTX_use_certificate_ASN1(vhost->tls.ssl_ctx, SSL_SIZE_T_CAST(flen), p);
+	ret = SSL_CTX_use_certificate_ASN1(vhost->tls.ssl_ctx, SSL_SIZE_CAST(flen), p);
 #else
 	ret = wolfSSL_CTX_use_certificate_buffer(vhost->tls.ssl_ctx,
 						 (uint8_t *)p, (int)flen,
@@ -515,8 +297,6 @@ lws_tls_server_certs_load(struct lws_vhost *vhost, struct lws *wsi,
 	ret = wolfSSL_CTX_use_PrivateKey_buffer(vhost->tls.ssl_ctx, p, (long) flen,
 						WOLFSSL_FILETYPE_ASN1);
 #endif
-	/* our DER copy of the private key is a secret too */
-	lws_explicit_bzero(p, (size_t)flen);
 	lws_free_set_NULL(p);
 	if (ret != 1)  {
 		lwsl_notice("unable to use memory privkey\n");
@@ -541,17 +321,16 @@ lws_tls_server_certs_load(struct lws_vhost *vhost, struct lws *wsi,
 			return 1;
 		}
 #ifndef USE_WOLFSSL
-		m = SSL_CTX_use_certificate_ASN1(vhost->tls.ssl_ctx,
+		if (SSL_CTX_use_certificate_ASN1(vhost->tls.ssl_ctx,
 						 (int)flen,
-						 (uint8_t *)p);
+						 (uint8_t *)p) != 1) {
 #else
-		m = wolfSSL_CTX_use_certificate_buffer(vhost->tls.ssl_ctx,
+		if (wolfSSL_CTX_use_certificate_buffer(vhost->tls.ssl_ctx,
 						 (uint8_t *)p,
 						 (int)flen,
-						 WOLFSSL_FILETYPE_ASN1);
+						 WOLFSSL_FILETYPE_ASN1) != 1) {
+
 #endif
-		lws_free_set_NULL(p);
-		if (m != 1) {
 			lwsl_err("Problem loading update cert\n");
 
 			return 1;
@@ -565,17 +344,13 @@ lws_tls_server_certs_load(struct lws_vhost *vhost, struct lws *wsi,
 			return 1;
 		}
 #ifndef USE_WOLFSSL
-		m = SSL_CTX_use_PrivateKey_ASN1(EVP_PKEY_RSA,
+		if (SSL_CTX_use_PrivateKey_ASN1(EVP_PKEY_RSA,
 						vhost->tls.ssl_ctx, p,
-						(long)(long long)flen);
+						(long)(long long)flen) != 1) {
 #else
-		m = wolfSSL_CTX_use_PrivateKey_buffer(vhost->tls.ssl_ctx, p,
-					    (long)flen, WOLFSSL_FILETYPE_ASN1);
+		if (wolfSSL_CTX_use_PrivateKey_buffer(vhost->tls.ssl_ctx, p,
+					    (long)flen, WOLFSSL_FILETYPE_ASN1) != 1) {
 #endif
-		/* our DER copy of the private key is a secret too */
-		lws_explicit_bzero(p, (size_t)flen);
-		lws_free_set_NULL(p);
-		if (m != 1) {
 			lwsl_notice("unable to use memory privkey\n");
 
 			return 1;
@@ -587,10 +362,10 @@ lws_tls_server_certs_load(struct lws_vhost *vhost, struct lws *wsi,
 	/* set the local certificate from CertFile */
 	m = SSL_CTX_use_certificate_chain_file(vhost->tls.ssl_ctx, cert);
 	if (m != 1) {
-		char buf[256];
 		error = ERR_get_error();
 		lwsl_err("problem getting cert '%s' %lu: %s\n",
-			 cert, error, ERR_error_string(LWS_TLS_ERR_CAST(error), buf));
+			 cert, error, ERR_error_string(error,
+			       (char *)vhost->context->pt[0].serv_buf));
 
 		return 1;
 	}
@@ -602,11 +377,11 @@ lws_tls_server_certs_load(struct lws_vhost *vhost, struct lws *wsi,
 		/* set the private key from KeyFile */
 		if (SSL_CTX_use_PrivateKey_file(vhost->tls.ssl_ctx, private_key,
 					        SSL_FILETYPE_PEM) != 1) {
-			char buf[256];
 			error = ERR_get_error();
 			lwsl_err("ssl problem getting key '%s' %lu: %s\n",
 				 private_key, error,
-				 ERR_error_string(LWS_TLS_ERR_CAST(error), buf));
+				 ERR_error_string(error,
+				      (char *)vhost->context->pt[0].serv_buf));
 			return 1;
 		}
 	}
@@ -623,11 +398,10 @@ check_key:
 
 
 #if !defined(OPENSSL_NO_EC) && defined(LWS_HAVE_EC_KEY_new_by_curve_name) && \
-    !defined(LWS_HAVE_SSL_CTX_set1_groups_list) && \
     ((OPENSSL_VERSION_NUMBER < 0x30000000l) || \
      defined(LWS_SUPPRESS_DEPRECATED_API_WARNINGS))
-	if (vhost->tls.cfg_ecdh_curve)
-		ecdh_curve = vhost->tls.cfg_ecdh_curve;
+	if (vhost->tls.ecdh_curve[0])
+		ecdh_curve = vhost->tls.ecdh_curve;
 
 	ecdh_nid = OBJ_sn2nid(ecdh_curve);
 	if (NID_undef == ecdh_nid) {
@@ -698,235 +472,8 @@ check_key:
 post_ecdh:
 #endif
 	vhost->tls.skipped_certs = 0;
-#elif defined(LWS_HAVE_SSL_CTX_set1_groups_list)
-	/* group list was applied on the SSL_CTX in create_ctx instead */
 #else
 	lwsl_notice(" OpenSSL doesn't support ECDH\n");
-#endif
-
-	return 0;
-}
-
-
-
-int
-lws_tls_vhost_backend_create_ctx(struct lws_vhost *vhost)
-{
-	unsigned long error;
-	SSL_METHOD *method = (SSL_METHOD *)SSLv23_server_method();
-	struct lws_vhost_tls *tls = &vhost->tls;
-
-	if (!method) {
-		const char *s;
-		char buf[256];
-		error = ERR_peek_error();
-		s = ERR_error_string(LWS_TLS_ERR_CAST(ERR_get_error()), buf);
-
-		lwsl_err("problem creating ssl method %lu: %s\n",
-				error, s);
-		return 1;
-	}
-	tls->ssl_ctx = SSL_CTX_new(method);	/* create context */
-	if (!tls->ssl_ctx) {
-		const char *s;
-		char buf[256];
-
-		error = ERR_peek_error();
-		s = ERR_error_string(LWS_TLS_ERR_CAST(ERR_get_error()), buf);
-		lwsl_err("problem creating ssl context %lu: %s\n",
-				error, s);
-		return 1;
-	}
-	/* Added for sniffing packets on hub side */
-#if defined(LWS_WITH_TLS_KEYLOG) && \
-		defined(LWS_WITH_TLS) && (defined(LWS_WITH_CLIENT) || defined(LWS_WITH_SERVER))
-	SSL_CTX_set_keylog_callback(tls->ssl_ctx, lws_klog_dump);
-#endif
-
-	SSL_CTX_set_ex_data(tls->ssl_ctx,
-			    openssl_SSL_CTX_private_data_index,
-			    (char *)vhost->context);
-	/*
-	 * Disable SSLv2 and SSLv3, and put the floor at TLS 1.2: RFC 8996
-	 * deprecates TLS 1.0 and 1.1, which drag in the SHA1 / CBC-with-
-	 * implicit-IV record layer and are a downgrade target.
-	 *
-	 * These are expressed as options rather than by
-	 * SSL_CTX_set_min_proto_version() deliberately, so that the existing
-	 * .ssl_options_clear vhost member (applied at the end of this
-	 * function) remains the way an app that must talk to legacy peers
-	 * lowers the floor again.
-	 */
-	SSL_CTX_set_options(tls->ssl_ctx, SSL_OP_NO_SSLv2 |
-					  SSL_OP_NO_SSLv3
-#if defined(SSL_OP_NO_TLSv1)
-					  | SSL_OP_NO_TLSv1
-#endif
-#if defined(SSL_OP_NO_TLSv1_1)
-					  | SSL_OP_NO_TLSv1_1
-#endif
-			   );
-
-	/*
-	 * Peer-initiated renegotiation is a cheap asymmetric CPU amplifier: a
-	 * few hundred bytes from the peer costs us a fresh key exchange and a
-	 * private key signature, on a connection whose handshake restriction
-	 * slot has already been handed back.  Only OpenSSL 3.0 and later
-	 * refuse it by default, so ask for it explicitly.
-	 */
-#if defined(SSL_OP_NO_RENEGOTIATION)
-	SSL_CTX_set_options(tls->ssl_ctx, SSL_OP_NO_RENEGOTIATION);
-#endif
-#ifdef SSL_OP_NO_COMPRESSION
-	SSL_CTX_set_options(tls->ssl_ctx, SSL_OP_NO_COMPRESSION);
-#endif
-	if (lws_check_opt(vhost->options,
-	                  LWS_SERVER_OPTION_OPENSSL_AUTO_DH_PARAMETERS))
-#if defined(LWS_HAVE_SSL_CTX_SET_ECDH_AUTO) || defined(LWS_WITH_BORINGSSL)
-		(void)SSL_CTX_set_ecdh_auto(tls->ssl_ctx, 1);
-#else
-		SSL_CTX_set_dh_auto(tls->ssl_ctx, 1);
-#endif
-
-	SSL_CTX_set_options(tls->ssl_ctx, SSL_OP_SINGLE_DH_USE);
-	SSL_CTX_set_options(tls->ssl_ctx, SSL_OP_CIPHER_SERVER_PREFERENCE);
-
-	if (tls->cfg_tls_ciphers_iana) {
-		char *p = lws_strdup(tls->cfg_tls_ciphers_iana);
-		if (p) {
-			char *q = p;
-			while (*q) {
-				if (*q == ',')
-					*q = ':';
-				q++;
-			}
-			SSL_CTX_set_cipher_list(tls->ssl_ctx, p);
-#if defined(LWS_HAVE_SSL_CTX_set_ciphersuites)
-			SSL_CTX_set_ciphersuites(tls->ssl_ctx, p);
-#endif
-			lws_free(p);
-		}
-	} else if (tls->cfg_ssl_cipher_list)
-		SSL_CTX_set_cipher_list(tls->ssl_ctx, tls->cfg_ssl_cipher_list);
-
-#if defined(LWS_HAVE_SSL_CTX_set_ciphersuites)
-	if (tls->cfg_tls1_3_plus_cipher_list)
-		SSL_CTX_set_ciphersuites(tls->ssl_ctx,
-					 tls->cfg_tls1_3_plus_cipher_list);
-#endif
-
-#if defined(LWS_HAVE_SSL_CTX_set1_groups_list)
-	/* restrict the groups used for key exchange, if asked to */
-	if (tls->cfg_ecdh_curve) {
-		if (!SSL_CTX_set1_groups_list(tls->ssl_ctx,
-					      tls->cfg_ecdh_curve)) {
-			lwsl_err("%s: SSL_CTX_set1_groups_list '%s' failed\n",
-				 __func__, tls->cfg_ecdh_curve);
-			lws_tls_err_describe_clear();
-
-			return 1;
-		}
-		lwsl_notice(" SSL groups list '%s'\n", tls->cfg_ecdh_curve);
-	}
-#endif
-
-#if !defined(OPENSSL_NO_TLSEXT)
-	SSL_CTX_set_tlsext_servername_callback(tls->ssl_ctx,
-					       lws_ssl_server_name_cb);
-	SSL_CTX_set_tlsext_servername_arg(tls->ssl_ctx, vhost->context);
-#endif
-
-	if (tls->cfg_ssl_ca_filepath) {
-#if defined(LWS_HAVE_SSL_CTX_load_verify_file)
-	    if (!SSL_CTX_load_verify_file(tls->ssl_ctx,
-				      tls->cfg_ssl_ca_filepath)) {
-#else
-	    if (!SSL_CTX_load_verify_locations(tls->ssl_ctx,
-					   tls->cfg_ssl_ca_filepath, NULL)) {
-#endif
-			lwsl_err("%s: SSL_CTX_load_verify_locations unhappy\n",
-				 __func__);
-		} else {
-			/*
-			 * Provide the CA list to the client so it knows what client certs to send
-			 */
-			STACK_OF(X509_NAME) *calist = SSL_load_client_CA_file(tls->cfg_ssl_ca_filepath);
-			if (!calist) {
-				lwsl_err("%s: SSL_load_client_CA_file failed to load %s\n", __func__, tls->cfg_ssl_ca_filepath);
-			} else {
-				lwsl_notice("%s: Loaded %d CAs for client CA list from %s\n", __func__, (int)sk_X509_NAME_num(calist), tls->cfg_ssl_ca_filepath);
-				SSL_CTX_set_client_CA_list(tls->ssl_ctx, calist);
-			}
-		}
-	} else if (tls->cfg_server_ssl_ca_mem && tls->cfg_server_ssl_ca_mem_len) {
-		lws_filepos_t amount = 0;
-		const uint8_t *up;
-		uint8_t *up1;
-
-		if (lws_tls_alloc_pem_to_der_file(vhost->context, NULL, tls->cfg_server_ssl_ca_mem,
-						  tls->cfg_server_ssl_ca_mem_len, &up1, &amount)) {
-			lwsl_err("%s: Unable to decode x.509 mem\n", __func__);
-		} else {
-			up = up1;
-#if defined(USE_WOLFSSL)
-			X509 *client_CA = d2i_X509(NULL, &up, (int)amount);
-#else
-			X509 *client_CA = d2i_X509(NULL, &up, (long)amount);
-#endif
-			if (!client_CA) {
-				lwsl_err("server CA: x509 parse failed\n");
-			} else {
-				X509_STORE *x509_store = X509_STORE_new();
-				if (!X509_STORE_add_cert(x509_store, client_CA)) {
-					X509_STORE_free(x509_store);
-					lwsl_err("Unable to load SSL server certs from "
-						 "ssl_ca_mem -- server ssl isn't going to work\n");
-				} else {
-					SSL_CTX_set_cert_store(tls->ssl_ctx, x509_store);
-					STACK_OF(X509_NAME) *calist = sk_X509_NAME_new_null();
-					if (calist) {
-						const X509_NAME *name = X509_get_subject_name(client_CA);
-						if (name)
-							sk_X509_NAME_push(calist, X509_NAME_dup((X509_NAME *)name));
-						SSL_CTX_set_client_CA_list(tls->ssl_ctx, calist);
-					}
-					lwsl_notice("%s: vh %s: mem CA OK\n", __func__, vhost->name);
-				}
-				X509_free(client_CA);
-			}
-			lws_free(up1);
-		}
-	}
-
-	SSL_OPT_TYPE ssl_options_set_value = (SSL_OPT_TYPE) tls->ssl_options_set;
-
-	if (tls->ssl_options_set)
-		SSL_CTX_set_options(tls->ssl_ctx, ssl_options_set_value);
-
-#if (OPENSSL_VERSION_NUMBER >= 0x009080df) && !defined(USE_WOLFSSL)
-
-/* SSL_clear_options introduced in 0.9.8m */
-	SSL_OPT_TYPE ssl_options_clear_value = (SSL_OPT_TYPE) tls->ssl_options_clear;
-
-	if (tls->ssl_options_clear) {
-		SSL_CTX_clear_options(tls->ssl_ctx, ssl_options_clear_value);
-	}
-
-	lwsl_info(" SSL options 0x%lX\n",
-			(unsigned long)SSL_CTX_get_options(tls->ssl_ctx));
-#else
-	/*
-	 * There is no SSL_CTX_clear_options() to apply here, so
-	 * .ssl_options_clear is inoperative on this build... which also means
-	 * the TLS 1.2 floor and the renegotiation refusal set above (C-406)
-	 * cannot be lowered.  Say so rather than let an operator believe his
-	 * override took effect.
-	 */
-	if (tls->ssl_options_clear)
-		lwsl_err("%s: vh %s: this TLS build has no "
-			 "SSL_CTX_clear_options(), ssl_options_clear 0x%lX "
-			 "IGNORED\n", __func__, vhost->name,
-			 (unsigned long)tls->ssl_options_clear);
 #endif
 
 	return 0;
@@ -936,43 +483,111 @@ int
 lws_tls_server_vhost_backend_init(const struct lws_context_creation_info *info,
 				  struct lws_vhost *vhost, struct lws *wsi)
 {
-	int n, m;
+	unsigned long error;
+	SSL_METHOD *method = (SSL_METHOD *)SSLv23_server_method();
 
-	if (lws_tls_vhost_backend_create_ctx(vhost))
+	if (!method) {
+		const char *s;
+		error = ERR_peek_error();
+		s = ERR_error_string(ERR_get_error(), (char *)vhost->context->pt[0].serv_buf);
+
+		lwsl_err("problem creating ssl method %lu: %s\n",
+				error, s);
 		return 1;
+	}
+	vhost->tls.ssl_ctx = SSL_CTX_new(method);	/* create context */
+	if (!vhost->tls.ssl_ctx) {
+		const char *s;
+
+		error = ERR_peek_error();
+		s = ERR_error_string(ERR_get_error(), (char *)vhost->context->pt[0].serv_buf);
+		lwsl_err("problem creating ssl context %lu: %s\n",
+				error, s);
+		return 1;
+	}
+	/* Added for sniffing packets on hub side */
+#if defined(LWS_HAVE_SSL_CTX_set_keylog_callback) && \
+		defined(LWS_WITH_TLS) && (!defined(LWS_WITHOUT_CLIENT) || !defined(LWS_WITHOUT_SERVER))
+	SSL_CTX_set_keylog_callback(vhost->tls.ssl_ctx, lws_klog_dump);
+#endif
+
+	SSL_CTX_set_ex_data(vhost->tls.ssl_ctx,
+			    openssl_SSL_CTX_private_data_index,
+			    (char *)vhost->context);
+	/* Disable SSLv2 and SSLv3 */
+	SSL_CTX_set_options(vhost->tls.ssl_ctx, SSL_OP_NO_SSLv2 |
+						SSL_OP_NO_SSLv3);
+#ifdef SSL_OP_NO_COMPRESSION
+	SSL_CTX_set_options(vhost->tls.ssl_ctx, SSL_OP_NO_COMPRESSION);
+#endif
+	if (lws_check_opt(info->options,
+	                  LWS_SERVER_OPTION_OPENSSL_AUTO_DH_PARAMETERS))
+#if defined(LWS_HAVE_SSL_CTX_SET_ECDH_AUTO) || defined(LWS_WITH_BORINGSSL)
+		(void)SSL_CTX_set_ecdh_auto(vhost->tls.ssl_ctx, 1);
+#else
+		SSL_CTX_set_dh_auto(vhost->tls.ssl_ctx, 1);
+#endif
+
+	SSL_CTX_set_options(vhost->tls.ssl_ctx, SSL_OP_SINGLE_DH_USE);
+	SSL_CTX_set_options(vhost->tls.ssl_ctx, SSL_OP_CIPHER_SERVER_PREFERENCE);
+
+	if (info->ssl_cipher_list)
+		SSL_CTX_set_cipher_list(vhost->tls.ssl_ctx, info->ssl_cipher_list);
+
+#if defined(LWS_HAVE_SSL_CTX_set_ciphersuites)
+	if (info->tls1_3_plus_cipher_list)
+		SSL_CTX_set_ciphersuites(vhost->tls.ssl_ctx,
+					 info->tls1_3_plus_cipher_list);
+#endif
+
+#if !defined(OPENSSL_NO_TLSEXT)
+	SSL_CTX_set_tlsext_servername_callback(vhost->tls.ssl_ctx,
+					       lws_ssl_server_name_cb);
+	SSL_CTX_set_tlsext_servername_arg(vhost->tls.ssl_ctx, vhost->context);
+#endif
+
+	if (info->ssl_ca_filepath &&
+#if defined(LWS_HAVE_SSL_CTX_load_verify_file)
+	    !SSL_CTX_load_verify_file(vhost->tls.ssl_ctx,
+				      info->ssl_ca_filepath)) {
+#else
+	    !SSL_CTX_load_verify_locations(vhost->tls.ssl_ctx,
+					   info->ssl_ca_filepath, NULL)) {
+#endif
+		lwsl_err("%s: SSL_CTX_load_verify_locations unhappy\n",
+			 __func__);
+	}
+
+	SSL_OPT_TYPE ssl_options_set_value = (SSL_OPT_TYPE) info->ssl_options_set;
+
+	if (info->ssl_options_set)
+		SSL_CTX_set_options(vhost->tls.ssl_ctx, ssl_options_set_value);
+
+#if (OPENSSL_VERSION_NUMBER >= 0x009080df) && !defined(USE_WOLFSSL)
+
+/* SSL_clear_options introduced in 0.9.8m */
+	SSL_OPT_TYPE ssl_options_clear_value = (SSL_OPT_TYPE) info->ssl_options_clear;
+
+	if (info->ssl_options_clear) {
+		SSL_CTX_clear_options(vhost->tls.ssl_ctx, ssl_options_clear_value);
+	}
+
+	lwsl_info(" SSL options 0x%lX\n",
+			(unsigned long)SSL_CTX_get_options(vhost->tls.ssl_ctx));
+#endif
 
 	if (!vhost->tls.use_ssl ||
 	    (!info->ssl_cert_filepath && !info->server_ssl_cert_mem))
 		return 0;
 
-	n = (int)lws_tls_generic_cert_checks(vhost, info->ssl_cert_filepath,
-					     info->ssl_private_key_filepath);
-
-	if (n == LWS_TLS_EXTANT_NO &&
-	    (vhost->options & LWS_SERVER_OPTION_IGNORE_MISSING_CERT)) {
-		lwsl_notice("No certs found, continuing without SSL_CTX\n");
-		SSL_CTX_free(vhost->tls.ssl_ctx);
-		vhost->tls.ssl_ctx = NULL;
-		return 0;
-	}
-
 	lws_ssl_bind_passphrase(vhost->tls.ssl_ctx, 0, info);
 
-	m = lws_tls_server_certs_load(vhost, wsi, info->ssl_cert_filepath,
+	return lws_tls_server_certs_load(vhost, wsi, info->ssl_cert_filepath,
 					 info->ssl_private_key_filepath,
 					 info->server_ssl_cert_mem,
 					 info->server_ssl_cert_mem_len,
 					 info->server_ssl_private_key_mem,
 					 info->server_ssl_private_key_mem_len);
-
-	if (m && n != LWS_TLS_EXTANT_NO)
-		return 1;
-
-#if defined(LWS_ROLE_QUIC) && !defined(LWS_WITH_MBEDTLS) && !defined(LWS_WITH_WOLFSSL) && !defined(LWS_WITH_SCHANNEL) && !defined(LWS_WITH_GNUTLS) && !defined(LWS_WITH_BEARSSL)
-	lws_tls_quic_vhost_init(vhost->tls.ssl_ctx);
-#endif
-
-	return 0;
 }
 
 int
@@ -984,9 +599,8 @@ lws_tls_server_new_nonblocking(struct lws *wsi, lws_sockfd_type accept_fd)
 
 	errno = 0;
 	ERR_clear_error();
-	wsi->io->tls.ctx_ref = lws_tls_ctx_ref_get(wsi->a.vhost);
-	wsi->io->tls.ssl = SSL_new(wsi->io->tls.ctx_ref ? wsi->io->tls.ctx_ref->ctx : wsi->a.vhost->tls.ssl_ctx);
-	if (wsi->io->tls.ssl == NULL) {
+	wsi->tls.ssl = SSL_new(wsi->a.vhost->tls.ssl_ctx);
+	if (wsi->tls.ssl == NULL) {
 		lwsl_err("SSL_new failed: %d (errno %d)\n",
 			 lws_ssl_get_error(wsi, 0), errno);
 
@@ -994,25 +608,25 @@ lws_tls_server_new_nonblocking(struct lws *wsi, lws_sockfd_type accept_fd)
 		return 1;
 	}
 
-	SSL_set_ex_data(wsi->io->tls.ssl, openssl_websocket_private_data_index, wsi);
-	SSL_set_fd(wsi->io->tls.ssl, (int)(lws_intptr_t)accept_fd);
+	SSL_set_ex_data(wsi->tls.ssl, openssl_websocket_private_data_index, wsi);
+	SSL_set_fd(wsi->tls.ssl, (int)(lws_intptr_t)accept_fd);
 
 #ifdef USE_WOLFSSL
 #ifdef USE_OLD_CYASSL
-	CyaSSL_set_using_nonblock(wsi->io->tls.ssl, 1);
+	CyaSSL_set_using_nonblock(wsi->tls.ssl, 1);
 #else
-	wolfSSL_set_using_nonblock(wsi->io->tls.ssl, 1);
+	wolfSSL_set_using_nonblock(wsi->tls.ssl, 1);
 #endif
 #else
 
-	SSL_set_mode(wsi->io->tls.ssl, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER |
+	SSL_set_mode(wsi->tls.ssl, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER |
 				   SSL_MODE_RELEASE_BUFFERS);
-	bio = SSL_get_rbio(wsi->io->tls.ssl);
+	bio = SSL_get_rbio(wsi->tls.ssl);
 	if (bio)
 		BIO_set_nbio(bio, 1); /* nonblocking */
 	else
 		lwsl_notice("NULL rbio\n");
-	bio = SSL_get_wbio(wsi->io->tls.ssl);
+	bio = SSL_get_wbio(wsi->tls.ssl);
 	if (bio)
 		BIO_set_nbio(bio, 1); /* nonblocking */
 	else
@@ -1021,7 +635,7 @@ lws_tls_server_new_nonblocking(struct lws *wsi, lws_sockfd_type accept_fd)
 
 #if defined (LWS_HAVE_SSL_SET_INFO_CALLBACK)
 		if (wsi->a.vhost->tls.ssl_info_event_mask)
-			SSL_set_info_callback(wsi->io->tls.ssl, lws_ssl_info_callback);
+			SSL_set_info_callback(wsi->tls.ssl, lws_ssl_info_callback);
 #endif
 
 	return 0;
@@ -1030,50 +644,13 @@ lws_tls_server_new_nonblocking(struct lws *wsi, lws_sockfd_type accept_fd)
 enum lws_ssl_capable_status
 lws_tls_server_abort_connection(struct lws *wsi)
 {
-	if (wsi->use_ssl)
-		SSL_shutdown(wsi->io->tls.ssl);
-	SSL_free(wsi->io->tls.ssl);
+	if (wsi->tls.use_ssl)
+		SSL_shutdown(wsi->tls.ssl);
+	SSL_free(wsi->tls.ssl);
 
 	return LWS_SSL_CAPABLE_DONE;
 }
 
-/*
- * A server handshake completed: does the client cert it presented satisfy
- * the vhost's policy?  quic's handshake completion
- * (lws_tls_quic_server_confirm_peer()) asks.  0 if he may go on.
- *
- * openssl judges the cert inside the handshake, under the verify mode and
- * OpenSSL_verify_callback() of the SSL_CTX the SNI selected, and fails the
- * handshake on a cert that did not verify, unless the application's
- * LWS_CALLBACK_OPENSSL_PERFORM_CLIENT_CERT_VERIFICATION cleared the error...
- * in which case the recorded result is X509_V_OK as well.  So a presented
- * cert whose recorded result is anything else was never judged under the
- * vhost's policy (eg, a ctx without its verify mode): refuse it.  Absence is
- * the verify mode's, and lws_vhost_mtls_unsatisfied()'s, business.
- */
-int
-lws_tls_server_client_cert_check(struct lws *wsi)
-{
-	union lws_tls_cert_info_results ir;
-
-	if (!lws_check_opt(wsi->a.vhost->options,
-			   LWS_SERVER_OPTION_REQUIRE_VALID_OPENSSL_CLIENT_CERT))
-		return 0;
-
-	if (lws_tls_peer_cert_info(wsi, LWS_TLS_CERT_INFO_VERIFIED, &ir,
-				   sizeof(ir.ns.name)))
-		return 0; /* none presented */
-
-	if (ir.verified)
-		return 0;
-
-	lwsl_wsi_notice(wsi, "vh %s: client cert did not verify",
-			wsi->a.vhost->name);
-
-	return 1;
-}
-
-#if defined(LWS_WITH_TCP_TLS)
 enum lws_ssl_capable_status
 lws_tls_server_accept(struct lws *wsi)
 {
@@ -1083,22 +660,9 @@ lws_tls_server_accept(struct lws *wsi)
 
 	errno = 0;
 	ERR_clear_error();
+	n = SSL_accept(wsi->tls.ssl);
 
-#if defined(LWS_WITH_LATENCY)
-	lws_usec_t _o_ssl_acc_start = lws_now_usecs();
-#endif
-
-	n = SSL_accept(wsi->io->tls.ssl);
-
-#if defined(LWS_WITH_LATENCY)
-	{
-		unsigned int ms = (unsigned int)((lws_now_usecs() - _o_ssl_acc_start) / 1000);
-		if (ms > 2 && !wsi->io->tls.ssl_accept_in_bg)
-			lws_latency_note(pt, _o_ssl_acc_start, 2000, "ssl_accept:%dms", ms);
-	}
-#endif
-
-	wsi->io->skip_fallback = 1;
+	wsi->skip_fallback = 1;
 
 	if (n == 1) {
 		n = lws_tls_peer_cert_info(wsi, LWS_TLS_CERT_INFO_COMMON_NAME, &ir,
@@ -1111,13 +675,10 @@ lws_tls_server_accept(struct lws *wsi)
 
 		lws_openssl_describe_cipher(wsi);
 
-		if (SSL_pending(wsi->io->tls.ssl) &&
-		    lws_dll2_is_detached(&wsi->io->tls.dll_pending_tls)) {
-			if (!wsi->io->tls.ssl_accept_in_bg) {
-				lws_dll2_add_head(&wsi->io->tls.dll_pending_tls,
-						  &pt->tls.dll_pending_tls_owner);
-			}
-		}
+		if (SSL_pending(wsi->tls.ssl) &&
+		    lws_dll2_is_detached(&wsi->tls.dll_pending_tls))
+			lws_dll2_add_head(&wsi->tls.dll_pending_tls,
+					  &pt->tls.dll_pending_tls_owner);
 
 		return LWS_SSL_CAPABLE_DONE;
 	}
@@ -1129,8 +690,8 @@ lws_tls_server_accept(struct lws *wsi)
 		return LWS_SSL_CAPABLE_ERROR;
 
 	if (m == SSL_ERROR_WANT_READ ||
-	    (m != SSL_ERROR_ZERO_RETURN && SSL_want_read(wsi->io->tls.ssl))) {
-		if (!wsi->io->tls.ssl_accept_in_bg && lws_change_pollfd(wsi, 0, LWS_POLLIN)) {
+	    (m != SSL_ERROR_ZERO_RETURN && SSL_want_read(wsi->tls.ssl))) {
+		if (lws_change_pollfd(wsi, 0, LWS_POLLIN)) {
 			lwsl_info("%s: WANT_READ change_pollfd failed\n",
 				  __func__);
 			return LWS_SSL_CAPABLE_ERROR;
@@ -1139,10 +700,10 @@ lws_tls_server_accept(struct lws *wsi)
 		lwsl_info("SSL_ERROR_WANT_READ: m %d\n", m);
 		return LWS_SSL_CAPABLE_MORE_SERVICE_READ;
 	}
-	if (m == SSL_ERROR_WANT_WRITE || SSL_want_write(wsi->io->tls.ssl)) {
+	if (m == SSL_ERROR_WANT_WRITE || SSL_want_write(wsi->tls.ssl)) {
 		lwsl_debug("%s: WANT_WRITE\n", __func__);
 
-		if (!wsi->io->tls.ssl_accept_in_bg && lws_change_pollfd(wsi, 0, LWS_POLLOUT)) {
+		if (lws_change_pollfd(wsi, 0, LWS_POLLOUT)) {
 			lwsl_info("%s: WANT_WRITE change_pollfd failed\n",
 				  __func__);
 			return LWS_SSL_CAPABLE_ERROR;
@@ -1152,19 +713,8 @@ lws_tls_server_accept(struct lws *wsi)
 
 	return LWS_SSL_CAPABLE_ERROR;
 }
-#endif
 
 #if defined(LWS_WITH_ACME)
-#if defined(LWS_HAVE_EVP_PKEY_Q_KEYGEN)
-static int
-lws_tls_openssl_rsa_new_key(EVP_PKEY **pkey, int bits)
-{
-	*pkey = EVP_PKEY_Q_keygen(NULL, NULL, "RSA", (size_t)bits);
-	if (*pkey)
-		return 0;
-	return 1;
-}
-#else
 static int
 lws_tls_openssl_rsa_new_key(RSA **rsa, int bits)
 {
@@ -1195,14 +745,11 @@ lws_tls_openssl_rsa_new_key(RSA **rsa, int bits)
 
 	return 1;
 }
-#endif
 
 struct lws_tls_ss_pieces {
 	X509 *x509;
 	EVP_PKEY *pkey;
-#if !defined(LWS_HAVE_EVP_PKEY_Q_KEYGEN)
 	RSA *rsa;
-#endif
 };
 
 int
@@ -1231,10 +778,6 @@ lws_tls_acme_sni_cert_create(struct lws_vhost *vhost, const char *san_a,
 	X509_gmtime_adj(X509_get_notBefore(vhost->tls.ss->x509), 0);
 	X509_gmtime_adj(X509_get_notAfter(vhost->tls.ss->x509), 3600);
 
-#if defined(LWS_HAVE_EVP_PKEY_Q_KEYGEN)
-	if (lws_tls_openssl_rsa_new_key(&vhost->tls.ss->pkey, 4096))
-		goto bail0;
-#else
 	vhost->tls.ss->pkey = EVP_PKEY_new();
 	if (!vhost->tls.ss->pkey)
 		goto bail0;
@@ -1244,20 +787,10 @@ lws_tls_acme_sni_cert_create(struct lws_vhost *vhost, const char *san_a,
 
 	if (!EVP_PKEY_assign_RSA(vhost->tls.ss->pkey, vhost->tls.ss->rsa))
 		goto bail2;
-#endif
-
-	/*
-	 * From here the EVP_PKEY owns the RSA key, so any failure must unwind
-	 * via bail1 (which frees the pkey) and never free the RSA separately
-	 */
 
 	X509_set_pubkey(vhost->tls.ss->x509, vhost->tls.ss->pkey);
 
-	/*
-	 * OpenSSL 4 constified the accessor, but the name is still owned by
-	 * the unsigned cert and is meant to be filled in here
-	 */
-	name = (X509_NAME *)X509_get_subject_name(vhost->tls.ss->x509);
+	name = X509_get_subject_name(vhost->tls.ss->x509);
 	X509_NAME_add_entry_by_txt(name, "C",  MBSTRING_ASC,
 				   (unsigned char *)"GB",          -1, -1, 0);
 	X509_NAME_add_entry_by_txt(name, "O",  MBSTRING_ASC,
@@ -1266,7 +799,7 @@ lws_tls_acme_sni_cert_create(struct lws_vhost *vhost, const char *san_a,
 				   (unsigned char *)"temp.acme.invalid",
 				   	   	   -1, -1, 0) != 1) {
 		lwsl_notice("failed to add CN\n");
-		goto bail1;
+		goto bail2;
 	}
 	X509_set_issuer_name(vhost->tls.ss->x509, name);
 
@@ -1274,50 +807,42 @@ lws_tls_acme_sni_cert_create(struct lws_vhost *vhost, const char *san_a,
 
 	gen = GENERAL_NAME_new();
 	ia5 = ASN1_IA5STRING_new();
-	if (!gen || !ia5 || !ASN1_STRING_set(ia5, san_a, -1)) {
+	if (!ASN1_STRING_set(ia5, san_a, -1)) {
 		lwsl_notice("failed to set ia5\n");
 		GENERAL_NAME_free(gen);
-		ASN1_STRING_free(ia5);
-		goto bail1;
+		goto bail2;
 	}
 	GENERAL_NAME_set0_value(gen, GEN_DNS, ia5);
 	sk_GENERAL_NAME_push(gens, gen);
 
 	if (X509_add1_ext_i2d(vhost->tls.ss->x509, NID_subject_alt_name,
 			    gens, 0, X509V3_ADD_APPEND) != 1)
-		goto bail1;
+		goto bail2;
 
-	/* NULL it so the bail path can't free it a second time */
 	GENERAL_NAMES_free(gens);
-	gens = NULL;
 
 	if (san_b && san_b[0]) {
 		gens = sk_GENERAL_NAME_new_null();
-		if (!gens)
-			goto bail1;
-
 		gen = GENERAL_NAME_new();
 		ia5 = ASN1_IA5STRING_new();
-		if (!gen || !ia5 || !ASN1_STRING_set(ia5, san_b, -1)) {
+		if (!ASN1_STRING_set(ia5, san_a, -1)) {
 			lwsl_notice("failed to set ia5\n");
 			GENERAL_NAME_free(gen);
-			ASN1_STRING_free(ia5);
-			goto bail1;
+			goto bail2;
 		}
 		GENERAL_NAME_set0_value(gen, GEN_DNS, ia5);
 		sk_GENERAL_NAME_push(gens, gen);
 
 		if (X509_add1_ext_i2d(vhost->tls.ss->x509, NID_subject_alt_name,
 				    gens, 0, X509V3_ADD_APPEND) != 1)
-			goto bail1;
+			goto bail2;
 
 		GENERAL_NAMES_free(gens);
-		gens = NULL;
 	}
 
 	/* sign it with our private key */
 	if (!X509_sign(vhost->tls.ss->x509, vhost->tls.ss->pkey, EVP_sha256()))
-		goto bail1;
+		goto bail2;
 
 #if 0
 	{/* useful to take a sample of a working cert for mbedtls to crib */
@@ -1335,19 +860,15 @@ lws_tls_acme_sni_cert_create(struct lws_vhost *vhost, const char *san_a,
 
 	return 0;
 
-#if !defined(LWS_HAVE_EVP_PKEY_Q_KEYGEN)
 bail2:
 	RSA_free(vhost->tls.ss->rsa);
-#endif
 bail1:
 	EVP_PKEY_free(vhost->tls.ss->pkey);
 bail0:
 	X509_free(vhost->tls.ss->x509);
 bail:
-	/* must NULL it, or vhost destroy walks the freed object */
-	lws_free_set_NULL(vhost->tls.ss);
-	if (gens)
-		GENERAL_NAMES_free(gens);
+	lws_free(vhost->tls.ss);
+	GENERAL_NAMES_free(gens);
 
 	return 1;
 }
@@ -1373,7 +894,7 @@ lws_tls_openssl_add_nid(X509_NAME *name, int nid, const char *value)
 		value = "none";
 
 	e = X509_NAME_ENTRY_create_by_NID(NULL, nid, MBSTRING_ASC,
-					  (const unsigned char *)value, -1);
+					  (unsigned char *)value, -1);
 	if (!e)
 		return 1;
 	n = X509_NAME_add_entry(name, e, -1, 0);
@@ -1398,9 +919,7 @@ lws_tls_acme_sni_csr_create(struct lws_context *context, const char *elements[],
 			    size_t *privkey_len)
 {
 	uint8_t *csr_in = csr;
-#if !defined(LWS_HAVE_EVP_PKEY_Q_KEYGEN)
 	RSA *rsakey;
-#endif
 	X509_REQ *req;
 	X509_NAME *subj;
 	EVP_PKEY *pkey;
@@ -1409,10 +928,6 @@ lws_tls_acme_sni_csr_create(struct lws_context *context, const char *elements[],
 	long bio_len;
 	int n, ret = -1;
 
-#if defined(LWS_HAVE_EVP_PKEY_Q_KEYGEN)
-	if (lws_tls_openssl_rsa_new_key(&pkey, 4096))
-		return -1;
-#else
 	if (lws_tls_openssl_rsa_new_key(&rsakey, 4096))
 		return -1;
 
@@ -1421,7 +936,6 @@ lws_tls_acme_sni_csr_create(struct lws_context *context, const char *elements[],
 		goto bail0;
 	if (!EVP_PKEY_set1_RSA(pkey, rsakey))
 		goto bail1;
-#endif
 
 	req = X509_REQ_new();
 	if (!req)
@@ -1554,195 +1068,9 @@ bail2:
 	X509_REQ_free(req);
 bail1:
 	EVP_PKEY_free(pkey);
-#if !defined(LWS_HAVE_EVP_PKEY_Q_KEYGEN)
 bail0:
 	RSA_free(rsakey);
-#endif
 
 	return ret;
-}
-
-int
-lws_tls_acme_sni_csr_create_ecdsa(struct lws_context *context, const char *elements[],
-				  uint8_t *csr, size_t csr_len, char **privkey_pem,
-				  size_t *privkey_len)
-{
-#if defined(OPENSSL_NO_EC)
-	return -1;
-#else
-	uint8_t *csr_in = csr;
-#if !defined(LWS_HAVE_EVP_PKEY_Q_KEYGEN)
-	EC_KEY *eckey = NULL;
-#endif
-	X509_REQ *req;
-	X509_NAME *subj;
-	EVP_PKEY *pkey;
-	char *p, *end;
-	BIO *bio;
-	long bio_len;
-	int n, ret = -1;
-
-#if defined(LWS_HAVE_EVP_PKEY_Q_KEYGEN)
-	pkey = EVP_PKEY_Q_keygen(NULL, NULL, "EC", "prime256v1");
-	if (!pkey)
-		return -1;
-#else
-	eckey = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
-	if (!eckey)
-		return -1;
-
-	if (!EC_KEY_generate_key(eckey)) {
-		EC_KEY_free(eckey);
-		return -1;
-	}
-
-	pkey = EVP_PKEY_new();
-	if (!pkey)
-		goto bail0;
-	if (!EVP_PKEY_assign_EC_KEY(pkey, eckey)) {
-		/* the pkey didn't take ownership of the eckey */
-		EVP_PKEY_free(pkey);
-		goto bail0;
-	}
-#endif
-
-	req = X509_REQ_new();
-	if (!req)
-	        goto bail1;
-
-	X509_REQ_set_pubkey(req, pkey);
-
-	subj = X509_NAME_new();
-	if (!subj)
-		goto bail2;
-
-	for (n = 0; n < LWS_TLS_REQ_ELEMENT_COUNT; n++)
-		if (elements[n] &&
-			lws_tls_openssl_add_nid(subj, nid_list[n],
-				elements[n])) {
-				lwsl_notice("%s: failed to add element %d\n",
-						__func__, n);
-			goto bail3;
-		}
-
-	if (X509_REQ_set_subject_name(req, subj) != 1)
-		goto bail3;
-
-	if (elements[LWS_TLS_REQ_ELEMENT_SUBJECT_ALT_NAME]) {
-		STACK_OF(X509_EXTENSION) *exts;
-		X509_EXTENSION *ext;
-		char san[256];
-
-		exts = sk_X509_EXTENSION_new_null();
-		if (!exts)
-			goto bail3;
-
-		lws_snprintf(san, sizeof(san), "DNS:%s,DNS:%s",
-				elements[LWS_TLS_REQ_ELEMENT_COMMON_NAME],
-				elements[LWS_TLS_REQ_ELEMENT_SUBJECT_ALT_NAME]);
-
-		ext = X509V3_EXT_conf_nid(NULL, NULL, NID_subject_alt_name,
-				san);
-		if (!ext) {
-			sk_X509_EXTENSION_pop_free(exts, X509_EXTENSION_free);
-			goto bail3;
-		}
-		sk_X509_EXTENSION_push(exts, ext);
-
-		if (!X509_REQ_add_extensions(req, exts)) {
-			sk_X509_EXTENSION_pop_free(exts, X509_EXTENSION_free);
-			goto bail3;
-		}
-		sk_X509_EXTENSION_pop_free(exts, X509_EXTENSION_free);
-	}
-
-	if (!X509_REQ_sign(req, pkey, EVP_sha256()))
-		goto bail3;
-
-	/*
-	 * issue the CSR as PEM to a BIO, and translate to b64urlenc without
-	 * headers, trailers, or whitespace
-	 */
-
-	bio = BIO_new(BIO_s_mem());
-	if (!bio)
-		goto bail3;
-
-	if (PEM_write_bio_X509_REQ(bio, req) != 1) {
-		BIO_free(bio);
-		goto bail3;
-	}
-
-	bio_len = BIO_get_mem_data(bio, &p);
-	end = p + bio_len;
-
-	/* strip the header line */
-	while (p < end && *p != '\n')
-		p++;
-
-	while (p < end && csr_len) {
-		if (*p == '\n') {
-			p++;
-			continue;
-		}
-
-		if (*p == '-')
-			break;
-
-		if (*p == '+')
-			*csr++ = '-';
-		else
-			if (*p == '/')
-				*csr++ = '_';
-			else
-				*csr++ = (uint8_t)*p;
-		p++;
-		csr_len--;
-	}
-	BIO_free(bio);
-	if (!csr_len) {
-		lwsl_notice("%s: need %ld for CSR\n", __func__, bio_len);
-		goto bail3;
-	}
-
-	/*
-	 * Also return the private key as a PEM in memory
-	 * (platform may not have a filesystem)
-	 */
-	bio = BIO_new(BIO_s_mem());
-	if (!bio)
-		goto bail3;
-
-	if (PEM_write_bio_PrivateKey(bio, pkey, NULL, NULL, 0, 0, NULL) != 1) {
-		BIO_free(bio);
-		goto bail3;
-	}
-	bio_len = BIO_get_mem_data(bio, &p);
-	*privkey_pem = malloc((unsigned long)bio_len); /* malloc so user code can own / free */
-	*privkey_len = (size_t)bio_len;
-	if (!*privkey_pem) {
-		lwsl_notice("%s: need %ld for private key\n", __func__,
-			    bio_len);
-		BIO_free(bio);
-		goto bail3;
-	}
-	memcpy(*privkey_pem, p, (unsigned int)(int)(long long)bio_len);
-	BIO_free(bio);
-
-	ret = lws_ptr_diff(csr, csr_in);
-
-bail3:
-	X509_NAME_free(subj);
-bail2:
-	X509_REQ_free(req);
-bail1:
-	EVP_PKEY_free(pkey);
-	return ret;
-#if !defined(LWS_HAVE_EVP_PKEY_Q_KEYGEN)
-bail0:
-	EC_KEY_free(eckey);
-	return -1;
-#endif
-#endif
 }
 #endif

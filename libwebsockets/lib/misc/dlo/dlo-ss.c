@@ -29,904 +29,70 @@
 
 #if defined(LWS_WITH_LHP)
 
-/*
- * Upper bound on how many assets (images, stylesheets) one document may have
- * being fetched at the same time... each one costs a connection and a rx
- * window, so an unbounded number of them is fatal on the small targets.
- * Further assets up to LWS_DLO_MAX_TRACKED_ASSETS are queued and started as
- * in-flight assets complete; beyond that, they are dropped.
- */
-
-#define LWS_DLO_MAX_CONCURRENT_ASSETS	16
-#define LWS_DLO_MAX_TRACKED_ASSETS	128
-
-/*
- * ... and how many may be in flight to the same scheme://host[:port] at once.
- * Servers rate-limit parallel connections from one client: blasting a dozen
- * TLS connections at one CDN gets the extra ones silently hung until they
- * time out.  Browsers keep this small for the same reason.
- */
-
-#define LWS_DLO_MAX_CONCURRENT_PER_HOST	4
-
 LWS_SS_USER_TYPEDEF
-	struct lws_context		*cx; /* m->ss is already NULL by
-					      * the time DESTROYING arrives */
 	sul_cb_t			on_rx;
 	lhp_ctx_t			*lhp;
 	lws_sorted_usec_list_t		*ssevsul; /* sul to use to resume rz */
 	lws_sorted_usec_list_t		sul; /* used for initial metadata cb */
 	lws_dlo_image_t			u; /* we use the lws_flow_t in here */
-	lws_flow_t			css_flow; /* a stylesheet has no dlo to
-						   * hold a flow: it only asks
-						   * for more credit with it */
 	lws_dll2_t			active_asset_list; /*cx->active_assets*/
-#if defined(LWS_WITH_DLO_ASSET_CACHE)
-	struct lws_buflist		*cache_bl; /* whole-payload mirror for
-						 * the asset cache */
-	uint8_t				*cache_hit; /* deferred css feed */
-	size_t				cache_hit_len;
-#endif
 	uint8_t				type; /* LWSDLOSS_TYPE_ */
-	uint8_t				inflight:1; /* holds a fetch slot */
-	uint8_t				retrying:1; /* never connected, the ss
-						     * is in its backoff wait */
-	uint8_t				connected:1; /* got as far as CONNECTED */
-	uint8_t				cl_checked:1; /* response length looked at */
-	uint8_t				no_cache:1; /* don't cache this asset */
-	uint8_t				in_cache:1; /* the whole payload is in the
-						     * asset cache: renewable */
-	uint8_t				give_back:1; /* its document's layout is
-						      * done: release it */
-	uint8_t				hl; /* chars of url that are scheme://host */
-	char				url[LHP_URL_LEN];
+	char				url[96];
 } dloss_t;
 
-
-/*
- * Complete any side of the image dlo box the css left unset: both sides unset
- * take the intrinsic size, a single unset side follows the intrinsic aspect
- * ratio (css replaced-element sizing, eg background-size: 146px).  Called as
- * soon as the image dimensions exist, so geometry is settled before the
- * layout dump or render can observe it
- */
-
-static void
-dlo_image_fill_missing_dims(lws_dlo_image_t *u)
-{
-	lws_dlo_t *dlo = &u->u.dlo_png->dlo;
-	int iw = (int)lws_dlo_image_width(u);
-	int ih = (int)lws_dlo_image_height(u);
-
-	if (u->failed || iw <= 0 || ih <= 0)
-		return;
-
-	if (!dlo->box.w.whole && !dlo->box.h.whole) {
-		dlo->box.w.whole = iw;
-		dlo->box.h.whole = ih;
-	} else {
-		if (!dlo->box.h.whole)
-			dlo->box.h.whole = (int32_t)
-				(((int64_t)dlo->box.w.whole * ih) / iw);
-		if (!dlo->box.w.whole)
-			dlo->box.w.whole = (int32_t)
-				(((int64_t)dlo->box.h.whole * iw) / ih);
-	}
-}
-
-/*
- * The whole payload of an image has arrived: from now the copy the dlo holds
- * (and its decoder) can be given back when memory is short, and renewed
- * from the asset cache before the next render.  Called after any magic
- * fixup has decided what kind of image it really is.  Without the asset
- * cache nothing is ever in_cache and this is a no-op.
- */
-
-static void
-dloss_arm_reclaim(dloss_t *m)
-{
-	if (!m->in_cache || !m->u.u.dlo_png || m->u.failed ||
-	    m->u.u.dlo_png->flow.state != LWSDLOFLOW_STATE_READ_COMPLETED)
-		return;
-
-	if (m->u.u.dlo_png->dlo.render == lws_display_render_png)
-		lws_display_dlo_png_reclaimable(m->u.u.dlo_png);
-#if defined(LWS_WITH_JPEG)
-	else if (m->u.u.dlo_jpeg->dlo.render == lws_display_render_jpeg)
-		lws_display_dlo_jpeg_reclaimable(m->u.u.dlo_jpeg);
-#endif
-}
-
-/*
- * The layout has the dimensions of a png or jpeg it is still laying out, and
- * nothing more of it is wanted until the raster reaches it, if it ever does,
- * eg, it's below what is displayed.  But until then its fetch, allowed no more
- * than the header, keeps its fetch slot.  With more images on a server than
- * may be fetched from it at once, the ones queued for a slot hold the layout
- * up until they have their dimensions, the layout holds the raster up, and
- * the raster is what lets the fetches in the slots finish: it only comes
- * apart as they time out.
- *
- * So give the fetch back once the layout has placed the image, as the raster
- * does once it has left one.  The dlo keeps its box, and how to fetch the
- * image again when the raster reaches it.  An image that has all arrived
- * already is kept, and so is one a render already under way may be on.
- *
- * It waits for the parse it resumed to have gone past the element: until
- * then, the parse finds the image by url among the active assets, and
- * would fetch it again, without them.  It is scheduled on m->sul, which
- * DESTROYING cancels if the asset goes first.  This destroys m.
- *
- * The layout may come to the same url again, eg, the same image further down,
- * or the element laid out again after waiting for something else.  So the
- * dlo goes on the context's released images, where lws_dlo_ss_find() finds it
- * as it found the asset, until it's fetched again or destroyed.  Its box
- * keeps the dimensions its decoder had.
- */
-
-static void
-_dloss_release_until_raster_cb(lws_sorted_usec_list_t *sul)
-{
-	dloss_t *m = lws_container_of(sul, dloss_t, sul);
-	struct lws_context *cx = m->cx;
-	lws_display_render_state_t *rs;
-	uint8_t type = m->type;
-	lws_dlo_refetch_t *rf;
-
-	if (!m->ssevsul || m->u.failed || !m->u.u.dlo_png ||
-	    m->u.u.dlo_png->flow.state != LWSDLOFLOW_STATE_READ)
-		return;
-
-	/*
-	 * A render may have its line before the layout is complete, but it
-	 * draws nothing until then
-	 */
-	rs = lws_container_of(m->ssevsul, lws_display_render_state_t, sul);
-	if (rs->html != 1 && rs->line)
-		return;
-
-	if (type == LWSDLOSS_TYPE_PNG) {
-		rf = &m->u.u.dlo_png->rf;
-		lws_display_dlo_png_release(m->u.u.dlo_png);
-	}
-#if defined(LWS_WITH_JPEG)
-	else if (type == LWSDLOSS_TYPE_JPEG) {
-		rf = &m->u.u.dlo_jpeg->rf;
-		lws_display_dlo_jpeg_release(m->u.u.dlo_jpeg);
-	}
-#endif
-	else
-		return;
-
-	/* m is gone now, if it was released */
-
-	if (!rf->url)
-		return; /* it couldn't be: it's still fetching */
-
-	rf->type = type;
-	lws_dll2_add_tail(&rf->released, &cx->released_images);
-}
-
-static void
-dloss_release_until_raster_cb(lws_sorted_usec_list_t *sul)
-{
-	lws_alloc_arena_t a = lws_alloc_arena_set(LWS_ALLOC_ARENA_BULK);
-
-	_dloss_release_until_raster_cb(sul);
-	lws_alloc_arena_set(a);
-}
 
 /*
  * dlo images call back here when they have their dimensions (or have failed)
  */
 
-static void
-_lws_lhp_image_dimensions_cb(lws_sorted_usec_list_t *sul)
+void
+lws_lhp_image_dimensions_cb(lws_sorted_usec_list_t *sul)
 {
 	dloss_t *m = lws_container_of(sul, dloss_t, sul);
-	lws_display_render_state_t *rs;
+	lws_display_render_state_t *rs = lws_container_of(m->ssevsul,
+				lws_display_render_state_t, sul);
+	lws_dlo_dim_t dim;
 	lws_dlo_t *dlo = &m->u.u.dlo_png->dlo;
 
 	if (m->u.failed) {
-		if (!lws_dlo_image_width(&m->u)) {
-			/*
-			 * It failed before we ever knew how big it is: the
-			 * layout has nothing to place, and the negative box
-			 * is how it is told to lay the element out without
-			 * the image
-			 */
-			dlo->box.w.whole = -1;
-			dlo->box.h.whole = -1;
-			lwsl_notice("%s: Failing %s\n", __func__, m->url);
-		} else
-			/*
-			 * It failed after its dimensions were known, so it is
-			 * already placed in a finished layout at its real
-			 * size... disturbing the box now would move whatever
-			 * was laid out around it.  Its flow is completed,
-			 * which is what releases the render.
-			 */
-			lwsl_notice("%s: %s failed after it was laid out\n",
-				    __func__, m->url);
+		dlo->box.w.whole = -1;
+		dlo->box.h.whole = -1;
+		lwsl_notice("%s: Failing %s\n", __func__, m->url);
 	} else {
 
-		/*
-		 * Fill in missing dimensions only: css or element
-		 * attributes may have sized the dlo already, and they take
-		 * priority over the intrinsic size.  This can run after the
-		 * last layout pass, when a document deferred completion for
-		 * its assets, so there would be nothing later to restore
-		 * the css size with
-		 */
+		dlo->box.w.whole = (int32_t)lws_dlo_image_width(&m->u);
+		dlo->box.h.whole = (int32_t)lws_dlo_image_height(&m->u);
 
-		dlo_image_fill_missing_dims(&m->u);
-
-		lwsl_info("%s: setting dlo box %d x %d\n", __func__,
+		lwsl_err("%s: setting dlo box %d x %d\n", __func__,
 			(int)dlo->box.w.whole, (int)dlo->box.h.whole);
+#if 1
+		lws_dlo_contents(dlo, &dim);
+		lws_display_dlo_adjust_dims(dlo, &dim);
 
-		/*
-		 * The dimensions are captured in the dlo box now: from here
-		 * the payload and decoder can be given back when memory is
-		 * short, if the asset cache can renew them
-		 */
-		dloss_arm_reclaim(m);
+		if (dlo->list.owner) {
+			dlo = lws_container_of(dlo->list.owner, lws_dlo_t, children);
 
-		/*
-		 * The html parse is stalled on these dimensions; when it
-		 * resumes, the layout places the image with them.  Nothing
-		 * else in the display list needs adjusting here.
-		 */
+			lws_dlo_contents(dlo, &dim);
+			lws_display_dlo_adjust_dims(dlo, &dim);
+		}
+#endif
 	}
 
-	/*
-	 * The document these dimensions were for may already be gone
-	 * (lws_dlo_ss_detach_lhp() from its stream's DESTROYING): then
-	 * there is no parse to resume and no sul of its to schedule
-	 */
-	if (!m->ssevsul)
-		return;
-
-	rs = lws_container_of(m->ssevsul, lws_display_render_state_t, sul);
-	if (rs->html != 1 || !m->lhp) {
+	if (rs->html != 1) {
 		lws_sul_schedule(lws_ss_get_context(m->ss), 0, m->ssevsul, m->on_rx, 1);
 		return;
 	}
 
 	/* we are resuming the html parsing */
 	lws_lhp_ss_html_parse_from_lhp(m->lhp);
-
-	/*
-	 * The page is being laid out, so this is the image's fetch for the
-	 * layout: a fetch for the raster only starts once the render has
-	 * begun, after the layout is complete
-	 */
-	if (m->type == LWSDLOSS_TYPE_PNG || m->type == LWSDLOSS_TYPE_JPEG)
-		lws_sul_schedule(m->cx, 0, &m->sul,
-				 dloss_release_until_raster_cb, 1);
-}
-
-void
-lws_lhp_image_dimensions_cb(lws_sorted_usec_list_t *sul)
-{
-	lws_alloc_arena_t a = lws_alloc_arena_set(LWS_ALLOC_ARENA_BULK);
-
-	_lws_lhp_image_dimensions_cb(sul);
-	lws_alloc_arena_set(a);
 }
 
 #if defined(LWS_WITH_SECURE_STREAMS)
 
-/*
- * The html document's own stream may be over while assets it refers to are
- * still fetching or queued: a document defers deciding it is complete until
- * this says none are left.  Assets that finished (but are still tracked for
- * url dedup) do not hold the document up.
- */
-
-static int
-dlo_asset_holds_layout_up(const dloss_t *ds)
-{
-	if (!ds->inflight && !ds->retrying)
-		return 0; /* nothing is coming: it cannot hold anything up */
-
-	/*
-	 * A stylesheet has to arrive whole before the cascade is right, so
-	 * the layout waits for all of it.
-	 */
-
-	if (ds->type == LWSDLOSS_TYPE_CSS)
-		return 1;
-
-	/*
-	 * An image is different: all the layout wants from it is its
-	 * dimensions, which come out of the first part of the payload.  Once
-	 * those are known (or it failed), the rest of it is pixel data that
-	 * nothing needs until the raster sweep reaches the image... and the
-	 * raster is downstream of the document completing.
-	 *
-	 * Holding the document open for the whole payload meant every byte
-	 * of every image had to be buflisted first, with no consumer and so
-	 * no backpressure: a 45KB page of images on a target with 100KB of
-	 * heap has nowhere to put them.
-	 */
-
-	if (ds->u.failed || lws_dlo_image_width(&ds->u))
-		return 0;
-
-	return 1;
-}
-
-static int
-dlo_assets_outstanding(struct lws_context *cx)
-{
-	/* a queued asset has not started, so it has no dimensions yet */
-
-	if (cx->pending_assets.head)
-		return 1;
-
-	lws_start_foreach_dll(struct lws_dll2 *, d,
-			      lws_dll2_get_head(&cx->active_assets)) {
-		dloss_t *ds = lws_container_of(d, dloss_t, active_asset_list);
-
-		if (dlo_asset_holds_layout_up(ds))
-			return 1;
-	} lws_end_foreach_dll(d);
-
-	return 0;
-}
-
-/*
- * The last outstanding asset finished: resume a document that deferred
- * deciding it was complete until its assets were done
- */
-static void
-dlo_assets_maybe_drained(struct lws_context *cx, lhp_ctx_t *lhp)
-{
-	/* a cancelled document must not be resumed by its assets draining */
-
-	if (lhp && !lhp->cancelled && lhp->await_assets &&
-	    !dlo_assets_outstanding(cx)) {
-		lhp->await_assets = 0;
-		lws_lhp_ss_html_parse_from_lhp(lhp);
-	}
-}
-
-/*
- * An asset that has left both context asset lists is no longer reachable
- * from lws_dlo_ss_detach_lhp(), which is how a document stream tells the
- * assets it is going away.  Such an asset must therefore drop its parser
- * backref itself, or it is left dereferencing the freed document at its own
- * destroy (its ss handle lives on for url dedup and for the render, both of
- * which outlive the parse).
- */
-
-static void
-dloss_drop_lhp(dloss_t *m)
-{
-	m->lhp = NULL;
-}
-
-/*
- * The stylesheet isn't coming (or stopped early).  If the html parse is
- * waiting on it, it must still count as finished, so the page after the
- * <link> gets laid out.
- */
-
-static void
-dloss_css_given_up(dloss_t *m)
-{
-	const uint8_t *b = NULL;
-	size_t l = 0;
-
-	if (!m->lhp || m->lhp->cancelled || !m->lhp->await_css_done ||
-	    strcmp(m->url, m->lhp->await_css_url))
-		return;
-
-	lwsl_warn("%s: css %s failed, resuming html\n", __func__, m->url);
-	lws_dll2_remove(&m->active_asset_list);
-	m->lhp->finish_css = 1;
-	m->lhp->is_css = 1;
-	lws_lhp_parse(m->lhp, &b, &l);
-	m->lhp->is_css = 0;
-	lws_sul_schedule(m->cx, 0, m->lhp->sshtmlevsul, m->lhp->sshtmlevcb, 1);
-
-	/* off the lists now: see dloss_drop_lhp() */
-	dloss_drop_lhp(m);
-}
-
-/*
- * A stylesheet's stream is only ever connected from here, from the event
- * loop.  Its rx is parsed into the document's lhp ctx, and some assets (eg,
- * file:) can deliver everything inside lws_ss_client_connect(): connected
- * from inside the html parse, as the <link> or an asset kick is, that would
- * reenter lws_lhp_parse(), before the <link> had even set up its await.
- */
-
-static void
-_dloss_css_connect_cb(lws_sorted_usec_list_t *sul)
-{
-	dloss_t *m = lws_container_of(sul, dloss_t, sul);
-	struct lws_ss_handle *h = m->ss;
-
-	if (!lws_ss_client_connect(h) || m->retrying)
-		/* on its way, or in its backoff wait coming back by itself */
-		return;
-
-	lwsl_warn("%s: unable to connect css %s\n", __func__, m->url);
-	dloss_css_given_up(m);
-
-	/* destroying it passes through DESTROYING, which re-kicks */
-	lws_dll2_remove(&m->active_asset_list);
-	lws_ss_destroy(&h);
-}
-
-static void
-dloss_css_connect_cb(lws_sorted_usec_list_t *sul)
-{
-	lws_alloc_arena_t a = lws_alloc_arena_set(LWS_ALLOC_ARENA_BULK);
-
-	_dloss_css_connect_cb(sul);
-	lws_alloc_arena_set(a);
-}
-
-/*
- * How many assets may be actually fetching at once.  Each one holds a
- * connection, an fd, for its lifetime, so the ceiling adapts to the fd budget
- * of the context, leaving room for the document connection and the event
- * loop's own fds.  Targets with tiny fd tables end up serializing their
- * fetches instead of failing them.
- */
-
-static unsigned int
-dlo_asset_inflight_max(struct lws_context *cx)
-{
-	int n = ((int)cx->fd_limit_per_thread - LWS_FD_LIMIT_INTERNAL) / 2;
-
-	if (n < 1)
-		n = 1;
-	if (n > LWS_DLO_MAX_CONCURRENT_ASSETS)
-		n = LWS_DLO_MAX_CONCURRENT_ASSETS;
-
-	return (unsigned int)n;
-}
-
-/* how many tracked assets currently hold a fetch slot */
-
-static int
-dlo_asset_inflight_count(struct lws_context *cx)
-{
-	int n = 0;
-
-	lws_start_foreach_dll(struct lws_dll2 *, d,
-			      lws_dll2_get_head(&cx->active_assets)) {
-		dloss_t *ds = lws_container_of(d, dloss_t, active_asset_list);
-
-		n += ds->inflight;
-	} lws_end_foreach_dll(d);
-
-	return n;
-}
-
-/* how many in-flight assets are going to this asset's scheme://host[:port] */
-
-static int
-dlo_asset_host_inflight(struct lws_context *cx, const dloss_t *cand)
-{
-	int n = 0;
-
-	if (!cand->hl)
-		/* file:///... has no host, nothing to be polite to */
-		return 0;
-
-	lws_start_foreach_dll(struct lws_dll2 *, d,
-			      lws_dll2_get_head(&cx->active_assets)) {
-		dloss_t *ds = lws_container_of(d, dloss_t, active_asset_list);
-
-		if (ds->inflight && ds->hl == cand->hl &&
-		    !memcmp(ds->url, cand->url, cand->hl))
-			n++;
-	} lws_end_foreach_dll(d);
-
-	return n;
-}
-
-/*
- * An in-flight asset completed (or was destroyed): bring the queue head
- * into the freed slot, if the queue has anyone on it.  Called from the ss
- * state / rx callbacks, so a nested kick from destroying a connect-failed
- * asset is safe: it just drains more of the same queue.
- */
-
-static void
-dlo_assets_kick(struct lws_context *cx);
-
-static void
-_dlo_assets_kick_cb(lws_sorted_usec_list_t *sul)
-{
-	struct lws_context *cx = lws_container_of(sul, struct lws_context,
-						  sul_assets_kick);
-
-	dlo_assets_kick(cx);
-}
-
-static void
-dlo_assets_kick_cb(lws_sorted_usec_list_t *sul)
-{
-	lws_alloc_arena_t a = lws_alloc_arena_set(LWS_ALLOC_ARENA_BULK);
-
-	_dlo_assets_kick_cb(sul);
-	lws_alloc_arena_set(a);
-}
-
-/*
- * Is the fd table full?  A client connect needs at least one fd (up to
- * LWS_MAX_PARALLEL_CONNS while its happy-eyeballs candidates race), and
- * failing at __insert_wsi_socket_into_fds() costs the asset one of its
- * retries, so don't start one that certainly can't get an fd.  Idle
- * keepalive connections to the CDNs hold fds too, so this can't demand
- * much headroom or a small table never starts anything.
- */
-
-static int
-dlo_assets_fds_short(struct lws_context *cx)
-{
-	struct lws_context_per_thread *pt = &cx->pt[0];
-
-	return (unsigned int)pt->fds_count + 1 >= cx->fd_limit_per_thread;
-}
-
-static void
-dlo_assets_kick(struct lws_context *cx)
-{
-	while (cx->pending_assets.head &&
-	       dlo_asset_inflight_count(cx) < (int)dlo_asset_inflight_max(cx)) {
-		dloss_t *ds = NULL;
-
-		if (dlo_assets_fds_short(cx)) {
-			/*
-			 * Something else is using the fds right now (eg,
-			 * the document connection's own parallel connects):
-			 * come back for the queue shortly
-			 */
-			lws_sul_schedule(cx, 0, &cx->sul_assets_kick,
-					 dlo_assets_kick_cb,
-					 100 * LWS_US_PER_MS);
-			break;
-		}
-
-		/*
-		 * The queue head's server may already be at its per-host
-		 * ceiling: a later, different-host asset can start past it
-		 */
-
-		lws_start_foreach_dll(struct lws_dll2 *, d,
-				      lws_dll2_get_head(&cx->pending_assets)) {
-			dloss_t *d1 = lws_container_of(d, dloss_t,
-						       active_asset_list);
-
-			if (dlo_asset_host_inflight(cx, d1) >=
-						LWS_DLO_MAX_CONCURRENT_PER_HOST)
-				continue;
-
-			ds = d1;
-			break;
-		} lws_end_foreach_dll(d);
-
-		if (!ds)
-			/* every queued asset's server is at its ceiling */
-			break;
-
-		lws_dll2_remove(&ds->active_asset_list);
-		lws_dll2_add_tail(&ds->active_asset_list,
-				  &cx->active_assets);
-		ds->inflight = 1;
-
-		lwsl_notice("%s: kick %s\n", __func__, ds->url);
-
-		if (ds->type == LWSDLOSS_TYPE_CSS) {
-			lws_sul_schedule(cx, 0, &ds->sul,
-					 dloss_css_connect_cb, 1);
-			continue;
-		}
-
-		if (!lws_ss_client_connect(ds->ss))
-			continue;
-
-		if (ds->retrying)
-			/* it failed synchronously but is in its backoff
-			 * wait: it comes back by itself at CONNECTING */
-			continue;
-
-		/* destroying it passes through DESTROYING, which re-kicks */
-		lws_dll2_remove(&ds->active_asset_list);
-		lws_ss_destroy(&ds->ss);
-	}
-}
-
 /* secure streams payload interface */
 
-/*
- * Stash rx payload for the asset type.  Raster images take it on the flow
- * buflist; gifs keep the whole payload retained separately, so the decode
- * can start again from the top.  Returns nonzero on failure.
- *
- * When the asset cache is active, also mirror the payload chunks as they
- * arrive: the decoders consume the flow buflist incrementally, so by the time
- * the payload has all arrived it can no longer be recovered from there for
- * the cache write-through.
- */
-
-static int
-dloss_rx_stash(dloss_t *m, const uint8_t *buf, size_t len)
-{
-	if (!len)
-		return 0;
-
-#if defined(LWS_WITH_DLO_ASSET_CACHE)
-	if (!m->no_cache && m->type != LWSDLOSS_TYPE_GIF && m->hl &&
-	    lws_dlo_asset_cache_mirror(lws_ss_get_context(m->ss),
-				       &m->cache_bl, buf, len))
-		m->no_cache = 1;
-#endif
-
-#if defined(LWS_WITH_GIF)
-	if (m->type == LWSDLOSS_TYPE_GIF)
-		return lws_display_dlo_gif_rx(m->u.u.dlo_gif, buf, len);
-#endif
-
-	return lws_buflist_append_segment(&m->u.u.dlo_jpeg->flow.bl,
-					  buf, len) < 0;
-}
-
-/*
- * If the payload's magic doesn't match the decoder implied by the url, the
- * server is lying about what it is sending: switch to the decoder the payload
- * says it is.  The .flow is at the same offset in the dlo image subclasses.
- * Returns nonzero if the switch could not be completed.
- */
-
-static int
-dloss_magic_fixup(dloss_t *m)
-{
-	uint8_t *p;
-	size_t avail = lws_buflist_next_segment_len(&m->u.u.dlo_png->flow.bl, &p);
-
-	if (m->type == LWSDLOSS_TYPE_PNG && avail >= 2 &&
-	    p[0] == 0xff && p[1] == 0xd8) {
-		 lwsl_warn("%s: fixing up PNG -> JPG\n", __func__);
-		 lws_upng_free(&m->u.u.dlo_png->png);
-		 m->u.u.dlo_jpeg->j = lws_jpeg_new();
-		 if (!m->u.u.dlo_jpeg->j)
-			 return 1;
-
-		 m->u.u.dlo_jpeg->dlo.render = lws_display_render_jpeg;
-		 m->u.u.dlo_jpeg->dlo._destroy = lws_display_dlo_jpeg_destroy;
-		 m->type = LWSDLOSS_TYPE_JPEG;
-		 m->u.type = LWSDLOSS_TYPE_JPEG;
-	} else if (m->type == LWSDLOSS_TYPE_JPEG && avail >= 8 &&
-		   p[0] == 0x89 && p[1] == 0x50 && p[2] == 0x4e && p[3] == 0x47 &&
-		   p[4] == 0x0d && p[5] == 0x0a && p[6] == 0x1a && p[7] == 0x0a) {
-		 lwsl_warn("%s: fixing up JPG -> PNG\n", __func__);
-		 lws_jpeg_free(&m->u.u.dlo_jpeg->j);
-		 m->u.u.dlo_png->png = lws_upng_new();
-		 if (!m->u.u.dlo_png->png)
-			 return 1;
-
-		 m->u.u.dlo_png->dlo.render = lws_display_render_png;
-		 m->u.u.dlo_png->dlo._destroy = lws_display_dlo_png_destroy;
-		 m->type = LWSDLOSS_TYPE_PNG;
-		 m->u.type = LWSDLOSS_TYPE_PNG;
-	}
-
-	return 0;
-}
-
-#if defined(LWS_WITH_DLO_ASSET_CACHE)
-
-int
-lws_dlo_asset_cache_mirror(struct lws_context *cx, struct lws_buflist **bl,
-			   const uint8_t *buf, size_t len)
-{
-	if (!cx->dlo_asset_l1)
-		return 1;
-
-	/*
-	 * Too big for the cache to take: don't hold a copy of it until it's
-	 * all here only to find that out.  Nor can a partial copy be cached.
-	 */
-
-	if (lws_buflist_total_len(bl) + len > cx->dlo_asset_max_payload ||
-	    lws_buflist_append_segment(bl, buf, len) < 0) {
-		lws_buflist_destroy_all_segments(bl);
-		return 1;
-	}
-
-	return 0;
-}
-
-/*
- * The asset payload has all arrived: write it through to the context asset
- * cache, so it need not be fetched again while it is still valid
- */
-
-static void
-dloss_cache_write(dloss_t *m, struct lws_context *cx)
-{
-	lws_usec_t expiry = lws_now_usecs() +
-			    (lws_usec_t)LWS_DLO_ASSET_CACHE_EXPIRY_S *
-					    LWS_US_PER_SEC;
-	size_t total, done = 0;
-	uint8_t *buf;
-
-	if (!cx->dlo_asset_l1 || m->no_cache || m->u.failed || !m->hl)
-		return;
-
-#if defined(LWS_WITH_GIF)
-	if (m->type == LWSDLOSS_TYPE_GIF) {
-		/* the gif dlo retains its whole payload until it renders */
-
-		lws_dlo_gif_t *dg = m->u.u.dlo_gif;
-
-		if (dg->whole_len && dg->whole_len <= cx->dlo_asset_max_payload)
-			if (lws_cache_write_through(cx->dlo_asset_l1, m->url,
-						    dg->whole, dg->whole_len,
-						    expiry, NULL))
-				lwsl_cx_info(cx, "cache write failed: %s",
-					     m->url);
-
-		return;
-	}
-#endif
-
-	/* other image types were mirrored to cache_bl as they arrived */
-
-	total = lws_buflist_total_len(&m->cache_bl);
-	if (!total)
-		return;
-
-	buf = lws_malloc(total, __func__);
-	if (!buf)
-		return;
-
-	while (lws_buflist_next_segment_len(&m->cache_bl, NULL)) {
-		uint8_t *p;
-		size_t len = lws_buflist_next_segment_len(&m->cache_bl, &p);
-
-		memcpy(buf + done, p, len);
-		done += len;
-
-		lws_buflist_use_segment(&m->cache_bl, len);
-	}
-
-	if (lws_cache_write_through(cx->dlo_asset_l1, m->url, buf, total,
-				    expiry, NULL))
-		lwsl_cx_info(cx, "cache write failed: %s", m->url);
-	else
-		m->in_cache = 1;
-
-	lws_free(buf);
-}
-
-/*
- * A still-valid copy of the whole asset payload came from the cache.  Stash
- * it and take the same steps as a fetch that just delivered its whole
- * payload, so layout and render proceed identically with no network at all.
- * Returns nonzero if the payload could not be used.
- */
-
-static int
-dloss_cache_feed(dloss_t *m, const uint8_t *data, size_t size)
-{
-	struct lws_context *cx = lws_ss_get_context(m->ss);
-	lws_stateful_ret_t r;
-
-	if (dloss_rx_stash(m, data, size))
-		return 1;
-
-	/* nothing more is coming on this asset */
-
-	m->u.u.dlo_jpeg->flow.state = LWSDLOFLOW_STATE_READ_COMPLETED;
-	m->in_cache = 1;
-
-	if (!lws_dlo_image_width(&m->u)) {
-		if (dloss_magic_fixup(m))
-			return 1;
-
-		lws_flow_feed(&m->u.u.dlo_jpeg->flow);
-		r = lws_dlo_image_metadata_scan(&m->u);
-		lws_flow_req(&m->u.u.dlo_jpeg->flow);
-
-		if (r & LWS_SRET_FATAL)
-			m->u.failed = 1;
-		else
-			if (r != LWS_SRET_WANT_INPUT)
-				/* settle the geometry before anyone can
-				 * observe it */
-				dlo_image_fill_missing_dims(&m->u);
-	}
-
-	/*
-	 * The html parse is stalled on these dimensions: the callback sets
-	 * them (or marks the asset failed) and resumes it
-	 */
-
-	lws_sul_schedule(cx, 0, &m->sul, lws_lhp_image_dimensions_cb, 1);
-
-	return 0;
-}
-
-#endif
-
-/*
- * The image's header goes on beyond what its fetch was allowed to send so
- * far: top its credit up to LWS_DLO_IMAGE_HEAD_CREDIT again once most of it
- * has come, rather than giving it the whole window, since until the raster
- * reaches it nothing past the header is consumed.  Not waiting for all of it
- * to come matters, eg, h3's DATA framing comes out of the credit, and a
- * credit of a few bytes may never be used
- */
-
-static void
-dloss_head_more(lws_flow_t *flow)
-{
-	int32_t est;
-
-	if (!flow->h || flow->state != LWSDLOFLOW_STATE_READ)
-		return;
-
-	if (flow->window <= LWS_DLO_IMAGE_HEAD_CREDIT) {
-		/* it was allowed the whole window from the start */
-		lws_flow_req(flow);
-		return;
-	}
-
-	est = lws_ss_get_est_peer_tx_credit(flow->h);
-	if (est < 0)
-		est = 0;
-	if (est < LWS_DLO_IMAGE_HEAD_CREDIT / 2)
-		lws_ss_add_peer_tx_credit(flow->h,
-					  LWS_DLO_IMAGE_HEAD_CREDIT - est);
-}
-
-#if defined(LWS_WITH_DLO_ASSET_CACHE)
-/*
- * A cached stylesheet's payload is fed through the css rx path from the
- * event loop, not from inside lws_dlo_ss_create: create happens in the
- * middle of the html parse, and parsing the css synchronously would
- * reenter lws_lhp_parse on shared state
- */
-
 static lws_ss_state_return_t
-dloss_rx(void *userobj, const uint8_t *buf, size_t len, int flags);
-
-static void
-_dloss_css_cache_feed_cb(lws_sorted_usec_list_t *sul)
-{
-	dloss_t *m = lws_container_of(sul, dloss_t, sul);
-	struct lws_ss_handle *h = m->ss;
-
-	dloss_rx(m, m->cache_hit, m->cache_hit_len, LWSSS_FLAG_EOM);
-
-	lws_free_set_NULL(m->cache_hit);
-
-	/* the css rx removed us from the active list at EOM; the handle
-	 * has no dlo and no further purpose */
-
-	lws_ss_destroy(&h);
-}
-
-static void
-dloss_css_cache_feed_cb(lws_sorted_usec_list_t *sul)
-{
-	lws_alloc_arena_t a = lws_alloc_arena_set(LWS_ALLOC_ARENA_BULK);
-
-	_dloss_css_cache_feed_cb(sul);
-	lws_alloc_arena_set(a);
-}
-#endif
-
-static lws_ss_state_return_t
-_dloss_rx(void *userobj, const uint8_t *buf, size_t len, int flags)
+dloss_rx(void *userobj, const uint8_t *buf, size_t len, int flags)
 {
 	dloss_t *m = (dloss_t *)userobj;
 	lws_stateful_ret_t r;
@@ -934,186 +100,49 @@ _dloss_rx(void *userobj, const uint8_t *buf, size_t len, int flags)
 	lwsl_info("%s: %u\n", __func__, (unsigned int)len);
 
 	if (m->type == LWSDLOSS_TYPE_CSS) {
-		int awaited;
+		m->lhp->finish_css = !!(flags & LWSSS_FLAG_EOM);
+		m->lhp->is_css = 1;
+		r = lws_lhp_parse(m->lhp, &buf, &len);
+		m->lhp->is_css = 0;
 
-		if (!m->lhp) {
-			/* the document this stylesheet was for is gone */
-			lws_dll2_remove(&m->active_asset_list);
-			dlo_assets_kick(lws_ss_get_context(m->ss));
-
-			return LWSSSSRET_DISCONNECT_ME;
-		}
-
-		/*
-		 * Streams for stylesheets complete out of order: only the
-		 * stylesheet the html parse is waiting on may complete the
-		 * await, a different one finishing early must not
-		 */
-		awaited = m->lhp->await_css_done &&
-			  !strcmp(m->url, m->lhp->await_css_url);
-
-#if defined(LWS_WITH_DLO_ASSET_CACHE)
-		/* mirror the stylesheet payload for the cache write-through
-		 * at EOM, like image rx chunks are */
-
-		if (len && !m->no_cache && m->hl &&
-		    lws_dlo_asset_cache_mirror(lws_ss_get_context(m->ss),
-					       &m->cache_bl, buf, len))
-			m->no_cache = 1;
-#endif
-
-		/*
-		 * Only the stylesheet the html parse is stopped at, awaiting,
-		 * may be parsed into the document's lhp ctx: at any other time
-		 * that ctx is in some html state, which css bytes must not be
-		 * fed into.  The html waits at each <link> until its stylesheet
-		 * has all arrived, so nothing else should come; if it does,
-		 * it's dropped rather than parsed.
-		 */
-		r = LWS_SRET_OK;
-		if (awaited) {
-			m->lhp->finish_css = !!(flags & LWSSS_FLAG_EOM);
-			m->lhp->is_css = 1;
-			r = lws_lhp_parse(m->lhp, &buf, &len);
-			m->lhp->is_css = 0;
-		} else if (len)
-			lwsl_warn("%s: dropping %u bytes of css %s nobody "
-				  "awaits\n", __func__, (unsigned int)len,
-				  m->url);
-
-		/*
-		 * The fetch may only send a window ahead of what we took: it
-		 * was all taken just now, parsed or dropped, so let it send
-		 * the next window, or a stylesheet bigger than one window
-		 * stalls until the stream times out.  Nothing is buffered, so
-		 * the flow only asks for credit.  A cached stylesheet's feed
-		 * comes with EOM, so it never asks a stream it doesn't have.
-		 */
 		if (flags & LWSSS_FLAG_EOM)
-			m->css_flow.state = LWSDLOFLOW_STATE_READ_COMPLETED;
-		lws_flow_req(&m->css_flow);
-
-		if (flags & LWSSS_FLAG_EOM) {
 			lws_dll2_remove(&m->active_asset_list);
-			/* the slot is free before the ss winds down */
-			dlo_assets_kick(lws_ss_get_context(m->ss));
-			dlo_assets_maybe_drained(lws_ss_get_context(m->ss), m->lhp);
 
-#if defined(LWS_WITH_DLO_ASSET_CACHE)
-			/* the stylesheet payload is all here: cache it */
-
-			dloss_cache_write(m, lws_ss_get_context(m->ss));
-#endif
-		}
-
-		if (r & LWS_SRET_FATAL) {
-			if (flags & LWSSS_FLAG_EOM)
-				dloss_drop_lhp(m);
-
+		if (r & LWS_SRET_FATAL)
 			return LWSSSSRET_DISCONNECT_ME;
-		}
 
 		if (r & LWS_SRET_AWAIT_RETRY) {
-			/*
-			 * If the parse just finished the awaited css, the
-			 * await flag has been cleared by the parse: resume
-			 * the html.  Otherwise, still waiting on some css,
-			 * there is nothing to resume yet
-			 */
 			lwsl_warn("%s: returning to await retry\n", __func__);
 			if (!m->lhp->await_css_done)
 				lws_sul_schedule(lws_ss_get_context(m->ss), 0,
 						 m->lhp->sshtmlevsul,
 						 m->lhp->sshtmlevcb, 1);
 		}
-
-		if (flags & LWSSS_FLAG_EOM)
-			dloss_drop_lhp(m);
-
 		goto okie;
 	}
 
 	/* .flow is at the same offset in both dlo_jpeg and dlo_png */
 
-	/*
-	 * A raster image payload is held whole on the flow buflist until the
-	 * render consumes it, and the buflist won't take more than
-	 * LWS_BUFLIST_OOM_LIMIT: if the response headers already say it can't
-	 * fit, give it up at the first byte rather than after streaming 2MB
-	 * of it just to fail at the end (real pages have 2 - 4MB hero images,
-	 * and every one of them was fetched whole before being dropped).
-	 * Checked here rather than at CONNECTED, which for a stream joining
-	 * an existing h2 connection arrives before the response headers.
-	 */
-
-	if (!m->cl_checked) {
-		uint64_t cl;
-
-		m->cl_checked = 1;
-		if (!lws_ss_http_rx_content_length(m->ss, &cl) &&
-		    cl > LWS_BUFLIST_OOM_LIMIT) {
-			lwsl_notice("%s: %s: %llu bytes, too large\n", __func__,
-				    m->url, (unsigned long long)cl);
-			m->u.failed = 1;
-			m->u.u.dlo_jpeg->flow.state =
-						LWSDLOFLOW_STATE_READ_COMPLETED;
-			lws_sul_schedule(m->cx, 0, &m->sul,
-					 lws_lhp_image_dimensions_cb, 1);
-			return LWSSSSRET_DISCONNECT_ME;
-		}
-	}
-
-	if (dloss_rx_stash(m, buf, len)) {
-		/*
-		 * Out of memory taking the payload.  Complete the flow as
-		 * well as failing the asset: the render may already be
-		 * waiting on this image for pixel data, and without this it
-		 * waits for data that is never coming (the whole page then
-		 * hangs on one asset that lost a chunk).  It is the same
-		 * treatment a disconnect partway through gets.
-		 */
-		lwsl_warn("%s: OOM taking %u of %s: giving the asset up\n",
-			  __func__, (unsigned int)len, m->url);
+	if (len &&
+	    lws_buflist_append_segment(&m->u.u.dlo_jpeg->flow.bl, buf, len) < 0) {
 		m->u.failed = 1;
-		m->u.u.dlo_jpeg->flow.state = LWSDLOFLOW_STATE_READ_COMPLETED;
 		lws_sul_schedule(lws_ss_get_context(m->ss), 0,
 				&m->sul, lws_lhp_image_dimensions_cb, 1);
 		return LWSSSSRET_DISCONNECT_ME;
 	}
 
 	// lwsl_notice("%s: buflen size %d\n", __func__,
-	//	(int)lws_buflist_total_len(&m->u.u.dlo_jpeg->flow.bl));
+	//		(int)lws_buflist_total_len(&m->u.u.dlo_jpeg->flow.bl));
 
 	if (flags & LWSSS_FLAG_EOM) {
 		m->u.u.dlo_jpeg->flow.state = LWSDLOFLOW_STATE_READ_COMPLETED;
-		/*
-		 * The asset's slot is free from the moment its payload has
-		 * all arrived, even though the ss handle stays around on the
-		 * active list for url dedup until its dlo goes away
-		 */
-		m->inflight = 0;
-		dlo_assets_kick(lws_ss_get_context(m->ss));
-		dlo_assets_maybe_drained(lws_ss_get_context(m->ss), m->lhp);
-
-#if defined(LWS_WITH_DLO_ASSET_CACHE)
-		/* the payload is all here: it can go into the asset cache */
-
-		dloss_cache_write(m, lws_ss_get_context(m->ss));
-#endif
+		return LWSSSSRET_DISCONNECT_ME;
 	}
 
 	if (!lws_dlo_image_width(&m->u)) {
-		if (dloss_magic_fixup(m))
-			return LWSSSSRET_DISCONNECT_ME;
-
 		lws_flow_feed(&m->u.u.dlo_jpeg->flow);
 		r = lws_dlo_image_metadata_scan(&m->u);
-		if (r == LWS_SRET_WANT_INPUT)
-			/*
-			 * Once we have the header, it can't send more until
-			 * the raster's decoder is taking it
-			 */
-			dloss_head_more(&m->u.u.dlo_jpeg->flow);
+		lws_flow_req(&m->u.u.dlo_jpeg->flow);
 
 		if (r & LWS_SRET_FATAL) {
 			m->u.failed = 1;
@@ -1123,39 +152,23 @@ _dloss_rx(void *userobj, const uint8_t *buf, size_t len, int flags)
 		}
 
 		if (r != LWS_SRET_WANT_INPUT) {
-			lwsl_info("%s: seen metadata\n", __func__);
-			/* settle the geometry before anyone can observe it */
-			dlo_image_fill_missing_dims(&m->u);
+			lwsl_notice("%s: seen metadata\n", __func__);
 			lws_sul_schedule(lws_ss_get_context(m->ss), 0,
 					&m->sul, lws_lhp_image_dimensions_cb, 1);
 		} //else
 			//lwsl_err("%s: metadata scan no end yet\n", __func__);
 
-		return flags & LWSSS_FLAG_EOM ? LWSSSSRET_DISCONNECT_ME : LWSSSSRET_OK;
+		return LWSSSSRET_OK;
 	}
 okie:
-	/* wake the raster: this may be the data the line it is on wants */
-	if (m->ssevsul && m->on_rx)
-		lws_sul_schedule(lws_ss_get_context(m->ss), 0, m->ssevsul,
-				 m->on_rx, 1);
+	lws_sul_schedule(lws_ss_get_context(m->ss), 0, m->ssevsul, m->on_rx, 1);
 
-	return flags & LWSSS_FLAG_EOM ? LWSSSSRET_DISCONNECT_ME : LWSSSSRET_OK;
+	return LWSSSSRET_OK;
 }
 
 static lws_ss_state_return_t
-dloss_rx(void *userobj, const uint8_t *buf, size_t len, int flags)
-{
-	lws_alloc_arena_t a = lws_alloc_arena_set(LWS_ALLOC_ARENA_BULK);
-	lws_ss_state_return_t r = _dloss_rx(userobj, buf, len, flags);
-
-	lws_alloc_arena_set(a);
-
-	return r;
-}
-
-static lws_ss_state_return_t
-_dloss_state(void *userobj, void *sh, lws_ss_constate_t state,
-	     lws_ss_tx_ordinal_t ack)
+dloss_state(void *userobj, void *sh, lws_ss_constate_t state,
+	    lws_ss_tx_ordinal_t ack)
 {
 	dloss_t *m = (dloss_t *)userobj;
 
@@ -1163,105 +176,9 @@ _dloss_state(void *userobj, void *sh, lws_ss_constate_t state,
 	case LWSSSCS_CREATING:
 		break;
 
-	case LWSSSCS_CONNECTING:
-		/* it holds a fetch slot again, eg, after a retry */
-		m->inflight = 1;
-		m->retrying = 0;
-		break;
-
-	case LWSSSCS_CONNECTED:
-		m->connected = 1;
-
-		break;
-
 	case LWSSSCS_DESTROYING:
 		lws_sul_cancel(&m->sul);
-#if defined(LWS_WITH_DLO_ASSET_CACHE)
-		lws_buflist_destroy_all_segments(&m->cache_bl);
-#endif
-		/* it may be on either the active or the queued list */
 		lws_dll2_remove(&m->active_asset_list);
-		m->inflight = 0;
-		m->retrying = 0;
-
-		/*
-		 * The dlo destroys the asset ss from its flow.h backref: if
-		 * the ss is going first (eg, its connect failed and the
-		 * kick destroyed it through m->ss, which lws_ss_destroy()
-		 * has already NULLed), the backref must not outlive it
-		 */
-		if (m->u.u.dlo_jpeg &&
-		    (!m->ss || m->u.u.dlo_jpeg->flow.h == m->ss))
-			m->u.u.dlo_jpeg->flow.h = NULL;
-
-		dlo_assets_kick(m->cx);
-		dlo_assets_maybe_drained(m->cx, m->lhp);
-		break;
-
-	case LWSSSCS_UNREACHABLE:
-		if (!m->connected && !m->u.failed &&
-		    dlo_assets_fds_short(m->cx)) {
-			/*
-			 * The connect failed before it got anywhere with the
-			 * fd table full: that is our own congestion, not
-			 * anything wrong with the asset.  The ss is going
-			 * into its backoff wait and will try again by
-			 * itself; the asset is still outstanding for the
-			 * document, but its fetch slot is free meanwhile.
-			 * Only ALL_RETRIES_FAILED gives up on it.
-			 */
-			m->inflight = 0;
-			m->retrying = 1;
-			dlo_assets_kick(m->cx);
-			break;
-		}
-		/* fallthru */
-
-	case LWSSSCS_ALL_RETRIES_FAILED:
-	case LWSSSCS_QOS_NACK_REMOTE:
-	case LWSSSCS_DISCONNECTED:
-		m->retrying = 0;
-		/*
-		 * The asset isn't coming (or stopped early).  The html parse
-		 * may be waiting on it: a stylesheet that never finishes must
-		 * still count as finished so the page after the <link> gets
-		 * laid out, and an image that never arrives has no dims.
-		 */
-		if (m->type == LWSDLOSS_TYPE_CSS) {
-			dloss_css_given_up(m);
-			break;
-		}
-
-		/*
-		 * Nothing more is coming on this handle unless the stream is
-		 * nailed up... these asset fetches are opportunistic, so if
-		 * the payload had not all arrived, the asset has failed.
-		 * Mark it, and complete the flow, so whatever waits on it
-		 * (layout for dimensions, the render for pixel data) is
-		 * released instead of waiting for something that will never
-		 * turn up
-		 */
-
-		if (!m->u.failed && m->u.u.dlo_png &&
-		    (state != LWSSSCS_DISCONNECTED ||
-		     !(m->ss->policy->flags & LWSSSPOLF_NAILED_UP)) &&
-		    m->u.u.dlo_jpeg->flow.state !=
-		    			LWSDLOFLOW_STATE_READ_COMPLETED) {
-			m->u.failed = 1;
-			m->u.u.dlo_jpeg->flow.state =
-					LWSDLOFLOW_STATE_READ_COMPLETED;
-			lws_sul_schedule(lws_ss_get_context(m->ss), 0,
-					 &m->sul, lws_lhp_image_dimensions_cb, 1);
-		}
-
-		/*
-		 * The connection is gone: the fetch slot is free whether
-		 * that was after delivering everything or not.  A retry
-		 * that reconnects marks itself in-flight again at CONNECTING
-		 */
-		m->inflight = 0;
-		dlo_assets_kick(lws_ss_get_context(m->ss));
-		dlo_assets_maybe_drained(lws_ss_get_context(m->ss), m->lhp);
 		break;
 
 	default:
@@ -1271,43 +188,11 @@ _dloss_state(void *userobj, void *sh, lws_ss_constate_t state,
 	return LWSSSSRET_OK;
 }
 
-static lws_ss_state_return_t
-dloss_state(void *userobj, void *sh, lws_ss_constate_t state,
-	    lws_ss_tx_ordinal_t ack)
-{
-	lws_alloc_arena_t a = lws_alloc_arena_set(LWS_ALLOC_ARENA_BULK);
-	lws_ss_state_return_t r = _dloss_state(userobj, sh, state, ack);
-
-	lws_alloc_arena_set(a);
-
-	return r;
-}
-
 static LWS_SS_INFO("__default", dloss_t)
 	.rx				= dloss_rx,
 	.state				= dloss_state
 };
 #endif
-
-/*
- * The html document's own stream may be over while assets it refers to are
- * still being fetched (or queued for a fetch slot): the document defers
- * deciding it is complete until this says there are none left.
- *
- * The last asset out of the lists resumes the document parse from its lhp
- * backref, which is how the deferred completion is woken.
- */
-
-int
-lws_dlo_ss_assets_active(struct lws_context *cx)
-{
-#if defined(LWS_WITH_SECURE_STREAMS)
-	return dlo_assets_outstanding(cx);
-#else
-	(void)cx;
-	return 0;
-#endif
-}
 
 /*
  * If we have an active image asset from this URL, return a pointer to its
@@ -1318,58 +203,12 @@ int
 lws_dlo_ss_find(struct lws_context *cx, const char *url, lws_dlo_image_t *u)
 {
 #if defined(LWS_WITH_SECURE_STREAMS)
-	if (!cx)
-		/* standalone use with no lws_context: nothing to search */
-
-		return 1; /* not found */
-
 	lws_start_foreach_dll(struct lws_dll2 *, d,
 			      lws_dll2_get_head(&cx->active_assets)) {
 		dloss_t *ds = lws_container_of(d, dloss_t, active_asset_list);
-		// lwsl_notice("  '%s'\n", ds->url);
 
 		if (!strcmp(url, ds->url)) {
 			*u = ds->u;
-
-			return 0; /* found */
-		}
-
-	} lws_end_foreach_dll(d);
-
-	/*
-	 * ... and one that is queued waiting for an in-flight slot is just
-	 * as taken: matching only in-flight assets made each retry of an
-	 * element waiting on its dimensions create a duplicate fetch
-	 */
-
-	lws_start_foreach_dll(struct lws_dll2 *, d,
-			      lws_dll2_get_head(&cx->pending_assets)) {
-		dloss_t *ds = lws_container_of(d, dloss_t, active_asset_list);
-
-		if (!strcmp(url, ds->url)) {
-			*u = ds->u;
-
-			return 0; /* found */
-		}
-
-	} lws_end_foreach_dll(d);
-
-	/* ... and so is one laid out whose fetch was given back */
-
-	lws_start_foreach_dll(struct lws_dll2 *, d,
-			      lws_dll2_get_head(&cx->released_images)) {
-		lws_dlo_refetch_t *rf = lws_container_of(d, lws_dlo_refetch_t,
-							 released);
-
-		if (!strcmp(url, rf->url)) {
-			memset(u, 0, sizeof(*u));
-			u->type = (lws_dlo_image_type_t)rf->type;
-			if (rf->type == LWSDLOSS_TYPE_PNG)
-				u->u.dlo_png = lws_container_of(rf,
-							lws_dlo_png_t, rf);
-			else
-				u->u.dlo_jpeg = lws_container_of(rf,
-							lws_dlo_jpeg_t, rf);
 
 			return 0; /* found */
 		}
@@ -1379,127 +218,76 @@ lws_dlo_ss_find(struct lws_context *cx, const char *url, lws_dlo_image_t *u)
 	return 1; /* not found */
 }
 
-#if defined(LWS_WITH_SECURE_STREAMS) && defined(LWS_WITH_FOOTPRINT)
-
-/*
- * The assets of documents, fetching, queued or tracked for renewal, besides
- * the dlo each one fills (whose payload and decoder are in its display list):
- * the stream, and what is mirrored for the asset cache
- */
-
-static size_t
-dloss_fp_heap(dloss_t *m)
+int
+lws_dlo_ss_create(lws_dlo_ss_create_info_t *i, lws_dlo_t **pdlo)
 {
-	size_t b = sizeof(*m);
-
-#if defined(LWS_WITH_DLO_ASSET_CACHE)
-	b += lws_buflist_total_len(&m->cache_bl) +
-	     lws_fp_heap(m->cache_hit, m->cache_hit_len);
-#endif
-
-	return b;
-}
-
-static void
-dloss_fp_walk(struct lws_context *cx, lws_footprint_report_t *r)
-{
-	lws_dll2_owner_t *owners[2] = { &cx->active_assets,
-					&cx->pending_assets };
-	int n;
-
-	for (n = 0; n < 2; n++)
-		lws_start_foreach_dll(struct lws_dll2 *, d,
-				      lws_dll2_get_head(owners[n])) {
-			dloss_t *m = lws_container_of(d, dloss_t,
-						      active_asset_list);
-			size_t b = dloss_fp_heap(m);
-
-			if (r) {
-				r->count++;
-				r->bytes += b;
-			} else
-				lwsl_cx_notice(cx, "fp:     %-40.40s %7llu B%s",
-					       m->url, (unsigned long long)b,
-					       n ? " (queued)" : "");
-		} lws_end_foreach_dll(d);
-}
-
-static void
-dloss_fp_report(lws_footprint_t *fp, lws_footprint_report_t *r)
-{
-	struct lws_context *cx = lws_container_of(fp, struct lws_context,
-						  fp_dlo_assets);
-
-	dloss_fp_walk(cx, r);
-	if (r->bytes > fp->bytes_hwm)
-		fp->bytes_hwm = r->bytes;
-	r->bytes_hwm = fp->bytes_hwm;
-}
-
-static void
-dloss_fp_dump(lws_footprint_t *fp)
-{
-	dloss_fp_walk(lws_container_of(fp, struct lws_context, fp_dlo_assets),
-		      NULL);
-}
-
-static const lws_footprint_ops_t dloss_fp_ops = {
-	.shed_class	= LWSFP_SHED_NONE,
-	.report		= dloss_fp_report,
-	.dump		= dloss_fp_dump,
-};
-#endif
-
-/*
- * Start fetching an asset into its dlo (NULL for a stylesheet): a stream that
- * connects now if there is a fetch slot free, or waits in the queue for one,
- * unless the asset cache already has the payload.  i->lhp may be NULL, for
- * an asset fetched again for the render after its document has gone.
- *
- * Returns 0 if it started, else nothing of the stream is left behind and the
- * dlo is the caller's to dispose of: -1 if the asset can't be had (it was
- * refused at connect, eg, there is no such file), or 1 if there wasn't the
- * heap, or room among the tracked assets, to start it this time.
- */
-
-static int
-dloss_start(const lws_dlo_ss_create_info_t *i, const char *url, uint8_t type,
-	    lws_dlo_t *dlo)
-{
+#if defined(LWS_WITH_SECURE_STREAMS)
+	lws_dlo_jpeg_t *dlo_jpeg = NULL;
+	lws_dlo_png_t *dlo_png = NULL;
+	size_t ul = strlen(i->url);
 	struct lws_ss_handle *h;
-	lws_flow_t *flow = NULL;
+	lws_dlo_t *dlo = NULL;
 	lws_ss_info_t ssi;
 	dloss_t *dloss;
-	const char *q;
-	int ret = 1;
+	uint8_t type;
 
-	/*
-	 * Cap how many assets can be tracked at once, fetching or queued for
-	 * a fetch slot... on the small targets this code exists for, each
-	 * one is a connection plus a window when it does start.  Over the cap,
-	 * the asset is dropped and the document shows what it has.
-	 */
-
-	if (lws_dll2_count(&i->cx->active_assets) +
-	    lws_dll2_count(&i->cx->pending_assets) >=
-					LWS_DLO_MAX_TRACKED_ASSETS) {
-		lwsl_warn("%s: too many assets, dropping %s\n", __func__, url);
+	if (ul < 5)
 		return 1;
+
+	if (!strcmp(i->url + ul - 4, ".png"))
+		type = LWSDLOSS_TYPE_PNG;
+	else
+		if (!strcmp(i->url + ul - 4, ".jpg") ||
+		    !strcmp(i->url + ul - 5, ".jpeg"))
+			type = LWSDLOSS_TYPE_JPEG;
+		else
+			if (!strcmp(i->url + ul - 4, ".css"))
+				type = LWSDLOSS_TYPE_CSS;
+			else {
+				lwsl_err("%s: unknown file type %s\n", __func__, i->url);
+				return 1;
+			}
+
+	switch (type) {
+	case LWSDLOSS_TYPE_PNG:
+		dlo_png = lws_display_dlo_png_new(i->dl, i->dlo_parent, i->box);
+		if (!dlo_png)
+			return 1;
+
+		i->u->u.dlo_png = dlo_png;
+
+		dlo_png->dlo.box.w.whole = (int32_t)
+			lws_upng_get_width(dlo_png->png);
+		dlo_png->dlo.box.w.frac = 0;
+		dlo_png->dlo.box.h.whole = (int32_t)
+			lws_upng_get_height(dlo_png->png);
+		dlo_png->dlo.box.h.frac = 0;
+
+		dlo = &dlo_png->dlo;
+		break;
+
+	case LWSDLOSS_TYPE_JPEG:
+		dlo_jpeg = lws_display_dlo_jpeg_new(i->dl, i->dlo_parent, i->box);
+		if (!dlo_jpeg)
+			return 1;
+
+		i->u->u.dlo_jpeg = dlo_jpeg;
+
+		dlo_jpeg->dlo.box.w.whole = (int32_t)
+			lws_jpeg_get_width(dlo_jpeg->j);
+		dlo_jpeg->dlo.box.w.frac = 0;
+		dlo_jpeg->dlo.box.h.whole = (int32_t)
+			lws_jpeg_get_height(dlo_jpeg->j);
+		dlo_jpeg->dlo.box.h.frac = 0;
+
+		dlo = &dlo_jpeg->dlo;
+		break;
 	}
 
-	/*
-	 * The fetch may send no more than the window ahead of what we
-	 * consumed.  A png or jpeg is only consumed as far as its header
-	 * until the raster reaches it, so at first it may only send that
-	 * much (LWS_DLO_IMAGE_HEAD_CREDIT): the rest of the window is given
-	 * as the raster's decoder takes the payload (lws_flow_req())
-	 */
+	/* we adapt the initial tx credit also to the requested window */
 
 	ssi = ssi_dloss_t;
 	ssi.manual_initial_tx_credit = i->window;
-	if ((type == LWSDLOSS_TYPE_PNG || type == LWSDLOSS_TYPE_JPEG) &&
-	    i->window > LWS_DLO_IMAGE_HEAD_CREDIT)
-		ssi.manual_initial_tx_credit = LWS_DLO_IMAGE_HEAD_CREDIT;
 
 	if (lws_ss_create(i->cx, 0, &ssi, (void *)dlo, &h, NULL, NULL)) {
 		lwsl_notice("%s: unable to create ss\n", __func__);
@@ -1507,870 +295,58 @@ dloss_start(const lws_dlo_ss_create_info_t *i, const char *url, uint8_t type,
 	}
 
 	dloss = (dloss_t *)lws_ss_to_user_object(h);
-	dloss->cx = i->cx;
 	dloss->u.type = (lws_dlo_image_type_t)type;
 	dloss->on_rx = i->on_rx;
 	dloss->ssevsul = i->on_rx_sul;
 	dloss->lhp = i->lhp;
 	dloss->type = type;
 
-	lws_strncpy(dloss->url, url, sizeof(dloss->url));
-
-	/*
-	 * How many chars of the url are its scheme://host[:port], for the
-	 * per-server fetch ceiling.  file:///... has an empty host and is
-	 * exempt.  It's measured on our copy, since hl is used to compare
-	 * against other assets' copies, and must fit in the uint8_t
-	 */
-
-	dloss->hl = 0;
-	q = strchr(dloss->url, '/');
-	if (q && q > dloss->url && q[-1] == ':' && q[1] == '/') {
-		const char *he = strchr(q + 2, '/');
-		size_t hl;
-
-		if (!he)
-			he = dloss->url + strlen(dloss->url);
-
-		hl = lws_ptr_diff_size_t(he, dloss->url);
-		if (he > q + 2 && hl <= 0xff)
-			dloss->hl = (uint8_t)hl;
-	}
+	lws_strncpy(dloss->url, i->url, sizeof(dloss->url));
 
 	switch (type) {
 	case LWSDLOSS_TYPE_PNG:
-		dloss->u.u.dlo_png = lws_container_of(dlo, lws_dlo_png_t, dlo);
-		flow = &dloss->u.u.dlo_png->flow;
+		dloss->u.u.dlo_png = dlo_png;
+		dlo_png->flow.h = h;
+		dlo_png->flow.window = i->window;
 		break;
 	case LWSDLOSS_TYPE_JPEG:
-		dloss->u.u.dlo_jpeg = lws_container_of(dlo, lws_dlo_jpeg_t, dlo);
-		flow = &dloss->u.u.dlo_jpeg->flow;
-		break;
-#if defined(LWS_WITH_SVG)
-	case LWSDLOSS_TYPE_SVG:
-		dloss->u.u.dlo_svg = lws_container_of(dlo, lws_dlo_svg_t, dlo);
-		flow = &dloss->u.u.dlo_svg->flow;
-		break;
-#endif
-#if defined(LWS_WITH_GIF)
-	case LWSDLOSS_TYPE_GIF:
-		dloss->u.u.dlo_gif = lws_container_of(dlo, lws_dlo_gif_t, dlo);
-		flow = &dloss->u.u.dlo_gif->flow;
-		break;
-#endif
-	case LWSDLOSS_TYPE_CSS:
-		flow = &dloss->css_flow;
+		dloss->u.u.dlo_jpeg = dlo_jpeg;
+		dlo_jpeg->flow.h = h;
+		dlo_jpeg->flow.window = i->window;
 		break;
 	}
 
-	if (flow) {
-		flow->h = h;
-		flow->window = i->window;
-	}
-
-	if (lws_ss_alloc_set_metadata(h, "endpoint", url, strlen(url))) {
+	if (lws_ss_alloc_set_metadata(h, "endpoint", i->url, ul)) {
 		lwsl_err("%s: unable to set endpoint\n", __func__);
 		goto fail;
 	}
 
-#if defined(LWS_WITH_DLO_ASSET_CACHE)
-	/*
-	 * If the cache has a still-valid copy of this asset, there is no need
-	 * for the network at all.  Images are fed to the dlo the same way a
-	 * fetch that delivered everything would have, completing the asset
-	 * out of the cache; the ss handle was never connected, but it stays
-	 * on the active list like a completed fetch until its dlo goes away,
-	 * for url dedup.  Stylesheets are pushed through the css rx path
-	 * with EOM, so the parse and the await machinery behave exactly as
-	 * they do for a fetched stylesheet, and the handle is destroyed
-	 * when that completes.
-	 */
-
-	if (dloss->hl && i->cx->dlo_asset_l1) {
-		const void *data;
-		size_t size;
-
-		if (!lws_cache_item_get(i->cx->dlo_asset_l1, url, &data, &size)) {
-
-			dloss->no_cache = 1;
-
-			if (type == LWSDLOSS_TYPE_CSS) {
-				/* the payload is only valid until we return
-				 * to the event loop: take a copy */
-
-				dloss->cache_hit = lws_malloc(size, __func__);
-				if (!dloss->cache_hit)
-					goto fail;
-				memcpy(dloss->cache_hit, data, size);
-				dloss->cache_hit_len = size;
-
-				lws_dll2_add_tail(&dloss->active_asset_list,
-						  &i->cx->active_assets);
-
-				lws_sul_schedule(i->cx, 0, &dloss->sul,
-						 dloss_css_cache_feed_cb, 1);
-
-				lwsl_cx_notice(i->cx,
-					       "asset cache hit (css): %s "
-					       "(%u bytes)",
-					       url, (unsigned int)size);
-
-				return 0;
-			}
-
-			lws_dll2_add_tail(&dloss->active_asset_list,
-					  &i->cx->active_assets);
-
-			if (dloss_cache_feed(dloss, data, size)) {
-				lwsl_cx_warn(i->cx, "cache payload unusable: %s",
-					     url);
-				lws_dll2_remove(&dloss->active_asset_list);
-				goto fail;
-			}
-
-			lwsl_cx_notice(i->cx, "asset cache hit: %s (%u bytes)",
-				       url, (unsigned int)size);
-
-			return 0;
-		}
+	if (lws_ss_client_connect(dloss->ss)) {
+		lwsl_err("%s: unable to do client connection\n", __func__);
+		goto fail;
 	}
-#endif
-
-	/*
-	 * Start it now if there's an in-flight slot.  Without a slot, the ss
-	 * exists but stays unconnected until one frees up; no fd is used
-	 * while it waits
-	 */
-
-	if (dlo_asset_inflight_count(i->cx) >=
-					(int)dlo_asset_inflight_max(i->cx) ||
-	    dlo_asset_host_inflight(i->cx, dloss) >=
-						LWS_DLO_MAX_CONCURRENT_PER_HOST) {
-		lws_dll2_add_tail(&dloss->active_asset_list,
-				  &i->cx->pending_assets);
-		lwsl_notice("%s: queued %s (dlo %p)\n", __func__, url, dlo);
-		/* a different queued asset may be startable past us */
-		dlo_assets_kick(i->cx);
-
-		return 0;
-	}
-
-	/*
-	 * Mark it in-flight before connecting: a file asset can complete
-	 * inside lws_ss_client_connect() and release its slot again before
-	 * control comes back here
-	 */
 
 	lws_dll2_add_tail(&dloss->active_asset_list, &i->cx->active_assets);
-	dloss->inflight = 1;
-	lwsl_notice("%s: starting %s (dlo %p)\n", __func__, url, dlo);
 
-	if (type == LWSDLOSS_TYPE_CSS) {
-		/* see dloss_css_connect_cb() */
-		lws_sul_schedule(i->cx, 0, &dloss->sul, dloss_css_connect_cb, 1);
-
-		return 0;
-	}
-
-	if (!lws_ss_client_connect(dloss->ss))
-		return 0;
-
-	lws_dll2_remove(&dloss->active_asset_list);
-	lwsl_err("%s: unable to do client conn '%s'\n", __func__, url);
-	ret = -1;
-
-fail:
-	/*
-	 * The dlo destroys its asset ss from its flow.h backref: the ss is
-	 * going first, so the backref must not outlive it
-	 */
-	if (flow)
-		flow->h = NULL;
-	lws_ss_destroy(&h);
-
-	return ret;
-}
-
-/* where an image dlo of this type keeps how to fetch it again */
-
-static lws_dlo_refetch_t *
-dlo_refetch(lws_dlo_t *dlo, uint8_t type)
-{
-	switch (type) {
-	case LWSDLOSS_TYPE_PNG:
-		return &lws_container_of(dlo, lws_dlo_png_t, dlo)->rf;
-	case LWSDLOSS_TYPE_JPEG:
-		return &lws_container_of(dlo, lws_dlo_jpeg_t, dlo)->rf;
-#if defined(LWS_WITH_SVG)
-	case LWSDLOSS_TYPE_SVG:
-		return &lws_container_of(dlo, lws_dlo_svg_t, dlo)->rf;
-#endif
-	default:
-		return NULL;
-	}
-}
-
-static int
-dloss_refetch_set(lws_dlo_refetch_t *rf, const lws_dlo_ss_create_info_t *i,
-		  const char *url)
-{
-	size_t l = strlen(url) + 1;
-
-	if (!rf)
-		return 1;
-
-	rf->url = lws_malloc(l, __func__);
-	if (!rf->url)
-		return 1;
-
-	memcpy(rf->url, url, l);
-	rf->cx		= i->cx;
-	rf->on_rx	= i->on_rx;
-	rf->on_rx_sul	= i->on_rx_sul;
-
-	return 0;
-}
-
-int
-lws_dlo_ss_create(lws_dlo_ss_create_info_t *i, lws_dlo_t **pdlo)
-{
-#if defined(LWS_WITH_SECURE_STREAMS)
-	lws_dlo_jpeg_t *dlo_jpeg = NULL;
-	lws_dlo_png_t *dlo_png = NULL;
-#if defined(LWS_WITH_SVG)
-	lws_dlo_svg_t *dlo_svg = NULL;
-#endif
-#if defined(LWS_WITH_GIF)
-	lws_dlo_gif_t *dlo_gif = NULL;
-#endif
-	char rebased_url[LHP_URL_LEN];
-	size_t ul = strlen(i->url), el;
-	lws_dlo_t *dlo = NULL;
-	const char *p, *q;
-	uint8_t type;
-
-	lwsl_notice("%s: entry\n", __func__);
-
-	if (ul < 5)
-		return 1;
-
-	if (!i->cx || !i->lhp) {
-		/*
-		 * The dlo we create stores i->lhp and dereferences it from its
-		 * rx callback and to rebase the url below... there is nothing
-		 * useful we can do without it
-		 */
-		lwsl_warn("%s: no cx or lhp\n", __func__);
-		return 1;
-	}
-
-#if defined(LWS_WITH_FOOTPRINT)
-	/* the context's assets take part from the first, until it goes */
-	if (lws_dll2_is_detached(&i->cx->fp_dlo_assets.list))
-		lws_footprint_register(i->cx, &i->cx->fp_dlo_assets,
-				       "dlo assets", &dloss_fp_ops);
-#endif
-
-	p = (char *)strchr(i->url, '?');
-	if (!p)
-		p = i->url + ul;
-
-	/* how many chars of url there are before any '?' */
-	el = lws_ptr_diff_size_t(p, i->url);
-
-	if (el >= 4 && !strncmp(p - 4, ".png", 4))
-		type = LWSDLOSS_TYPE_PNG;
-	else
-		if ((el >= 4 && !strncmp(p - 4, ".jpg", 4)) ||
-		    (el >= 5 && !strncmp(p - 5, ".jpeg", 5)))
-			type = LWSDLOSS_TYPE_JPEG;
-		else
-#if defined(LWS_WITH_SVG)
-			if (el >= 4 && !strncmp(p - 4, ".svg", 4))
-				type = LWSDLOSS_TYPE_SVG;
-			else
-#endif
-#if defined(LWS_WITH_GIF)
-				if (el >= 4 && !strncmp(p - 4, ".gif", 4))
-					type = LWSDLOSS_TYPE_GIF;
-				else
-#endif
-					if (el >= 4 && !strncmp(p - 4, ".css", 4))
-					type = LWSDLOSS_TYPE_CSS;
-				else {
-					lwsl_warn("%s: unknown file type %s\n", __func__, i->url);
-					return 1;
-				}
-
-	/*
-	 * Only a stylesheet <link> can consume css... if the document asked for
-	 * a stylesheet as an image, or as a background-image of any element,
-	 * there is no dlo we can hand back, and our success return would leave
-	 * the caller with a NULL one.  Worse, nothing would be awaiting the
-	 * stylesheet, whose bytes would still be parsed into the document's
-	 * parse context in whatever state the html had it
-	 */
-
-	if (type == LWSDLOSS_TYPE_CSS && (i->lhp->npos != 4 ||
-	    strncasecmp(i->lhp->buf, "link", 4))) {
-		lwsl_warn("%s: css asset not for a <link>\n", __func__);
-		return 1;
-	}
-
-	if (lws_http_rel_to_url(rebased_url, sizeof(rebased_url), i->lhp->base_url, i->url)) {
-		lwsl_warn("%s: failed to rebase url\n", __func__);
-		return 1;
-	}
-
-	lwsl_notice("%s: rebased_url -> %s\n", __func__, rebased_url);
-
-	q = p;
-	while (q > i->url && q[-1] != '/')
-		q--;
-
-	/*
-	 * The caller asks *u for the image's dimensions, which the accessors
-	 * get from the decoder of this type: left at 0 (jpeg), every image
-	 * was asked as if it was a jpeg
-	 */
-	i->u->type = (lws_dlo_image_type_t)type;
-
-	switch (type) {
-	case LWSDLOSS_TYPE_PNG:
-		dlo_png = lws_display_dlo_png_new(i->dl, i->dlo_parent, i->box, q, lws_ptr_diff_size_t(p, q));
-		if (!dlo_png)
-			return 1;
-
-		i->u->u.dlo_png = dlo_png;
-
-		/*
-		 * Fill any side the css left unset (auto) from the
-		 * intrinsic size... at create time the metadata may not
-		 * have arrived yet, in which case the dimensions callback
-		 * completes it later
-		 */
-		if (lws_upng_get_width(dlo_png->png) && !dlo_png->dlo.box.w.whole) {
-			dlo_png->dlo.box.w.whole = (int32_t)lws_upng_get_width(dlo_png->png);
-			dlo_png->dlo.box.w.frac = 0;
-		}
-		if (lws_upng_get_height(dlo_png->png) && !dlo_png->dlo.box.h.whole) {
-			dlo_png->dlo.box.h.whole = (int32_t)lws_upng_get_height(dlo_png->png);
-			dlo_png->dlo.box.h.frac = 0;
-		}
-
-		dlo = &dlo_png->dlo;
-		break;
-
-	case LWSDLOSS_TYPE_JPEG:
-		dlo_jpeg = lws_display_dlo_jpeg_new(i->dl, i->dlo_parent, i->box, q, lws_ptr_diff_size_t(p, q));
-		if (!dlo_jpeg)
-			return 1;
-
-		i->u->u.dlo_jpeg = dlo_jpeg;
-
-		/*
-		 * Fill any side the css left unset (auto) from the
-		 * intrinsic size... at create time the metadata may not
-		 * have arrived yet, in which case the dimensions callback
-		 * completes it later
-		 */
-		if (lws_jpeg_get_width(dlo_jpeg->j) && !dlo_jpeg->dlo.box.w.whole) {
-			dlo_jpeg->dlo.box.w.whole = (int32_t)lws_jpeg_get_width(dlo_jpeg->j);
-			dlo_jpeg->dlo.box.w.frac = 0;
-		}
-		if (lws_jpeg_get_height(dlo_jpeg->j) && !dlo_jpeg->dlo.box.h.whole) {
-			dlo_jpeg->dlo.box.h.whole = (int32_t)lws_jpeg_get_height(dlo_jpeg->j);
-			dlo_jpeg->dlo.box.h.frac = 0;
-		}
-
-		dlo = &dlo_jpeg->dlo;
-		break;
-
-#if defined(LWS_WITH_SVG)
-	case LWSDLOSS_TYPE_SVG:
-		dlo_svg = lws_display_dlo_svg_new(i->dl, i->dlo_parent, i->box, q, lws_ptr_diff_size_t(p, q));
-		if (!dlo_svg)
-			return 1;
-
-		i->u->u.dlo_svg = dlo_svg;
-
-		/*
-		 * There is no scene object until its payload arrives, and so
-		 * no intrinsic size yet either
-		 */
-
-		dlo_svg->flow.window = i->window;
-		dlo_svg->local = !strncmp(rebased_url, "file://", 7);
-
-		dlo = &dlo_svg->dlo;
-		break;
-#endif
-
-#if defined(LWS_WITH_GIF)
-	case LWSDLOSS_TYPE_GIF:
-		dlo_gif = lws_display_dlo_gif_new(i->dl, i->dlo_parent, i->box, q, lws_ptr_diff_size_t(p, q));
-		if (!dlo_gif)
-			return 1;
-
-		i->u->u.dlo_gif = dlo_gif;
-
-		dlo_gif->dlo.box.w.whole = (int32_t)
-			lws_gif_get_width(dlo_gif->gif);
-		dlo_gif->dlo.box.w.frac = 0;
-		dlo_gif->dlo.box.h.whole = (int32_t)
-			lws_gif_get_height(dlo_gif->gif);
-		dlo_gif->dlo.box.h.frac = 0;
-
-		dlo = &dlo_gif->dlo;
-		break;
-#endif
-	}
-
-	/*
-	 * An image keeps how to fetch it, for whenever it is next needed: it
-	 * is only held while the raster is on it
-	 */
-
-	if ((type == LWSDLOSS_TYPE_PNG || type == LWSDLOSS_TYPE_JPEG ||
-	     type == LWSDLOSS_TYPE_SVG) &&
-	    dloss_refetch_set(dlo_refetch(dlo, type), i, rebased_url)) {
-		lws_display_dlo_destroy(&dlo);
-		goto bail;
-	}
-
-#if defined(LWS_WITH_SVG)
-	/*
-	 * A local svg whose size the document gave has nothing to offer the
-	 * layout: it isn't fetched until the raster reaches a line of it that
-	 * shows (see lws_display_render_svg()), so a page of icons doesn't hold
-	 * all of them, unused, from the layout until the render
-	 */
-
-	if (dlo_svg && dlo_svg->local && dlo->box.w.whole > 0 &&
-	    dlo->box.h.whole > 0) {
-		lwsl_info("%s: %s: fetched when rendered\n", __func__,
-			  rebased_url);
-		*pdlo = dlo;
-
-		return 0;
-	}
-#endif
-
-	if (dloss_start(i, rebased_url, type, dlo)) {
-		lws_display_dlo_destroy(&dlo);
-		goto bail;
-	}
+	lwsl_notice("%s: starting %s (dlo %p)\n", __func__, i->url, dlo);
 
 	*pdlo = dlo;
 
 	return 0;
 
-bail:
-	/* the caller must not find the dlo that was going to be */
-	memset(i->u, 0, sizeof(*i->u));
-#endif
+fail:
+	lws_ss_destroy(&h);
 
-	return 1;
-}
-
-#if defined(LWS_WITH_DLO_ASSET_CACHE)
-/*
- * Drop a flow's stashed payload and forget where the decoder had got to
- * in it.  The cursor (data / len / blseglen) refers to the segment being
- * consumed: left as it was, lws_flow_feed() would either hand the new
- * decoder a pointer into the freed segment, or use up that many bytes of
- * the replacement payload before it saw any of it
- */
-
-static void
-dloss_flow_restart(lws_flow_t *flow)
-{
-	lws_buflist_destroy_all_segments(&flow->bl);
-	flow->data = NULL;
-	flow->len = 0;
-	flow->blseglen = 0;
-}
-
-/*
- * Re-stash one tracked image's payload from the asset cache and give it a
- * fresh decoder, so its next render decodes from the top
- */
-
-static int
-dloss_renew(dloss_t *ds, const void *data, size_t size)
-{
-	switch (ds->type) {
-	case LWSDLOSS_TYPE_JPEG:
-		dloss_flow_restart(&ds->u.u.dlo_jpeg->flow);
-		if (lws_buflist_append_segment(&ds->u.u.dlo_jpeg->flow.bl,
-					       data, size) < 0)
-			return 1;
-
-		/*
-		 * A fresh decoder starts with no dimensions, which the
-		 * renderers treat as an empty image: parse the header so it
-		 * is usable, and zero the row counter the renderer
-		 * fast-forwards with
-		 */
-
-		lws_jpeg_free(&ds->u.u.dlo_jpeg->j);
-		ds->u.u.dlo_jpeg->j = lws_jpeg_new();
-		if (!ds->u.u.dlo_jpeg->j)
-			return 1;
-		ds->u.u.dlo_jpeg->emitted = 0;
-		ds->u.u.dlo_jpeg->failed = 0;
-		ds->u.u.dlo_jpeg->flow.state = LWSDLOFLOW_STATE_READ_COMPLETED;
-		lws_flow_feed(&ds->u.u.dlo_jpeg->flow);
-		lws_display_dlo_jpeg_metadata_scan(ds->u.u.dlo_jpeg);
-		ds->u.u.dlo_jpeg->rc.resident = size + (16 * 1024);
-		return 0;
-
+	switch (type) {
 	case LWSDLOSS_TYPE_PNG:
-		dloss_flow_restart(&ds->u.u.dlo_png->flow);
-		if (lws_buflist_append_segment(&ds->u.u.dlo_png->flow.bl,
-					       data, size) < 0)
-			return 1;
-
-		lws_upng_free(&ds->u.u.dlo_png->png);
-		ds->u.u.dlo_png->png = lws_upng_new();
-		if (!ds->u.u.dlo_png->png)
-			return 1;
-		ds->u.u.dlo_png->emitted = 0;
-		ds->u.u.dlo_png->failed = 0;
-		ds->u.u.dlo_png->flow.state = LWSDLOFLOW_STATE_READ_COMPLETED;
-		lws_flow_feed(&ds->u.u.dlo_png->flow);
-		lws_display_dlo_png_metadata_scan(ds->u.u.dlo_png);
-		ds->u.u.dlo_png->rc.resident = size + (32 * 1024);
-		return 0;
-
-#if defined(LWS_WITH_GIF)
-	case LWSDLOSS_TYPE_GIF:
-		/* the retained payload was freed at frame end: take it back
-		 * from the cache and retarget to the top */
-
-		ds->u.u.dlo_gif->pos = 0;
-		ds->u.u.dlo_gif->whole_done = 0;
-		lws_display_dlo_gif_rx(ds->u.u.dlo_gif, data, size);
-		return 0;
-#endif
-
-	default:
-		return 1;
+		lws_display_dlo_png_destroy(&dlo_png->dlo);
+		break;
+	case LWSDLOSS_TYPE_JPEG:
+		lws_display_dlo_jpeg_destroy(&dlo_jpeg->dlo);
+		break;
 	}
-}
-
-#endif /* LWS_WITH_DLO_ASSET_CACHE */
-
-/*
- * One image, evicted to make room, is about to be rendered: its payload
- * back from the asset cache and a fresh decoder.  Without the asset cache
- * there is nowhere to renew from (and nothing is ever evicted), so the
- * public entry points exist for every build but can only say so.
- */
-
-LWS_VISIBLE int
-lws_dlo_ss_renew_image(struct lws_context *cx, lws_dlo_t *dlo)
-{
-#if defined(LWS_WITH_DLO_ASSET_CACHE)
-	if (!cx->dlo_asset_l1)
-		return 1;
-
-	lws_start_foreach_dll(struct lws_dll2 *, d,
-			      lws_dll2_get_head(&cx->active_assets)) {
-		dloss_t *ds = lws_container_of(d, dloss_t, active_asset_list);
-		const void *data;
-		size_t size;
-
-		if (!ds->u.u.dlo_png || &ds->u.u.dlo_png->dlo != dlo)
-			continue;
-
-		if (lws_cache_item_get(cx->dlo_asset_l1, ds->url, &data,
-				       &size))
-			return 1; /* it's gone from the cache too */
-
-		return dloss_renew(ds, data, size);
-	} lws_end_foreach_dll(d);
-#else
-	(void)cx;
-	(void)dlo;
 #endif
-
 	return 1;
 }
-
-
-/*
- * Renew the tracked images from the asset cache: a retained display list
- * can be re-scanned at a different vertical offset, but image decode
- * state only moves forwards.  Re-stashing the cached payload and giving
- * the dlo a fresh decoder lets the next scan decode the rows the viewport
- * wants, from the top, without any relayout.
- */
-
-LWS_VISIBLE void
-lws_dlo_ss_renew_images(struct lws_context *cx)
-{
-#if defined(LWS_WITH_DLO_ASSET_CACHE)
-	if (!cx->dlo_asset_l1)
-		return;
-
-	lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1,
-				   lws_dll2_get_head(&cx->active_assets)) {
-		dloss_t *ds = lws_container_of(d, dloss_t, active_asset_list);
-		const void *data;
-		size_t size;
-
-		if (!ds->u.u.dlo_png || !ds->hl)
-			continue;
-
-		if (lws_cache_item_get(cx->dlo_asset_l1, ds->url, &data, &size))
-			/* not in the cache: it will render as far as its
-			 * decode state allows */
-			continue;
-
-		if (dloss_renew(ds, data, size))
-			continue;
-	} lws_end_foreach_dll_safe(d, d1);
-#else
-	(void)cx;
-#endif
-}
-
-/*
- * The raster wants an image that isn't here: one never fetched, or given back
- * since it was last rendered.  Fetch it again for the render, which is woken
- * as its payload arrives; the document it came from may be long gone.
- *
- * Returns as dloss_start().
- */
-
-int
-lws_dlo_ss_refetch(lws_dlo_t *dlo, const lws_dlo_refetch_t *rf,
-		   int32_t window, uint8_t type)
-{
-	lws_dlo_ss_create_info_t i;
-
-	if (!rf->url || !rf->cx)
-		return -1;
-
-	/* fetched again, it's found among the active assets again */
-	if (type == LWSDLOSS_TYPE_PNG || type == LWSDLOSS_TYPE_JPEG)
-		lws_dll2_remove(&dlo_refetch(dlo, type)->released);
-
-	memset(&i, 0, sizeof(i));
-	i.cx		= rf->cx;
-	i.on_rx		= rf->on_rx;
-	i.on_rx_sul	= rf->on_rx_sul;
-	i.window	= window;
-
-	return dloss_start(&i, rf->url, type, dlo);
-}
-
-#if defined(LWS_WITH_SVG)
-
-/*
- * Is this a local svg that the layout no longer needs?  It has its size, so
- * all it holds until the raster reaches it is a stream, payload and a
- * part-parsed scene
- */
-
-static int
-dloss_svg_releasable(const dloss_t *ds)
-{
-	const lws_dlo_svg_t *dlo_svg = ds->u.u.dlo_svg;
-
-	return ds->type == LWSDLOSS_TYPE_SVG && dlo_svg && dlo_svg->local &&
-	       dlo_svg->rf.url && !ds->u.failed &&
-	       dlo_svg->dlo.box.w.whole > 0 && dlo_svg->dlo.box.h.whole > 0;
-}
-
-static dloss_t *
-dloss_svg_give_back_next(struct lws_context *cx)
-{
-	lws_start_foreach_dll(struct lws_dll2 *, d,
-			      lws_dll2_get_head(&cx->active_assets)) {
-		dloss_t *ds = lws_container_of(d, dloss_t, active_asset_list);
-
-		if (ds->give_back)
-			return ds;
-	} lws_end_foreach_dll(d);
-
-	return NULL;
-}
 #endif
 
-void
-lws_dlo_ss_detach_lhp(struct lws_context *cx, lhp_ctx_t *lhp)
-{
-#if defined(LWS_WITH_SECURE_STREAMS)
-	lws_dll2_owner_t *owners[2] = { &cx->active_assets,
-					&cx->pending_assets };
-	int n;
-
-	for (n = 0; n < 2; n++)
-		lws_start_foreach_dll(struct lws_dll2 *, d,
-				      lws_dll2_get_head(owners[n])) {
-			dloss_t *ds = lws_container_of(d, dloss_t,
-						       active_asset_list);
-
-			if (ds->lhp != lhp)
-				continue;
-
-			/*
-			 * Only the parser goes: an asset may still be
-			 * streaming its pixel data for a document that has
-			 * completed, and ssevsul / on_rx are the render's,
-			 * not the parser's.  The render state outlives the
-			 * document stream, and that wake is how arriving
-			 * data moves the raster on.
-			 */
-			ds->lhp = NULL;
-
-#if defined(LWS_WITH_SVG)
-			/*
-			 * A local svg the document had to fetch for its size
-			 * is given back until the raster reaches it... but
-			 * only once no asset refers to the document any more
-			 */
-			if (n == 0 && dloss_svg_releasable(ds))
-				ds->give_back = 1;
-#endif
-		} lws_end_foreach_dll(d);
-
-#if defined(LWS_WITH_SVG)
-	{
-		dloss_t *ds;
-
-		/*
-		 * Releasing one destroys its stream, whose DESTROYING changes
-		 * the lists (it kicks the queue, which may start, or even
-		 * complete, another asset), so look again from the start
-		 * each time.  It is off the list before that, so each is only
-		 * found once.
-		 */
-
-		while ((ds = dloss_svg_give_back_next(cx))) {
-			ds->give_back = 0;
-			lws_dll2_remove(&ds->active_asset_list);
-			lws_display_dlo_svg_release(ds->u.u.dlo_svg);
-		}
-	}
-#endif
-#endif
-}
-
-/*
- * Destroy the tracked assets that wake sul, or all of them if sul is NULL
- */
-
-static void
-dloss_stop(struct lws_context *cx, const lws_sorted_usec_list_t *sul)
-{
-#if defined(LWS_WITH_SECURE_STREAMS)
-	/*
-	 * Detach the queued assets we are stopping before destroying any of
-	 * them... destroying an active asset kicks the queue, which would
-	 * connect queued assets straight back as we are trying to tear them
-	 * down.  Queued assets of other documents stay queued.
-	 */
-	{
-		lws_dll2_owner_t parked;
-
-		memset(&parked, 0, sizeof(parked));
-
-		lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1,
-				lws_dll2_get_head(&cx->pending_assets)) {
-			dloss_t *ds = lws_container_of(d, dloss_t,
-						       active_asset_list);
-
-			if (!sul || ds->ssevsul == sul) {
-				lws_dll2_remove(d);
-				lws_dll2_add_tail(d, &parked);
-			}
-		} lws_end_foreach_dll_safe(d, d1);
-
-		lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1,
-					   lws_dll2_get_head(&parked)) {
-			dloss_t *ds = lws_container_of(d, dloss_t,
-						       active_asset_list);
-			struct lws_ss_handle *h = ds->ss;
-
-			lws_dll2_remove(&ds->active_asset_list);
-
-			/*
-			 * The dlo destroy paths destroy the asset ss from
-			 * the dlo's flow.h backref: clear it, or they
-			 * destroy freed handles when the display list goes
-			 */
-			if (ds->u.u.dlo_jpeg)
-				ds->u.u.dlo_jpeg->flow.h = NULL;
-
-			/*
-			 * lws_ss_destroy() clears the pointer it is given
-			 * before the DESTROYING callbacks run: destroy a
-			 * copy so the user object's own ss backref stays
-			 * coherent for them
-			 */
-
-			lws_ss_destroy(&h);
-
-		} lws_end_foreach_dll_safe(d, d1);
-	}
-
-	/*
-	 * Destroying one kicks the queue, which may start another asset,
-	 * adding it to the active list: look again from the start each time,
-	 * each one we stop is off the list before it's destroyed
-	 */
-
-	do {
-		dloss_t *ds = NULL;
-		struct lws_ss_handle *h;
-
-		lws_start_foreach_dll(struct lws_dll2 *, d,
-				      lws_dll2_get_head(&cx->active_assets)) {
-			dloss_t *a = lws_container_of(d, dloss_t,
-						      active_asset_list);
-
-			if (!sul || a->ssevsul == sul) {
-				ds = a;
-				break;
-			}
-		} lws_end_foreach_dll(d);
-
-		if (!ds)
-			break;
-
-		h = ds->ss;
-		lws_dll2_remove(&ds->active_asset_list);
-
-		if (ds->u.u.dlo_jpeg)
-			ds->u.u.dlo_jpeg->flow.h = NULL;
-
-		/* as above: destroy a copy, keep the user object's ss
-		 * backref coherent through the DESTROYING callbacks */
-
-		lws_ss_destroy(&h);
-	} while (1);
-#else
-	(void)cx;
-	(void)sul;
-#endif
-}
-
-int
-lws_dlo_ss_stop_any_active(struct lws_context *cx)
-{
-	dloss_stop(cx, NULL);
-
-	return 0;
-}
-
-void
-lws_dlo_ss_stop_rs(struct lws_context *cx,
-		   struct lws_display_render_state *rs)
-{
-	dloss_stop(cx, &rs->sul);
-}
-
-#endif /* LWS_WITH_LHP */

@@ -25,6 +25,7 @@
 #if !defined(_GNU_SOURCE)
 #define _GNU_SOURCE
 #endif
+#include <pthread.h>
 
 #include <libwebsockets.h>
 #include "private-lib-core.h"
@@ -50,29 +51,18 @@
 #endif
 #endif
 
-/*
- * LWS_DISKCACHE_NAME_MAX: names that don't fit are skipped rather than silently
- * truncated, since a truncated name would either fail to unlink (leaving the
- * trim unable to bring the cache back under its limit, and so rescanning
- * flat-out forever) or unlink some other file.
- *
- * LWS_DISKCACHE_DIR_MAX: create() and prepare() refuse a base that does not
- * fit, so the paths composed from it later cannot be truncated, which would
- * open, create or unlink some other file, or walk some other dir.
- */
-
 struct file_entry {
-	lws_dll2_t	sorted;		/* on lds->batch_sorted, newest first */
-	char name[LWS_DISKCACHE_NAME_MAX];
+	lws_list_ptr sorted;
+	lws_list_ptr prev;
+	char name[64];
 	time_t modified;
 	size_t size;
-	uint8_t subdir;			/* which of the 256 subdirs it was in */
 };
 
 struct lws_diskcache_scan {
 	struct file_entry *batch;
 	const char *cache_dir_base;
-	lws_dll2_owner_t batch_sorted; /* the BATCH_COUNT oldest-seen files, newest first */
+	lws_list_ptr head;
 	time_t last_scan_completed;
 	uint64_t agg_size;
 	uint64_t cache_size_limit;
@@ -88,43 +78,25 @@ struct lws_diskcache_scan {
 #define KIB (1024)
 #define MIB (KIB * KIB)
 
-static const char *hex = "0123456789abcdef";
+#define lp_to_fe(p, _n) lws_list_ptr_container(p, struct file_entry, _n)
 
-/* just for uniquifying temp cache object names within this process */
-static unsigned int tempname_unique;
+static const char *hex = "0123456789abcdef";
 
 #define BATCH_COUNT 128
 
 static int
-fe_modified_sort(const lws_dll2_t *_member, const lws_dll2_t *_new)
+fe_modified_sort(lws_list_ptr a, lws_list_ptr b)
 {
-	const struct file_entry *m = lws_container_of(_member, struct file_entry, sorted);
-	const struct file_entry *n = lws_container_of(_new, struct file_entry, sorted);
+	struct file_entry *p1 = lp_to_fe(a, sorted), *p2 = lp_to_fe(b, sorted);
 
-	return (int)((long)n->modified - (long)m->modified);
-}
-
-static int
-lws_diskcache_base_fits(const char *base)
-{
-	if (strlen(base) + 4 /* "/x/y" */ < LWS_DISKCACHE_DIR_MAX)
-		return 1;
-
-	lwsl_err("%s: cache dir path too long: %s\n", __func__, base);
-
-	return 0;
+	return (int)((long)p2->modified - (long)p1->modified);
 }
 
 struct lws_diskcache_scan *
 lws_diskcache_create(const char *cache_dir_base, uint64_t cache_size_limit)
 {
-	struct lws_diskcache_scan *lds;
+	struct lws_diskcache_scan *lds = lws_malloc(sizeof(*lds), "cachescan");
 
-	/* a NULL base is a disabled cache */
-	if (cache_dir_base && !lws_diskcache_base_fits(cache_dir_base))
-		return NULL;
-
-	lds = lws_malloc(sizeof(*lds), "cachescan");
 	if (!lds)
 		return NULL;
 
@@ -148,11 +120,8 @@ lws_diskcache_destroy(struct lws_diskcache_scan **lds)
 int
 lws_diskcache_prepare(const char *cache_base_dir, int mode, uid_t uid)
 {
-	char dir[LWS_DISKCACHE_DIR_MAX];
+	char dir[256];
 	int n, m;
-
-	if (!lws_diskcache_base_fits(cache_base_dir))
-		return 1;
 
 	(void)mkdir(cache_base_dir, (unsigned short)mode);
 	if (chown(cache_base_dir, uid, (gid_t)-1))
@@ -184,13 +153,11 @@ lws_diskcache_prepare(const char *cache_base_dir, int mode, uid_t uid)
 int
 lws_diskcache_finalize_name(char *cache)
 {
-	char ren[LWS_DISKCACHE_PATH_MAX], *p;
+	char ren[256], *p;
 
-	if (strlen(cache) >= sizeof(ren))
-		return 1;
-
-	lws_strncpy(ren, cache, sizeof(ren));
-	p = (char *)strchr(cache, '~');
+	strncpy(ren, cache, sizeof(ren) - 1);
+	ren[sizeof(ren) - 1] = '\0';
+	p = strchr(cache, '~');
 	if (p) {
 		*p = '\0';
 		if (rename(ren, cache)) {
@@ -211,7 +178,7 @@ lws_diskcache_query(struct lws_diskcache_scan *lds, int is_bot,
 		    size_t *extant_cache_len)
 {
 	struct stat s;
-	int n, m;
+	int n;
 
 	/* caching is disabled? */
 	if (!lds->cache_dir_base)
@@ -220,15 +187,8 @@ lws_diskcache_query(struct lws_diskcache_scan *lds, int is_bot,
 	if (!is_bot)
 		lds->cache_tries++;
 
-	/* lws_snprintf() reports a truncated result as the whole size */
 	n = lws_snprintf(cache, (size_t)cache_len, "%s/%c/%c/%s", lds->cache_dir_base,
 			 hash_hex[0], hash_hex[1], hash_hex);
-	if (n >= cache_len) {
-		lwsl_err("%s: cache path does not fit in %d\n", __func__,
-			 cache_len);
-
-		return LWS_DISKCACHE_QUERY_NO_CACHE;
-	}
 
 	lwsl_info("%s: job cache %s\n", __func__, cache);
 
@@ -259,22 +219,10 @@ lws_diskcache_query(struct lws_diskcache_scan *lds, int is_bot,
 	if (is_bot)
 		return LWS_DISKCACHE_QUERY_NO_CACHE;
 
-	/*
-	 * Let's create it first with a unique temp name... the name is visible
-	 * to anyone who can list the cache dir for as long as the object is
-	 * being generated, and is left behind if generation fails, so it must
-	 * not contain a live pointer (which would disclose the heap / stack
-	 * layout).  pid + a per-process counter is enough to be unique.
-	 */
+	/* let's create it first with a unique temp name */
 
-	m = lws_snprintf(cache + n, (size_t)cache_len - (unsigned int)n, "~%d-%u",
-			 (int)getpid(), ++tempname_unique);
-	if (m >= cache_len - n) {
-		lwsl_err("%s: temp cache path does not fit in %d\n", __func__,
-			 cache_len);
-
-		return LWS_DISKCACHE_QUERY_NO_CACHE;
-	}
+	lws_snprintf(cache + n, (size_t)cache_len - (unsigned int)n, "~%d-%p", (int)getpid(),
+		     extant_cache_len);
 
 	*_fd = open(cache, O_RDWR | O_CREAT | O_TRUNC, 0600);
 	if (*_fd < 0) {
@@ -315,23 +263,21 @@ lws_diskcache_secs_to_idle(struct lws_diskcache_scan *lds)
  * big atomic operation, since the user may want a huge cache, so we look in
  * one cache dir at a time and track state in the repodir struct.
  *
- * When we have seen everything, if we are over the limit, we start deleting
- * up to BATCH_COUNT files working back from the tail of the sorted dll2 list,
- * which is the oldest end.
+ * When we have seen everything, we add the doubly-linked prev pointers and then
+ * if we are over the limit, start deleting up to BATCH_COUNT files working back
+ * from the end.
  */
 
 int
 lws_diskcache_trim(struct lws_diskcache_scan *lds)
 {
 	size_t cache_size_limit = (size_t)lds->cache_size_limit;
-	char dirpath[LWS_DISKCACHE_DIR_MAX],
-	     filepath[LWS_DISKCACHE_DIR_MAX + LWS_DISKCACHE_NAME_MAX];
-#if (_LWS_ENABLED_LOGS & LLL_NOTICE)
+	char dirpath[132], filepath[132 + 32];
+	lws_list_ptr lp, op = NULL;
 	int files_trimmed = 0;
-	size_t trimmed = 0;
-#endif
 	struct file_entry *p;
 	int fd, n, ret = -1;
+	size_t trimmed = 0;
 	struct dirent *de;
 	struct stat s;
 	DIR *dir;
@@ -341,13 +287,15 @@ lws_diskcache_trim(struct lws_diskcache_scan *lds)
 		if (lds->last_scan_completed + lds->secs_waiting > time(NULL))
 			return 0;
 
-		/*
-		 * The batch is only allocated when the scan finds its first
-		 * file, so scanning an empty cache holds no heap
-		 */
+		lds->batch = lws_malloc(sizeof(struct file_entry) *
+				BATCH_COUNT, "cache_trim");
+		if (!lds->batch) {
+			lwsl_err("%s: OOM\n", __func__);
 
+			return 1;
+		}
 		lds->agg_size = 0;
-		lws_dll2_owner_clear(&lds->batch_sorted);
+		lds->head = NULL;
 		lds->batch_in_use = 0;
 		lds->agg_file_count = 0;
 	}
@@ -360,12 +308,6 @@ lws_diskcache_trim(struct lws_diskcache_scan *lds)
 	if (!dir) {
 		lwsl_err("Unable to walk repo dir '%s'\n",
 			 lds->cache_dir_base);
-
-		/* we're giving up on this scan, don't hold the batch */
-
-		lws_free_set_NULL(lds->batch);
-		lds->cache_subdir = 0;
-
 		return -1;
 	}
 
@@ -376,17 +318,6 @@ lws_diskcache_trim(struct lws_diskcache_scan *lds)
 
 		if (de->d_type != DT_REG)
 			continue;
-
-		if (strlen(de->d_name) >= LWS_DISKCACHE_NAME_MAX) {
-			/*
-			 * We could not store this name without truncating it,
-			 * and so could not reliably unlink it later... don't
-			 * account for it either, so the trim can still converge
-			 */
-			lwsl_warn("%s: ignoring overlong name in %s\n",
-				  __func__, dirpath);
-			continue;
-		}
 
 		lds->agg_file_count++;
 
@@ -410,16 +341,12 @@ lws_diskcache_trim(struct lws_diskcache_scan *lds)
 		lds->agg_size += (uint64_t)s.st_size;
 
 		if (lds->batch_in_use == BATCH_COUNT) {
-			struct file_entry *newest = lws_container_of(
-					lws_dll2_get_head(&lds->batch_sorted),
-					struct file_entry, sorted);
-
 			/*
 			 * once we filled up the batch with candidates, we don't
 			 * need to consider any files newer than the newest guy
 			 * on the list...
 			 */
-			if (newest->modified < s.st_mtime)
+			if (lp_to_fe(lds->head, sorted)->modified < s.st_mtime)
 				continue;
 
 			/*
@@ -427,35 +354,20 @@ lws_diskcache_trim(struct lws_diskcache_scan *lds)
 			 * will be replacing the newest guy on the list, so use
 			 * that directly...
 			 */
-			lws_dll2_remove(&newest->sorted);
-			p = newest;
-		} else {
+			p = lds->head;
+			lds->head = p->sorted;
+		} else
 			/* we are still accepting anything to fill the batch */
 
-			if (!lds->batch) {
-				lds->batch = lws_malloc(sizeof(struct file_entry) *
-						BATCH_COUNT, "cache_trim");
-				if (!lds->batch) {
-					lwsl_err("%s: OOM\n", __func__);
-
-					/* give up this scan, start over next time */
-
-					lds->cache_subdir = 0;
-					ret = 1;
-					goto done;
-				}
-			}
-
 			p = &lds->batch[lds->batch_in_use++];
-		}
 
-		lws_dll2_clear(&p->sorted);
-		lws_strncpy(p->name, de->d_name, sizeof(p->name));
-		p->subdir = (uint8_t)lds->cache_subdir;
+		p->sorted = NULL;
+		strncpy(p->name, de->d_name, sizeof(p->name) - 1);
+		p->name[sizeof(p->name) - 1] = '\0';
 		p->modified = s.st_mtime;
 		p->size = (size_t)s.st_size;
 
-		lws_dll2_add_sorted(&p->sorted, &lds->batch_sorted, fe_modified_sort);
+		lws_list_ptr_insert(&lds->head, &p->sorted, fe_modified_sort);
 	} while (de);
 
 	ret = 0;
@@ -471,49 +383,49 @@ lws_diskcache_trim(struct lws_diskcache_scan *lds)
 		cache_size_limit = 256 * 1024 * 1024;
 
 	if (lds->agg_size > cache_size_limit) {
+
+		/* apply prev pointers to make the list doubly-linked */
+
+		lp = lds->head;
+		while (lp) {
+			p = lp_to_fe(lp, sorted);
+
+			p->prev = op;
+			op = &p->prev;
+			lp = p->sorted;
+		}
+
 		/*
-		 * walk the batch from the tail backwards using the dll2
-		 * prev pointers... it's oldest-first now...
+		 * reverse the list (start from tail, now traverse using
+		 * .prev)... it's oldest-first now...
 		 */
 
-		lws_start_foreach_dll_back(lws_dll2_t *, tail,
-					   lws_dll2_get_tail(&lds->batch_sorted)) {
-			if (lds->agg_size <= cache_size_limit)
-				break;
+		lp = op;
 
-			p = lws_container_of(tail, struct file_entry, sorted);
-
-			/*
-			 * Compose from the subdir the entry was actually found
-			 * in... deriving it from p->name[0] / p->name[1] embeds
-			 * a NUL in the path for a 1-char name
-			 */
+		while (lp && lds->agg_size > cache_size_limit) {
+			p = lp_to_fe(lp, prev);
 
 			lws_snprintf(filepath, sizeof(filepath), "%s/%c/%c/%s",
-				     lds->cache_dir_base,
-				     hex[(p->subdir >> 4) & 15],
-				     hex[p->subdir & 15], p->name);
+				     lds->cache_dir_base, p->name[0],
+				     p->name[1], p->name);
 
 			if (!unlink(filepath)) {
 				lds->agg_size -= p->size;
-#if (_LWS_ENABLED_LOGS & LLL_NOTICE)
 				trimmed += p->size;
 				files_trimmed++;
-#endif
 			} else
 				lwsl_notice("%s: Failed to unlink %s\n",
 					    __func__, filepath);
 
-		} lws_end_foreach_dll_back(tail);
+			lp = p->prev;
+		}
 
-#if (_LWS_ENABLED_LOGS & LLL_NOTICE)
 		if (files_trimmed)
 			lwsl_notice("%s: %s: trimmed %d files totalling "
 				    "%lldKib, leaving %lldMiB\n", __func__,
 				    lds->cache_dir_base, files_trimmed,
 				    ((unsigned long long)trimmed) / KIB,
 				    ((unsigned long long)lds->agg_size) / MIB);
-#endif
 	}
 
 	if (lds->agg_size && lds->agg_file_count)
@@ -542,35 +454,21 @@ lws_diskcache_trim(struct lws_diskcache_scan *lds)
 		capacity = avg * BATCH_COUNT;
 
 		/*
-		 * avg is a rounded-down integer and can be 0 (eg, a cache full
-		 * of empty objects), which would make the division below a
-		 * divide-by-zero, ie, SIGFPE
-		 */
-
-		if (!capacity)
-			capacity = 1;
-
-		/*
 		 * if the cache grew by 10%, would we hit the limit even then?
 		 */
 		projected = (lds->agg_size * 11) / 10;
-		if (projected < cache_size_limit) {
+		if (projected < cache_size_limit)
 			/* no... */
-			uint64_t secs = (256 / 2) *
-					((cache_size_limit - projected) /
-					 capacity);
+			lds->secs_waiting  = (int)((256 / 2) * ((cache_size_limit -
+						    projected) / capacity));
 
-			/*
-			 * large waits imply we may not have enough info yet, so
-			 * check once an hour at least.  Clamp before the cast,
-			 * the product can be far larger than INT_MAX.
-			 */
+		/*
+		 * large waits imply we may not have enough info yet, so
+		 * check once an hour at least.
+		 */
 
-			if (secs > 3600)
-				secs = 3600;
-
-			lds->secs_waiting = (int)secs;
-		}
+		if (lds->secs_waiting > 3600)
+			lds->secs_waiting = 3600;
 	} else
 		lds->secs_waiting = 0;
 

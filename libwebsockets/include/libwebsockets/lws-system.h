@@ -42,7 +42,7 @@ typedef enum {
 	LWS_SYSBLOB_TYPE_MQTT_USERNAME,
 	LWS_SYSBLOB_TYPE_MQTT_PASSWORD,
 
-#if defined(LWS_WITH_SECURE_STREAMS_AUTH_SIGV4) || defined(LWS_WITH_JOSE)
+#if defined(LWS_WITH_SECURE_STREAMS_AUTH_SIGV4)
 	/* extend 4 more auth blobs, each has 2 slots */
 	LWS_SYSBLOB_TYPE_EXT_AUTH1,
 	LWS_SYSBLOB_TYPE_EXT_AUTH2 = LWS_SYSBLOB_TYPE_EXT_AUTH1 + 2,
@@ -106,7 +106,6 @@ typedef enum { /* keep system_state_names[] in sync in context.c */
 	LWS_SYSTATE_UNKNOWN,
 
 	LWS_SYSTATE_CONTEXT_CREATED,	 /* context was just created */
-	LWS_SYSTATE_PRE_PRIV_DROP,	 /* just before we drop privs */
 	LWS_SYSTATE_INITIALIZED,	 /* protocols initialized.  Lws itself
 					  * can operate normally */
 	LWS_SYSTATE_COLLECTING_STDIN,	 /* we are waiting for stdin RX and / or
@@ -142,12 +141,6 @@ typedef enum { /* keep system_state_names[] in sync in context.c */
 					  * one-time upgrades to state before
 					  * OPERATIONAL */
 
-	LWS_SYSTATE_DNS,		 /* async dns has acquired at least one
-					  * usable DNS server from the platform,
-					  * or user code pinned one.  With
-					  * LWS_WITH_SYS_ASYNC_DNS, transitions
-					  * hold here until that's true */
-
 	LWS_SYSTATE_OPERATIONAL,	 /* user code can operate normally */
 
 	LWS_SYSTATE_POLICY_INVALID,	 /* user code is changing its policies
@@ -162,24 +155,6 @@ typedef enum { /* keep system_state_names[] in sync in context.c */
 
 /* Captive Portal Detect -related */
 
-typedef struct lws_system_seed {
-	lws_dll2_t list;
-	char hostname[128];
-} lws_system_seed_t;
-
-typedef struct lws_system_policy {
-	char dns_base_dir[128];
-	lws_dll2_owner_t seeds;
-} lws_system_policy_t;
-
-LWS_EXTERN LWS_VISIBLE int
-lws_system_parse_policy(struct lws_context *cx, const char *filepath,
-			lws_system_policy_t **_policy);
-
-LWS_EXTERN LWS_VISIBLE void
-lws_system_policy_free(lws_system_policy_t *policy);
-
-
 typedef enum {
 	LWS_CPD_UNKNOWN = 0,	/* test didn't happen ince last DHCP acq yet */
 	LWS_CPD_INTERNET_OK,	/* no captive portal: our CPD test passed OK,
@@ -187,35 +162,6 @@ typedef enum {
 	LWS_CPD_CAPTIVE_PORTAL,	/* we inferred we're behind a captive portal */
 	LWS_CPD_NO_INTERNET,	/* we couldn't touch anything */
 } lws_cpd_result_t;
-
-#if defined(LWS_WITH_NETWORK)
-/*
- * Where an external address report came from.  Each source's view is kept
- * separately, and the context's "best" external address for a family is
- * the one from the highest-ranked source that currently has one, so a
- * weaker source can't override a stronger one, and when a stronger one
- * loses sight of its address, the next one takes over.  From strongest:
- *
- *  - ROUTER: the router told us, in a reply it signed over our nonce, what
- *    is configured on its outward interfaces (lws-extip-router plugin)
- *  - EXTIP:  an extip server we chose saw our requests arriving from it
- *  - DHT:    a consensus of DHT peers saw us arriving from it
- */
-typedef enum {
-	LWS_EXTIP_SRC_DHT,
-	LWS_EXTIP_SRC_EXTIP,
-	LWS_EXTIP_SRC_ROUTER,
-
-	LWS_EXTIP_SRC_COUNT /* always last */
-} lws_extip_src_t;
-
-/* values for lws_extip_report() status */
-typedef enum {
-	LWS_EXTIP_STATUS_DETECTED	= 0, /* source has (first) seen it */
-	LWS_EXTIP_STATUS_CHANGED	= 1, /* source saw it change to this */
-	LWS_EXTIP_STATUS_OFFLINE	= 2, /* source lost sight of any */
-} lws_extip_status_t;
-#endif
 
 typedef void (*lws_attach_cb_t)(struct lws_context *context, int tsi, void *opaque);
 struct lws_attach_item;
@@ -285,58 +231,7 @@ typedef struct lws_system_ops {
 	uint32_t		wake_latency_us;
 	/**< time taken for this device to wake from suspend, in us
 	 */
-
-#if defined(LWS_WITH_SYS_ASYNC_DNS)
-	uint8_t			async_dns_dnssec_mode;
-	/**< lws_async_dns_dnssec_mode_t: 0: LWS_ADNS_DNSSEC_OFF,
-	 * 1: LWS_ADNS_DNSSEC_REQUIRE, 2: LWS_ADNS_DNSSEC_TOLERATE.  Any
-	 * other value is logged and treated as REQUIRE.  The built-in root
-	 * trust anchors are used unless you set your own with
-	 * lws_async_dns_dnssec_set_root_anchors(). */
-#endif
-
-#if defined(LWS_WITH_NETWORK)
-	/* (Removed report_external_ip_cb in favour of SMD integration) */
-#endif
 } lws_system_ops_t;
-
-#if defined(LWS_WITH_NETWORK)
-/**
- * lws_extip_report() - update external IP tracking state from callback
- *
- * \param cx: lws_context
- * \param src: source of the internal or external IP event
- * \param sa46: the address associated with the event (can be NULL or zeroed if offline)
- * \param af: the address family
- * \param status: a lws_extip_status_t
- * \param peers: optional peers information (for DHT)
- * \param num_peers: optional peer count
- *
- * This API is used by IP tracking plugins like `lws_extip` to formally
- * persist the external IP understanding into the context and broadcast it via SMD.
- *
- * The report only replaces what \p src said before for \p af.  The
- * context's best address for \p af is then the one from the highest-ranked
- * source that has one (see lws_extip_src_t), and an `ext-ips` SMD message
- * is broadcast only when that best address changes.  LWS_EXTIP_STATUS_OFFLINE,
- * or a NULL or zeroed \p sa46, withdraws \p src's address for \p af.
- */
-LWS_VISIBLE LWS_EXTERN void
-lws_extip_report(struct lws_context *cx, lws_extip_src_t src, const lws_sockaddr46 *sa46, int af, int status, const lws_sockaddr46 *peers, int num_peers);
-
-/**
- * lws_extip_get_best() - query the context for the current best external IP
- *
- * \param cx: lws_context
- * \param af: AF_INET or AF_INET6
- * \param sa46: structure to write the best known IP into
- *
- * Returns 0 if sa46 contains a valid external IP, or nonzero if the external IP
- * for the requested family is unknown or offline.
- */
-LWS_VISIBLE LWS_EXTERN int
-lws_extip_get_best(struct lws_context *cx, int af, lws_sockaddr46 *sa46);
-#endif
 
 #if defined(LWS_WITH_SYS_STATE)
 
@@ -492,26 +387,6 @@ LWS_EXTERN LWS_VISIBLE int
 lws_dhcpc_status(struct lws_context *context, lws_sockaddr46 *sa46);
 
 /**
- * lws_ntpc_trigger() - ask the ntp client for the time again, now
- *
- * \param context: the lws_context
- *
- * lws asks ntp by itself only while the system clock is plainly unset.  On a
- * platform whose own time daemon sets the clock, a clock that merely looks
- * plausible may still be wrong, eg, a VM that booted an hour out and has not
- * been stepped yet.  An app that wants to know can ask for the time again with
- * this, and is told it through its lws_system_ops_t .set_clock(), whose
- * implementation decides what to do about it, eg, hold the system state below
- * LWS_SYSTATE_TIME_VALID until the system clock agrees.
- *
- * The query is retried until it is answered.  Returns 0 if it was started, or
- * nonzero if the context has no ntp client (it is built with
- * LWS_WITH_SYS_NTPCLIENT and runs on the system vhost).
- */
-LWS_EXTERN LWS_VISIBLE int
-lws_ntpc_trigger(struct lws_context *context);
-
-/**
  * lws_system_cpd_start() - helper to initiate captive portal detection
  *
  * \param context: the lws_context
@@ -558,7 +433,7 @@ enum {
 /**
  * lws_system_adopt_stdin(): add stdin to be a wsi handled by the event loop
  *
- * \param cx: the lws_context
+ * \param context: the lws_context
  *
  * The user code should call this after context creation.  It will add stdin
  * to the context event loop and handle it one of two ways

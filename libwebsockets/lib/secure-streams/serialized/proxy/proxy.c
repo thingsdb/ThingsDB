@@ -99,19 +99,6 @@ __lws_ss_proxy_bind_ss_to_conn_wsi(void *parconn, size_t dsh_size)
 
 	conn->dsh->splitat = 1300;
 
-	/*
-	 * The transport's dsh flags suit KIND_SS_TO_P, which is drained onto
-	 * the client link as a stream of bytes.  But each KIND_C_TO_P object
-	 * is one chunk of client tx with its own 23-byte header, and
-	 * lws_ss_deserialize_tx_payload() takes them back whole: they must
-	 * never be coalesced onto, or split.
-	 */
-
-	if (lws_dsh_set_kind_flags(conn->dsh, KIND_C_TO_P, 0)) {
-		lws_dsh_destroy(&conn->dsh);
-		return -1;
-	}
-
 	conn->txp_path.ops_onw->event_onward_bind(conn->txp_path.priv_onw,
 						  conn->ss);
 
@@ -128,9 +115,8 @@ lws_ss_serialize_rx_payload(struct lws_dsh *dsh, const uint8_t *buf,
 			    size_t len, int flags, const char *rsp)
 {
 	lws_usec_t us = lws_now_usecs();
-	size_t frag, max;
 	uint8_t pre[128];
-	int est = 19, l = 0, f, first = 1;
+	int est = 19, l = 0;
 
 	if (flags & LWSSS_FLAG_RIDESHARE) {
 		/*
@@ -141,18 +127,6 @@ lws_ss_serialize_rx_payload(struct lws_dsh *dsh, const uint8_t *buf,
 		if (!rsp)
 			return 1;
 		l = (int)strlen(rsp);
-		/*
-		 * The rideshare name is copied into pre[] after the 19-byte
-		 * header and a 1-byte length... streamtype names come from the
-		 * policy and are not otherwise bounded by what fits here, or
-		 * by what the 1-byte length can describe
-		 */
-		if (l > (int)sizeof(pre) - 20) {
-			lwsl_err("%s: rideshare name %d too long for header\n",
-				 __func__, l);
-
-			return 1;
-		}
 		est += 1 + l;
 	} else
 		assert(!rsp);
@@ -161,6 +135,8 @@ lws_ss_serialize_rx_payload(struct lws_dsh *dsh, const uint8_t *buf,
 	// lwsl_hexdump_info(buf, len);
 
 	pre[0] = LWSSS_SER_RXPRE_RX_PAYLOAD;
+	lws_ser_wu16be(&pre[1], (uint16_t)(len + (size_t)est - 3));
+	lws_ser_wu32be(&pre[3], (uint32_t)flags);
 	lws_ser_wu32be(&pre[7], 0);	/* write will compute latency here... */
 	lws_ser_wu64be(&pre[11], (uint64_t)us);	/* ... and set this to the write time */
 
@@ -174,45 +150,14 @@ lws_ss_serialize_rx_payload(struct lws_dsh *dsh, const uint8_t *buf,
 		memcpy(&pre[20], rsp, (unsigned int)l);
 	}
 
-	/*
-	 * The frame length after the 3-byte type and length is 16 bits, so
-	 * a bigger rx goes as several frames.  Like the proxy's chunking of
-	 * the client's tx, SOM and POLL only go on the first, and EOM and
-	 * RELATED_END only on the last.
-	 */
-
-	max = 0xffff - ((size_t)est - 3);
-
-	do {
-		frag = len > max ? max : len;
-
-		f = flags;
-		if (!first)
-			f &= ~(LWSSS_FLAG_SOM | LWSSS_FLAG_POLL);
-		if (frag != len)
-			f &= ~(LWSSS_FLAG_EOM | LWSSS_FLAG_RELATED_END);
-
-		lws_ser_wu16be(&pre[1], (uint16_t)(frag + (size_t)est - 3));
-		lws_ser_wu32be(&pre[3], (uint32_t)f);
-
-		if (lws_dsh_alloc_tail(dsh, KIND_SS_TO_P, pre,
-				       (unsigned int)est, buf, frag)) {
+	if (lws_dsh_alloc_tail(dsh, KIND_SS_TO_P, pre, (unsigned int)est, buf, len)) {
 #if defined(_DEBUG)
-			lws_dsh_describe(dsh, __func__);
+		lws_dsh_describe(dsh, __func__);
 #endif
-			/*
-			 * Earlier frames of a split rx may be queued, but the
-			 * caller empties the dsh and drops the stream on this
-			 */
-			lwsl_err("%s: unable to alloc in dsh 1\n", __func__);
+		lwsl_err("%s: unable to alloc in dsh 1\n", __func__);
 
-			return 1;
-		}
-
-		buf += frag;
-		len -= frag;
-		first = 0;
-	} while (len);
+		return 1;
+	}
 
 	lwsl_notice("%s: dsh c2p %d, p2c %d\n", __func__,
 		    (int)lws_dsh_get_size(dsh, KIND_C_TO_P),
@@ -325,21 +270,9 @@ lws_sss_proxy_onward_tx(void *userobj, lws_ss_tx_ordinal_t ord, uint8_t *buf,
 	 * next thing out of the dsh
 	 */
 
-	switch (lws_ss_deserialize_tx_payload(m->conn->dsh, m->ss->wsi,
-					      ord, buf, len, flags)) {
-	case 0:
-		break;
-	case 1:
-		/* if it dropped a chunk, anything after it still wants to go */
-		if (!lws_dsh_get_head(m->conn->dsh, KIND_C_TO_P, (void **)&p,
-				      &si))
-			_lws_ss_request_tx(m->conn->ss);
-
+	if (lws_ss_deserialize_tx_payload(m->conn->dsh, m->ss->wsi,
+					  ord, buf, len, flags))
 		return LWSSSSRET_TX_DONT_SEND;
-	default:
-		/* we lost track of the client's tx, the stream can't go on */
-		return LWSSSSRET_DISCONNECT_ME;
-	}
 
 	/* ... there's more we want to send? */
 	if (!lws_dsh_get_head(m->conn->dsh, KIND_C_TO_P, (void **)&p, &si))
@@ -429,7 +362,8 @@ lws_sss_proxy_onward_state(void *userobj, void *sh, lws_ss_constate_t state,
 		 * can find out the policy about it for the streamtype.
 		 */
 
-		dsh_size = lws_ss_proxy_dsh_size(m->ss->policy);
+		dsh_size = m->ss->policy->proxy_buflen ?
+				m->ss->policy->proxy_buflen : 32768;
 
 		lwsl_notice("%s: %s: initializing dsh max len %lu\n",
 				__func__, lws_ss_tag(m->ss),
@@ -450,17 +384,6 @@ lws_sss_proxy_onward_state(void *userobj, void *sh, lws_ss_constate_t state,
 	case LWSSSCS_DESTROYING:
 		if (!m->conn)
 			break;
-
-		/*
-		 * We are not always destroyed through &m->conn->ss, which
-		 * lws_ss_destroy() NULLs before it tells us: eg, if we are
-		 * bound to a local sink that is destroyed first, the sink
-		 * destroys us through its own pointer to us.  Either way the
-		 * conn must not keep pointing to us.
-		 */
-		if (m->conn->ss == m->ss)
-			m->conn->ss = NULL;
-
 		if (!m->conn->txp_path.priv_onw) {
 			/*
 			 * Our onward secure stream is closing and our client
@@ -470,8 +393,7 @@ lws_sss_proxy_onward_state(void *userobj, void *sh, lws_ss_constate_t state,
 			lws_dsh_empty(m->conn->dsh);
 			if (!m->conn->ss) {
 				lws_dsh_destroy(&m->conn->dsh);
-				lws_free_set_NULL(m->conn->parser.mdstage);
-				lws_free(m->conn);
+				free(m->conn);
 				m->conn = NULL;
 			}
 			return 0;

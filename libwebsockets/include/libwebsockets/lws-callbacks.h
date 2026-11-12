@@ -71,7 +71,6 @@ enum {
 	LWS_TLS_SET_AUTH_PATH,
 	LWS_TLS_SET_CERT_PATH,
 	LWS_TLS_SET_KEY_PATH,
-	LWS_TLS_SET_ROOT_DOMAIN,
 
 	LWS_TLS_TOTAL_COUNT
 };
@@ -157,12 +156,9 @@ enum lws_callback_reasons {
 	 * in is the ssl pointer and len is preverify_ok
 	 * Notice that this callback maintains libwebsocket return
 	 * conventions, return 0 to mean the cert is OK or 1 to fail it.
-	 * Returning 0 does not override a cert the tls backend already
-	 * rejected: if you don't handle this callback, or handle it and
-	 * return 0, the backend's own verification result stands.  To
-	 * accept a cert the backend refused, clear the error yourself
-	 * with X509_STORE_CTX_set_error(x509_ctx, X509_V_OK) and then
-	 * return 0. */
+	 * This also means that if you don't handle this callback then
+	 * the default callback action of returning 0 allows the client
+	 * certificates. */
 
 	LWS_CALLBACK_SSL_INFO					= 67,
 	/**< SSL connections only.  An event you registered an
@@ -231,33 +227,14 @@ enum lws_callback_reasons {
 	 * with the http connection, since the rest of the
 	 * activity will come by websockets from the script
 	 * that was delivered by http, so you will want to
-	 * return 1; to close and free up the connection.
-	 *
-	 * The request headers are only guaranteed up to here, as a ws
-	 * connection's are up to LWS_CALLBACK_ESTABLISHED.  For a request
-	 * with a body they stay through LWS_CALLBACK_HTTP_BODY to
-	 * LWS_CALLBACK_HTTP_BODY_COMPLETION.  After that lws may give the
-	 * header allocation back to its pool (an h2 or h3 stream does, so a
-	 * transfer that runs for minutes does not pin one), and
-	 * lws_hdr_copy(), lws_get_urlarg_by_name_safe(),
-	 * lws_http_cookie_get() and friends answer "not present" from later
-	 * callbacks such as LWS_CALLBACK_HTTP_WRITEABLE.  Copy what you need
-	 * into your pss inside the window.  That includes `in` itself: it
-	 * points into the request headers, so copy it rather than storing
-	 * the pointer. */
+	 * return 1; to close and free up the connection. */
 
 	LWS_CALLBACK_HTTP_BODY					= 13,
 	/**< the next len bytes data from the http
-	 * request body HTTP connection is now available in in.  A request
-	 * body sent with Transfer-Encoding: chunked is decoded by lws, so
-	 * in only ever holds body payload, never the chunk framing.  The
-	 * request headers are still available here. */
+	 * request body HTTP connection is now available in in. */
 
 	LWS_CALLBACK_HTTP_BODY_COMPLETION			= 14,
-	/**< the expected amount of http request body has been delivered:
-	 * the Content-Length was reached, or the last-chunk of a chunked
-	 * body arrived.  This is the last callback at which the request
-	 * headers are guaranteed to be available (see LWS_CALLBACK_HTTP). */
+	/**< the expected amount of http request body has been delivered */
 
 	LWS_CALLBACK_HTTP_FILE_COMPLETION			= 15,
 	/**< a file requested to be sent down http link has completed. */
@@ -329,79 +306,26 @@ enum lws_callback_reasons {
 	 * HTML.  `in` points to a `struct lws_process_html_args`
 	 * which describes the buffer containing outgoing HTML.
 	 * The buffer may grow up to `.max_len` (currently +128
-	 * bytes per buffer).  Setting `.len` to 0 for a buffer that
-	 * is not `.final` sends nothing for it yet, and the next
-	 * buffer of the file follows.
+	 * bytes per buffer).
 	 */
 
 	LWS_CALLBACK_HTTP_BIND_PROTOCOL				= 49,
 	/**< By default, all HTTP handling is done in protocols[0].
 	 * However you can bind different protocols (by name) to
-	 * different parts of the URL space using callback mounts.
-	 *
-	 * Whichever protocol handles it, an http server transaction has a
-	 * per-session allocation (pss, `user`) of its own, and this callback
-	 * is the first one the protocol gets with it: before
-	 * LWS_CALLBACK_FILTER_HTTP_CONNECTION, the mount's basic auth and
-	 * interceptor callbacks, and LWS_CALLBACK_HTTP.  Any protocol
-	 * allocation related to the http transaction processing should be
-	 * created then (or later in the transaction) and released in
-	 * LWS_CALLBACK_HTTP_DROP_PROTOCOL.
-	 *
-	 * This holds for protocols[0] as much as for a protocol bound by a
-	 * mount: the first request on an h1 connection, and every h2 / h3
-	 * stream, binds the protocol it arrived on before the request's first
-	 * callback, and a request that protocols[0] serves keeps that pss.
-	 * A request bound on to another protocol (a callback mount, a file
-	 * interpreter, a ws upgrade) drops the earlier protocol's pss and
-	 * binds the new protocol with a fresh one, which is zeroed.  (A pss
-	 * is zeroed at its BIND too, unless the protocol was already given it
-	 * when the connection was adopted by protocol name.)
-	 *
-	 * Until its request reaches that point, an h1 connection's first
-	 * request or an h2 stream has no pss and is not bound: anything
-	 * protocols[0] is given for it before then has `user` NULL, eg
-	 * LWS_CALLBACK_CLOSED_HTTP when it closes first because its headers
-	 * never completed or were refused, and it gets no BIND or DROP for
-	 * it.  (An h3 stream is bound to its connection's protocol, with BIND,
-	 * as soon as it is created.)
-	 *
-	 * A ws upgrade binds the ws protocol while the wsi is still in the
-	 * http role, so that protocol is told with this callback too; see
-	 * LWS_CALLBACK_HTTP_DROP_PROTOCOL for how it is unbound.
-	 *
+	 * different parts of the URL space using callback mounts.  This
+	 * callback occurs in the new protocol when a wsi is bound
+	 * to that protocol.  Any protocol allocation related to the
+	 * http transaction processing should be created then.
 	 * These specific callbacks are necessary because with HTTP/1.1,
 	 * a single connection may perform at series of different
 	 * transactions at different URLs, thus the lifetime of the
-	 * protocol bind is just for one transaction, not connection.  When
-	 * an h1 keep-alive transaction completes, the connection is bound
-	 * to protocols[0] again, with a fresh pss, ready for the next one. */
+	 * protocol bind is just for one transaction, not connection. */
 
 	LWS_CALLBACK_HTTP_DROP_PROTOCOL				= 50,
 	/**< This is called when a transaction is unbound from a protocol.
 	 * It indicates the connection completed its transaction and may
 	 * do something different now.  Any protocol allocation related
-	 * to the http transaction processing should be destroyed.
-	 *
-	 * For a protocol with a pss, it comes exactly once for every
-	 * LWS_CALLBACK_HTTP_BIND_PROTOCOL, with the same `user`, before lws
-	 * frees that pss: when an h1 keep-alive transaction completes, when
-	 * another protocol is bound, or when the connection or stream closes.
-	 * On a close it comes before LWS_CALLBACK_CLOSED_HTTP, which is given
-	 * the same pss but must not rely on anything released here still
-	 * being there.  `in` is a string naming the reason, for logging.
-	 *
-	 * The exception is the ws protocol a ws upgrade binds: it was told
-	 * with LWS_CALLBACK_HTTP_BIND_PROTOCOL, the wsi still being in the
-	 * http role then, but once the upgrade has completed the wsi is a ws
-	 * one, and the same pss is unbound with
-	 * LWS_CALLBACK_WS_SERVER_DROP_PROTOCOL instead of this, exactly once,
-	 * before LWS_CALLBACK_CLOSED.  (An upgrade that fails before then is
-	 * still http, and gets this.)  A protocol serving both http and ws
-	 * must release what it allocated at BIND in either.
-	 *
-	 * A protocol with no pss gets both callbacks with `user` NULL, but
-	 * no DROP when the connection closes. */
+	 * to the http transaction processing should be destroyed. */
 
 	LWS_CALLBACK_HTTP_CONFIRM_UPGRADE			= 86,
 	/**< This is your chance to reject an HTTP upgrade action.  The
@@ -414,10 +338,7 @@ enum lws_callback_reasons {
 	 * and response code yourself.
 	 *
 	 * There is no need for you to call transaction_completed() as the
-	 * caller will take care of it when it sees you returned >0.  That
-	 * includes answering with a file, by lws_serve_http_file(): the
-	 * transaction is completed once the file has all gone, as for a file
-	 * served from LWS_CALLBACK_HTTP.
+	 * caller will take care of it when it sees you returned >0.
 	 */
 
 	/* ---------------------------------------------------------------------
@@ -472,16 +393,7 @@ enum lws_callback_reasons {
 	 */
 
 	LWS_CALLBACK_CLIENT_HTTP_REDIRECT			= 104,
-	/**< we're handling a 3xx redirect... return nonzero to hang up.
-	 * in is the Location, as the server sent it.  If we go on, lws resolves
-	 * it against the request as RFC 3986 5.2 says (so "//host/path" names
-	 * another authority, and a relative path is merged with ours), and
-	 * refuses one that is not a valid http(s) URI reference, has userinfo
-	 * or a port outside 1 - 65535, or comes with a second Location.
-	 * lws_client_redirect_info() tells where it resolved it to, and
-	 * whether credentials the request carries may go there: headers added
-	 * in LWS_CALLBACK_CLIENT_APPEND_HANDSHAKE_HEADER go again to the
-	 * redirected request */
+	/**< we're handling a 3xx redirect... return nonzero to hang up */
 
 	LWS_CALLBACK_CLIENT_HTTP_BIND_PROTOCOL			= 85,
 	LWS_CALLBACK_CLIENT_HTTP_DROP_PROTOCOL			= 76,
@@ -533,22 +445,7 @@ enum lws_callback_reasons {
 	 * headers using the header enums lws_token_indexes from
 	 * libwebsockets.h to check for and read the supported header
 	 * presence and content before deciding to allow the handshake
-	 * to proceed or to kill the connection.
-	 *
-	 * For a WebTransport session, this is issued on the h3 CONNECT
-	 * stream after the protocol has been selected and bound, but before
-	 * the 200 is sent.  in is the name of the negotiated wt protocol, or
-	 * NULL if none was found.  The request headers are still available,
-	 * so eg, lws_hdr_copy() of WSI_TOKEN_HTTP_COLON_PATH or
-	 * lws_get_urlarg_by_name() can be used to inspect the path and
-	 * urlargs.  Returning nonzero answers the CONNECT with 403 instead
-	 * of upgrading the stream.
-	 *
-	 * For a ws upgrade to a reverse proxy mount, which is relayed to the
-	 * backend and binds no local ws protocol, this is issued on the
-	 * protocol the request is bound to (the vhost's protocols[0]) before
-	 * the onward connection is made.  Returning nonzero answers the
-	 * upgrade with 403. */
+	 * to proceed or to kill the connection. */
 
 	LWS_CALLBACK_CONFIRM_EXTENSION_OKAY			= 25,
 	/**< When the server handshake code
@@ -562,16 +459,7 @@ enum lws_callback_reasons {
 	 * content during this callback might not be useful for anything. */
 
 	LWS_CALLBACK_WS_SERVER_BIND_PROTOCOL			= 77,
-	/**< A protocol is bound to a wsi already in the ws server role.  A
-	 * ws upgrade binds its protocol while the wsi is still in the http
-	 * role, so it is told with LWS_CALLBACK_HTTP_BIND_PROTOCOL rather
-	 * than this. */
-
 	LWS_CALLBACK_WS_SERVER_DROP_PROTOCOL			= 78,
-	/**< A protocol is unbound from a wsi in the ws server role, before
-	 * its pss is freed: for a ws upgrade, the DROP matching the
-	 * LWS_CALLBACK_HTTP_BIND_PROTOCOL it bound with, at close, before
-	 * LWS_CALLBACK_CLOSED.  See LWS_CALLBACK_HTTP_DROP_PROTOCOL. */
 
 	/* ---------------------------------------------------------------------
 	 * ----- Callbacks related to Websocket Client -----
@@ -976,18 +864,14 @@ enum lws_callback_reasons {
 	LWS_CALLBACK_MQTT_CLIENT_CLOSED				= 208,
 	LWS_CALLBACK_MQTT_ACK					= 209,
 	/**< When a message is fully sent, if QoS0 this callback is generated
-	 * to locally "acknowledge" it, from the event loop after the send
-	 * call returned.  For QoS1, this callback is only generated when the
-	 * matching PUBACK is received, and for QoS2 when the PUBREC is: lws
-	 * completes the exchange.  The stream may start its next operation from
-	 * here.  Return nonzero to close the wsi.
+	 * to locally "acknowledge" it.  For QoS1, this callback is only
+	 * generated when the matching PUBACK is received.  Return nonzero to
+	 * close the wsi.
 	 */
 	LWS_CALLBACK_MQTT_RESEND				= 210,
 	/**< In QoS1 or QoS2, this callback is generated instead of the _ACK one
 	 * if we timed out waiting for a PUBACK or a PUBREC, and we must resend
-	 * the message, with .dup set.  The stream may instead go on to another
-	 * operation, abandoning the message.  An ack that still comes for it
-	 * before either gives the _ACK as usual.  Return nonzero to close the wsi.
+	 * the message.  Return nonzero to close the wsi.
 	 */
 	LWS_CALLBACK_MQTT_UNSUBSCRIBE_TIMEOUT			= 211,
 	/**< When a UNSUBSCRIBE is sent, this callback is generated instead of
@@ -999,73 +883,6 @@ enum lws_callback_reasons {
 	 * timed out waiting for a response from AWS IoT.
 	 * Return nonzero to close the wsi.
 	 */
-
-	LWS_CALLBACK_MQTT_QOS2_RX_COMPLETE			= 213,
-	/**< When a QoS2 message has fully completed the transaction (PUBREL
-	 * received, PUBCOMP sent), this callback is generated.
-	 * `in` will point to the `uint16_t` packet ID that completed.
-	 */
-
-	LWS_CALLBACK_HTTP_INTERCEPTOR_CHECK			= 214,
-	/**< A mount has a interceptor_path enabled, this callback asks the
-	 * protocol bound to that mount if it is OK for this request to
-	 * proceed.  If returning 0, the request proceeds to the original
-	 * mount.  If nonzero, the request is diverted to the interceptor_path
-	 * mount.
-	 */
-
-	LWS_CALLBACK_GET_PSS_SIZE					= 215,
-	/**< Called when a protocol wants to specify its PSS size at runtime.
-	 *   If the protocol structure has per_session_data_size == 0, lws will
-	 *   call this to get the size to allocate for the session.  Return 0
-	 *   for no pss, or a negative value to fail the connection. */
-
-	LWS_CALLBACK_DHT_VERB_DISPATCH					= 216,
-	/**< Sent to the user protocol handler callback when a DHT message
-	 * carrying a registered verb has been matched by lws-dht.
-	 * `in` is a pointer to `struct lws_dht_verb_dispatch_args` containing
-	 * the context, message, and peer sockaddr information.
-	 */
-
-	LWS_CALLBACK_QT_SERVER_RECEIVE					= 217,
-	/**< QUIC transport payload received on server side */
-	LWS_CALLBACK_QT_CLIENT_RECEIVE					= 218,
-	/**< QUIC transport payload received on client side */
-
-	LWS_CALLBACK_CLIENT_ESTABLISHED_EARLY				= 219,
-	/**< 0-RTT/Early data callback. If the client stream opts into 0-RTT,
-	 * it can return 1 from this callback to enable early WRITEABLE callbacks
-	 * before the handshake completes. Return 0 to ignore 0-RTT. */
-
-	LWS_CALLBACK_WT_BIND_PROTOCOL					= 220,
-	/**< By default, all WebTransport handling is done in the protocol the
-	 * CONNECT mount selected.  This callback occurs in the protocol when a
-	 * WebTransport session wsi, or one of the QUIC stream wsi belonging to
-	 * a session, is bound to that protocol.  Any protocol allocation
-	 * related to the wsi (typically in its pss) should be created then.
-	 *
-	 * These specific reasons are necessary because a WebTransport session
-	 * carries an indefinite number of streams, each with its own wsi and
-	 * pss, whose protocol bind lifetime is just that stream and not the
-	 * session or the QUIC connection.
-	 *
-	 * This is only about the logical binding of the wsi to the protocol,
-	 * it says nothing about the state of the underlying connection or
-	 * stream and must not be confused with LWS_CALLBACK_ESTABLISHED.  A
-	 * stream that was bound and then transitioned into the wt role from
-	 * h3 saw LWS_CALLBACK_HTTP_BIND_PROTOCOL for its original bind. */
-
-	LWS_CALLBACK_WT_DROP_PROTOCOL					= 221,
-	/**< This is called when a WebTransport session or stream wsi is
-	 * unbound from a protocol, either because the wsi is closing or
-	 * because it is being rebound (which frees and reallocates the pss).
-	 * Any protocol allocation related to the wsi should be destroyed, and
-	 * anything pointing into the pss (eg, a list node that lives inside
-	 * it) must be removed, since the pss may be freed immediately after.
-	 *
-	 * Like the bind reason, this is only about the protocol binding and is
-	 * independent of connection state, it must not be confused with
-	 * LWS_CALLBACK_CLOSED. */
 
 	/****** add new things just above ---^ ******/
 

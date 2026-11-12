@@ -36,27 +36,6 @@
 #include <dirent.h>
 
 #if defined(LWS_WITH_NETWORK)
-/*
- * How long until the periodic checks below run again, including vhosts
- * waiting for their iface trying to listen again.  Tests can make it shorter
- * with a fault injection range, eg "plat_periodic_ms(100..101)"
- */
-
-static lws_usec_t
-lws_plat_unix_periodic_us(struct lws_context *cx)
-{
-#if defined(LWS_WITH_SYS_FAULT_INJECTION)
-	uint64_t ms;
-
-	if (!lws_fi_range(&cx->fic, "plat_periodic_ms", &ms))
-		return (lws_usec_t)ms * LWS_US_PER_MS;
-#else
-	(void)cx;
-#endif
-
-	return 30 * LWS_US_PER_SEC;
-}
-
 static void
 lws_sul_plat_unix(lws_sorted_usec_list_t *sul)
 {
@@ -83,27 +62,27 @@ lws_sul_plat_unix(lws_sorted_usec_list_t *sul)
 
 #if defined(LWS_WITH_SERVER)
 	lws_context_lock(context, "periodic checks");
-	lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1,
-				   lws_dll2_get_head(&context->no_listener_vhost_owner)) {
-		struct lws_vhost *v = lws_container_of(d, struct lws_vhost,
-						       no_listener_vlist);
-		lwsl_debug("deferred iface: checking if on vh %s\n", v->name);
-		if (_lws_vhost_init_server(NULL, v) == 0) {
+	lws_start_foreach_llp(struct lws_vhost **, pv,
+			      context->no_listener_vhost_list) {
+		struct lws_vhost *v = *pv;
+		lwsl_debug("deferred iface: checking if on vh %s\n", (*pv)->name);
+		if (_lws_vhost_init_server(NULL, *pv) == 0) {
 			/* became happy */
 			lwsl_notice("vh %s: became connected\n", v->name);
-			lws_dll2_remove(&v->no_listener_vlist);
+			*pv = v->no_listener_vhost_list;
+			v->no_listener_vhost_list = NULL;
 			break;
 		}
-	} lws_end_foreach_dll_safe(d, d1);
+	} lws_end_foreach_llp(pv, no_listener_vhost_list);
 	lws_context_unlock(context);
 #endif
 
-	__lws_sul_insert_us(pt, LWSSULLI_MISS_IF_SUSPENDED,
-			    &pt->sul_plat, lws_plat_unix_periodic_us(context));
+	__lws_sul_insert_us(&pt->pt_sul_owner[LWSSULLI_MISS_IF_SUSPENDED],
+			    &pt->sul_plat, 30 * LWS_US_PER_SEC);
 }
 #endif
 
-#if defined(LWS_WITH_PROTOCOL_PLUGINS)
+#if defined(LWS_WITH_PLUGINS)
 static int
 protocol_plugin_cb(struct lws_plugin *pin, void *each_user)
 {
@@ -129,51 +108,38 @@ lws_plat_init(struct lws_context *context,
 	/*
 	 * context has the process-global fd lookup array.  This can be
 	 * done two different ways now; one or the other is done depending on if
-	 * info->fd_limit_per_thread was nonzero and below the process limit
+	 * info->fd_limit_per_thread was snonzero
 	 *
 	 *  - default: allocate a worst-case lookup array sized for ulimit -n
 	 *             and use the fd directly as an index into it
 	 *
-	 *  - slow:    allocate info->fd_limit_per_thread slots for each
-	 *             service thread only, and search them to lookup fds
-	 *             (see struct lws_fd_slot)
+	 *  - slow:    allocate context->max_fds entries only (which can be
+	 *             forced at context creation time to be
+	 *             info->fd_limit_per_thread * the number of threads)
+	 *             and search the array to lookup fds
 	 *
 	 * the default way is optimized for server, if you only use one or two
 	 * client wsi the slow way may save a lot of memory.
+	 *
+	 * Both ways allocate an array of struct lws *... one allocates it for
+	 * all possible fd indexes the process could produce and uses it as a
+	 * map, the other allocates for an amount of wsi the lws context is
+	 * expected to use and searches through it to manipulate it.
 	 */
 
-	if (context->max_fds_unrelated_to_ulimit) {
-		size_t n, slots = (size_t)context->count_threads *
-				  context->fd_limit_per_thread;
+	context->lws_lookup = lws_zalloc(sizeof(struct lws *) *
+					 context->max_fds, "lws_lookup");
 
-		context->lws_lookup_slots = lws_malloc(sizeof(struct lws_fd_slot) *
-						       slots, "lws_lookup_slots");
-		if (!context->lws_lookup_slots) {
-			lwsl_cx_err(context, "OOM on alloc lws_lookup_slots "
-					     "for %u conn", (unsigned int)slots);
-			return 1;
-		}
-
-		for (n = 0; n < slots; n++) {
-			context->lws_lookup_slots[n].wsi = NULL;
-			context->lws_lookup_slots[n].fd = LWS_SOCK_INVALID;
-		}
-	} else {
-		context->lws_lookup = lws_zalloc(sizeof(struct lws *) *
-						 context->max_fds, "lws_lookup");
-
-		if (!context->lws_lookup) {
-			lwsl_cx_err(context, "OOM on alloc lws_lookup array "
-					     "for %d conn", context->max_fds);
-			return 1;
-		}
+	if (!context->lws_lookup) {
+		lwsl_cx_err(context, "OOM on alloc lws_lookup array for %d conn",
+			 context->max_fds);
+		return 1;
 	}
 
 #if defined(LWS_WITH_MBEDTLS)
 	{
 		int n;
 
-#if !defined(LWS_MBEDTLS_PSA_RNG)
 		/* initialize platform random through mbedtls */
 		mbedtls_entropy_init(&context->mec);
 		mbedtls_ctr_drbg_init(&context->mcdc);
@@ -183,12 +149,6 @@ lws_plat_init(struct lws_context *context,
 		if (n)
 			lwsl_err("%s: mbedtls_ctr_drbg_seed() returned 0x%x\n",
 				 __func__, n);
-#else
-		n = psa_crypto_init();
-		if (n != 0)
-			lwsl_err("%s: psa_crypto_init() returned 0x%x\n",
-				 __func__, n);
-#endif
 #if 0
 		else {
 			uint8_t rtest[16];
@@ -218,7 +178,7 @@ lws_plat_init(struct lws_context *context,
 		return 1;
 	}
 
-#if defined(LWS_WITH_TLS_KEYLOG) && !defined(__COVERITY__) && \
+#if defined(LWS_HAVE_SSL_CTX_set_keylog_callback) && !defined(__COVERITY__) && \
 		defined(LWS_WITH_TLS) && defined(LWS_WITH_CLIENT)
 	{
 		char *klf_env = getenv("SSLKEYLOGFILE");
@@ -248,7 +208,7 @@ lws_plat_init(struct lws_context *context,
 		}
 
 		if (n < (int)LWS_ARRAY_SIZE(pp) - 1)
-			pp[n++] = LWS_PLUGIN_DIR;
+			pp[n++] = LWS_INSTALL_DATADIR"/libwebsockets-test-server/plugins";
 
 		pp[n] = NULL;
 
@@ -260,7 +220,7 @@ lws_plat_init(struct lws_context *context,
 	}
 
 #endif
-#if defined(LWS_BUILTIN_PLUGIN_NAMES)
+#if defined(LWS_BUILTIN_PLUGIN_NAMES) && defined(LWS_WITH_PLUGINS)
 	lws_plugins_handle_builtin(&context->plugin_list,
 				   protocol_plugin_cb, context);
 #endif
@@ -269,8 +229,9 @@ lws_plat_init(struct lws_context *context,
 #if defined(LWS_WITH_NETWORK)
 	/* we only need to do this on pt[0] */
 
-	lws_sul_schedule(context, 0, &context->pt[0].sul_plat,
-			 lws_sul_plat_unix, lws_plat_unix_periodic_us(context));
+	context->pt[0].sul_plat.cb = lws_sul_plat_unix;
+	__lws_sul_insert_us(&context->pt[0].pt_sul_owner[LWSSULLI_MISS_IF_SUSPENDED],
+			    &context->pt[0].sul_plat, 30 * LWS_US_PER_SEC);
 #endif
 
 	return 0;
@@ -289,53 +250,26 @@ lws_plat_context_early_init(void)
 void
 lws_plat_context_early_destroy(struct lws_context *context)
 {
-	/* unix fds and pipes are closed in late_destroy */
 }
 
 void
 lws_plat_context_late_destroy(struct lws_context *context)
 {
-#if defined(LWS_WITH_PROTOCOL_PLUGINS)
+#if defined(LWS_WITH_PLUGINS)
 	if (context->plugin_list)
 		lws_plugins_destroy(&context->plugin_list, NULL, NULL);
 #endif
 #if defined(LWS_WITH_NETWORK)
 	if (context->lws_lookup)
 		lws_free_set_NULL(context->lws_lookup);
-	if (context->lws_lookup_slots)
-		lws_free_set_NULL(context->lws_lookup_slots);
 #endif
 	if (!context->fd_random)
 		lwsl_err("ZERO RANDOM FD\n");
 	if (context->fd_random != LWS_INVALID_FILE)
 		close(context->fd_random);
 
-#if defined(LWS_WITH_MBEDTLS) && !defined(LWS_MBEDTLS_PSA_RNG)
+#if defined(LWS_WITH_MBEDTLS)
 	mbedtls_entropy_free(&context->mec);
 	mbedtls_ctr_drbg_free(&context->mcdc);
 #endif
-}
-
-/*
- * Platform-specific ntpclient server configuration
- */
-
-int
-lws_plat_ntpclient_config(struct lws_context *context)
-{
-#if defined(LWS_HAVE_GETENV)
-	char *ntpsrv = getenv("LWS_NTP_SERVER");
-
-	if (ntpsrv && strlen(ntpsrv) < 64) {
-		lws_system_blob_t *blob = lws_system_get_blob(context,
-                                            LWS_SYSBLOB_TYPE_NTP_SERVER, 0);
-		if (!blob)
-			return 0;
-
-		lws_system_blob_direct_set(blob, (const uint8_t *)ntpsrv,
-					    strlen(ntpsrv));
-		return 1;
-	}
-#endif
-	return 0;
 }

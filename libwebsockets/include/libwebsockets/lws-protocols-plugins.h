@@ -80,10 +80,6 @@ struct lws_protocols {
 	 * these size chunks.  Since that is expensive, it's preferable
 	 * to restrict one fragment you are trying to send to match this
 	 * size.
-	 *
-	 * Neither this nor .rx_buffer_size limits writes on a UDP wsi: each
-	 * write there is one datagram, sent whole or not at all, see
-	 * READMEs/README.udp.md.
 	 */
 
 	/* Add new things just above here ---^
@@ -204,17 +200,10 @@ lws_adjust_protocol_psds(struct lws *wsi, size_t new_size);
  * \param context:	lws context
  *
  * This is called after the end of the vhost protocol initializations, but
- * you may choose to call it earlier.  It only acts on a context created with
- * LWS_SERVER_OPTION_EXPLICIT_VHOSTS (without it, the privileges are dropped
- * at the end of lws_create_context()), and only the first time.
- *
- * Returns 0 if the process now runs as the configured uid / gid (or none was
- * configured).  If the drop fails, the process may be left with its
- * credentials part changed: on unix platforms it logs the failure and exits
- * the process with status 1 rather than return.
+ * you may choose to call it earlier
  */
 LWS_VISIBLE LWS_EXTERN int
-lws_finalize_startup(struct lws_context *context, const char *where);
+lws_finalize_startup(struct lws_context *context);
 
 /**
  * lws_pvo_search() - helper to find a named pvo in a linked-list
@@ -239,40 +228,10 @@ lws_pvo_search(const struct lws_protocol_vhost_options *pvo, const char *name);
 LWS_VISIBLE LWS_EXTERN int
 lws_pvo_get_str(void *in, const char *name, const char **result);
 
-struct lws_http_mount;
-
-/**
- * lws_pmo_search() - helper to find a named pmo in a linked-list
- *
- * \param mount: the mount it is associated with
- * \param name: the name of the pmo to return if found
- *
- * Returns NULL, or a pointer to the named pmo in the linked-list
- */
-LWS_VISIBLE LWS_EXTERN const struct lws_protocol_vhost_options *
-lws_pmo_search(const struct lws_http_mount *mount, const char *name);
-
-/**
- * lws_pmo_get_str() - retreive a string pmo value
- *
- * \param mount: the mount it is associated with
- * \param name: the name of the pmo to return if found
- * \param result: pointer to a const char * to get the result if any
- *
- * Returns 0 if found and *result set, or nonzero if not found
- */
-LWS_VISIBLE LWS_EXTERN int
-lws_pmo_get_str(const struct lws_http_mount *mount, const char *name,
-		const char **result);
-
 LWS_VISIBLE LWS_EXTERN int
 lws_protocol_init(struct lws_context *context);
 
-/*
- * 192: lws_plugin_header_t .priority
- * 193: lws_plugin_protocol_t .init / .deinit
- */
-#define LWS_PLUGIN_API_MAGIC 193
+#define LWS_PLUGIN_API_MAGIC 191
 
 /*
  * Abstract plugin header for any kind of plugin class, always at top of
@@ -293,10 +252,6 @@ typedef struct lws_plugin_header {
 	unsigned int api_magic;
 	/* set to LWS_PLUGIN_API_MAGIC at plugin build time */
 
-	unsigned int priority;
-	/**< Higher value == initialized earlier.
-	 * Plugins with API magic < 192 default to 0. */
-
 	/* plugin-class specific superclass data follows */
 } lws_plugin_header_t;
 
@@ -311,23 +266,6 @@ typedef struct lws_plugin_protocol {
 	const struct lws_extension *extensions; /**< array of extensions provided by plugin */
 	int count_protocols; /**< how many protocols */
 	int count_extensions; /**< how many extensions */
-
-	/* the members below are only read from plugins built with
-	 * api_magic >= 193 */
-
-	int (*init)(struct lws_context *cx);
-	/**< NULL, or called once per context the plugin is in, after the
-	 * context's system vhost exists and before the context creation api
-	 * returns, however the plugin arrived: dlopened, built into lws, or
-	 * composed into the application and listed in info->plugins.  This is
-	 * the place for one-time plugin setup that must not depend on which,
-	 * or how many, vhosts instantiate the plugin's protocols... unlike
-	 * LWS_CALLBACK_PROTOCOL_INIT, which comes once per such vhost.
-	 * Nonzero fails the context creation. */
-	void (*deinit)(struct lws_context *cx);
-	/**< NULL, or called once at context destruction for a plugin whose
-	 * init succeeded (or which had no init), after every vhost has been
-	 * destroyed */
 } lws_plugin_protocol_t;
 
 
@@ -340,10 +278,6 @@ struct lws_plugin {
 	struct lws_plugin *list; /**< linked list */
 
 	const lws_plugin_header_t *hdr;
-
-	char basename[64]; /**< filename-derived name, eg "lws_hls", or ""
-			    * for builtin plugins: a later directory's copy
-			    * of the same plugin is not opened */
 
 	union {
 #if defined(LWS_WITH_LIBUV) && defined(UV_ERRNO_MAP)
@@ -410,50 +344,6 @@ LWS_VISIBLE LWS_EXTERN int
 lws_plugins_destroy(struct lws_plugin **pplugin, each_plugin_cb_t each,
 		    void *each_user);
 
-
-struct pss_webrtc;
-struct vhd_webrtc;
-struct lws_webrtc_peer_media;
-
-typedef void (*lws_webrtc_on_media_cb)(struct lws *wsi_ws, int tid, const uint8_t *buf, size_t len, int marker, uint32_t timestamp);
-
-typedef int (*lws_webrtc_session_iter_cb)(struct pss_webrtc *pss, void *user);
-
-enum lws_webrtc_codec {
-	LWS_WEBRTC_CODEC_H264,
-	LWS_WEBRTC_CODEC_AV1
-};
-
-#define LWS_WEBRTC_OPS_ABI_VERSION 9
-
-struct lws_webrtc_ops {
-	uint32_t abi_version;
-
-	int (*send_video)(struct lws_webrtc_peer_media *media, const uint8_t *buf, size_t len, int codec, uint32_t pts);
-	int (*send_audio)(struct lws_webrtc_peer_media *media, const uint8_t *buf, size_t len, uint32_t timestamp);
-	int (*send_text)(struct pss_webrtc *pss, const char *buf, size_t len);
-	int (*send_pli)(struct pss_webrtc *pss);
-	void (*media_ref)(struct lws_webrtc_peer_media *media);
-	void (*media_unref)(struct lws_webrtc_peer_media **pmedia);
-	int (*foreach_session)(struct vhd_webrtc *vhd, lws_webrtc_session_iter_cb cb, void *user);
-	struct lws_webrtc_peer_media *(*get_media)(struct pss_webrtc *pss);
-	int (*shared_callback)(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len, struct vhd_webrtc *vhd);
-
-	void *(*get_user_data)(struct pss_webrtc *pss);
-	void (*set_user_data)(struct pss_webrtc *pss, void *data);
-	struct lws_vhost *(*get_vhost)(struct vhd_webrtc *vhd);
-	struct lws_context *(*get_context)(struct vhd_webrtc *vhd);
-	void (*set_on_media)(struct vhd_webrtc *vhd, lws_webrtc_on_media_cb cb);
-
-	uint8_t (*get_video_pt)(struct pss_webrtc *pss);
-	uint8_t (*get_audio_pt)(struct pss_webrtc *pss);
-
-	uint8_t (*get_video_pt_h264)(struct pss_webrtc *pss);
-	uint8_t (*get_video_pt_av1)(struct pss_webrtc *pss);
-    uint16_t (*get_seq_video)(struct pss_webrtc *pss);
-	int (*create_offer)(struct pss_webrtc *pss);
-};
-
 #if defined(LWS_WITH_PLUGINS_BUILTIN)
 
 /* provide exports for builtin plugin protocols */
@@ -482,8 +372,6 @@ extern const struct lws_protocols lws_openmetrics_export_protocols[
 #endif
 #endif
 	];
-extern const struct lws_protocols lws_dht_object_store_protocols[];
-extern const struct lws_protocols lws_log_ingest_protocols[1];
 
 #define LWSOMPROIDX_DIRECT_HTTP_SERVER		0
 #define LWSOMPROIDX_PROX_HTTP_SERVER		1
@@ -491,9 +379,5 @@ extern const struct lws_protocols lws_log_ingest_protocols[1];
 #define LWSOMPROIDX_PROX_WS_CLIENT		3
 
 #endif
-
-typedef void (*lws_dht_store_completion_cb_t)(void *closure, int result);
-
-
 
 ///@}

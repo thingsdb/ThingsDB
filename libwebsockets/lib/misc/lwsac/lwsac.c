@@ -45,16 +45,8 @@ lwsac_align(size_t length)
 {
 	size_t align = sizeof(int *);
 
-	if (length & (align - 1)) {
-		if (length > (size_t)-1 - align)
-			/*
-			 * Rounding up would wrap... report 0, which callers
-			 * treat as "impossible size" for a nonzero length
-			 */
-			return 0;
-
+	if (length & (align - 1))
 		length += align - (length & (align - 1));
-	}
 
 	return length;
 }
@@ -74,7 +66,7 @@ lwsac_get_tail_pos(struct lwsac *lac)
 struct lwsac *
 lwsac_get_next(struct lwsac *lac)
 {
-	return lwsac_next_chunk(lac);
+	return lac->next;
 }
 
 int
@@ -82,7 +74,6 @@ lwsac_extend(struct lwsac *head, size_t amount)
 {
 	struct lwsac_head *lachead;
 	struct lwsac *bf;
-	size_t al;
 
 	assert(head);
 	lachead = (struct lwsac_head *)&head[1];
@@ -90,30 +81,15 @@ lwsac_extend(struct lwsac *head, size_t amount)
 	bf = lachead->curr;
 	assert(bf);
 
-	al = lwsac_align(amount);
-	if (!al && amount)
-		return 1; /* the aligned size wrapped */
-
-	if (bf->alloc_size - bf->ofs < al)
+	if (bf->alloc_size - bf->ofs < lwsac_align(amount))
 		return 1;
 
 	/* memset so constant folding never sees uninitialized data */
 
-	memset(((uint8_t *)bf) + bf->ofs, 0, al);
-	bf->ofs += al;
+	memset(((uint8_t *)bf) + bf->ofs, 0, lwsac_align(amount));
+	bf->ofs += lwsac_align(amount);
 
 	return 0;
-}
-
-/*
- * Can this chunk take an aligned allocation of al bytes?  A zero-length
- * request must still get a pointer inside the chunk, not one-past-the-end
- * of a full one, so the fit needs at least one free byte as well.
- */
-static int
-lwsac_chunk_fits(const struct lwsac *bf, size_t al)
-{
-	return bf->ofs < bf->alloc_size && bf->alloc_size - bf->ofs >= al;
 }
 
 static void *
@@ -127,17 +103,6 @@ _lwsac_use(struct lwsac **head, size_t ensure, size_t chunk_size, char backfill)
 		lachead = (struct lwsac_head *)&bf[1];
 
 	al = lwsac_align(ensure);
-	if (!al && ensure) {
-		lwsl_err("%s: %llu bytes cannot be aligned\n", __func__,
-			 (unsigned long long)ensure);
-
-		return NULL;
-	}
-
-	/*
-	 * The fit tests must use the *aligned* size, since that is what
-	 * do_use: below consumes and zero-fills
-	 */
 
 	/* backfill into earlier chunks if that is allowed */
 
@@ -146,10 +111,10 @@ _lwsac_use(struct lwsac **head, size_t ensure, size_t chunk_size, char backfill)
 		 * check if anything can take it, from the start
 		 */
 		while (bf) {
-			if (lwsac_chunk_fits(bf, al))
+			if (bf->alloc_size - bf->ofs >= ensure)
 				goto do_use;
 
-			bf = lwsac_next_chunk(bf);
+			bf = bf->next;
 		}
 	else {
 		/*
@@ -157,7 +122,7 @@ _lwsac_use(struct lwsac **head, size_t ensure, size_t chunk_size, char backfill)
 		 */
 		if (lachead && lachead->curr) {
 			bf = lachead->curr;
-			if (lwsac_chunk_fits(bf, al))
+			if (bf->alloc_size - bf->ofs >= ensure)
 				goto do_use;
 		}
 	}
@@ -167,16 +132,6 @@ _lwsac_use(struct lwsac **head, size_t ensure, size_t chunk_size, char backfill)
 	hp = sizeof(*bf); /* always need the normal header part... */
 	if (!*head)
 		hp += sizeof(struct lwsac_head);
-
-	/* refuse sizes where adding the header part would wrap */
-
-	if (al > (size_t)-1 - hp ||
-	    (chunk_size && chunk_size > (size_t)-1 - hp)) {
-		lwsl_err("%s: oversize request %llu\n", __func__,
-			 (unsigned long long)ensure);
-
-		return NULL;
-	}
 
 	if (!chunk_size)
 		alloc = LWSAC_CHUNK_SIZE + hp;
@@ -192,7 +147,7 @@ _lwsac_use(struct lwsac **head, size_t ensure, size_t chunk_size, char backfill)
 		alloc = al + hp;
 
 //	lwsl_debug("%s: alloc %d for %d\n", __func__, (int)alloc, (int)ensure);
-	bf = lws_malloc(alloc, __func__);
+	bf = malloc(alloc);
 	if (!bf) {
 		lwsl_err("%s: OOM trying to alloc %llud\n", __func__,
 				(unsigned long long)alloc);
@@ -205,9 +160,6 @@ _lwsac_use(struct lwsac **head, size_t ensure, size_t chunk_size, char backfill)
 	 */
 	bf->ofs = sizeof(*bf);
 
-	/* the node starts detached either way */
-	lws_dll2_clear(&bf->list);
-
 	if (!*head) {
 		/*
 		 * We are the first, head, entry...
@@ -219,12 +171,13 @@ _lwsac_use(struct lwsac **head, size_t ensure, size_t chunk_size, char backfill)
 		bf->ofs += sizeof(*lachead);
 		lachead = (struct lwsac_head *)&bf[1];
 		memset(lachead, 0, sizeof(*lachead));
-		lws_dll2_owner_clear(&bf->chunks);
-	}
-
-	lws_dll2_add_tail(&bf->list, &(*head)->chunks);
+	} else
+		if (lachead->curr)
+			lachead->curr->next = bf;
 
 	lachead->curr = bf;
+	bf->head = *head;
+	bf->next = NULL;
 	bf->alloc_size = alloc;
 
 	lachead->total_alloc_size += alloc;
@@ -234,19 +187,13 @@ do_use:
 
 	ofs = bf->ofs;
 
-	/*
-	 * Both routes here already established this, but make it visible at
-	 * the point of use: the result lies strictly inside the chunk and al
-	 * bytes after it still do
-	 */
-	if (ofs >= bf->alloc_size || bf->alloc_size - ofs < al)
-		return NULL;
-
 	if (al > ensure)
 		/* zero down the alignment padding part */
 		memset((char *)bf + ofs + ensure, 0, al - ensure);
 
-	bf->ofs = ofs + al;
+	bf->ofs += al;
+	if (bf->ofs >= bf->alloc_size)
+		bf->ofs = bf->alloc_size;
 
 	return (char *)bf + ofs;
 }
@@ -266,26 +213,11 @@ lwsac_use_backfill(struct lwsac **head, size_t ensure, size_t chunk_size)
 uint8_t *
 lwsac_scan_extant(struct lwsac *head, uint8_t *find, size_t len, int nul)
 {
-	int first = 1;
-
-	if (!len)
-		/* pos[len - 1] / find[len - 1] would read before the buffers */
-		return NULL;
-
 	while (head) {
-		/*
-		 * The first chunk carries struct lwsac_head after its struct
-		 * lwsac; that is live allocator state, not user data, so the
-		 * scan must not be able to return a pointer into it
-		 */
-		size_t hdr = lwsac_sizeof(first);
+		uint8_t *pos = (uint8_t *)&head[1],
+			*end = ((uint8_t *)head) + head->ofs - len;
 
-		first = 0;
-
-		if (head->ofs >= len && head->ofs - len >= hdr) {
-			uint8_t *pos = ((uint8_t *)head) + hdr,
-				*end = ((uint8_t *)head) + (head->ofs - len);
-
+		if (head->ofs - sizeof(*head) >= len)
 			while (pos < end) {
 				if (*pos == *find && (!nul || !pos[len]) &&
 				    pos[len - 1] == find[len - 1] &&
@@ -294,9 +226,8 @@ lwsac_scan_extant(struct lwsac *head, uint8_t *find, size_t len, int nul)
 					return pos;
 				pos++;
 			}
-		}
 
-		head = lwsac_next_chunk(head);
+		head = head->next;
 	}
 
 	return NULL;
@@ -310,7 +241,7 @@ lwsac_total_overhead(struct lwsac *head)
 	while (head) {
 		overhead += (head->alloc_size - head->ofs) + sizeof(*head);
 
-		head = lwsac_next_chunk(head);
+		head = head->next;
 	}
 
 	return overhead;
@@ -336,9 +267,9 @@ lwsac_free(struct lwsac **head)
 	// lwsl_debug("%s: head %p\n", __func__, *head);
 
 	while (it) {
-		struct lwsac *tmp = lwsac_next_chunk(it);
+		struct lwsac *tmp = it->next;
 
-		lws_free(it);
+		free(it);
 		it = tmp;
 	}
 }
@@ -439,7 +370,7 @@ _lwsac_assert_valid(struct lwsac *aco, void *check, size_t len, const char *name
 		if (check >= pos && (void *)(((uint8_t *)check) + len) <= end)
 			return 0;
 
-		ac = lwsac_next_chunk(ac);
+		ac = ac->next;
 	}
 
 #if !defined(LWS_WITH_NO_LOGS) && (_LWS_ENABLED_LOGS & LLL_NOTICE)
@@ -451,7 +382,7 @@ _lwsac_assert_valid(struct lwsac *aco, void *check, size_t len, const char *name
 
 		lwsl_notice("%s: ac chunk  %p -> %p\n", __func__, pos, end);
 
-		ac = lwsac_next_chunk(ac);
+		ac = ac->next;
 	}
 #endif
 

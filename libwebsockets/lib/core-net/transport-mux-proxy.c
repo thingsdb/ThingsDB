@@ -180,7 +180,7 @@ ltm_ch_payload(lws_transport_mux_ch_t *tmc, const uint8_t *buf, size_t len)
 	assert_is_tmch(tmc);
 
 #if defined(_DEBUG)
-	tm = lws_dll2_owner_container(&tmc->list, lws_transport_mux_t, owner);
+	tm = lws_container_of(tmc->list.owner, lws_transport_mux_t, owner);
 	assert_is_tm(tm);
 #endif
 
@@ -190,21 +190,7 @@ ltm_ch_payload(lws_transport_mux_ch_t *tmc, const uint8_t *buf, size_t len)
 	lws_transport_path_proxy_dump(&tm->info.txp_ppath, __func__);
 #endif
 
-	if (!tmc->priv) {
-		/* no conn bound to this channel yet... drop it */
-		lwsl_warn("%s: payload on unbound ch %u\n", __func__,
-			  tmc->ch_idx);
-
-		return 0;
-	}
-
-	if (lws_txp_inside_proxy.proxy_read(tmc->priv, buf, len))
-		/*
-		 * The proxy's parser for this client stream hung up, which on
-		 * the wsi transport closes that client connection... the mux
-		 * closes this channel, and with it the conn
-		 */
-		return 1;
+	lws_txp_inside_proxy.proxy_read(tmc->priv, buf, len);
 
 	return 0;
 }
@@ -218,7 +204,7 @@ ltm_ch_opens(lws_transport_mux_ch_t *tmc, int determination)
 	lwsl_notice("%s\n", __func__);
 
 	assert_is_tmch(tmc);
-	tm = lws_dll2_owner_container(&tmc->list, lws_transport_mux_t, owner);
+	tm = lws_container_of(tmc->list.owner, lws_transport_mux_t, owner);
 		assert_is_tm(tm);
 
 	if (lws_txp_inside_proxy.event_new_conn(
@@ -257,11 +243,6 @@ static int
 ltm_txp_can_write(lws_transport_mux_ch_t *tmc)
 {
 	assert_is_tmch(tmc);
-
-	if (!tmc->priv)
-		/* no conn bound to this channel... nothing to write */
-		return 0;
-
 	return lws_txp_inside_proxy.event_proxy_can_write(tmc->priv
 #if defined(LWS_WITH_SYS_FAULT_INJECTION)
 			, NULL
@@ -288,12 +269,10 @@ lws_transport_mux_proxy_event_proxy_can_write(
 {
 	lws_transport_mux_t *tm = (lws_transport_mux_t *)priv;
 	struct lws_sss_proxy_conn *conn;
-	uint8_t _buf[LWS_PRE + 2048], *buf = _buf + LWS_PRE;
-	size_t r = sizeof(_buf) - LWS_PRE, r1;
+	uint8_t buf[2048];
+	size_t r = sizeof(buf), r1;
 
 	assert_is_tm(tm);
-
-	/* proxy_write() may use LWS_PRE behind what it is given */
 
 	if (lws_transport_mux_pending(tm, buf, &r, &cbs)) {
 		r1 = r;
@@ -321,7 +300,7 @@ lws_transport_mux_proxy_event_proxy_can_write(
 static void
 lws_transport_mux_onward_bind(lws_transport_priv_t priv, struct lws_ss_handle *h)
 {
-	/* the onward proxy side needs no per-ss bind step */
+
 }
 #if defined(LWS_WITH_SYS_FAULT_INJECTION)
 static const lws_fi_ctx_t *
@@ -333,7 +312,7 @@ lws_transport_mux_fault_context(lws_transport_priv_t priv)
 static void
 lws_transport_mux_client_up(lws_transport_priv_t priv)
 {
-	/* client-side mux bring-up is handled at connect time */
+
 }
 
 static void
@@ -344,7 +323,7 @@ lws_transport_mux_proxy_req_write(lws_transport_priv_t priv)
 
 	assert_is_tmch(tmc);
 
-	tm = lws_dll2_owner_container(&tmc->list, lws_transport_mux_t, owner);
+	tm = lws_container_of(tmc->list.owner, lws_transport_mux_t, owner);
 	assert_is_tm(tm);
 
 	if (!tm->info.txp_ppath.priv_onw)
@@ -367,16 +346,12 @@ lws_transport_mux_proxy_write(lws_transport_priv_t priv, uint8_t *buf, size_t *l
 
 	assert_is_tmch(tmc);
 
-	tm = lws_dll2_owner_container(&tmc->list, lws_transport_mux_t, owner);
+	tm = lws_container_of(tmc->list.owner, lws_transport_mux_t, owner);
 	assert_is_tm(tm);
 
 	assert(*len < 0xffff);
 
-	/*
-	 * Use the LWS_PRE area to encapsulate the SSS inside the mux protocol:
-	 * our caller must give us LWS_PRE usable behind buf, and what we pass
-	 * on has LWS_PRE - 4 left behind it
-	 */
+	/* use the LWS_PRE area to encapsulate the SSS inside the mux protocol */
 
 	buf[-4] = LWSSSS_LLM_MUX;
 	buf[-3] = tmc->ch_idx;

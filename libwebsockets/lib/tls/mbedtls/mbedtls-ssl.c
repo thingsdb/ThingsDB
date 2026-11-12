@@ -25,11 +25,6 @@
 #include "private-lib-core.h"
 #include "private-lib-tls-mbedtls.h"
 
-#if defined(LWS_ROLE_QUIC)
-extern void
-mbedtls_quic_bio_free(struct lws *wsi);
-#endif
-
 void
 lws_ssl_destroy(struct lws_vhost *vhost)
 {
@@ -38,15 +33,14 @@ lws_ssl_destroy(struct lws_vhost *vhost)
 		return;
 
 	if (vhost->tls.ssl_ctx)
-		lws_tls_vhost_backend_free_ctx(vhost->tls.ssl_ctx);
+		SSL_CTX_free(vhost->tls.ssl_ctx);
 	if (!vhost->tls.user_supplied_ssl_ctx && vhost->tls.ssl_client_ctx)
-		lws_tls_vhost_backend_free_ctx(vhost->tls.ssl_client_ctx);
+		SSL_CTX_free(vhost->tls.ssl_client_ctx);
 
 	if (vhost->tls.x509_client_CA)
-		lws_free(vhost->tls.x509_client_CA);
+		X509_free(vhost->tls.x509_client_CA);
 }
 
-#if defined(LWS_WITH_TCP_TLS)
 int
 lws_ssl_capable_read(struct lws *wsi, unsigned char *buf, size_t len)
 {
@@ -54,11 +48,11 @@ lws_ssl_capable_read(struct lws *wsi, unsigned char *buf, size_t len)
 	struct lws_context_per_thread *pt = &context->pt[(int)wsi->tsi];
 	int n = 0, m;
 
-	if (!wsi->io->tls.ssl)
+	if (!wsi->tls.ssl)
 		return lws_ssl_capable_read_no_ssl(wsi, buf, len);
 
 	errno = 0;
-	n = mbedtls_ssl_read(&wsi->io->tls.ssl->ssl, buf, len);
+	n = SSL_read(wsi->tls.ssl, buf, (int)len);
 #if defined(LWS_PLAT_FREERTOS)
 	if (!n && errno == LWS_ENOTCONN) {
 		lwsl_debug("%s: SSL_read ENOTCONN\n", lws_wsi_tag(wsi));
@@ -66,16 +60,16 @@ lws_ssl_capable_read(struct lws *wsi, unsigned char *buf, size_t len)
 	}
 #endif
 
-	lwsl_debug("%s: %s: mbedtls_ssl_read says %d\n", __func__, lws_wsi_tag(wsi), n);
+	lwsl_debug("%s: %s: SSL_read says %d\n", __func__, lws_wsi_tag(wsi), n);
 	/* manpage: returning 0 means connection shut down */
-	if (!n || n == MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY) {
-		lwsi_set_skt_unusable(wsi, 1);
+	if (!n) {
+		wsi->socket_is_permanently_unusable = 1;
 
 		return LWS_SSL_CAPABLE_ERROR;
 	}
 
 	if (n < 0) {
-		m = n;
+		m = SSL_get_error(wsi->tls.ssl, n);
 		lwsl_debug("%s: %s: ssl err %d errno %d\n", __func__, lws_wsi_tag(wsi), m, errno);
 		if (errno == LWS_ENOTCONN)
 			/* If the socket isn't connected anymore, bail out. */
@@ -86,35 +80,31 @@ lws_ssl_capable_read(struct lws *wsi, unsigned char *buf, size_t len)
 			goto do_err1;
 #endif
 
-		if (m == MBEDTLS_ERR_SSL_WANT_READ) {
+		if (m == SSL_ERROR_ZERO_RETURN ||
+		    m == SSL_ERROR_SYSCALL)
+			goto do_err;
+
+		if (m == SSL_ERROR_WANT_READ || SSL_want_read(wsi->tls.ssl)) {
 			lwsl_debug("%s: WANT_READ\n", __func__);
-			lwsl_debug("%s: LWS_SSL_CAPABLE_MORE_SERVICE_READ\n", lws_wsi_tag(wsi));
-			return LWS_SSL_CAPABLE_MORE_SERVICE_READ;
+			lwsl_debug("%s: LWS_SSL_CAPABLE_MORE_SERVICE\n", lws_wsi_tag(wsi));
+			return LWS_SSL_CAPABLE_MORE_SERVICE;
 		}
-#if defined(MBEDTLS_ERR_SSL_RECEIVED_NEW_SESSION_TICKET)
-		if (m == MBEDTLS_ERR_SSL_RECEIVED_NEW_SESSION_TICKET) {
-			lwsl_debug("%s: RECEIVED_NEW_SESSION_TICKET\n", __func__);
-			lwsl_debug("%s: LWS_SSL_CAPABLE_MORE_SERVICE_READ\n", lws_wsi_tag(wsi));
-			return LWS_SSL_CAPABLE_MORE_SERVICE_READ;
-		}
-#endif
-		if (m == MBEDTLS_ERR_SSL_WANT_WRITE) {
+		if (m == SSL_ERROR_WANT_WRITE || SSL_want_write(wsi->tls.ssl)) {
 			lwsl_info("%s: WANT_WRITE\n", __func__);
-			lwsl_debug("%s: LWS_SSL_CAPABLE_MORE_SERVICE_WRITE\n", lws_wsi_tag(wsi));
-			wsi->io->tls_read_wanted_write = 1;
+			lwsl_debug("%s: LWS_SSL_CAPABLE_MORE_SERVICE\n", lws_wsi_tag(wsi));
+			wsi->tls_read_wanted_write = 1;
 			lws_callback_on_writable(wsi);
-			__lws_change_pollfd(wsi, LWS_POLLIN, 0);
-			return LWS_SSL_CAPABLE_MORE_SERVICE_WRITE;
+			return LWS_SSL_CAPABLE_MORE_SERVICE;
 		}
 
 do_err1:
-		lwsi_set_skt_unusable(wsi, 1);
+		wsi->socket_is_permanently_unusable = 1;
 
+do_err:
 #if defined(LWS_WITH_SYS_METRICS)
 	if (wsi->a.vhost)
 		lws_metric_event(wsi->a.vhost->mt_traffic_rx, METRES_NOGO, 0);
 #endif
-		__lws_ssl_remove_wsi_from_buffered_list(wsi);
 
 		return LWS_SSL_CAPABLE_ERROR;
 	}
@@ -143,12 +133,12 @@ do_err1:
 	 */
 	if (n != (int)len)
 		goto bail;
-	if (!wsi->io->tls.ssl)
+	if (!wsi->tls.ssl)
 		goto bail;
 
-	if (mbedtls_ssl_get_bytes_avail(&wsi->io->tls.ssl->ssl)) {
-		if (lws_dll2_is_detached(&wsi->io->tls.dll_pending_tls))
-			lws_dll2_add_head(&wsi->io->tls.dll_pending_tls,
+	if (SSL_pending(wsi->tls.ssl)) {
+		if (lws_dll2_is_detached(&wsi->tls.dll_pending_tls))
+			lws_dll2_add_head(&wsi->tls.dll_pending_tls,
 					  &pt->tls.dll_pending_tls_owner);
 	} else
 		__lws_ssl_remove_wsi_from_buffered_list(wsi);
@@ -163,10 +153,10 @@ bail:
 int
 lws_ssl_pending(struct lws *wsi)
 {
-	if (!wsi->io->tls.ssl)
+	if (!wsi->tls.ssl)
 		return 0;
 
-	return (int)mbedtls_ssl_get_bytes_avail(&wsi->io->tls.ssl->ssl);
+	return SSL_pending(wsi->tls.ssl);
 }
 
 int
@@ -184,10 +174,10 @@ lws_ssl_capable_write(struct lws *wsi, unsigned char *buf, size_t len)
 	lwsl_hexdump_notice(buf, len);
 #endif
 
-	if (!wsi->io->tls.ssl)
+	if (!wsi->tls.ssl)
 		return lws_ssl_capable_write_no_ssl(wsi, buf, len);
 
-	n = mbedtls_ssl_write(&wsi->io->tls.ssl->ssl, buf, len);
+	n = SSL_write(wsi->tls.ssl, buf, (int)len);
 	if (n > 0) {
 #if defined(LWS_WITH_SYS_METRICS)
 		if (wsi->a.vhost)
@@ -197,30 +187,24 @@ lws_ssl_capable_write(struct lws *wsi, unsigned char *buf, size_t len)
 		return n;
 	}
 
-	m = n;
-	if (m == MBEDTLS_ERR_SSL_WANT_READ) {
-		lwsl_notice("%s: want read\n", __func__);
+	m = SSL_get_error(wsi->tls.ssl, n);
+	if (m != SSL_ERROR_SYSCALL) {
+		if (m == SSL_ERROR_WANT_READ || SSL_want_read(wsi->tls.ssl)) {
+			lwsl_notice("%s: want read\n", __func__);
 
-		return LWS_SSL_CAPABLE_MORE_SERVICE_READ;
-	}
+			return LWS_SSL_CAPABLE_MORE_SERVICE;
+		}
 
-#if defined(MBEDTLS_ERR_SSL_RECEIVED_NEW_SESSION_TICKET)
-	if (m == MBEDTLS_ERR_SSL_RECEIVED_NEW_SESSION_TICKET) {
-		lwsl_notice("%s: want read (ticket)\n", __func__);
+		if (m == SSL_ERROR_WANT_WRITE || SSL_want_write(wsi->tls.ssl)) {
+			lws_set_blocking_send(wsi);
+			lwsl_debug("%s: want write\n", __func__);
 
-		return LWS_SSL_CAPABLE_MORE_SERVICE_READ;
-	}
-#endif
-
-	if (m == MBEDTLS_ERR_SSL_WANT_WRITE) {
-		lws_set_blocking_send(wsi);
-		lwsl_debug("%s: want write\n", __func__);
-
-		return LWS_SSL_CAPABLE_MORE_SERVICE_WRITE;
+			return LWS_SSL_CAPABLE_MORE_SERVICE;
+		}
 	}
 
 	lwsl_debug("%s failed: %d\n",__func__, m);
-	lwsi_set_skt_unusable(wsi, 1);
+	wsi->socket_is_permanently_unusable = 1;
 
 #if defined(LWS_WITH_SYS_METRICS)
 		if (wsi->a.vhost)
@@ -230,94 +214,71 @@ lws_ssl_capable_write(struct lws *wsi, unsigned char *buf, size_t len)
 
 	return LWS_SSL_CAPABLE_ERROR;
 }
-#endif
 
 int openssl_SSL_CTX_private_data_index;
 
 void
-lws_ssl_info_callback(const lws_tls_conn *ssl, int where, int ret)
+lws_ssl_info_callback(const SSL *ssl, int where, int ret)
 {
-	/* OpenSSL specific */
-}
+	struct lws *wsi;
+	struct lws_context *context;
+	struct lws_ssl_info si;
 
-/*
- * The conn now belongs to wsi (lws_tls_transfer_wsi()).  The bio context is
- * the conn's own net member, which moves with it; conn->wsi is how the server
- * SNI callback finds the wsi, the ssl user data is how the quic callbacks do,
- * and a client's jit trust verify callback is given the wsi to collect the
- * peer chain into
- */
-void
-lws_tls_conn_set_wsi(struct lws *wsi)
-{
-	wsi->io->tls.ssl->wsi = wsi;
-#if defined(MBEDTLS_VERSION_NUMBER) && MBEDTLS_VERSION_NUMBER >= 0x03020000
-	mbedtls_ssl_set_user_data_p(&wsi->io->tls.ssl->ssl, wsi);
-#endif
-#if defined(LWS_WITH_CLIENT) && defined(LWS_WITH_TLS_JIT_TRUST) && \
-    defined(LWS_HAVE_mbedtls_ssl_set_verify)
-	if (lwsi_role_client(wsi))
-		lws_mbedtls_client_set_verify(wsi);
-#endif
-	(void)wsi;
-}
-
-
-/*
- * Free the wsi's tls session.  The ctx the SNI callback selected goes only
- * after the ssl: until mbedtls_ssl_free() the handshake may still point into
- * it
- */
-
-void
-lws_mbedtls_conn_destroy(struct lws *wsi)
-{
-	struct lws_tls_conn *conn = wsi->io->tls.ssl;
-
-	if (!conn)
+	context = (struct lws_context *)SSL_CTX_get_ex_data(
+					SSL_get_SSL_CTX(ssl),
+					openssl_SSL_CTX_private_data_index);
+	if (!context)
+		return;
+	wsi = wsi_from_fd(context, SSL_get_fd(ssl));
+	if (!wsi)
 		return;
 
-	mbedtls_ssl_free(&conn->ssl);
-#if defined(LWS_WITH_SERVER)
-	lws_tls_ctx_ref_unref(conn->sni_ref);
-#endif
-	lws_free(conn);
-	wsi->io->tls.ssl = NULL;
+	if (!(where & wsi->a.vhost->tls.ssl_info_event_mask))
+		return;
+
+	si.where = where;
+	si.ret = ret;
+
+	if (user_callback_handle_rxflow(wsi->a.protocol->callback,
+					wsi, LWS_CALLBACK_SSL_INFO,
+					wsi->user_space, &si, 0))
+		lws_set_timeout(wsi, PENDING_TIMEOUT_KILLED_BY_SSL_INFO, -1);
 }
+
 
 int
 lws_ssl_close(struct lws *wsi)
 {
 	lws_sockfd_type n;
 
-	if (!wsi->io->tls.ssl)
+	if (!wsi->tls.ssl)
 		return 0; /* not handled */
 
+#if defined (LWS_HAVE_SSL_SET_INFO_CALLBACK)
+	/* kill ssl callbacks, becausse we will remove the fd from the
+	 * table linking it to the wsi
+	 */
+	if (wsi->a.vhost->tls.ssl_info_event_mask)
+		SSL_set_info_callback(wsi->tls.ssl, NULL);
+#endif
+
 #if defined(LWS_TLS_SYNTHESIZE_CB)
-	lws_sul_cancel(&wsi->io->tls.sul_cb_synth);
+	lws_sul_cancel(&wsi->tls.sul_cb_synth);
 	/*
 	 * ... check the session in case it did not live long enough to get
 	 * the scheduled callback to sample it
 	 */
-	lws_sess_cache_synth_cb(&wsi->io->tls.sul_cb_synth);
+	lws_sess_cache_synth_cb(&wsi->tls.sul_cb_synth);
 #endif
 
-	n = wsi->io->desc.sockfd;
-	if (!lwsi_skt_unusable(wsi)) {
-		mbedtls_ssl_close_notify(&wsi->io->tls.ssl->ssl);
-	}
+	n = SSL_get_fd(wsi->tls.ssl);
+	if (!wsi->socket_is_permanently_unusable)
+		SSL_shutdown(wsi->tls.ssl);
 	compatible_close(n);
-#if defined(LWS_ROLE_QUIC)
-	mbedtls_quic_bio_free(wsi);
-#endif
-	lws_mbedtls_conn_destroy(wsi);
+	SSL_free(wsi->tls.ssl);
+	wsi->tls.ssl = NULL;
 
 	lws_tls_restrict_return(wsi);
-
-	if (wsi->io->tls.ctx_ref) {
-		lws_tls_ctx_ref_unref(wsi->io->tls.ctx_ref);
-		wsi->io->tls.ctx_ref = NULL;
-	}
 
 	return 1; /* handled */
 }
@@ -326,10 +287,10 @@ void
 lws_ssl_SSL_CTX_destroy(struct lws_vhost *vhost)
 {
 	if (vhost->tls.ssl_ctx)
-		lws_tls_vhost_backend_free_ctx(vhost->tls.ssl_ctx);
+		SSL_CTX_free(vhost->tls.ssl_ctx);
 
 	if (!vhost->tls.user_supplied_ssl_ctx && vhost->tls.ssl_client_ctx)
-		lws_tls_vhost_backend_free_ctx(vhost->tls.ssl_client_ctx);
+		SSL_CTX_free(vhost->tls.ssl_client_ctx);
 #if defined(LWS_WITH_ACME)
 	lws_tls_acme_sni_cert_destroy(vhost);
 #endif
@@ -338,79 +299,49 @@ lws_ssl_SSL_CTX_destroy(struct lws_vhost *vhost)
 void
 lws_ssl_context_destroy(struct lws_context *context)
 {
-	/* per-vhost mbedtls contexts are freed in lws_tls_context_destroy;
-	 * nothing per-context global */
 }
-
-/*
- * The ctx whose cert and client cert policy the handshake ran under: the one
- * the SNI callback selected, if it did, since ssl->conf and conn->ctx stay
- * the listening vhost's either way
- */
 
 lws_tls_ctx *
 lws_tls_ctx_from_wsi(struct lws *wsi)
 {
-	if (!wsi->io->tls.ssl)
+	if (!wsi->tls.ssl)
 		return NULL;
 
-#if defined(LWS_WITH_SERVER)
-	if (wsi->io->tls.ssl->sni_ref)
-		return wsi->io->tls.ssl->sni_ref->ctx;
-#endif
-
-	return wsi->io->tls.ssl->ctx;
-}
-
-/*
- * The peer cert verification result as lws judges it.  A client sends its
- * SNI name even when it was told not to check the server's cert against
- * it, and mbedtls checks the cert against the same name: that mismatch is
- * not a failure he asked us to care about.
- */
-
-uint32_t
-lws_mbedtls_verify_result(struct lws *wsi)
-{
-	uint32_t flags = mbedtls_ssl_get_verify_result(&wsi->io->tls.ssl->ssl);
-
-	if (wsi->use_ssl & LCCSCF_SKIP_SERVER_CERT_HOSTNAME_CHECK)
-		flags &= ~(uint32_t)MBEDTLS_X509_BADCERT_CN_MISMATCH;
-
-	return flags;
+	return SSL_get_SSL_CTX(wsi->tls.ssl);
 }
 
 enum lws_ssl_capable_status
 __lws_tls_shutdown(struct lws *wsi)
 {
-	int n = mbedtls_ssl_close_notify(&wsi->io->tls.ssl->ssl);
+	int n = SSL_shutdown(wsi->tls.ssl);
 
-	lwsl_debug("mbedtls_ssl_close_notify=%d for fd %d\n", n, wsi->io->desc.sockfd);
+	lwsl_debug("SSL_shutdown=%d for fd %d\n", n, wsi->desc.sockfd);
 
-	if (n == 0) {
-		/* successful completion */
-		(void)shutdown(wsi->io->desc.sockfd, SHUT_WR);
+	switch (n) {
+	case 1: /* successful completion */
+		(void)shutdown(wsi->desc.sockfd, SHUT_WR);
 		return LWS_SSL_CAPABLE_DONE;
-	}
 
-	if (n == MBEDTLS_ERR_SSL_WANT_READ) {
+	case 0: /* needs a retry */
 		__lws_change_pollfd(wsi, 0, LWS_POLLIN);
-		return LWS_SSL_CAPABLE_MORE_SERVICE_READ;
-	}
+		return LWS_SSL_CAPABLE_MORE_SERVICE;
 
-#if defined(MBEDTLS_ERR_SSL_RECEIVED_NEW_SESSION_TICKET)
-	if (n == MBEDTLS_ERR_SSL_RECEIVED_NEW_SESSION_TICKET) {
-		__lws_change_pollfd(wsi, 0, LWS_POLLIN);
-		return LWS_SSL_CAPABLE_MORE_SERVICE_READ;
+	default: /* fatal error, or WANT */
+		n = SSL_get_error(wsi->tls.ssl, n);
+		if (n != SSL_ERROR_SYSCALL && n != SSL_ERROR_SSL) {
+			if (SSL_want_read(wsi->tls.ssl)) {
+				lwsl_debug("(wants read)\n");
+				__lws_change_pollfd(wsi, 0, LWS_POLLIN);
+				return LWS_SSL_CAPABLE_MORE_SERVICE_READ;
+			}
+			if (SSL_want_write(wsi->tls.ssl)) {
+				lwsl_debug("(wants write)\n");
+				__lws_change_pollfd(wsi, 0, LWS_POLLOUT);
+				return LWS_SSL_CAPABLE_MORE_SERVICE_WRITE;
+			}
+		}
+		return LWS_SSL_CAPABLE_ERROR;
 	}
-#endif
-
-	if (n == MBEDTLS_ERR_SSL_WANT_WRITE) {
-		__lws_change_pollfd(wsi, 0, LWS_POLLOUT);
-		return LWS_SSL_CAPABLE_MORE_SERVICE_WRITE;
-	}
-
-	return LWS_SSL_CAPABLE_ERROR;
 }
 
 
@@ -421,29 +352,5 @@ tops_fake_POLLIN_for_buffered_mbedtls(struct lws_context_per_thread *pt)
 }
 
 const struct lws_tls_ops tls_ops_mbedtls = {
-	.fake_POLLIN_for_buffered = tops_fake_POLLIN_for_buffered_mbedtls,
+	/* fake_POLLIN_for_buffered */	tops_fake_POLLIN_for_buffered_mbedtls,
 };
-
-void
-lws_tls_vhost_backend_free_ctx(lws_tls_ctx *ctx)
-{
-	if (!ctx)
-		return;
-
-	mbedtls_ssl_config_free(&ctx->conf);
-
-	if (ctx->chain) {
-		mbedtls_x509_crt_free(ctx->chain);
-		lws_free(ctx->chain);
-	}
-	if (ctx->ca_chain) {
-		mbedtls_x509_crt_free(ctx->ca_chain);
-		lws_free(ctx->ca_chain);
-	}
-	if (ctx->key) {
-		mbedtls_pk_free(ctx->key);
-		lws_free(ctx->key);
-	}
-
-	lws_free(ctx);
-}

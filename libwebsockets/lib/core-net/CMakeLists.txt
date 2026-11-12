@@ -24,43 +24,32 @@
 
 include_directories(.)
 
-# what neither half owns (READMEs/README.sans-io-split.md): the halves are
-# lib/sansio and lib/io
 list(APPEND SOURCES
-	core-net/txpacer.c
-	core-net/async-queue.c
-	core-net/roles.c
-	core-net/address.c
+	core-net/dummy-callback.c
+	core-net/output.c
+	core-net/close.c
+	core-net/network.c
+	core-net/vhost.c
+	core-net/pollfd.c
+	core-net/service.c
 	core-net/sorted-usec-list.c
+	core-net/wsi.c
 	core-net/wsi-timeout.c
-	core-net/proxy-v2.c
+	core-net/adopt.c
+	roles/pipe/ops-pipe.c
 )
 
-if (LWS_WITH_LATENCY)
+if (LWS_WITH_SYS_STATE)
 	list(APPEND SOURCES
-		core-net/latency.c
+		core-net/state.c
 	)
 endif()
 
-if (LWS_WITH_STUB AND NOT LWS_WITHOUT_CLIENT)
+if (LWS_WITH_NETLINK)
 	list(APPEND SOURCES
-		core-net/stub.c
+		core-net/route.c
 	)
 endif()
-
-if (NOT LWS_WITHOUT_CLIENT)
-	list(APPEND SOURCES
-		core-net/async-ipc.c
-	)
-endif()
-
-
-if (LWS_WITH_TRANSPORT_SEQUENCER)
-	list(APPEND SOURCES
-		core-net/lws-transport-sequencer.c
-	)
-endif()
-
 
 if (LWS_WITH_LWS_DSH)
 	list(APPEND SOURCES
@@ -75,15 +64,22 @@ endif()
 if (LWS_WITH_CLIENT)
 	list(APPEND SOURCES
 		core-net/client/client.c
+		core-net/client/connect.c
+		core-net/client/connect2.c
+		core-net/client/connect3.c
+		core-net/client/connect4.c
+		core-net/client/sort-dns.c
 		)
+	if (LWS_WITH_CONMON)
+		list(APPEND SOURCES
+			core-net/client/conmon.c
+		)
+	endif()
 endif()
 
-if (LWS_WITH_WEBRTC)
+if (LWS_WITH_SOCKS5 AND NOT LWS_WITHOUT_CLIENT)
 	list(APPEND SOURCES
-		core-net/lws-rtp.c
-		core-net/lws-srtp.c
-		core-net/lws-stun.c
-	)
+		core-net/socks5-client.c)
 endif()
 
 exports_to_parent_scope()

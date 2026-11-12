@@ -71,10 +71,6 @@ typedef enum {
 	LWS_ADOPT_ALLOW_SSL		=  4,	/* flag: use tls */
 	LWS_ADOPT_FLAG_UDP		= 16,	/* flag: socket is UDP */
 	LWS_ADOPT_FLAG_RAW_PROXY	= 32,	/* flag: raw proxy */
-	LWS_ADOPT_FLAG_NO_NONBLOCK	= 64,	/* flag: file fd can't be made
-						 * nonblocking, and is never
-						 * read in a way that can block,
-						 * eg, a Darwin kqueue fd */
 
 	LWS_ADOPT_RAW_SOCKET_UDP = LWS_ADOPT_SOCKET | LWS_ADOPT_FLAG_UDP,
 } lws_adoption_type;
@@ -88,7 +84,7 @@ typedef union {
 #include <lwip/sockets.h>
 #endif
 
-typedef union lws_sockaddr46 {
+typedef union {
 #if defined(LWS_WITH_IPV6)
 	struct sockaddr_in6 sa6;
 #else
@@ -149,75 +145,6 @@ LWS_VISIBLE LWS_EXTERN struct lws *
 lws_adopt_descriptor_vhost(struct lws_vhost *vh, lws_adoption_type type,
 			   lws_sock_file_fd_type fd, const char *vh_prot_name,
 			   struct lws *parent);
-
-/**
- * lws_get_socket_fd() - returns the socket file descriptor
- *
- * This is needed to use sendto() on UDP raw sockets
- *
- * \param wsi:	Websocket connection instance
- */
-LWS_VISIBLE LWS_EXTERN lws_sockfd_type
-lws_get_socket_fd(struct lws *wsi);
-
-/**
- * lws_get_udp() - get wsi's udp struct
- *
- * \param wsi: lws connection
- *
- * Returns NULL or pointer to the wsi's UDP-specific information
- */
-LWS_VISIBLE LWS_EXTERN const struct lws_udp * LWS_WARN_UNUSED_RESULT
-lws_get_udp(const struct lws *wsi);
-
-#if defined(LWS_WITH_TLS) && !defined(LWS_WITH_MBEDTLS) && !defined(LWS_WITH_BEARSSL)
-/**
- * lws_get_ssl() - Return wsi's SSL context structure
- * \param wsi:	websocket connection
- *
- * Returns pointer to the SSL library's context structure
- */
-LWS_VISIBLE LWS_EXTERN SSL*
-lws_get_ssl(struct lws *wsi);
-#endif
-
-/*
- * A transport under IO, in place of the socket.  IO still owns the wsi's
- * place in the poll set (the fd is what the loop watches), but the bytes
- * of a connection with a transport set go through these instead of recv,
- * send, recvmsg and sendto, below the tls record layer: a connection in
- * the clear exchanges its protocol bytes with the transport, one with tls
- * its ciphertext.  This is how a test drives the sansIO half with no
- * network under it (api-test-sansio), and how an embedder carries lws over
- * something that is not a socket.
- *
- * read and write follow lws_ssl_capable_read() / write(): bytes moved, or
- * LWS_SSL_CAPABLE_MORE_SERVICE_READ / _WRITE when nothing can move now, or
- * LWS_SSL_CAPABLE_ERROR; a read of 0 is the peer closing.  recv_dgram
- * returns the datagram's length with its peer and ECN bits, or 0 when
- * there is none; send_dgram as lws_io_send_dgram().  Either datagram op
- * may be NULL when the transport carries streams only.
- */
-typedef struct lws_transport_ops {
-	int (*read)(struct lws *wsi, void *opaque, uint8_t *buf, size_t len);
-	int (*write)(struct lws *wsi, void *opaque, const uint8_t *buf,
-		     size_t len);
-	int (*recv_dgram)(struct lws *wsi, void *opaque, uint8_t *buf,
-			  size_t len, lws_sockaddr46 *peer, uint8_t *ecn);
-	int (*send_dgram)(struct lws *wsi, void *opaque, const uint8_t *buf,
-			  size_t len, const lws_sockaddr46 *dest);
-} lws_transport_ops_t;
-
-/**
- * lws_set_transport() - carry a wsi's bytes over a transport, not its socket
- *
- * \param wsi: the connection (the one with the transport, not a stream)
- * \param ops: the transport, or NULL to go back to the socket
- * \param opaque: handed to every op
- */
-LWS_VISIBLE LWS_EXTERN void
-lws_set_transport(struct lws *wsi, const lws_transport_ops_t *ops,
-		  void *opaque);
 
 typedef struct lws_adopt_desc {
 	struct lws_vhost	*vh;		/**< vhost the wsi should belong to */
@@ -317,28 +244,15 @@ lws_adopt_socket_vhost_readbuf(struct lws_vhost *vhost,
 #define LWS_CAUDP_BIND (1 << 0)
 #define LWS_CAUDP_BROADCAST (1 << 1)
 #define LWS_CAUDP_PF_PACKET (1 << 2)
-/*
- * A socket connect()ed to its peer (no LWS_CAUDP_BIND) asks from a local port
- * we pick from lws_get_random() in 32768 - 65535, rather than one the OS
- * picks, which may be guessable, eg, sequential (RFC 5452, RFC 6056).  The
- * port is not shared with another socket (no SO_REUSEADDR).  If no port we
- * try can be bound, the OS picks one.
- */
-#define LWS_CAUDP_RANDOM_PORT (1 << 3)
 
 #if defined(LWS_WITH_UDP)
 /**
  * lws_create_adopt_udp() - create, bind and adopt a UDP socket
  *
  * \param vhost:	 lws vhost
- * \param ads:		 NULL, an address, or a name to do dns lookup on: a
- *			 name is looked up for its A record (AAAA in a build
- *			 without ipv4), with libc or async dns alike, and the
- *			 first result is used
+ * \param ads:		 NULL or address to do dns lookup on
  * \param port:		 UDP port to bind to, -1 means unbound
- * \param flags:	 0, or LWS_CAUDP_ flags: _BIND to bind to \p ads and
- *			 \p port instead of connecting to them, _BROADCAST,
- *			 _PF_PACKET, _RANDOM_PORT
+ * \param flags:	 0 or LWS_CAUDP_NO_BIND
  * \param protocol_name: Name of protocol on vhost to bind wsi to
  * \param ifname:	 NULL, for network interface name to bind socket to
  * \param parent_wsi:	 NULL or parent wsi new wsi will be a child of

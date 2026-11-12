@@ -27,29 +27,6 @@
  *
  * These wrap miscellaneous useful network-related functions
  */
-LWS_VISIBLE LWS_EXTERN struct lws_dll2_owner *
-lws_routing_table_get(struct lws_context *cx);
-
-#if defined(LWS_WITH_NETLINK)
-/**
- * lws_netlink_inject() - act on route messages as if netlink sent them
- *
- * \param cx: the lws context
- * \param buf: one or more netlink messages, eg, RTM_NEWROUTE
- * \param len: how many bytes are at buf
- *
- * The context keeps its routing table from the route messages the kernel
- * sends it over netlink.  This acts on the messages at buf as if they had come
- * from the kernel, updating the table, and closing connections it finds no
- * longer routable.  Call it from the context's service thread.
- *
- * Only needed for testing.  Returns 0 if it acted on them, or nonzero if they
- * could not be taken.
- */
-LWS_VISIBLE LWS_EXTERN int
-lws_netlink_inject(struct lws_context *cx, const void *buf, size_t len);
-#endif
-
 ///@{
 
 #if defined(LWS_ESP_PLATFORM)
@@ -71,16 +48,16 @@ typedef struct lws_dns_score {
 typedef struct lws_route {
 	lws_dll2_t		list;
 
-	lws_sockaddr46		src; /* lws_dns_sort_t: the source route's src */
+	lws_sockaddr46		src;
 	lws_sockaddr46		dest;
 	lws_sockaddr46		gateway;
 
+	struct lws_route	*source; /* when used as lws_dns_sort_t */
 	lws_dns_score_t		score; /* when used as lws_dns_sort_t */
 
 	int			if_idx;
 	int			priority;
 	int			ifa_flags; /* if source_ads */
-	uint32_t		table; /* routing table id, eg, RT_TABLE_MAIN */
 
 	lws_route_uidx_t	uidx; /* unique index for this route */
 
@@ -91,7 +68,6 @@ typedef struct lws_route {
 	uint8_t			af; /* if source_ads */
 
 	uint8_t			source_ads:1;
-	uint8_t			has_source:1; /* lws_dns_sort_t: src is set */
 } lws_route_t;
 
 /*
@@ -127,7 +103,7 @@ lws_canonical_hostname(struct lws_context *context);
  *	truncated if there is not enough room.  If either cannot be
  *	determined, they will be returned as valid zero-length strings.
  */
-LWS_VISIBLE LWS_EXTERN int LWS_WARN_UNUSED_RESULT
+LWS_VISIBLE LWS_EXTERN void
 lws_get_peer_addresses(struct lws *wsi, lws_sockfd_type fd, char *name,
 		       int name_len, char *rip, int rip_len);
 
@@ -139,8 +115,7 @@ lws_get_peer_addresses(struct lws *wsi, lws_sockfd_type fd, char *name,
  * \param namelen:	Length of client address name buffer
  *
  * This provides a 123.123.123.123 type IP address in name from the
- * peer that has connected to wsi.  Returns name, or NULL with name empty if
- * wsi has no connection.
+ * peer that has connected to wsi
  */
 LWS_VISIBLE LWS_EXTERN const char *
 lws_get_peer_simple(struct lws *wsi, char *name, size_t namelen);
@@ -154,6 +129,7 @@ lws_get_peer_simple_fd(lws_sockfd_type fd, char *name, size_t namelen);
 #define LWS_ITOSA_BUSY		-3 /* only returned by lws_socket_bind() on
 					EADDRINUSE */
 
+#if !defined(LWS_PLAT_FREERTOS) && !defined(LWS_PLAT_OPTEE)
 /**
  * lws_interface_to_sa() - Convert interface name or IP to sockaddr struct
  *
@@ -172,19 +148,12 @@ lws_get_peer_simple_fd(lws_sockfd_type fd, char *name, size_t namelen);
  * LWS_ITOSA_NOT_USABLE.
  *
  * If the network interface exists and is usable, it will return
- * LWS_ITOSA_USABLE, and only then has \p addr been written.
- *
- * If the interfaces can't be listed (eg, the process is out of fds), a
- * numeric address is still converted, but an interface name reads as
- * LWS_ITOSA_NOT_EXIST, since it may be there when asked again later.
- *
- * On FreeRTOS, interface names are lwIP's, eg "st1" or "ap2" (as
- * netif_find() takes them).  OP-TEE has no interfaces to look up, so it
- * always returns LWS_ITOSA_NOT_EXIST, and a vhost iface there fails.
+ * LWS_ITOSA_USABLE.
  */
 LWS_VISIBLE LWS_EXTERN int
 lws_interface_to_sa(int ipv6, const char *ifname, struct sockaddr_in *addr,
 		    size_t addrlen);
+#endif
 
 /**
  * lws_sa46_compare_ads() - checks if two sa46 have the same address
@@ -197,19 +166,6 @@ lws_interface_to_sa(int ipv6, const char *ifname, struct sockaddr_in *addr,
  */
 LWS_VISIBLE LWS_EXTERN int
 lws_sa46_compare_ads(const lws_sockaddr46 *sa46a, const lws_sockaddr46 *sa46b);
-
-/**
- * lws_sa46_compare_sin6_addr() - compare two sin6_addr objects safely
- *
- * \param a: first
- * \param b: second
- *
- * Returns 0 if equal, else non-zero.  Operates directly on the s6_addr
- * array to avoid static analysis warnings about padding in the struct.
- */
-#if defined(LWS_WITH_IPV6)
-#define lws_sa46_compare_sin6_addr(a, b) memcmp((a)->s6_addr, (b)->s6_addr, 16)
-#endif
 
 /**
  * lws_sa46_on_net() - checks if an sa46 is on the subnet represented by another
@@ -237,51 +193,11 @@ lws_sa46_on_net(const lws_sockaddr46 *sa46a, const lws_sockaddr46 *sa46_net,
  * Converts a 1.2.3.4 or 2001:abcd:123:: or ::ffff:1.2.3.4 formatted numeric
  * address into an array of network ordered byte address elements.
  *
- * The parse is as strict as inet_pton(): the string must contain nothing but
- * the address, and an ipv4 octet may not have a leading zero, since libc's
- * resolver reads one as octal (to it "012.0.0.1" is 10.0.0.1).
- *
  * Returns < 0 on error, else length of result set, either 4 or 16 for ipv4 /
  * ipv6.
  */
 LWS_VISIBLE LWS_EXTERN int
 lws_parse_numeric_address(const char *ads, uint8_t *result, size_t max_len);
-
-/**
- * lws_host_is_ambiguous_numeric() - a host libc would take as ipv4 but we don't
- *
- * \param host: the host name or address string
- *
- * libc's getaddrinfo() also takes a host whose last label is a number as an
- * ipv4 address, in the inet_aton() forms lws_parse_numeric_address() refuses:
- * octets with a leading zero are octal, 0x is hex, and fewer than four parts
- * are allowed ("012.0.0.1", "10.1" and "167772161" are all 10.0.0.1 to it).
- * Such a host means different things to different resolvers, so lws refuses
- * to resolve it for a client connection; a filter deciding whether a host is
- * acceptable should refuse it too.
- *
- * Returns 1 if \p host is not a strict numeric address, but its last label
- * (ignoring one trailing '.') is all decimal digits, or "0x" and hex digits;
- * else 0.
- */
-LWS_VISIBLE LWS_EXTERN int
-lws_host_is_ambiguous_numeric(const char *host);
-
-/**
- * lws_host_is_localhost() - a host lws resolves to loopback itself
- *
- * \param host: the host name
- *
- * RFC 6761 6.3 reserves "localhost" and every name under it for the loopback
- * interface, and asks that queries for them are never sent to a nameserver.
- * lws resolves such a host to loopback itself, whether through libc or async
- * dns, so eg, "other.localhost" reaches a local server on every platform.
- *
- * Returns 1 if the last label of \p host (ignoring one trailing '.') is
- * "localhost", in any case, else 0.
- */
-LWS_VISIBLE LWS_EXTERN int
-lws_host_is_localhost(const char *host);
 
 /*
  * lws_sa46_parse_numeric_address() - converts numeric ipv4 or ipv6 to sa46
@@ -298,336 +214,6 @@ lws_host_is_localhost(const char *host);
  */
 LWS_VISIBLE LWS_EXTERN int
 lws_sa46_parse_numeric_address(const char *ads, lws_sockaddr46 *sa46);
-
-/**
- * lws_sa46_is_ipv4_mapped() - is an AF_INET6 sa46 an IPv4-mapped address?
- *
- * \param sa46: the sa46 to test
- *
- * Returns 1 if \p sa46 is AF_INET6 and holds an IPv4-mapped IPv6 address
- * (::ffff:a.b.c.d), else 0.  Useful for deciding that an AF_INET6 socket
- * targeting this address must be dual-stack (IPV6_V6ONLY = 0) to actually
- * reach the IPv4 peer through the mapping.
- */
-LWS_VISIBLE LWS_EXTERN int
-lws_sa46_is_ipv4_mapped(const lws_sockaddr46 *sa46);
-
-/*
- * Room for any key lws_sa46_host_key() / lws_get_peer_host_key() writes,
- * including the terminating NUL
- */
-#define LWS_HOST_KEY_LEN	32
-/* the one key every peer whose address is not IPv4 or IPv6 shares */
-#define LWS_HOST_KEY_UNKNOWN	"unknown"
-/*
- * the one key every peer whose address nothing proved shares, see
- * lws_get_peer_host_key()
- */
-#define LWS_HOST_KEY_UNPROVEN	"unproven"
-
-/**
- * lws_sa46_host_key() - the key a peer's host is accounted under
- *
- * \param sa46: the peer address
- * \param key: buffer for the key, at least LWS_HOST_KEY_LEN
- * \param len: size of \p key
- *
- * Per-peer admission caps, strikes and rate limits must count one host as
- * one peer.  For IPv4 that is the address, but an IPv6 host commands its
- * whole /64 (2^64 source addresses), so counting per address does not bound
- * it at all.  The key is therefore:
- *
- *  - IPv4, or IPv4-mapped IPv6: the dotted quad, eg "192.0.2.1"
- *  - other IPv6: the /64, eg "2001:db8:1:2::/64"
- *  - anything else (eg, an unset sa46): LWS_HOST_KEY_UNKNOWN, one bucket
- *    shared by every such peer, so they are counted together rather than
- *    not at all
- *
- * Keys compare equal with strcmp() exactly when the hosts are the same.
- * LWS_WITH_PEER_LIMITS (.ip_limit_wsi, .ip_limit_ah) counts hosts the same
- * way.
- *
- * Returns 0 if the key is a host's, or 1 if it is LWS_HOST_KEY_UNKNOWN.
- */
-LWS_VISIBLE LWS_EXTERN int
-lws_sa46_host_key(const lws_sockaddr46 *sa46, char *key, size_t len);
-
-/**
- * lws_get_peer_host_key() - the host key of the client connected to wsi
- *
- * \param wsi: the connection
- * \param key: buffer for the key, at least LWS_HOST_KEY_LEN
- * \param len: size of \p key
- *
- * lws_sa46_host_key() of the address lws_get_peer_simple() gives, ie, the
- * client a trusted PROXY v2 proxy named where there is one.  A peer whose
- * address can't be determined or parsed gets LWS_HOST_KEY_UNKNOWN.
- *
- * But only if the address is believable, ie, the connection's effective
- * peer entry (lws_peer_effective()) is at least LWS_PEER_CRED_VOUCHED.  If
- * it is only hearsay, eg, the source of a datagram, or a QUIC connection's
- * before QUIC validated its address, anyone may have written it: it is
- * neither keyed as its own host, which would let a sender spread itself
- * over keys of its choice or spend a victim's budget, nor as unknown, but
- * as LWS_HOST_KEY_UNPROVEN, one key shared by all such peers, which a
- * caller should give a budget sized for the unproven traffic it expects.
- * Peer limits (LWS_WITH_PEER_LIMITS) make the same decision, the same way.
- *
- * Use this to key per-client admission decisions, so they all agree on who
- * the client is.
- *
- * Returns \p key.
- */
-LWS_VISIBLE LWS_EXTERN const char *
-lws_get_peer_host_key(struct lws *wsi, char *key, size_t len);
-
-/*
- * The peer address stack
- *
- * Who a connection's peer is may be known at several layers, each believed
- * to a different degree: the transport's own peer (the address a TCP
- * handshake completed with, or a datagram's source), and above it a claim
- * about the real client (eg, the PROXY v2 header of a trusted front).  lws
- * keeps these as a stack per connection, top (the most specific claim)
- * first, each entry tagged with how far it can be believed.
- */
-
-/**
- * enum lws_peer_cred - how far a peer address entry can be believed
- *
- * The levels are ordered, so they compare with >= : what we saw ourselves
- * (ROUTABLE) ranks above what an intermediary we trust tells us (VOUCHED).
- */
-typedef enum lws_peer_cred {
-	LWS_PEER_CRED_NONE,	/**< empty slot */
-	LWS_PEER_CRED_HEARSAY,	/**< nothing proves it: a datagram's source, a
-				 *   claim carried in one, an untrusted header */
-	LWS_PEER_CRED_VOUCHED,	/**< an intermediary we trust says so, over a
-				 *   link that is itself >= ROUTABLE: PROXY v2
-				 *   from a trusted front on TCP */
-	LWS_PEER_CRED_ROUTABLE,	/**< we saw it ourselves: a round trip carrying a
-				 *   value it could not guess (a TCP handshake,
-				 *   QUIC address validation, or a protocol's
-				 *   evidence via lws_peer_raise()) */
-	LWS_PEER_CRED_CRYPTO,	/**< bound to a key the peer proved: a QUIC
-				 *   handshake done on a validated path */
-} lws_peer_cred_t;
-
-/**
- * enum lws_peer_kind - where a peer address entry came from
- */
-typedef enum lws_peer_kind {
-	LWS_PEER_KIND_SOCKET,	/**< the transport's own peer */
-	LWS_PEER_KIND_LOCAL,	/**< AF_UNIX, attested by the kernel: no address */
-	LWS_PEER_KIND_PROXY_V2,	/**< PROXY v2 source from a trusted TCP front */
-	LWS_PEER_KIND_RELAY,	/**< PROXY v2 source in a relayed datagram */
-	LWS_PEER_KIND_XFF,	/**< X-Forwarded-For or similar on a stream */
-	LWS_PEER_KIND_DATAGRAM,	/**< the last datagram's source, on a socket
-				 *   with no peer of its own (eg, bound and
-				 *   not connected): not who it talks to */
-} lws_peer_kind_t;
-
-/**
- * struct lws_peer_entry - one layer of who the peer is
- */
-typedef struct lws_peer_entry {
-	lws_sockaddr46		sa46;	/**< the address, port 0 if unknown */
-	uint8_t			cred;	/**< lws_peer_cred_t */
-	uint8_t			kind;	/**< lws_peer_kind_t */
-} lws_peer_entry_t;
-
-/*
- * The most entries lws_peer_walk() can give: a stream's own claim, a claim
- * about the client on the connection, and the transport's peer
- */
-#define LWS_PEER_WALK_MAX	3
-
-/**
- * lws_peer_walk() - copy out the peer address stack of a connection
- *
- * \param wsi: the connection, or a stream on it
- * \param dest: array to take the entries
- * \param max: number of entries \p dest has room for
- *
- * Copies the stack top first, so dest[0] is the most specific claim and the
- * last entry is the transport's own peer.  Given a stream (an h1
- * transaction, an h2 / h3 stream), the stack is its connection's.
- *
- * Returns the number of entries copied, at most \p max and at most
- * LWS_PEER_WALK_MAX, 0 if the connection has no peer (yet).
- */
-LWS_VISIBLE LWS_EXTERN int
-lws_peer_walk(struct lws *wsi, lws_peer_entry_t *dest, int max);
-
-/**
- * lws_peer_effective() - the entry that stands for who the peer is
- *
- * \param wsi: the connection, or a stream on it
- * \param dest: the entry to fill
- *
- * The effective entry is the first one, walking from the top, that is at
- * least LWS_PEER_CRED_VOUCHED.  If none is, it is the top entry, which is
- * then only hearsay: a caller making per-client decisions must look at its
- * cred and not let it stand for a proven peer.  So a hearsay claim above a
- * believable entry is never taken as the peer's identity, and cannot move a
- * client into another client's accounting.
- *
- * lws_get_peer_simple() gives the effective entry's address for a
- * connection carrying a claim.
- *
- * Returns 0 with \p dest filled, or nonzero if there is no peer.
- */
-LWS_VISIBLE LWS_EXTERN int
-lws_peer_effective(struct lws *wsi, lws_peer_entry_t *dest);
-
-/**
- * lws_peer_entries_effective() - which of some peer entries is effective
- *
- * \param e: the entries, top first, as lws_peer_walk() gives them
- * \param count: the number of entries in \p e
- *
- * The rule of lws_peer_effective(), on entries the caller has, eg a
- * connection's stack with a layer of its own on top: the first entry from
- * the top at LWS_PEER_CRED_VOUCHED or better, else the top one.
- *
- * Returns the index of the effective entry in \p e, or -1 if \p count is
- * not positive.
- */
-LWS_VISIBLE LWS_EXTERN int
-lws_peer_entries_effective(const lws_peer_entry_t *e, int count);
-
-/* lws_peer_describe() flags */
-#define LWS_PEER_DESC_TOKEN	(1 << 0) /* one token, no spaces, see below */
-#define LWS_PEER_DESC_BARE_SINGLE (1 << 1) /* one proven entry: its address */
-
-/*
- * Room for any description of what lws_peer_walk() can give, including the
- * terminating NUL
- */
-#define LWS_PEER_DESC_LEN	224
-
-/**
- * lws_peer_entries_describe() - format peer address entries as text
- *
- * \param e: the entries, top first, as lws_peer_walk() gives them
- * \param count: the number of entries in \p e
- * \param buf: the buffer for the text
- * \param len: the size of \p buf
- * \param flags: 0, or LWS_PEER_DESC_TOKEN and / or LWS_PEER_DESC_BARE_SINGLE
- *
- * By default, for logs, each entry is "<address>[:<port>] <kind>/<cred>",
- * joined top first with " < ", eg
- *
- *   "203.0.113.9:51234 proxy-v2/vouched < 10.0.0.2:40122 socket/routable"
- *
- * With LWS_PEER_DESC_TOKEN, for a single field of a log line, there are no
- * spaces: each entry is "<address>[:<port>]~<h|v|r|c>" (the cred's initial),
- * joined with "<", eg
- *
- *   "203.0.113.9:51234~v<10.0.0.2:40122~r"
- *
- * With LWS_PEER_DESC_BARE_SINGLE, a single entry the transport proved, at
- * LWS_PEER_CRED_ROUTABLE or better, or an AF_UNIX (LWS_PEER_KIND_LOCAL) one,
- * is just its bare address, without port, kind or cred, eg "10.0.0.2": the
- * peer is usually only the transport's, and that is what logs have always
- * shown for it.  A single entry below ROUTABLE, eg a datagram's source, is
- * still described in full, so that hearsay never looks like a proven peer in
- * a log, and so are deeper stacks, since then the other layers are exactly
- * what a log needs to show.
- *
- * An IPv6 address with a port is bracketed, eg "[2001:db8::1]:443".  An
- * AF_UNIX (LWS_PEER_KIND_LOCAL) entry's address is "unix", and an address of
- * any other family that is not IPv4 or IPv6 is "unknown", so that a token
- * never contains spaces.
- *
- * The result is always NUL-terminated if \p len is nonzero, and ends with
- * "..." if it was cut short.  A buffer of LWS_PEER_DESC_LEN is never cut
- * short.
- *
- * Returns \p buf.
- */
-LWS_VISIBLE LWS_EXTERN const char *
-lws_peer_entries_describe(const lws_peer_entry_t *e, int count, char *buf,
-			  size_t len, int flags);
-
-/**
- * lws_peer_describe() - format the peer address stack of a connection
- *
- * \param wsi: the connection, or a stream on it
- * \param buf: the buffer for the text
- * \param len: the size of \p buf
- * \param flags: 0, or LWS_PEER_DESC_TOKEN and / or LWS_PEER_DESC_BARE_SINGLE
- *
- * lws_peer_entries_describe() of what lws_peer_walk() gives for \p wsi; a
- * connection with no peer gives "unknown".
- *
- * The description comes only from the stack, what the connection recorded
- * when it was accepted or connected: the socket is not asked again, so it
- * is the same when the connection is being closed, after the peer reset it,
- * or (for a stream) after its connection's socket was closed.
- *
- * With LWS_PEER_DESC_BARE_SINGLE, a connection whose only entry is its
- * proven IP peer is described by its bare address, the text
- * lws_get_peer_simple() gives for it, so that a log or access log line is
- * the same as it always was in the usual case, and only grows the other
- * layers when there are some.  An AF_UNIX peer is "unix".  This is how lws
- * describes the peer in its own logs and access log.
- *
- * Returns \p buf.
- */
-LWS_VISIBLE LWS_EXTERN const char *
-lws_peer_describe(struct lws *wsi, char *buf, size_t len, int flags);
-
-/**
- * lws_peer_raise() - raise the cred of an entry a protocol has evidence for
- *
- * \param wsi: the connection, or a stream on it
- * \param seen: the address the evidence came from
- * \param cred: the level the evidence supports
- *
- * A protocol can prove an address as it goes, eg an answer that echoes a
- * value we only sent to that address shows the address is really there.
- * This raises every entry on the connection's stack whose address equals
- * \p seen's (and whose port does too, unless \p seen's port is 0) to
- * \p cred.  A cred is never lowered.
- *
- * The address is the evidence, so it must be the one the evidence was seen
- * from: an entry that has since moved on to another address (eg, a raw UDP
- * socket's last datagram source) is not raised by an answer from the old
- * one.
- *
- * The raise covers only what the entry stands for now.  On a UDP socket
- * each datagram is a new observation of its source, which anyone can write,
- * so the next datagram, even from the same address and port, is hearsay
- * again; and a client connection dialling again (eg, after a redirect)
- * starts over.
- *
- * Returns 0 if an entry matched, or nonzero if none did (or \p cred is not
- * a level).
- */
-LWS_VISIBLE LWS_EXTERN int
-lws_peer_raise(struct lws *wsi, const lws_sockaddr46 *seen,
-	       lws_peer_cred_t cred);
-
-/**
- * lws_peer_cred_name() - the name of a cred level, eg "routable"
- *
- * \param cred: the level
- *
- * Returns a constant string, "?" for an unknown level.
- */
-LWS_VISIBLE LWS_EXTERN const char *
-lws_peer_cred_name(lws_peer_cred_t cred);
-
-/**
- * lws_peer_kind_name() - the name of an entry kind, eg "proxy-v2"
- *
- * \param kind: the kind
- *
- * Returns a constant string, "?" for an unknown kind.
- */
-LWS_VISIBLE LWS_EXTERN const char *
-lws_peer_kind_name(lws_peer_kind_t kind);
 
 /**
  * lws_write_numeric_address() - convert network byte order ads to text
@@ -671,39 +257,5 @@ lws_sa46_write_numeric_address(lws_sockaddr46 *sa46, char *buf, size_t len);
  */
 LWS_VISIBLE LWS_EXTERN int
 lws_parse_mac(const char *ads, uint8_t *result_6_bytes);
-
-LWS_VISIBLE LWS_EXTERN int
-lws_parse_cidr(const char *cidr, lws_sockaddr46 *sa46, int *len);
-
-/**
- * lws_is_lan_address() - checks if the given string represents a LAN address
- *
- * \param ads: The address string
- *
- * Returns 1 if the address is a local/LAN unroutable address
- */
-LWS_VISIBLE LWS_EXTERN int
-lws_is_lan_address(const char *ads);
-
-/*
- * lws_is_local_address() - checks if the given string represents a local address
- *
- * \param ads: the address string to check
- *
- * Returns 1 if the address is a recognized local address like "localhost" or "127.0.0.1",
- * or a name under "localhost" (see lws_host_is_localhost()), else 0.
- */
-LWS_VISIBLE LWS_EXTERN int
-lws_is_local_address(const char *ads);
-
-/**
- * lws_is_lan_address() - checks if the given string represents a LAN address
- *
- * \param ads: The address string
- *
- * Returns 1 if the address is a local/LAN unroutable address
- */
-LWS_VISIBLE LWS_EXTERN int
-lws_is_lan_address(const char *ads);
 
 ///@}

@@ -74,15 +74,8 @@ lws_ssproxy_txp_close_conn(struct lws_sss_proxy_conn *conn)
 {
 	lws_transport_priv_t epriv;
 
-	/*
-	 * Capture the client-link transport private *before* clearing it...
-	 * the guard below wants to know if the onward wsi is the same wsi we
-	 * are already inside the close of, and reading it back after the
-	 * clear would always produce NULL
-	 */
-
-	epriv = conn->txp_path.priv_onw;
 	conn->txp_path.priv_onw = NULL;
+	epriv = conn->txp_path.priv_onw;
 
 	/*
 	 * If there's an outgoing, proxied SS conn on our behalf, we
@@ -142,7 +135,6 @@ lws_ssproxy_txp_close_conn(struct lws_sss_proxy_conn *conn)
 		 * connection is closing.  Destroy the conn.
 		 */
 		lws_dsh_destroy(&conn->dsh);
-		lws_free_set_NULL(conn->parser.mdstage);
 		lws_free(conn);
 	} else
 		lwsl_debug("%s: CLOSE; %s\n", __func__, lws_ss_tag(conn->ss));
@@ -196,32 +188,6 @@ lws_ssproxy_txp_rx(lws_transport_priv_t txp_priv, const uint8_t *in, size_t len)
 	return LWSSSSRET_OK;
 }
 
-/*
- * proxy_write() may use LWS_PRE bytes behind the buffer it is given, eg, the
- * transport mux writes its DATA header there.  The payload of a dsh object
- * has the object's own header right behind it, so the head of the queue is
- * never written from in place: copy as much of it as fits into s, which has
- * LWS_PRE in front of it.  Returns the number of bytes staged, or 0 if the
- * queue is empty.
- */
-
-static int
-lws_ssproxy_stage_dsh_head(struct lws_sss_proxy_conn *conn, char *s,
-			   size_t room)
-{
-	size_t si;
-	void *p;
-
-	if (lws_dsh_get_head(conn->dsh, KIND_SS_TO_P, &p, &si))
-		return 0;
-
-	if (si > room)
-		si = room;
-	memcpy(s, p, si);
-
-	return (int)si;
-}
-
 static lws_ss_state_return_t
 lws_ssproxy_txp_proxy_can_write(lws_transport_priv_t priv
 #if defined(LWS_WITH_SYS_FAULT_INJECTION)
@@ -268,29 +234,10 @@ lws_ssproxy_txp_proxy_can_write(lws_transport_priv_t priv
 		 */
 
 		if (conn->ss) {
-			unsigned int rsn = 0;
-
 			rsp = conn->ss->policy;
 
-			/*
-			 * The rideshare chain is walked through the policy,
-			 * which is not guaranteed acyclic; and the client can
-			 * only store LWS_ARRAY_SIZE(h->rideshare_ofs) entries
-			 * anyway.  Bound the walk to that, so a cyclic policy
-			 * can't spin the proxy event loop here forever.
-			 */
-
-			while (rsp && rsn++ < LWS_ARRAY_SIZE(
-				  ((lws_sspc_handle_t *)NULL)->rideshare_ofs)) {
-				/*
-				 * The list starts at offset 8 (after the
-				 * 4-byte header and the 4-byte recommended
-				 * dsh size), so the separator goes in before
-				 * every entry except the first... testing
-				 * against 4 here left the list starting with
-				 * an empty, comma-introduced first element
-				 */
-				if (n != 8 && n < (int)sizeof(_s) - LWS_PRE - 2)
+			while (rsp) {
+				if (n != 4 && n < (int)sizeof(_s) - LWS_PRE - 2)
 					*(s + (n++)) = ',';
 				n += lws_snprintf(s + n, sizeof(_s) - LWS_PRE - (unsigned int)n,
 						"%s", rsp->streamtype);
@@ -298,31 +245,9 @@ lws_ssproxy_txp_proxy_can_write(lws_transport_priv_t priv
 					rsp->rideshare_streamtype);
 			}
 		}
-
-		/*
-		 * The frame length is carried in the single byte at s[2]...
-		 * refuse to emit a frame whose declared length would not match
-		 * the number of bytes we actually write, since the client would
-		 * then parse the remainder as fresh TLVs
-		 */
-
-		if (n - 3 > 255) {
-			lwsl_err("%s: create_result %d too long\n", __func__, n);
-			goto hangup;
-		}
-
 		*(s + 2) = (char)(n - 3);
-
-		/*
-		 * If we're reporting failure, we stay in REPORTING_FAIL so we
-		 * hang up once it's written: there's no onward stream or dsh
-		 * for anything the client might send after it
-		 */
-		if (conn->state == LPCSPROX_REPORTING_OK) {
-			conn->state = LPCSPROX_OPERATIONAL;
-			conn->txp_path.ops_onw->event_client_up(
-						conn->txp_path.priv_onw);
-		}
+		conn->state = LPCSPROX_OPERATIONAL;
+		conn->txp_path.ops_onw->event_client_up(conn->txp_path.priv_onw);
 		break;
 
 	case LPCSPROX_OPERATIONAL:
@@ -332,16 +257,7 @@ lws_ssproxy_txp_proxy_can_write(lws_transport_priv_t priv
 		 * rx metadata has priority 1
 		 */
 
-		/*
-		 * The onward ss can go away asynchronously (lws_ss_destroy()
-		 * NULLs conn->ss before it issues DISCONNECTED / DESTROYING)
-		 * while we are still OPERATIONAL with the client link up and
-		 * serialized state still queued in the dsh to drain to him.
-		 * So the pieces that need the onward handle are conditional,
-		 * but the dsh drain below is not.
-		 */
-
-		md = conn->ss ? conn->ss->metadata : NULL;
+		md = conn->ss->metadata;
 		while (md) {
 			// lwsl_notice("%s: check %s: %d\n", __func__,
 			// md->name, md->pending_onward);
@@ -381,17 +297,11 @@ lws_ssproxy_txp_proxy_can_write(lws_transport_priv_t priv
 		 */
 
 #if defined(LWS_WITH_CONMON)
-		if (conn->ss && conn->ss->conmon_json) {
+		if (conn->ss->conmon_json) {
 			unsigned int xlen = conn->ss->conmon_len;
 
-			/*
-			 * s is a char *, so sizeof(s) here was the pointer
-			 * size... clamp to what actually remains in the
-			 * scratch buffer after the 3-byte header
-			 */
-
-			if (xlen > (unsigned int)(sizeof(_s) - LWS_PRE - 3))
-				xlen = (unsigned int)(sizeof(_s) - LWS_PRE - 3);
+			if (xlen > sizeof(s) - 3)
+				xlen = sizeof(s) - 3;
 			cp = (uint8_t *)s;
 			p = (uint8_t *)s;
 			p[0] = LWSSS_SER_RXPRE_PERF;
@@ -410,94 +320,92 @@ lws_ssproxy_txp_proxy_can_write(lws_transport_priv_t priv
 		 * dsh
 		 */
 
-		n = lws_ssproxy_stage_dsh_head(conn, s, sizeof(_s) - LWS_PRE);
-		if (n <= 0)
+		if (lws_dsh_get_head(conn->dsh, KIND_SS_TO_P, (void **)&p, &si))
 			break;
 
-		cp = (const uint8_t *)s;
+		cp = p;
 		pay = 1;
+		n = (int)si;
 		break;
 	default:
 		break;
 	}
 do_write_nz:
-	while (1) {
-		if (!n)
-			return LWSSSSRET_OK;
+	if (!n)
+		return LWSSSSRET_OK;
 
-		if (
+	if (
 #if defined(LWS_WITH_SYS_FAULT_INJECTION)
-		    fic &&
+	    fic &&
 #endif
-				lws_fi(fic, "ssproxy_client_write_fail"))
-			n = -1;
-		else {
-			csi = (size_t)n;
-			n = conn->txp_path.ops_onw->proxy_write(conn->txp_path.priv_onw,
-							  (uint8_t *)cp, &csi);
-		}
+			lws_fi(fic, "ssproxy_client_write_fail"))
+		n = -1;
+	else {
+		si = csi = (size_t)n;
+		n = conn->txp_path.ops_onw->proxy_write(conn->txp_path.priv_onw,
+						  (uint8_t *)cp, &csi);
+	}
 
-		if (n < 0) {
-			lwsl_info("%s: WRITEABLE: %d\n", __func__, n);
+	if (n < 0) {
+		lwsl_info("%s: WRITEABLE: %d\n", __func__, n);
 
-			goto hangup;
-		}
+		goto hangup;
+	}
 
-		switch (conn->state) {
-		case LPCSPROX_REPORTING_FAIL:
-			goto hangup;
-		case LPCSPROX_OPERATIONAL:
-			if (pay) {
-				/* frees the object once it is all written */
+	switch (conn->state) {
+	case LPCSPROX_REPORTING_FAIL:
+		goto hangup;
+	case LPCSPROX_OPERATIONAL:
+		if (pay) {
+			if (si == csi)
+				lws_dsh_free((void **)&p);
+			else
 				lws_dsh_consume(conn->dsh, KIND_SS_TO_P, csi);
 
+			/*
+			 * Did we go below the rx flow threshold for
+			 * this dsh?
+			 */
+
+			if (conn->onward_in_flow_control &&
+			    conn->ss->policy->proxy_buflen_rxflow_on_above &&
+			    conn->ss->wsi &&
+			    lws_dsh_get_size(conn->dsh, KIND_SS_TO_P) <
+			      conn->ss->policy->proxy_buflen_rxflow_off_below) {
+				lwsl_user("%s: %s: rxflow enabling rx (%lu / %lu, lwm %lu)\n", __func__,
+					  lws_wsi_tag(conn->ss->wsi),
+					  (unsigned long)lws_dsh_get_size(conn->dsh, KIND_SS_TO_P),
+					  (unsigned long)conn->ss->policy->proxy_buflen,
+					  (unsigned long)conn->ss->policy->proxy_buflen_rxflow_off_below);
 				/*
-				 * Did we go below the rx flow threshold for
-				 * this dsh?
+				 * Resume receiving taking in rx once
+				 * below the low threshold
 				 */
-
-				if (conn->onward_in_flow_control &&
-				    conn->ss && conn->ss->policy &&
-				    conn->ss->policy->proxy_buflen_rxflow_on_above &&
-				    conn->ss->wsi &&
-				    lws_dsh_get_size(conn->dsh, KIND_SS_TO_P) <
-				      conn->ss->policy->proxy_buflen_rxflow_off_below) {
-					lwsl_user("%s: %s: rxflow enabling rx (%lu / %lu, lwm %lu)\n", __func__,
-						  lws_wsi_tag(conn->ss->wsi),
-						  (unsigned long)lws_dsh_get_size(conn->dsh, KIND_SS_TO_P),
-						  (unsigned long)conn->ss->policy->proxy_buflen,
-						  (unsigned long)conn->ss->policy->proxy_buflen_rxflow_off_below);
-					/*
-					 * Resume receiving taking in rx once
-					 * below the low threshold
-					 */
-					lws_rx_flow_control(conn->ss->wsi,
-							    LWS_RXFLOW_ALLOW);
-					conn->onward_in_flow_control = 0;
-				}
+				lws_rx_flow_control(conn->ss->wsi,
+						    LWS_RXFLOW_ALLOW);
+				conn->onward_in_flow_control = 0;
 			}
-			if (!lws_dsh_get_head(conn->dsh, KIND_SS_TO_P,
-					     (void **)&p, &si)) {
-
-				if (conn->txp_path.ops_onw->proxy_check_write_more &&
-				    conn->txp_path.ops_onw->proxy_check_write_more(
-						conn->txp_path.priv_onw)) {
-					n = lws_ssproxy_stage_dsh_head(conn, s,
-							sizeof(_s) - LWS_PRE);
-					cp = (const uint8_t *)s;
-					pay = 1;
-					continue;
-				}
-
-				conn->txp_path.ops_onw->proxy_req_write(
-						conn->txp_path.priv_onw);
-			}
-		default:
-			break;
 		}
+		if (!lws_dsh_get_head(conn->dsh, KIND_SS_TO_P,
+				     (void **)&p, &si)) {
 
-		return LWSSSSRET_OK;
+			if (conn->txp_path.ops_onw->proxy_check_write_more &&
+			    conn->txp_path.ops_onw->proxy_check_write_more(
+					conn->txp_path.priv_onw)) {
+				cp = p;
+				pay = 1;
+				n = (int)si;
+				goto do_write_nz;
+			}
+
+			conn->txp_path.ops_onw->proxy_req_write(
+					conn->txp_path.priv_onw);
+		}
+	default:
+		break;
 	}
+
+	return LWSSSSRET_OK;
 
 hangup:
 	return LWSSSSRET_DISCONNECT_ME;

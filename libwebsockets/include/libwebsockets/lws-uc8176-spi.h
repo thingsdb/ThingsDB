@@ -51,6 +51,5 @@ lws_display_uc8176_spi_power(lws_display_state_t *lds, int state);
 #define lws_display_uc8176_ops \
 	.init = lws_display_uc8176_spi_init, \
 	.blit = lws_display_uc8176_spi_blit, \
-	.power = lws_display_uc8176_spi_power, \
-	.bistable = 1
+	.power = lws_display_uc8176_spi_power
 #endif

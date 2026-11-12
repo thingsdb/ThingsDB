@@ -58,7 +58,6 @@ lws_map_alloc_lwsac(struct lws_map *map, size_t x)
 void
 lws_map_free_lwsac(void *v)
 {
-	/* items live in the lwsac and are freed wholesale with it */
 }
 
 /*
@@ -221,7 +220,7 @@ lws_map_item_create(lws_map_t *map,
 void
 lws_map_item_destroy(lws_map_item_t *item)
 {
-	lws_map_hashtable_t *ht = lws_dll2_owner_container(&item->list,
+	lws_map_hashtable_t *ht = lws_container_of(item->list.owner,
 						   lws_map_hashtable_t, ho);
 
 	lws_dll2_remove(&item->list);
@@ -235,7 +234,7 @@ lws_map_item_lookup(lws_map_t *map, const lws_map_key_t key, size_t keylen)
 	lws_map_hashtable_t *ht = (lws_map_hashtable_t *)&map[1];
 
 	lws_start_foreach_dll(struct lws_dll2 *, p,
-			      lws_dll2_get_head(&ht[h % map->info.modulo].ho)) {
+			      ht[h % map->info.modulo].ho.head) {
 		lws_map_item_t *i = lws_container_of(p, lws_map_item_t, list);
 
 		if (!map->info._compare(key, keylen, &i[1], i->keylen))

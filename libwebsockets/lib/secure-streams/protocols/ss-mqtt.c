@@ -25,30 +25,6 @@
 #include <private-lib-core.h>
 
 static void
-secstream_mqtt_shadow_free(lws_ss_handle_t *h)
-{
-	uint32_t i;
-
-	if (!h) /* the stream let go of this connection already */
-		return;
-
-	for (i = 0; i < h->u.mqtt.shadow_sub.num_topics; i++)
-		lws_free((void *)h->u.mqtt.shadow_sub.topic[i].name);
-
-	h->u.mqtt.shadow_sub.num_topics = 0;
-
-	if (h->u.mqtt.shadow_sub.topic) {
-		lws_free(h->u.mqtt.shadow_sub.topic);
-		h->u.mqtt.shadow_sub.topic = NULL;
-	}
-}
-
-/*
- * What the stream allocated for its connection: freed when the connection
- * fails or closes, or when the stream is destroyed while it is connected
- */
-
-static void
 secstream_mqtt_cleanup(lws_ss_handle_t *h)
 {
 	uint32_t i;
@@ -69,7 +45,6 @@ secstream_mqtt_cleanup(lws_ss_handle_t *h)
 		h->u.mqtt.sub_info.topic = NULL;
 	}
 	lws_buflist_destroy_all_segments(&h->u.mqtt.buflist_unacked);
-	secstream_mqtt_shadow_free(h);
 }
 
 static int
@@ -142,25 +117,12 @@ secstream_mqtt_subscribe(struct lws *wsi)
 
 	h->u.mqtt.sub_top.qos = h->policy->u.mqtt.qos;
 	memset(&h->u.mqtt.sub_info, 0, sizeof(h->u.mqtt.sub_info));
-
-	/*
-	 * num_topics stays 0 until both the array and its name are actually
-	 * there, so an OOM can't leave secstream_mqtt_cleanup() walking a NULL
-	 * or uninitialized element
-	 */
-
+	h->u.mqtt.sub_info.num_topics = 1;
+	h->u.mqtt.sub_info.topic = &h->u.mqtt.sub_top;
 	h->u.mqtt.sub_info.topic =
 			    lws_malloc(sizeof(lws_mqtt_topic_elem_t), __func__);
-	if (!h->u.mqtt.sub_info.topic)
-		goto oom;
-
 	h->u.mqtt.sub_info.topic[0].name = lws_strdup(expbuf);
-	if (!h->u.mqtt.sub_info.topic[0].name) {
-		lws_free_set_NULL(h->u.mqtt.sub_info.topic);
-		goto oom;
-	}
 	h->u.mqtt.sub_info.topic[0].qos = h->policy->u.mqtt.qos;
-	h->u.mqtt.sub_info.num_topics = 1;
 
 	if (lws_mqtt_client_send_subcribe(wsi, &h->u.mqtt.sub_info)) {
 		lwsl_notice("%s: unable to subscribe", __func__);
@@ -177,13 +139,6 @@ secstream_mqtt_subscribe(struct lws *wsi)
 		return -1;
 	}
 	return 0;
-
-oom:
-	lwsl_err("%s: OOM on subscribe topic\n", __func__);
-	lws_free(expbuf);
-	h->u.mqtt.sub_top.name = NULL;
-
-	return -1;
 }
 
 static int
@@ -288,20 +243,6 @@ secstream_mqtt_birth(struct lws *wsi, uint8_t *buf, size_t buflen) {
 				      h->policy->u.mqtt.birth_qos,
 				      h->policy->u.mqtt.birth_retain, 0,
 				      LWSSS_FLAG_EOM);
-}
-
-/*
- * The stream's operation awaiting the broker's ack was acked or timed out: a
- * WRITEABLE that waited for it can have its turn now
- */
-static void
-secstream_mqtt_tx_resume(lws_ss_handle_t *h, struct lws *wsi)
-{
-	if (!h->u.mqtt.tx_deferred)
-		return;
-
-	h->u.mqtt.tx_deferred = 0;
-	lws_callback_on_writable(wsi);
 }
 
 static int
@@ -439,8 +380,18 @@ secstream_mqtt_is_shadow_matched(struct lws *wsi, const char *topic)
 static void
 secstream_mqtt_shadow_cleanup(struct lws *wsi)
 {
-	secstream_mqtt_shadow_free(
-			(lws_ss_handle_t *)lws_get_opaque_user_data(wsi));
+	lws_ss_handle_t *h = (lws_ss_handle_t *)lws_get_opaque_user_data(wsi);
+	uint32_t i = 0;
+
+	for (i = 0; i < h->u.mqtt.shadow_sub.num_topics; i++)
+		lws_free((void *)h->u.mqtt.shadow_sub.topic[i].name);
+
+	h->u.mqtt.shadow_sub.num_topics = 0;
+
+	if (h->u.mqtt.shadow_sub.topic) {
+		lws_free(h->u.mqtt.shadow_sub.topic);
+		h->u.mqtt.shadow_sub.topic = NULL;
+	}
 }
 
 static lws_ss_state_return_t
@@ -494,13 +445,7 @@ secstream_mqtt_shadow_subscribe(struct lws *wsi)
 		lwsl_ss_err(h, "Failed to allocate Shadow topics");
 		return -1;
 	}
-	/*
-	 * num_topics only ever counts elements whose name is really there, so
-	 * a failure partway through can't leave secstream_mqtt_shadow_cleanup()
-	 * freeing uninitialized heap words (lws_malloc() does not zero).  Same
-	 * approach as secstream_mqtt_subscribe().
-	 */
-
+	h->u.mqtt.shadow_sub.num_topics = suffixes_len;
 	for (i = 0; i < suffixes_len; i++) {
 		expbuf = expand_metadata(h, h->policy->u.mqtt.topic, suffixes[i],
 					 LWS_MQTT_MAX_AWSIOT_TOPICLEN);
@@ -512,14 +457,11 @@ secstream_mqtt_shadow_subscribe(struct lws *wsi)
 		}
 		h->u.mqtt.shadow_sub.topic[i].name = expbuf;
 		h->u.mqtt.shadow_sub.topic[i].qos = h->policy->u.mqtt.qos;
-		h->u.mqtt.shadow_sub.num_topics = i + 1;
 	}
 	h->u.mqtt.shadow_sub.packet_id = (uint16_t)(h->txord - 1);
 
 	if (lws_mqtt_client_send_subcribe(wsi, &h->u.mqtt.shadow_sub)) {
 		lwsl_wsi_notice(wsi, "Unable to subscribe Shadow topics");
-		/* nothing went out, so nothing else will consume the array */
-		secstream_mqtt_shadow_cleanup(wsi);
 
 		return 0;
 	}
@@ -545,8 +487,7 @@ secstream_mqtt(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 	uint8_t buf[LWS_PRE + 1400];
 	size_t buflen = sizeof(buf) - LWS_PRE;
 	lws_ss_metadata_t *omd = NULL;
-	const char *mdname = NULL;
-	char *sub_topic = NULL, sub_from_outside = 0;
+	char *sub_topic = NULL;
 	lws_strexp_t exp;
 	int f = 0;
 
@@ -567,17 +508,12 @@ secstream_mqtt(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 #endif
 
 		r = lws_ss_event_helper(h, LWSSSCS_UNREACHABLE);
-		if (h->wsi == wsi) /* not a newer wsi the app just started */
-			h->wsi = NULL;
+		h->wsi = NULL;
 
 		secstream_mqtt_cleanup(h);
 
 		if (r == LWSSSSRET_DESTROY_ME)
 			return _lws_ss_handle_state_ret_CAN_DESTROY_HANDLE(r, wsi, &h);
-
-		if (h->wsi)
-			/* the app connected again from inside the callback */
-			break;
 
 		r = lws_ss_backoff(h);
 		if (r != LWSSSSRET_OK)
@@ -596,24 +532,16 @@ secstream_mqtt(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 			r = lws_ss_event_helper(h, LWSSSCS_DISCONNECTED);
 		else
 			r = lws_ss_event_helper(h, LWSSSCS_UNREACHABLE);
-		/*
-		 * The DISCONNECTED helper above already cleared h->wsi before
-		 * calling the app's state callback... if it's set now, the app
-		 * started a new connection from inside that callback and we
-		 * must detach only the wsi that is actually closing
-		 */
-		if (h->wsi == wsi) {
-			lws_set_opaque_user_data(wsi, NULL);
-			h->wsi = NULL;
-		}
+		if (h->wsi)
+			lws_set_opaque_user_data(h->wsi, NULL);
+		h->wsi = NULL;
 
 		secstream_mqtt_cleanup(h);
 
 		if (r)
 			return _lws_ss_handle_state_ret_CAN_DESTROY_HANDLE(r, wsi, &h);
 
-		if (!h->wsi && /* don't retry if a connection is already live */
-		    h->policy && !(h->policy->flags & LWSSSPOLF_OPPORTUNISTIC) &&
+		if (h->policy && !(h->policy->flags & LWSSSPOLF_OPPORTUNISTIC) &&
 		    !h->txn_ok && !wsi->a.context->being_destroyed) {
 			r = lws_ss_backoff(h);
 			if (r != LWSSSSRET_OK)
@@ -633,10 +561,7 @@ secstream_mqtt(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 		if (h->policy->u.mqtt.birth_topic &&
 		    !wsi->mqtt->done_birth) {
 			struct lws *nwsi = lws_get_network_wsi(wsi);
-			lws_start_foreach_dll(struct lws_dll2 *, d,
-					lws_dll2_get_head(&nwsi->mux.child_list_owner)) {
-				struct lws *w = lws_container_of(d, struct lws,
-								 mux.sibling_list);
+			lws_start_foreach_ll(struct lws *, w, nwsi->mux.child_list) {
 				if (w != wsi &&
 					(w->mqtt->done_birth || w->mqtt->inside_birth)) {
 					/*
@@ -647,7 +572,7 @@ secstream_mqtt(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 					wsi->mqtt->done_birth = 1;
 					break;
 				}
-			} lws_end_foreach_dll(d);
+			} lws_end_foreach_ll(w, mux.sibling_list);
 		}
 
 		if (!h->policy->u.mqtt.subscribe ||
@@ -741,61 +666,25 @@ secstream_mqtt(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 					 __func__);
 				return -1;
 			}
-			/*
-			 * exp.name and everything else here lives in this
-			 * stack frame, and pmqpp->topic belongs to the mqtt
-			 * role... the metadata item outlives both, so it must
-			 * only ever be left holding storage it owns, and its
-			 * name must be the policy's long-lived one
-			 */
-
-			mdname = omd->name;
+			sub_topic = omd->value__may_own_heap;
 			topic_len = omd->length;
-			sub_from_outside = (char)omd->value_from_outside;
-			sub_topic = NULL;
 
-			if (omd->value__may_own_heap && topic_len) {
-				sub_topic = lws_malloc(topic_len, __func__);
-				if (!sub_topic)
-					return -1;
-				memcpy(sub_topic, omd->value__may_own_heap,
-				       topic_len);
-			}
-
-			if (pmqpp->topic && pmqpp->topic_len) {
-				if (_lws_ss_alloc_set_metadata(omd, mdname,
-							       pmqpp->topic,
-							       pmqpp->topic_len)) {
-					lws_free(sub_topic);
-					return -1;
-				}
-				/* the broker chose it */
-				omd->value_from_outside = 1;
-			} else
-				_lws_ss_set_metadata(omd, mdname, NULL, 0);
+			_lws_ss_set_metadata(omd, exp.name,
+					     (const void *)pmqpp->topic,
+					     pmqpp->topic_len);
 		}
 
 		r = h->info.rx(ss_to_userobj(h), (const uint8_t *)pmqpp->payload,
 			   len, f);
 
-		if (omd) { /* ie, we replaced it above */
-			/* restore the previous value, as an owned copy */
-			if (!sub_topic ||
-			    _lws_ss_alloc_set_metadata(omd, mdname, sub_topic,
-						       topic_len))
-				_lws_ss_set_metadata(omd, mdname, NULL, 0);
-			else if (sub_from_outside)
-				/* ...and that it came from outside */
-				omd->value_from_outside = 1;
-			lws_free(sub_topic);
-			sub_topic = NULL;
-		}
+		if (wsi->mqtt->inside_shadow)
+			_lws_ss_set_metadata(omd, exp.name, &sub_topic,
+					     topic_len);
 
 		if (r != LWSSSSRET_OK)
 			return _lws_ss_handle_state_ret_CAN_DESTROY_HANDLE(r, wsi, &h);
 
-		/* a PUBLISH always carries a topic, but be explicit about it */
-		if (wsi->mqtt->inside_shadow && pmqpp->topic) {
+		if (wsi->mqtt->inside_shadow) {
 			size_t acc_n = strlen(LWS_MQTT_SHADOW_RESP_ACCEPTED_STR);
 			size_t rej_n = strlen(LWS_MQTT_SHADOW_RESP_REJECTED_STR);
 			uint32_t i;
@@ -828,10 +717,6 @@ secstream_mqtt(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 		return 0; /* don't passthru */
 
 	case LWS_CALLBACK_MQTT_SUBSCRIBED:
-		if (!h)
-			/* the stream let go of this connection already */
-			break;
-		secstream_mqtt_tx_resume(h, wsi);
 		if (wsi->mqtt->inside_shadow) {
 			wsi->mqtt->done_shadow_subscribe = 1;
 			lws_callback_on_writable(wsi);
@@ -853,9 +738,6 @@ secstream_mqtt(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 		break;
 
 	case LWS_CALLBACK_MQTT_ACK:
-		if (!h)
-			break;
-		secstream_mqtt_tx_resume(h, wsi);
 		lws_sul_cancel(&h->sul_timeout);
 		if (h->u.mqtt.send_unacked) {
 			lws_buflist_destroy_all_segments(&h->u.mqtt.buflist_unacked);
@@ -881,9 +763,6 @@ secstream_mqtt(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 		break;
 
 	case LWS_CALLBACK_MQTT_RESEND:
-		if (!h)
-			break;
-		secstream_mqtt_tx_resume(h, wsi);
 		lws_sul_cancel(&h->sul_timeout);
 		if (h->u.mqtt.retry_count++ < LWS_MQTT_MAX_PUBLISH_RETRY) {
 			h->u.mqtt.unacked_size =
@@ -922,15 +801,6 @@ secstream_mqtt(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 		if (h->seqstate != SSSEQ_CONNECTED) {
 			lwsl_warn("%s: seqstate %d\n", __func__, h->seqstate);
 			break;
-		}
-
-		/*
-		 * The stream can have only one operation awaiting the broker's
-		 * ack: the next waits until it is acked, or times out
-		 */
-		if (lws_mqtt_stream_busy(wsi)) {
-			h->u.mqtt.tx_deferred = 1;
-			return 0;
 		}
 
 		if (!wsi->mqtt->done_subscribe && h->policy->u.mqtt.subscribe)
@@ -1001,11 +871,9 @@ secstream_mqtt(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 			secstream_mqtt_shadow_cleanup(wsi);
 			wsi->mqtt->inside_shadow = 0;
 			wsi->mqtt->done_shadow_subscribe = 0;
-			if (h)
-				secstream_mqtt_tx_resume(h, wsi);
 			break;
 		}
-		if (nwsi && (lws_wsi_mux_child_count(nwsi) == 1))
+		if (nwsi && (nwsi->mux.child_count == 1))
 			lws_mqtt_client_send_disconnect(nwsi);
 		return -1;
 	}
@@ -1020,8 +888,6 @@ secstream_mqtt(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 			wsi->mqtt->done_shadow_subscribe = 0;
 			lwsl_warn("%s: %s: Unsubscribe (Shadow) timeout.\n",
 				  __func__, lws_ss_tag(h));
-			if (h)
-				secstream_mqtt_tx_resume(h, wsi);
 			break;
 		}
 
@@ -1103,8 +969,7 @@ secstream_connect_munge_mqtt(lws_ss_handle_t *h, char *buf, size_t len,
 				LWS_SYSBLOB_TYPE_MQTT_CLIENT_ID, 0);
 
 	/* If LWS_SYSBLOB_TYPE_MQTT_CLIENT_ID is set */
-	blen = b ? lws_system_blob_get_size(b) : 0;
-	if (blen) {
+	if (b && (blen = lws_system_blob_get_size(b))) {
 		if (blen > LWS_MQTT_MAX_CIDLEN) {
 			lwsl_err("%s - Client ID too long.\n",
 				 __func__);
@@ -1118,8 +983,8 @@ secstream_connect_munge_mqtt(lws_ss_handle_t *h, char *buf, size_t len,
 			ct->ccp.client_id = NULL;
 		} else {
 			ct->ccp.client_id = (const char *)p;
-			lwsl_info("%s - Client ID = %s\n",
-				  __func__, ct->ccp.client_id);
+			lwsl_notice("%s - Client ID = %s\n",
+				    __func__, ct->ccp.client_id);
 		}
 	} else {
 		/* Default (Random) client ID */
@@ -1130,8 +995,7 @@ secstream_connect_munge_mqtt(lws_ss_handle_t *h, char *buf, size_t len,
 				LWS_SYSBLOB_TYPE_MQTT_USERNAME, 0);
 
 	/* If LWS_SYSBLOB_TYPE_MQTT_USERNAME is set */
-	blen = b ? lws_system_blob_get_size(b) : 0;
-	if (blen) {
+	if (b && (blen = lws_system_blob_get_size(b))) {
 		p = (uint8_t *)lws_zalloc(blen+1, __func__);
 		if (!p)
 			return -1;
@@ -1140,8 +1004,8 @@ secstream_connect_munge_mqtt(lws_ss_handle_t *h, char *buf, size_t len,
 			ct->ccp.username = NULL;
 		} else {
 			ct->ccp.username = (const char *)p;
-			lwsl_info("%s - Username ID = %s\n",
-				  __func__, ct->ccp.username);
+			lwsl_notice("%s - Username ID = %s\n",
+				    __func__, ct->ccp.username);
 		}
 	}
 
@@ -1149,8 +1013,7 @@ secstream_connect_munge_mqtt(lws_ss_handle_t *h, char *buf, size_t len,
 				LWS_SYSBLOB_TYPE_MQTT_PASSWORD, 0);
 
 	/* If LWS_SYSBLOB_TYPE_MQTT_PASSWORD is set */
-	blen = b ? lws_system_blob_get_size(b) : 0;
-	if (blen) {
+	if (b && (blen = lws_system_blob_get_size(b))) {
 		p = (uint8_t *)lws_zalloc(blen+1, __func__);
 		if (!p)
 			return -1;
@@ -1159,9 +1022,8 @@ secstream_connect_munge_mqtt(lws_ss_handle_t *h, char *buf, size_t len,
 			ct->ccp.password = NULL;
 		} else {
 			ct->ccp.password = (const char *)p;
-			/* it's a secret, never log it, just that we have it */
-			lwsl_info("%s - Password set (%u bytes)\n",
-				  __func__, (unsigned int)blen);
+			lwsl_notice("%s - Password ID = %s\n",
+				    __func__, ct->ccp.password);
 		}
 	}
 
@@ -1264,6 +1126,5 @@ const struct ss_pcols ss_pcol_mqtt = {
 	"x-amzn-mqtt-ca", //"mqtt/3.1.1",
 	&protocol_secstream_mqtt,
 	secstream_connect_munge_mqtt,
-	NULL, NULL,
-	secstream_mqtt_cleanup
+	NULL, NULL
 };

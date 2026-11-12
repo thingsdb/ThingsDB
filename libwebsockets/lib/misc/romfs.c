@@ -43,9 +43,6 @@
 
 #define RFS_STRING_MAX 96
 
-/* how many symlinks we are willing to chase before calling it a loop */
-#define RFS_MAX_SYMLINK_HOPS 8
-
 static u32_be_t cache[(RFS_STRING_MAX + 32) / 4];
 static romfs_inode_t ci = (romfs_inode_t)cache;
 static romfs_t cr = (romfs_t)cache;
@@ -57,77 +54,8 @@ set_cache(romfs_inode_t inode, size_t len)
 //	spi_flash_read((uint32_t)inode, cache, len);
 	// esp_err_t esp_flash_read(esp_flash_t *chip, void *buffer, uint32_t address, uint32_t length);
 
-	if (len > sizeof(cache))
-		len = sizeof(cache);
-
-	/*
-	 * cache[] is the RAM destination and inode the flash address we are
-	 * reading from, ie, (chip, buffer, address, length)
-	 */
-
-	esp_flash_read(NULL, cache, (uint32_t)(uintptr_t)inode, (uint32_t)len);
-#else
-	(void)inode;
-	(void)len;
+	esp_flash_read(NULL, (void *)inode, (uint32_t)cache, len);
 #endif
-}
-
-/*
- * Everything in the image (inode offsets, dir_start, next, name lengths, file
- * sizes) comes from the image itself and so is untrusted... romfs_avail()
- * reports how many bytes remain from p to the end of the image, or 0 if p is
- * not inside it at all.  Every derived pointer is checked with it before it
- * is dereferenced.
- */
-
-static size_t
-romfs_avail(romfs_t romfs, size_t size, const void *p)
-{
-	const uint8_t *base = (const uint8_t *)romfs, *q = (const uint8_t *)p;
-
-	if (q < base)
-		return 0;
-
-	if ((size_t)(q - base) > size)
-		return 0;
-
-	return size - (size_t)(q - base);
-}
-
-/* read one inode into cache[], nonzero if it isn't wholly inside the image */
-
-static int
-romfs_cache_inode(romfs_t romfs, size_t size, romfs_inode_t i)
-{
-	if (romfs_avail(romfs, size, i) < sizeof(*i))
-		return 1;
-
-	set_cache(i, sizeof(*i));
-
-	return 0;
-}
-
-/*
- * read the NUL-terminated name at p into cache[], clipped to what is actually
- * left in the image, and terminate it ourselves so the strlen() below cannot
- * run past what we read
- */
-
-static int
-romfs_cache_name(romfs_t romfs, size_t size, const void *p)
-{
-	size_t avail = romfs_avail(romfs, size, p);
-
-	if (!avail)
-		return 1;
-
-	if (avail > RFS_STRING_MAX)
-		avail = RFS_STRING_MAX;
-
-	set_cache((romfs_inode_t)p, avail);
-	((char *)cache)[avail] = '\0';
-
-	return 0;
 }
 
 static uint32_t
@@ -139,18 +67,15 @@ untohl(const u32_be_t be)
 	       (be & 0xff) << 24;
 }
 static romfs_inode_t
-romfs_lookup(romfs_t romfs, size_t size, romfs_inode_t start, const char *path,
-	     int hops);
+romfs_lookup(romfs_t romfs, romfs_inode_t start, const char *path);
 
 static int
-plus_padding(romfs_t romfs, size_t size, const uint8_t *s)
+plus_padding(const uint8_t *s)
 {
 	int n;
-
-	if (romfs_cache_name(romfs, size, s))
-		return -1;
-
-	n = (int)strlen((const char *)cache);
+       
+	set_cache((romfs_inode_t)s, RFS_STRING_MAX);
+	n = strlen((const char *)cache);
 
 	if (!(n & 15))
 		n += 0x10;
@@ -159,22 +84,11 @@ plus_padding(romfs_t romfs, size_t size, const uint8_t *s)
 }
 
 static romfs_inode_t
-skip_and_pad(romfs_t romfs, size_t size, romfs_inode_t ri)
+skip_and_pad(romfs_inode_t ri)
 {
 	const uint8_t *p = ((const uint8_t *)ri) + sizeof(*ri);
-	int n;
 
-	if (romfs_avail(romfs, size, ri) < sizeof(*ri))
-		return NULL;
-
-	n = plus_padding(romfs, size, p);
-	if (n < 0)
-		return NULL;
-
-	if (!romfs_avail(romfs, size, p + n))
-		return NULL;
-
-	return (romfs_inode_t)(p + n);
+	return (romfs_inode_t)(p + plus_padding(p));
 }
 
 size_t
@@ -190,90 +104,47 @@ romfs_mount_check(romfs_t romfs)
 }
 
 static romfs_inode_t
-romfs_symlink(romfs_t romfs, size_t size, romfs_inode_t level, romfs_inode_t i,
-	      int hops)
+romfs_symlink(romfs_t romfs, romfs_inode_t level, romfs_inode_t i)
 {
-	const char *p = (const char *)skip_and_pad(romfs, size, i);
-
-	if (!p)
-		return NULL;
-
-	/*
-	 * a symlink cycle in the image would recurse here forever without
-	 * this
-	 */
-
-	if (hops >= RFS_MAX_SYMLINK_HOPS)
-		return NULL;
-
-	/* skip_and_pad() confirmed there is at least one byte at p */
+	const char *p = (const char *)skip_and_pad(i);
 
 	if (*p == '/') {
-		level = skip_and_pad(romfs, size, (romfs_inode_t)romfs);
-		if (!level)
-			return NULL;
+		level = skip_and_pad((romfs_inode_t)romfs);
 		p++;
 	}
 
-	return romfs_lookup(romfs, size, level, p, hops + 1);
+	return romfs_lookup(romfs, level, p);
 }
 
 static romfs_inode_t
-dir_link(romfs_t romfs, size_t size, romfs_inode_t i)
+dir_link(romfs_t romfs, romfs_inode_t i)
 {
-	romfs_inode_t r;
-
-	if (romfs_cache_inode(romfs, size, i))
-		return NULL;
-
-	r = (romfs_inode_t)((const uint8_t *)romfs + untohl(ci->dir_start));
-
-	if (romfs_avail(romfs, size, r) < sizeof(*r))
-		return NULL;
-
-	return r;
+	set_cache(i, sizeof(*i));
+	return (romfs_inode_t)((const uint8_t *)romfs +
+						untohl(ci->dir_start));
 }
 
 static romfs_inode_t
-romfs_lookup(romfs_t romfs, size_t size, romfs_inode_t start, const char *path,
-	     int hops)
+romfs_lookup(romfs_t romfs, romfs_inode_t start, const char *path)
 {
 	romfs_inode_t level, i = start, i_in;
-	size_t budget = (size / sizeof(struct romfs_i)) + 1;
 	const char *p, *cp;
 	uint32_t next_be;
 
-	if (!i)
-		return NULL;
-
-	if (start == (romfs_inode_t)romfs) {
-		i = skip_and_pad(romfs, size, (romfs_inode_t)romfs);
-		if (!i)
-			return NULL;
-	}
+	if (start == (romfs_inode_t)romfs)
+		i = skip_and_pad((romfs_inode_t)romfs);
 	level = i;
 	while (i != (romfs_inode_t)romfs) {
 		const char *n = ((const char *)i) + sizeof(*i);
 
-		/*
-		 * the next chain is image-supplied and can be a cycle of any
-		 * length... only self-loops were caught below, so also cap the
-		 * total number of hops at the most inodes the image can hold
-		 */
-
-		if (!budget--)
-			return NULL;
-
 		p = path;
 		i_in = i;
 
-		if (romfs_cache_inode(romfs, size, i))
-			return NULL;
+		set_cache(i, sizeof(*i));
 		next_be = ci->next;
 
 		cp = (const char *)cache;
-		if (romfs_cache_name(romfs, size, n))
-			return NULL;
+		set_cache((romfs_inode_t)n, RFS_STRING_MAX);
 
 		while (*p && *p != '/' && *cp && *p == *cp &&
 		       (p - path) < RFS_STRING_MAX) {
@@ -287,27 +158,16 @@ romfs_lookup(romfs_t romfs, size_t size, romfs_inode_t start, const char *path,
 
 		if (!*cp && (!*p || *p == '/') &&
 		    (untohl(next_be) & 7) == RFST_HARDLINK) {
-			romfs_inode_t r;
-
-			if (romfs_cache_inode(romfs, size, i))
-				return NULL;
-
-			r = (romfs_inode_t)((const uint8_t *)romfs +
-					    (untohl(ci->dir_start) & ~15u));
-
-			if (romfs_avail(romfs, size, r) < sizeof(*r))
-				return NULL;
-
-			return r;
+			set_cache(i, sizeof(*i));
+			return (romfs_inode_t)
+			       ((const uint8_t *)romfs +
+			        (untohl(ci->dir_start) & ~15));
 		}
 
 		if (!*p && !*cp) {
-			if (romfs_cache_inode(romfs, size, i))
-				return NULL;
+			set_cache(i, sizeof(*i));
 			if ((untohl(ci->next) & 7) == RFST_SYMLINK) {
-				i = romfs_symlink(romfs, size, level, i, hops);
-				if (!i)
-					return NULL;
+				i = romfs_symlink(romfs, level, i);
 				continue;
 			}
 			return i;
@@ -320,16 +180,13 @@ romfs_lookup(romfs_t romfs, size_t size, romfs_inode_t start, const char *path,
 			p++;
 
 		if (*p == '/' && !*cp) {
-			if (romfs_cache_inode(romfs, size, i))
-				return NULL;
+			set_cache(i, sizeof(*i));
 			switch (untohl(ci->next) & 7) {
 			case RFST_SYMLINK:
-				i = romfs_symlink(romfs, size, level, i, hops);
+				i = romfs_symlink(romfs, level, i);
 				if (!i)
 					return NULL;
-				i = dir_link(romfs, size, i);
-				if (!i)
-					return NULL;
+				i = dir_link(romfs, i);
 				while (*path != '/' && *path)
 					path++;
 				if (!*path)
@@ -338,30 +195,24 @@ romfs_lookup(romfs_t romfs, size_t size, romfs_inode_t start, const char *path,
 				continue;
 			case RFST_DIR:
 				path = p + 1;
-				i = dir_link(romfs, size, i);
+				i = dir_link(romfs, i);
 				break;
 			default:
 				path = p + 1;
-				i = skip_and_pad(romfs, size, i);
+				i = skip_and_pad(i);
 				break;
 			}
-			if (!i)
-				return NULL;
 			level = i;
 			continue;
 		}
 
-		if (romfs_cache_inode(romfs, size, i))
-			return NULL;
-		if (!(untohl(ci->next) & ~15u))
+		set_cache(i, sizeof(*i));
+		if (!(untohl(ci->next) & ~15))
 			return NULL;
 
 		i = (romfs_inode_t)((const uint8_t *)romfs +
-				    (untohl(ci->next) & ~15u));
+				    (untohl(ci->next) & ~15));
 		if (i == i_in)
-			return NULL;
-
-		if (romfs_avail(romfs, size, i) < sizeof(*i))
 			return NULL;
 	}
 
@@ -371,39 +222,20 @@ romfs_lookup(romfs_t romfs, size_t size, romfs_inode_t start, const char *path,
 const void *
 romfs_get_info(romfs_t romfs, const char *path, size_t *len, size_t *csum)
 {
-	const void *data;
 	romfs_inode_t i;
-	size_t size, l;
-
-	size = romfs_mount_check(romfs);
-	if (!size)
-		return NULL;
-
+       
 	if (*path == '/')
 		path++;
 
-	i = romfs_lookup(romfs, size, (romfs_inode_t)romfs, path, 0);
+	i = romfs_lookup(romfs, (romfs_inode_t)romfs, path);
 
 	if (!i)
 		return NULL;
 
-	if (romfs_cache_inode(romfs, size, i))
-		return NULL;
-
-	l = untohl(ci->size);
-
-	data = (const void *)skip_and_pad(romfs, size, i);
-	if (!data)
-		return NULL;
-
-	/* the length came out of the image too, it must fit in the image */
-
-	if (romfs_avail(romfs, size, data) < l)
-		return NULL;
-
-	*len = l;
+	set_cache(i, sizeof(*i));
+	*len = untohl(ci->size);
 	if (csum)
 		*csum = untohl(ci->checksum);
 
-	return data;
+	return (void *)skip_and_pad(i);
 }

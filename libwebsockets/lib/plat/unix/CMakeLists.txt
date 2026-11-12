@@ -60,33 +60,8 @@ if (LWS_WITH_NETWORK)
 		if (LWS_PLAT_ANDROID)
 			list(APPEND SOURCES plat/unix/android/android-resolv.c)
 		else()
-			# unix-resolv.c also provides the shared resolv.conf
-			# parse helper on Apple (apple-resolv.c falls back to it)
 			list(APPEND SOURCES plat/unix/unix-resolv.c)
-			if (APPLE)
-				# native DNS server discovery + push watch via the
-				# SystemConfiguration dynamic store
-				list(APPEND SOURCES plat/unix/apple/apple-resolv.c)
-				# link the frameworks by path: a bare name would be
-				# munged into -l<name> by cmake, and '-framework
-				# <name>' as two items gets the name item -l-munged
-				# too.  CoreFoundation is needed directly (not just
-				# via SystemConfiguration) for our own CF references.
-				find_library(LWS_SYSCONFIG_FW NAMES SystemConfiguration)
-				if (NOT LWS_SYSCONFIG_FW)
-					message(FATAL_ERROR "SystemConfiguration framework not found")
-				endif()
-				find_library(LWS_COREFOUNDATION_FW NAMES CoreFoundation)
-				if (NOT LWS_COREFOUNDATION_FW)
-					message(FATAL_ERROR "CoreFoundation framework not found")
-				endif()
-				list(APPEND LIB_LIST_AT_END ${LWS_SYSCONFIG_FW}
-						       ${LWS_COREFOUNDATION_FW})
-			endif()
 		endif()
-	endif()
-	if (LWS_WITH_SYS_INFO)
-		list(APPEND SOURCES plat/unix/unix-sysinfo.c)
 	endif()
 	if (LWS_WITH_SDEVENT AND LWS_HAVE_SYSTEMD_H)
 		list(APPEND SOURCES
@@ -96,17 +71,12 @@ if (LWS_WITH_NETWORK)
 	endif()
 endif()
 	
-if (LWS_WITH_CRASH_BACKTRACE)
-	list(APPEND SOURCES plat/unix/unix-crash.c)
-endif()
-
 if (LWS_WITH_PLUGINS_API)
 	list(APPEND SOURCES plat/unix/unix-plugins.c)
 endif()
 
 if (LWS_WITH_SPAWN)
 	list(APPEND SOURCES plat/unix/unix-spawn.c)
-	list(APPEND SOURCES plat/unix/unix-spawn-tree.c)
 endif()
 
 if (HAIKU)
@@ -118,9 +88,7 @@ IF (CMAKE_SYSTEM_NAME STREQUAL Linux AND NOT LWS_WITHOUT_EVENTFD)
 	CHECK_FUNCTION_EXISTS(eventfd_read LWS_HAVE_EVENTFD)
 endif()
 
-if (NOT APPLE)
-	list(APPEND LIB_LIST_AT_END m)
-endif()
+list(APPEND LIB_LIST_AT_END m)
 
 if (ILLUMOS)
 	list(APPEND LIB_LIST_AT_END socket)
@@ -134,10 +102,6 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "QNX")
 	list(APPEND LIB_LIST_AT_END socket)
 endif()
 
-# dlopen() and friends, for plugins and dynamically-loaded TLS / event libs.
-# This is the one place it goes on the link: CMake knows where it's needed
-# (eg, "dl" on Linux) and where it's part of libc (eg, "" on macOS, whose
-# linker warns about a library given more than once)
 list(APPEND LIB_LIST_AT_END ${CMAKE_DL_LIBS})
 
 #

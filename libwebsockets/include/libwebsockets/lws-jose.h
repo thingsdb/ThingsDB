@@ -65,8 +65,6 @@ enum lws_jose_algtype {
 	LWS_JOSE_ENCTYPE_ECDSA,
 	LWS_JOSE_ENCTYPE_ECDHES,
 
-	LWS_JOSE_ENCTYPE_EDDSA,
-
 	LWS_JOSE_ENCTYPE_AES_CBC,
 	LWS_JOSE_ENCTYPE_AES_CFB128,
 	LWS_JOSE_ENCTYPE_AES_CFB8,
@@ -174,7 +172,7 @@ lws_gencrypto_jwe_alg_to_definition(const char *alg,
 /**
  * lws_gencrypto_jwe_enc_to_definition() - look up a jwe enc name
  *
- * \param enc: the jwe enc name
+ * \param alg: the jwe enc name
  * \param jose: pointer to the pointer to the info struct to set on success
  *
  * Returns 0 if *jose set, else nonzero for failure

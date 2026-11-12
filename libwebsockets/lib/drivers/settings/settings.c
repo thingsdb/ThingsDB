@@ -53,25 +53,16 @@ lws_settings_plat_printf(lws_settings_instance_t *si, const char *name,
 	uint8_t *p;
 	int n;
 
-	if (!si) /* no settings store on this platform */
-		return 1;
-
 	va_start(ap, format);
 	n = vsnprintf(NULL, 0, format, ap);
 	va_end(ap);
 
-	if (n < 0) /* encoding error... n is not a length */
-		return 1;
-
-	p = lws_malloc((size_t)n + 2, __func__);
-	if (!p)
-		return 1;
-
+	p = lws_malloc(n + 2, __func__);
 	va_start(ap, format);
-	vsnprintf((char *)p, (size_t)n + 2, format, ap);
+	vsnprintf((char *)p, n + 2, format, ap);
 	va_end(ap);
 
-	n = si->so->set(si, name, p, (size_t)n);
+	n = si->so->set(si, name, p, n);
 	lws_free(p);
 
 	return n;

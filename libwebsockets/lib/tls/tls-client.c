@@ -24,185 +24,72 @@
 
 #include "private-lib-core.h"
 
-/*
- * The client tls backends need the bare hostname for SNI and for the peer
- * cert name check.  The stashed host may carry a :port suffix, which no cert
- * ever names, so that has to go... but a bare IPv6 literal like ::1 is all
- * colons, and cutting at the first one left an empty name: gnutls, mbedtls
- * and schannel then fail the connection, and openssl silently treats it as
- * "no hostname to check".
- *
- * Accept host, host:port, [v6], [v6]:port and bare v6, leaving just the
- * name in place.
- *
- * Returns nonzero if nothing usable is left, ie, "[" with no "]", "[]" or a
- * bare ":port".  That must be fatal to the caller: openssl reads an empty
- * name in the verify param as "clear the host list", ie, "do not check the
- * peer name at all", which is the opposite of what an unusable name means.
- */
-
-int
-lws_tls_client_strip_port(char *host)
+static int
+lws_ssl_client_connect1(struct lws *wsi, char *errbuf, size_t len)
 {
-	char *p = host, *q, *colon = NULL;
-	int colons = 0;
-
-	if (*host == '[') {
-		q = strchr(host, ']');
-		if (!q) {
-			/* malformed... leave nothing for the check to accept */
-			*host = '\0';
-
-			return 1;
-		}
-		memmove(host, host + 1, (size_t)(q - host - 1));
-		host[q - host - 1] = '\0';
-
-		return !host[0];
-	}
-
-	while (*p) {
-		if (*p == ':') {
-			colon = p;
-			colons++;
-		}
-		p++;
-	}
-
-	if (colons != 1 || !colon)
-		return !host[0]; /* no port, or a bare IPv6 literal */
-
-	*colon = '\0';
-
-	return !host[0];
-}
-
-/*
- * RFC 6066 3: "Literal IPv4 and IPv6 addresses are not permitted in
- * HostName"... the backends must not offer these as SNI
- */
-
-int
-lws_tls_client_host_is_literal(const char *host)
-{
-	uint8_t nb[16];
-
-	return lws_parse_numeric_address(host, nb, sizeof(nb)) > 0;
-}
-
-/*
- * The client alpn list *alpn_comma the backend chose to offer, as the wsi's
- * transport can carry it, see lws_alpn_for_transport(): on tcp, never h3,
- * which a server must not negotiate there either.  *alpn_comma is set to buf
- * holding what is left, or left NULL or empty if the wsi offers no list at all.
- *
- * A list that leaves nothing, eg, "h3" alone on tcp, is a request only quic
- * can carry: returns nonzero, and the connection must fail rather than go on
- * offering nothing and become http/1.1 without asking.
- */
-int
-lws_tls_client_alpn_transport(struct lws *wsi, const char **alpn_comma,
-			      char *buf, size_t len)
-{
-	int quic = wsi->role_ops && !strcmp(wsi->role_ops->name, "quic");
-
-	if (!*alpn_comma || !**alpn_comma)
-		return 0;
-
-	if (lws_fi(&wsi->fic, "tls_alpn_unfiltered")) {
-		/* offer it as given, as a client that is not lws might */
-		lws_strncpy(buf, *alpn_comma, len);
-		*alpn_comma = buf;
-
-		return 0;
-	}
-
-	if (!lws_alpn_for_transport(*alpn_comma, buf, len, quic)) {
-		lwsl_wsi_err(wsi, "alpn '%s' has nothing %s can carry",
-			     *alpn_comma, quic ? "quic" : "tcp");
-		return 1;
-	}
-
-	*alpn_comma = buf;
-
-	return 0;
-}
-
-#if defined(LWS_WITH_TCP_TLS)
-/*
- * One step of the client tls handshake, the first one from
- * lws_client_create_tls() and the rest from the transport stage as the socket
- * becomes readable or writable.
- *
- * Any step may be the one that completes it, the first included (eg, a
- * resumed session on loopback, when the server's flight is already there by
- * the time the backend reads for it), so the completion is handled here for
- * all of them: the peer is only confirmed here, which gnutls and mbedtls rely
- * on to verify it at all.
- *
- * The negotiated alpn is only acted on after that, here too, rather than by
- * the backends as they see the handshake complete: it changes the wsi role
- * and is recorded in the client alpn cache for later connections to the same
- * origin, neither of which a peer we did not accept may cause.
- *
- * Returns 0 if the handshake needs more service, 1 when it completed with the
- * peer confirmed, or -1 on failure, with the reason in errbuf.
- */
-int
-lws_ssl_client_connect2(struct lws *wsi, char *errbuf, size_t len)
-{
-	union lws_tls_cert_info_results ir;
 	int n;
 
 	n = lws_tls_client_connect(wsi, errbuf, len);
-	lwsl_debug("%s: SSL_connect says %d\n", __func__, n);
-
 	switch (n) {
 	case LWS_SSL_CAPABLE_ERROR:
 		lws_tls_restrict_return_handshake(wsi);
-
-		/*
-		 * Why did the handshake fail?  If the peer's certificate came,
-		 * the backend may have refused it inside the handshake, and the
-		 * check of it says why, more precisely than the handshake's
-		 * own error.  If none came, the handshake failed before there
-		 * was anything to check (eg, the connection failed under it),
-		 * and the check could only say it could not verify a
-		 * certificate, hiding the backend's real reason in errbuf.
-		 */
-		if (!lws_tls_peer_cert_info(wsi, LWS_TLS_CERT_INFO_VALIDITY_TO,
-					    &ir, 0) &&
-		    lws_tls_client_confirm_peer_cert(wsi, errbuf, len)) {
-#if defined(LWS_WITH_TLS_JIT_TRUST)
-			lws_tls_jit_trust_peer_rejected(wsi);
-#endif
-			lws_metrics_caliper_report(wsi->cal_conn, METRES_NOGO);
-			return -1;
-		}
-
 		return -1;
 	case LWS_SSL_CAPABLE_DONE:
-		break; /* connected */
+		lws_tls_restrict_return_handshake(wsi);
+		lws_metrics_caliper_report(wsi->cal_conn, METRES_GO);
+#if defined(LWS_WITH_CONMON)
+	wsi->conmon.ciu_tls = (lws_conmon_interval_us_t)
+					(lws_now_usecs() - wsi->conmon_datum);
+#endif
+		return 1; /* connected */
 	case LWS_SSL_CAPABLE_MORE_SERVICE_WRITE:
 		lws_callback_on_writable(wsi);
 		/* fallthru */
+	case LWS_SSL_CAPABLE_MORE_SERVICE:
 	case LWS_SSL_CAPABLE_MORE_SERVICE_READ:
-		lws_wsi_event(wsi, LWS_WSIEV_TLS_START);
-		return 0; /* retry */
+		lwsi_set_state(wsi, LRS_WAITING_SSL);
+		break;
+	}
+
+	return 0; /* retry */
+}
+
+int
+lws_ssl_client_connect2(struct lws *wsi, char *errbuf, size_t len)
+{
+	int n;
+
+	if (lwsi_state(wsi) == LRS_WAITING_SSL) {
+		n = lws_tls_client_connect(wsi, errbuf, len);
+		lwsl_debug("%s: SSL_connect says %d\n", __func__, n);
+
+		switch (n) {
+		case LWS_SSL_CAPABLE_ERROR:
+			lws_tls_restrict_return_handshake(wsi);
+
+			if (lws_tls_client_confirm_peer_cert(wsi, errbuf, len)) {
+				lws_metrics_caliper_report(wsi->cal_conn, METRES_NOGO);
+				return -1;
+			}
+
+			// lws_snprintf(errbuf, len, "client connect failed");
+			return -1;
+		case LWS_SSL_CAPABLE_DONE:
+			break; /* connected */
+		case LWS_SSL_CAPABLE_MORE_SERVICE_WRITE:
+			lws_callback_on_writable(wsi);
+			/* fallthru */
+		case LWS_SSL_CAPABLE_MORE_SERVICE_READ:
+			lwsi_set_state(wsi, LRS_WAITING_SSL);
+			/* fallthru */
+		case LWS_SSL_CAPABLE_MORE_SERVICE:
+			return 0; /* retry */
+		}
 	}
 
 	lws_tls_restrict_return_handshake(wsi);
 
 	if (lws_tls_client_confirm_peer_cert(wsi, errbuf, len)) {
-#if defined(LWS_WITH_TLS_JIT_TRUST)
-		lws_tls_jit_trust_peer_rejected(wsi);
-#endif
-		lws_metrics_caliper_report(wsi->cal_conn, METRES_NOGO);
-		return -1;
-	}
-
-	if (lws_tls_server_conn_alpn(wsi)) {
-		lws_snprintf(errbuf, len, "alpn role change failed");
 		lws_metrics_caliper_report(wsi->cal_conn, METRES_NOGO);
 		return -1;
 	}
@@ -215,7 +102,6 @@ lws_ssl_client_connect2(struct lws *wsi, char *errbuf, size_t len)
 
 	return 1; /* connected */
 }
-#endif
 
 
 int lws_context_init_client_ssl(const struct lws_context_creation_info *info,
@@ -225,7 +111,6 @@ int lws_context_init_client_ssl(const struct lws_context_creation_info *info,
 	const char *cert_filepath = info->ssl_cert_filepath;
 	const char *ca_filepath = info->ssl_ca_filepath;
 	const char *cipher_list = info->ssl_cipher_list;
-	int n;
 	lws_fakewsi_def_plwsa(&vhost->context->pt[0]);
 
 	lws_fakewsi_prep_plwsa_ctx(vhost->context);
@@ -233,44 +118,11 @@ int lws_context_init_client_ssl(const struct lws_context_creation_info *info,
 	if (vhost->options & LWS_SERVER_OPTION_ADOPT_APPLY_LISTEN_ACCEPT_CONFIG)
 		return 0;
 
-#if defined(LWS_WITH_TLS_JIT_TRUST)
-	{
-		struct lws_tls_client_policy *cp =
-				&vhost->context->tls.jit_client_policy;
-
-		/*
-		 * Remember the app's client TLS hardening, so JIT Trust vhosts
-		 * (which lws creates itself later, with no info to hand) come
-		 * up with the same policy instead of library defaults.  We take
-		 * the app's own first client vhost, preferring "default", which
-		 * is the vhost a JIT vhost displaces at connect.c.  JIT vhosts
-		 * themselves are named "jitt-XXXXXXXX" and must not overwrite
-		 * what they are supposed to inherit.
-		 */
-
-		if (vhost->name && strncmp(vhost->name, "jitt-", 5) &&
-		    (!cp->captured || !strcmp(vhost->name, "default"))) {
-			cp->alpn			= info->alpn;
-			cp->cipher_list			= info->client_ssl_cipher_list ?
-							  info->client_ssl_cipher_list :
-							  info->ssl_cipher_list;
-			cp->ciphers_iana		= info->client_tls_ciphers_iana;
-			cp->tls_1_3_plus_cipher_list	=
-					info->client_tls_1_3_plus_cipher_list ?
-					info->client_tls_1_3_plus_cipher_list :
-					info->tls1_3_plus_cipher_list;
-			cp->ecdh_curve			= info->client_ecdh_curve ?
-							  info->client_ecdh_curve :
-							  info->ecdh_curve;
-			cp->cert_filepath		= info->client_ssl_cert_filepath;
-			cp->private_key_filepath	=
-					info->client_ssl_private_key_filepath;
-			cp->options_set			= (long)info->ssl_client_options_set;
-			cp->options_clear		= (long)info->ssl_client_options_clear;
-			cp->captured			= 1;
-		}
+	if (vhost->tls.ssl_ctx) {
+		cert_filepath = NULL;
+		private_key_filepath = NULL;
+		ca_filepath = NULL;
 	}
-#endif
 
 	/*
 	 *  for backwards-compatibility default to using ssl_... members, but
@@ -286,33 +138,10 @@ int lws_context_init_client_ssl(const struct lws_context_creation_info *info,
 	if (info->client_ssl_ca_filepath)
 		ca_filepath = info->client_ssl_ca_filepath;
 
-	/*
-	 * The "vhost also has a server ctx, reuse the server cert members"
-	 * compat path can only be applied when no explicit client TLS
-	 * config was given: some backends (eg, gnutls) create the server
-	 * ctx unconditionally for all vhosts, so testing vhost->tls.ssl_ctx
-	 * alone would wrongly discard explicit client_ssl_* config there.
-	 *
-	 * A server vhost still waiting for its cert
-	 * (LWS_SERVER_OPTION_IGNORE_MISSING_CERT, eg, before its first ACME
-	 * cert) has no server ctx yet, but those are its server cert paths
-	 * all the same: taken as a client cert, the missing files fail the
-	 * client ctx, and with it the vhost, on some backends (gnutls)
-	 */
-	if ((vhost->tls.ssl_ctx || vhost->tls.skipped_certs) &&
-	    !info->client_ssl_cert_filepath &&
-	    !info->client_ssl_private_key_filepath &&
-	    !info->client_ssl_ca_filepath) {
-		cert_filepath = NULL;
-		private_key_filepath = NULL;
-		ca_filepath = NULL;
-	}
-
 	if (vhost->tls.ssl_client_ctx)
 		return 0;
 
-#if !defined(LWS_WITH_MBEDTLS) && !defined(LWS_WITH_BEARSSL) && \
-	!defined(LWS_WITH_OPENHITLS)
+#if !defined(LWS_WITH_MBEDTLS)
 	if (info->provided_client_ssl_ctx) {
 		/* use the provided OpenSSL context if given one */
 		vhost->tls.ssl_client_ctx = info->provided_client_ssl_ctx;
@@ -326,8 +155,7 @@ int lws_context_init_client_ssl(const struct lws_context_creation_info *info,
 	if (!lws_check_opt(info->options, LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT))
 		return 0;
 
-	vhost->tls.client_ctx_creating = 1;
-	n = lws_tls_client_create_vhost_context(vhost, info, cipher_list,
+	if (lws_tls_client_create_vhost_context(vhost, info, cipher_list,
 						ca_filepath,
 						info->client_ssl_ca_mem,
 						info->client_ssl_ca_mem_len,
@@ -337,12 +165,10 @@ int lws_context_init_client_ssl(const struct lws_context_creation_info *info,
 						private_key_filepath,
 						info->client_ssl_key_mem,
 						info->client_ssl_key_mem_len
-						);
-	vhost->tls.client_ctx_creating = 0;
-	if (n)
+						))
 		return 1;
 
-	lwsl_notice("created client ssl context for %s\n", vhost->name);
+	lwsl_info("created client ssl context for %s\n", vhost->name);
 
 	/*
 	 * give him a fake wsi with context set, so he can use
@@ -358,43 +184,15 @@ int lws_context_init_client_ssl(const struct lws_context_creation_info *info,
 	return 0;
 }
 
-/*
- * The backends read the connection's host name, for SNI and the server cert
- * name check, into LWS_TLS_CLIENT_HOSTNAME_LEN buffers.  A longer name must
- * not reach them: cut short, both would be about another name, eg, for
- * "<63 chars>.<54 chars>.evil.com.service.example", a name under evil.com,
- * whose cert whoever controls the leading labels can have (C-667)
- */
-static int
-lws_tls_client_hostname_fits(struct lws *wsi)
-{
-	const char *host = lws_wsi_client_stash_item(wsi, CIS_HOST,
-						     _WSI_TOKEN_CLIENT_HOST);
-
-	if (!host)
-		host = wsi->cli_hostname_copy;
-
-	return !host || strlen(host) < LWS_TLS_CLIENT_HOSTNAME_LEN;
-}
-
 int
 lws_client_create_tls(struct lws *wsi, const char **pcce, int do_c1)
 {
 	/* we can retry this... just cook the SSL BIO the first time */
 
-	if (wsi->use_ssl & LCCSCF_USE_SSL) {
-#if defined(LWS_WITH_TCP_TLS)
+	if (wsi->tls.use_ssl & LCCSCF_USE_SSL) {
 		int n;
-#endif
-		if (!wsi->io->tls.ssl) {
 
-			if (!lws_tls_client_hostname_fits(wsi)) {
-				lwsl_wsi_err(wsi, "host name longer than %d, "
-					     "refusing tls",
-					     LWS_TLS_CLIENT_HOSTNAME_LEN - 1);
-				*pcce = "tls host name too long";
-				return CCTLS_RETURN_ERROR;
-			}
+		if (!wsi->tls.ssl) {
 
 #if defined(LWS_WITH_TLS)
 			if (!wsi->transaction_from_pipeline_queue &&
@@ -403,21 +201,7 @@ lws_client_create_tls(struct lws *wsi, const char **pcce, int do_c1)
 				return CCTLS_RETURN_ERROR;
 			}
 #endif
-			/*
-			 * The tls_client_bio_create fault fails it as running
-			 * out of heap for the session would
-			 */
-			if (lws_fi(&wsi->fic, "tls_client_bio_create") ||
-			    lws_ssl_client_bio_create(wsi) < 0) {
-				/*
-				 * It may have failed before there was any
-				 * session, eg, refusing a hostname it can't
-				 * check (C-408): the slot we just took must
-				 * not wait for one to be closed (C-655)
-				 */
-#if defined(LWS_WITH_TLS)
-				lws_tls_restrict_return(wsi);
-#endif
+			if (lws_ssl_client_bio_create(wsi) < 0) {
 				*pcce = "bio_create failed";
 				return CCTLS_RETURN_ERROR;
 			}
@@ -426,15 +210,15 @@ lws_client_create_tls(struct lws *wsi, const char **pcce, int do_c1)
 		if (!do_c1)
 			return CCTLS_RETURN_DONE;
 
-#if defined(LWS_WITH_TCP_TLS)
 		lws_metrics_caliper_report(wsi->cal_conn, METRES_GO);
 		lws_metrics_caliper_bind(wsi->cal_conn, wsi->a.context->mt_conn_tls);
 #if defined(LWS_WITH_CONMON)
 		wsi->conmon_datum = lws_now_usecs();
 #endif
 
-		n = lws_ssl_client_connect2(wsi, (char *)wsi->a.context->pt[(int)wsi->tsi].serv_buf,
+		n = lws_ssl_client_connect1(wsi, (char *)wsi->a.context->pt[(int)wsi->tsi].serv_buf,
 					    wsi->a.context->pt_serv_buf_size);
+		lwsl_debug("%s: lws_ssl_client_connect1: %d\n", __func__, n);
 		if (!n)
 			return CCTLS_RETURN_RETRY; /* caller should return 0 */
 
@@ -443,60 +227,12 @@ lws_client_create_tls(struct lws *wsi, const char **pcce, int do_c1)
 			lws_metrics_caliper_report(wsi->cal_conn, METRES_NOGO);
 			return CCTLS_RETURN_ERROR;
 		}
-		/* ...it completed at once, and connect2 has confirmed the peer */
-#else
-		*pcce = "TCP TLS disabled";
-		return CCTLS_RETURN_ERROR;
-#endif
+		/* ...connect1 already handled caliper if SSL_accept done */
+
+		lws_tls_server_conn_alpn(wsi);
+
 	} else
-		wsi->io->tls.ssl = NULL;
+		wsi->tls.ssl = NULL;
 
 	return CCTLS_RETURN_DONE; /* OK */
-}
-
-/*
- * STARTTLS: an established raw client connection starts tls inside its own
- * protocol.  The first handshake step is taken here; the rest is the
- * transport machine's, the same as for a connection that asked for tls from
- * the start (LTS_WAITING_SSL, under the handshake timeout), and when it
- * completes the user is told the connection is up again.
- */
-int
-lws_tls_client_upgrade(struct lws *wsi, int ssl_flags)
-{
-	const char *cce = "tls upgrade failed";
-
-	if (!lwsi_role_client(wsi) || wsi->role_ops != &role_ops_raw_skt ||
-	    lwsi_state(wsi) != LRS_ESTABLISHED || wsi->io->tls.ssl ||
-	    !(ssl_flags & LCCSCF_USE_SSL)) {
-		lwsl_wsi_err(wsi, "only an established raw client without tls "
-				  "can start it");
-
-		return -1;
-	}
-
-	if (!wsi->a.vhost->tls.ssl_client_ctx) {
-		lwsl_wsi_err(wsi, "vhost %s has no client tls context",
-			     wsi->a.vhost->name);
-
-		return -1;
-	}
-
-	wsi->use_ssl = (unsigned int)ssl_flags;
-
-	switch (lws_client_create_tls(wsi, &cce, 1)) {
-	case CCTLS_RETURN_DONE:
-		/* it completed at once: no connected callback is coming */
-		return 1;
-	case CCTLS_RETURN_RETRY:
-		/* the transport stage carries it on (LTS_WAITING_SSL) */
-		lws_set_timeout(wsi, PENDING_TIMEOUT_SENT_CLIENT_HANDSHAKE,
-				(int)wsi->a.context->timeout_secs);
-
-		return 0;
-	default:
-		lwsl_wsi_err(wsi, "%s", cce);
-
-		return -1;
-	}
 }

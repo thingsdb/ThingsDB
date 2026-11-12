@@ -118,21 +118,6 @@ lws_jws_sig_confirm_compact(struct lws_jws_map *map, struct lws_jwk *jwk,
 			    struct lws_context *context,
 			    char *temp, int *temp_len);
 
-/**
- * lws_jws_sig_confirm_compact_b64_map() - check signature on mapped b64 JWS
- *
- * \param map_b64: b64 JWS element map, eg, from lws_jws_b64_compact_map()
- * \param jwk: public key
- * \param context: lws_context
- * \param temp: scratchpad
- * \param temp_len: size of scratchpad
- *
- * Confirms the signature on a JWS.  Use if you have the b64 elements already
- * mapped (pointers and lengths into your compact serialization string)... it'll
- * make a temp plain version needed for comparison.
- *
- * Returns 0 on match, else nonzero.
- */
 LWS_VISIBLE LWS_EXTERN int
 lws_jws_sig_confirm_compact_b64_map(struct lws_jws_map *map_b64,
 				    struct lws_jwk *jwk,
@@ -522,7 +507,7 @@ lws_jwt_sign_via_info(struct lws_context *ctx, struct lws_jwk *jwk,
  * \param csrf_in: NULL, or the csrf token that came in on a URL
  * \param sub: a buffer to hold the subject name in the JWT (eg, account name)
  * \param sub_len: the max length of the sub buffer
- * \param expiry_unix_time: set to the token expiry as a unix time, if valid
+ * \param secs_left: set to the number of seconds of valid auth left if valid
  *
  * This performs some generic sanity tests on validated JWT payload...
  *
@@ -533,17 +518,17 @@ lws_jwt_sign_via_info(struct lws_context *ctx, struct lws_jwk *jwk,
  *  - if csrf_in is not NULL, that the JWK has a csrf and it matches it
  *  - if sub is not NULL, that the JWK provides a subject (and copies it to sub)
  *
- * If the tests pass, *expiry_unix_time is set to the token's expiry
- * time as an absolute unix time.
+ * If the tests pass, *secs_left is set to the number of remaining seconds the
+ * auth is valid.
  *
  * Returns 0 if no inconsistency, else nonzero.
  */
 LWS_VISIBLE LWS_EXTERN int
 lws_jwt_token_sanity(const char *in, size_t in_len,
 		     const char *iss, const char *aud, const char *csrf_in,
-		     char *sub, size_t sub_len, unsigned long *expiry_unix_time);
+		     char *sub, size_t sub_len, unsigned long *exp_unix_time);
 
-#if defined(LWS_ROLE_H1) || defined(LWS_ROLE_H2) || defined(LWS_ROLE_H3)
+#if defined(LWS_ROLE_H1) || defined(LWS_ROLE_H2)
 
 struct lws_jwt_sign_set_cookie {
 	struct lws_jwk			*jwk;
@@ -556,15 +541,11 @@ struct lws_jwt_sign_set_cookie {
 	/**< entry: audience */
 	const char			*cookie_name;
 	/**< entry: the name of the cookie */
-	char				sub[65];
-	/**< sign-entry, validate-exit: subject.  It's JSON-escaped into the
-	 * JWT, so may come from a user; a subject with bytes that need escaping
-	 * comes back from validation in its escaped form */
+	char				sub[33];
+	/**< sign-entry, validate-exit: subject */
 	const char			*extra_json;
 	/**< sign-entry, validate-exit:
-	 * optional "ext" JSON object contents for the JWT.  On signing it goes
-	 * in as it is: it must be JSON the application composed, with any
-	 * strings from elsewhere in it escaped, eg with lws_json_purify() */
+	 * optional "ext" JSON object contents for the JWT */
 	size_t				extra_json_len;
 	/**< validate-exit:
 	 * length of optional "ext" JSON object contents for the JWT */
@@ -574,17 +555,6 @@ struct lws_jwt_sign_set_cookie {
 	unsigned long			expiry_unix_time;
 	/**< sign-entry: seconds the JWT and cookie may live,
 	 * validate-exit: expiry unix time */
-	const char			*purpose;
-	/**< sign-entry, validate-entry: NULL, or a short name for what the
-	 * token is for, eg "pass" or "visit", signed in as a "pur" claim.
-	 * Validation requires the token's "pur" to match it exactly, and when
-	 * it is NULL, requires the token to have no "pur" at all.  Give each
-	 * kind of token signed with one jwk / iss / aud its own purpose, so
-	 * one kind can't be presented as another under a different cookie
-	 * name: the client chooses the name, the signature only covers the
-	 * claims.  It must not contain '"', '\\' or control characters, and
-	 * signing refuses an iss, aud or extra_json containing "pur": of its
-	 * own, since validation takes the first "pur" it finds. */
 };
 
 /**
@@ -622,51 +592,6 @@ LWS_VISIBLE LWS_EXTERN int
 lws_jwt_sign_token_set_http_cookie(struct lws *wsi,
 				   const struct lws_jwt_sign_set_cookie *i,
 				   uint8_t **p, uint8_t *end);
-
-/**
- * lws_jwt_sign_token_set_cookie_ascii() - create a set-cookie header line for
- *					   a JWT, as plain ascii
- *
- * \param wsi: the wsi the cookie is being created for
- * \param i: structure describing what should be in the JWT
- * \param buf: buffer to receive the ascii header line
- * \param len: size of \p buf
- *
- * Like lws_jwt_sign_token_set_http_cookie(), but instead of adding the header
- * through the wsi header apis (which produce hpack on h2 and h1-style headers
- * on h1), it writes a self-contained "set-cookie: ...\r\n" ascii line into
- * \p buf.  This is what you want when the header is going to be passed to,
- * eg, lws_serve_http_file() as other_headers, since that expects ascii lines
- * regardless of the wsi's protocol role.  \p buf should be at least
- * #LWS_JWT_COOKIE_ASCII_LEN bytes.  Returns 0 if successful, or nonzero if
- * the header line does not fit in \p len (buffers smaller than the header
- * name, CRLF and NUL, never mind the JWT, are rejected immediately).
- */
-#define LWS_JWT_COOKIE_ASCII_LEN (1280)
-LWS_VISIBLE LWS_EXTERN int
-lws_jwt_sign_token_set_cookie_ascii(struct lws *wsi,
-				    const struct lws_jwt_sign_set_cookie *i,
-				    char *buf, size_t len);
-/**
- * lws_jwt_get_http_cookie_validate_jwt() - get and validate a JWT cookie
- *
- * \param wsi: the wsi whose request headers hold the cookie
- * \param i: structure describing the cookie and what the JWT must contain
- * \param out: buffer for the encoded JWT, then the decoded JWT payload
- * \param out_len: entry: size of \p out, exit: length of the payload
- *
- * Reads the cookie lws_jwt_sign_token_set_http_cookie() mints, that is, the
- * one named "__Host-" plus \p i->cookie_name, and only that one: a cookie
- * named \p i->cookie_name without the prefix is ignored, since unlike the
- * __Host- one, a sibling host under the registrable domain can set it.  The
- * JWT is validated against \p i->jwk and \p i->alg, and its iss, aud,
- * purpose (see \p i->purpose), expiry and, if \p i->csrf_in is given, csrf
- * are checked.  On success the
- * subject is copied into \p i->sub, \p i->expiry_unix_time is set, and
- * \p i->extra_json points to any "ext" object inside \p out.
- *
- * Returns 0 if the cookie is present and valid, else nonzero.
- */
 LWS_VISIBLE LWS_EXTERN int
 lws_jwt_get_http_cookie_validate_jwt(struct lws *wsi,
 				     struct lws_jwt_sign_set_cookie *i,

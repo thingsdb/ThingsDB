@@ -29,7 +29,7 @@
 
 #if defined(LWS_WITH_SYS_SMD)
 const lws_ss_policy_t pol_smd = {
-	.streamtype		= LWS_SMD_STREAMTYPENAME,
+	.flags			= 0, /* have to set something for windows */
 };
 #endif
 
@@ -75,8 +75,6 @@ _lws_ss_set_metadata(lws_ss_metadata_t *omd, const char *name,
 	omd->name = name;
 	omd->value__may_own_heap = (void *)value;
 	omd->length = len;
-	/* a caller setting a value from outside the process marks it after */
-	omd->value_from_outside = 0;
 
 	return 0;
 }
@@ -184,29 +182,12 @@ lws_ss_get_metadata(struct lws_ss_handle *h, const char *name,
 
 	n = lws_http_string_to_known_header(name, strlen(name));
 	if (n != LWS_HTTP_NO_KNOWN_HEADER) {
-		const char *hp;
-
-		*len = (size_t)lws_hdr_total_length(h->wsi,
-						    (enum lws_token_indexes)n);
+		*len = (size_t)lws_hdr_total_length(h->wsi, n);
 		if (!*len)
 			goto bail;
-		hp = lws_hdr_simple_ptr(h->wsi, (enum lws_token_indexes)n);
-		if (!hp)
+		*value = lws_hdr_simple_ptr(h->wsi, n);
+		if (!*value)
 			goto bail;
-
-		/*
-		 * The header lives in the wsi's header table, which the
-		 * connection gives up once it has acted on the request: what
-		 * we hand user code must outlive that, so it is copied into
-		 * the handle's arena like a custom header is
-		 */
-		*value = lwsac_use(&h->imd_ac, *len + 1, *len + 1);
-		if (!*value) {
-			lwsl_err("%s ac OOM\n", __func__);
-			return 1;
-		}
-		memcpy((char *)*value, hp, *len);
-		((char *)*value)[*len] = '\0';
 
 		return 0;
 	}
@@ -341,7 +322,6 @@ lws_ss_policy_ref_trust_store(struct lws_context *context,
 
 				return NULL;
 			}
-			v->internal = 1;
 		}
 
 		goto accepted;
@@ -352,21 +332,6 @@ lws_ss_policy_ref_trust_store(struct lws_context *context,
 		goto accepted;
 	}
 
-	/*
-	 * Every cert in the store must have its DER: creating the vhost with
-	 * no CA would have the tls library fall back to whatever it trusts by
-	 * default, not what the store pins
-	 */
-	for (n = 0; n < pol->trust.store->count; n++)
-		if (!pol->trust.store->ssx509[n]->ca_der ||
-		    !pol->trust.store->ssx509[n]->ca_der_len) {
-			lwsl_err("%s: trust store %s: %s has no DER\n",
-				 __func__, pol->trust.store->name,
-				 pol->trust.store->ssx509[n]->vhost_name);
-
-			return NULL;
-		}
-
 	i.options = context->options;
 	i.vhost_name = pol->trust.store->name;
 	lwsl_debug("%s: %s\n", __func__, i.vhost_name);
@@ -374,15 +339,9 @@ lws_ss_policy_ref_trust_store(struct lws_context *context,
 	i.client_ssl_ca_mem = pol->trust.store->ssx509[0]->ca_der;
 	i.client_ssl_ca_mem_len = (unsigned int)
 			pol->trust.store->ssx509[0]->ca_der_len;
-	/*
-	 * The rest of the store is added after creation: that trust must be
-	 * this vhost's alone, not shared with every store that starts with
-	 * the same cert (G-392)
-	 */
-	i.client_ssl_ctx_unshared = pol->trust.store->count > 1;
 #endif
 #if defined(LWS_ROLE_WS) && !defined(LWS_WITHOUT_EXTENSIONS)
-	lwsl_debug("%s: ctx ext %p\n", __func__, context->extensions);
+	lwsl_err("%s: ctx ext %p\n", __func__, context->extensions);
 	i.extensions = context->extensions;
 #endif
 	i.port = CONTEXT_PORT_NO_LISTEN;
@@ -394,10 +353,8 @@ lws_ss_policy_ref_trust_store(struct lws_context *context,
 		lwsl_err("%s: failed to create vhost %s\n",
 			 __func__, i.vhost_name);
 		return NULL;
-	} else {
+	} else
 		v->from_ss_policy = 1;
-		v->internal = 1;
-	}
 
 	for (n = 1; v && n < pol->trust.store->count; n++) {
 		lwsl_info("%s: add '%s' to trust store\n", __func__,
@@ -408,12 +365,6 @@ lws_ss_policy_ref_trust_store(struct lws_context *context,
 				pol->trust.store->ssx509[n]->ca_der_len)) {
 			lwsl_err("%s: add extra cert failed\n",
 					__func__);
-			/*
-			 * Don't leave a vhost with only part of the store
-			 * around to be found by name and used later
-			 */
-			lws_vhost_destroy(v);
-
 			return NULL;
 		}
 #endif
@@ -463,8 +414,8 @@ lws_ss_policy_set(struct lws_context *context, const char *name)
 #if !defined(LWS_WITH_SECURE_STREAMS_STATIC_POLICY_ONLY)
 	struct policy_cb_args *args = (struct policy_cb_args *)context->pol_args;
 	const lws_ss_policy_t *pol;
-	lws_ss_x509_t *x, **px;
 	struct lws_vhost *v;
+	lws_ss_x509_t *x;
 	char buf[16];
 	int m;
 
@@ -476,45 +427,14 @@ lws_ss_policy_set(struct lws_context *context, const char *name)
 	if (!args)
 		return 1;
 
-	if (!args->complete) {
-		/*
-		 * The JSON never ended, eg, a fetch cut short: what we have is
-		 * the policy up to wherever it stopped, perhaps a streamtype
-		 * without its "tls" or trust store.  Keep the policy in force.
-		 */
-		lwsl_err("%s: %s: policy is incomplete\n", __func__, name);
-		lws_ss_policy_parse_abandon(context);
-
-		return 1;
-	}
-
 	lejp_destruct(&args->jctx);
-
-	/*
-	 * The server certs the old policy kept are on server_der_list behind
-	 * the ones the new policy kept, and the objects are in the old
-	 * policy's lwsac that we are about to free... unlink them and free
-	 * their DER, so the list only holds the new policy's
-	 */
-
-	px = &context->server_der_list;
-	while (*px && *px != args->prev_server_der_list)
-		px = &(*px)->next;
-	x = *px;
-	*px = NULL;
-	while (x) {
-		lws_free((void *)x->ca_der);
-		x->ca_der = NULL;
-
-		x = x->next;
-	}
 
 	if (context->ac_policy) {
 		int n;
 
 #if defined(LWS_WITH_SYS_METRICS)
 		lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1,
-					   lws_dll2_get_head(&context->owner_mtr_dynpol)) {
+					   context->owner_mtr_dynpol.head) {
 			lws_metric_policy_dyn_t *dm =
 				lws_container_of(d, lws_metric_policy_dyn_t, list);
 
@@ -567,16 +487,16 @@ lws_ss_policy_set(struct lws_context *context, const char *name)
 		 * short time later, the vhost is actually destroyed.
 		 */
 
-		v = lws_vhost_first(context);
+		v = context->vhost_list;
 		while (v) {
 			if (v->from_ss_policy) {
-				struct lws_vhost *vh = lws_vhost_next(v);
+				struct lws_vhost *vh = v->vhost_next;
 				lwsl_debug("%s: destroying %s\n", __func__, lws_vh_tag(v));
 				lws_vhost_destroy(v);
 				v = vh;
 				continue;
 			}
-			v = lws_vhost_next(v);
+			v = v->vhost_next;
 		}
 	}
 
@@ -624,10 +544,10 @@ lws_ss_policy_set(struct lws_context *context, const char *name)
 	 * which socks5 proxy to use...
 	 */
 
-	v = lws_vhost_first(context);
+	v = context->vhost_list;
 	while (v) {
 		lws_set_socks(v, args->socks5_proxy);
-		v = lws_vhost_next(v);
+		v = v->vhost_next;
 	}
 	if (context->vhost_system)
 		lws_set_socks(context->vhost_system, args->socks5_proxy);

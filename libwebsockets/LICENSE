@@ -15,8 +15,6 @@ Original liberal license retained:
   - contrib/mcufont/encoder
   - lib/misc/ieeehalfprecision.c         - 2-clause BSD license retained [BSD2]
   - contrib/mcufont/fonts		 - Open Font License [OFL]
-  - lib/misc/dht                         - already MIT
-  - lib/misc/qrcodegen.c                 - already MIT
 
 Relicensed to MIT:
 

@@ -33,8 +33,6 @@ lws_jwe_encrypt_rsa_aes_gcm(struct lws_jwe *jwe, char *temp, int *temp_len)
 {
 	int ekbytes = jwe->jose.enc_alg->keybits_fixed / 8;
 	struct lws_genrsa_ctx rsactx;
-
-	memset(&rsactx, 0, sizeof(rsactx));
 	int n, ret = -1, ot = *temp_len;
 
 	if (jwe->jws.jwk->kty != LWS_GENCRYPTO_KTY_RSA) {
@@ -95,24 +93,12 @@ lws_jwe_encrypt_rsa_aes_gcm(struct lws_jwe *jwe, char *temp, int *temp_len)
 
 	/* Encrypt the CEK into EKEY to make the JWE Encrypted Key */
 
-	if (strncmp(jwe->jose.alg->alg, "RSA-OAEP", 8)) {
-		lwsl_err("%s: only RSA-OAEP is supported for RSA key wrap\n", __func__);
-		ret = -1;
-		goto bail;
-	}
-
-	/*
-	 * The alg table entry knows the OAEP hash for the specific alg,
-	 * SHA1 for "RSA-OAEP" and SHA256 for "RSA-OAEP-256" (RFC7518 s4.3)
-	 */
-
-	int res = lws_genrsa_create(&rsactx, jwe->jws.jwk->e, jwe->jws.context,
-				LGRSAM_PKCS1_OAEP_PSS,
-				jwe->jose.alg->hash_type);
-	if (res) {
+	if (lws_genrsa_create(&rsactx, jwe->jws.jwk->e, jwe->jws.context,
+			!strcmp(jwe->jose.alg->alg,   "RSA-OAEP") ?
+				LGRSAM_PKCS1_OAEP_PSS : LGRSAM_PKCS1_1_5,
+			LWS_GENHASH_TYPE_SHA1 /* !!! */)) {
 		lwsl_notice("%s: lws_genrsa_public_decrypt_create\n",
 			    __func__);
-		ret = res < -1 ? res : -1;
 		goto bail;
 	}
 
@@ -121,7 +107,6 @@ lws_jwe_encrypt_rsa_aes_gcm(struct lws_jwe *jwe, char *temp, int *temp_len)
 	lws_genrsa_destroy(&rsactx);
 	if (n < 0) {
 		lwsl_err("%s: encrypt cek fail: \n", __func__);
-		ret = n < -1 ? n : -1;
 		goto bail;
 	}
 
@@ -140,8 +125,6 @@ lws_jwe_auth_and_decrypt_rsa_aes_gcm(struct lws_jwe *jwe)
 {
 	int n;
 	struct lws_genrsa_ctx rsactx;
-
-	memset(&rsactx, 0, sizeof(rsactx));
 	uint8_t enc_cek[LWS_JWE_LIMIT_KEY_ELEMENT_BYTES];
 
 	if (jwe->jws.jwk->kty != LWS_GENCRYPTO_KTY_RSA) {
@@ -159,18 +142,13 @@ lws_jwe_auth_and_decrypt_rsa_aes_gcm(struct lws_jwe *jwe)
 
 	/* Decrypt the JWE Encrypted Key to get the direct CEK */
 
-	if (strncmp(jwe->jose.alg->alg, "RSA-OAEP", 8)) {
-		lwsl_err("%s: only RSA-OAEP is supported for RSA key wrap\n", __func__);
-		return -1;
-	}
-
-	int res = lws_genrsa_create(&rsactx, jwe->jws.jwk->e, jwe->jws.context,
-					LGRSAM_PKCS1_OAEP_PSS,
-					jwe->jose.alg->hash_type);
-	if (res) {
-		lwsl_notice("%s: lws_genrsa_create\n",
+	if (lws_genrsa_create(&rsactx, jwe->jws.jwk->e, jwe->jws.context,
+			!strcmp(jwe->jose.alg->alg,   "RSA-OAEP") ?
+				LGRSAM_PKCS1_OAEP_PSS : LGRSAM_PKCS1_1_5,
+			LWS_GENHASH_TYPE_SHA1 /* !!! */)) {
+		lwsl_notice("%s: lws_genrsa_public_decrypt_create\n",
 			    __func__);
-		return res < -1 ? res : -1;
+		return -1;
 	}
 
 	n = lws_genrsa_private_decrypt(&rsactx,
@@ -180,46 +158,26 @@ lws_jwe_auth_and_decrypt_rsa_aes_gcm(struct lws_jwe *jwe)
 	lws_genrsa_destroy(&rsactx);
 	if (n < 0) {
 		lwsl_err("%s: decrypt cek fail: \n", __func__);
-		n = n < -1 ? n : -1;
-		goto bail;
-	}
-
-	/*
-	 * The attacker picks the OAEP plaintext, so he picks its length too...
-	 * lws_jwe_auth_and_decrypt_gcm() uses keybits_fixed / 8 bytes of
-	 * enc_cek[] as the CEK, so a short CEK would make key material out of
-	 * uninitialised stack.  It must be exactly the enc alg's key length
-	 */
-
-	if (n != (int)jwe->jose.enc_alg->keybits_fixed / 8) {
-		lwsl_err("%s: unexpected CEK len %d\n", __func__, n);
-		n = -1;
-		goto bail;
+		return -1;
 	}
 
 	n = lws_jwe_auth_and_decrypt_gcm(jwe, enc_cek,
 			(uint8_t *)jwe->jws.map_b64.buf[LJWE_JOSE],
 				(int)jwe->jws.map_b64.len[LJWE_JOSE]);
-	/* the recovered CEK must not outlive us on any path (cf. C-093) */
-	lws_explicit_bzero(enc_cek, sizeof(enc_cek));
 	if (n < 0) {
 		lwsl_err("%s: lws_jwe_auth_and_decrypt_gcm_hs failed\n",
 			 __func__);
 		return -1;
 	}
 
-	/*
-	 * There used to be an OPTEE-only PKCS#7 strip here, but AES-GCM is a
-	 * stream mode and emits no padding at all... it unconditionally chopped
-	 * plaintext[len - 1] bytes off a correct plaintext, and with the pad
-	 * byte read through a char, an attacker-chosen final byte >= 0x80 grew
-	 * map.len[LJWE_CTXT] instead, or wrapped the uint32_t to ~4GB.
-	 */
+#if defined(LWS_WITH_MBEDTLS) && defined(LWS_PLAT_OPTEE)
+	/* strip padding */
+
+	n = jwe->jws.map.buf[LJWE_CTXT][jwe->jws.map.len[LJWE_CTXT] - 1];
+	if (n > 16)
+		return -1;
+	jwe->jws.map.len[LJWE_CTXT] -= n;
+#endif
 
 	return (int)jwe->jws.map.len[LJWE_CTXT];
-
-bail:
-	lws_explicit_bzero(enc_cek, sizeof(enc_cek));
-
-	return n;
 }

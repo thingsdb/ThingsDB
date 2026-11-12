@@ -71,14 +71,6 @@ enum pending_timeout {
 	PENDING_TIMEOUT_THREADPOOL_TASK				= 30,
 	PENDING_TIMEOUT_KILLED_BY_PROXY_CLIENT_CLOSE		= 31,
 	PENDING_TIMEOUT_USER_OK					= 32,
-	PENDING_TIMEOUT_HTTP_RESPONSE				= 33,
-	/**< Server: we started writing the response (sent response headers) but
-	 * the transaction never completed in time -- no END_STREAM was sent under
-	 * h2 / h3, or the response body was never finished.  User code likely
-	 * wrote a headers-only response via lws_finalize_write_http_header()
-	 * instead of lws_finalize_write_http_header_flags() with
-	 * LWS_WRITE_H2_STREAM_END, or never drained a chunked body.  Stream is
-	 * closed as unusable. */
 
 	/****** add new things just above ---^ ******/
 
@@ -220,33 +212,9 @@ lws_sul2_schedule(struct lws_context *context, int tsi, int flags,
  *
  * If it's scheduled, remove the sul from its owning sorted list.
  * If not scheduled, it's a NOP.
- *
- * With LWS_MAX_SMP > 1 it takes the lock of the service thread whose list the
- * sul is on while it unlinks it, so it may be used from any thread.  As for
- * any lws lock, a thread holding one service thread's lock must also hold the
- * context lock to cancel a sul on another's list.  The sul must have been
- * scheduled by the lws_sul_schedule() family: a sul you put on a list of your
- * own with __lws_sul_insert() is removed with lws_dll2_remove() instead.
  */
 LWS_VISIBLE LWS_EXTERN void
 lws_sul_cancel(lws_sorted_usec_list_t *sul);
-
-/*
- * lws_sul_cancel_tsi() - cancel a scheduled callback from any thread
- *
- * \param ctx: the lws_context
- * \param tsi: the service thread index the sul was scheduled on
- * \param sul: pointer to the sul element
- *
- * The same as lws_sul_cancel(), which finds and locks the service thread the
- * sul is on itself; \p ctx and \p tsi are no longer needed.  lws_sul_schedule()
- * likewise takes the lock of the pt it schedules on, so scheduling onto
- * another service thread's pt is safe, although that thread only sees the new
- * deadline when it next wakes.
- */
-LWS_VISIBLE LWS_EXTERN void
-lws_sul_cancel_tsi(struct lws_context *ctx, int tsi,
-		   lws_sorted_usec_list_t *sul);
 
 /*
  * lws_sul_earliest_wakeable_event() - get earliest wake-from-suspend event
@@ -323,12 +291,6 @@ lws_sul_debug_zombies(struct lws_context *ctx, void *po, size_t len,
  * If the PONG comes, or user code observes traffic that satisfies the proof
  * that both directions are passing traffic to the peer and calls this api,
  * the connection validity timer is reset and the scheme repeats.
- *
- * Raw connections have no PING of their own.  One taken from an http CONNECT
- * (a LWSMPRO_CONNECT mount) is under the vhost's policy anyway: its protocol
- * must call this when it sees the connection alive, eg, its own inline PONG,
- * within .secs_since_valid_hangup, or it is hung up.  On other raw connections
- * there is no validity timer, and calling it does nothing.
  */
 LWS_VISIBLE LWS_EXTERN void
 lws_validity_confirmed(struct lws *wsi);
@@ -343,11 +305,6 @@ __lws_sul_insert(lws_dll2_owner_t *own, lws_sorted_usec_list_t *sul);
 
 LWS_VISIBLE LWS_EXTERN lws_usec_t
 __lws_sul_service_ripe(lws_dll2_owner_t *own, int own_len, lws_usec_t usnow);
-/*
- * An event loop calls this holding the context lock and then the pt lock, in
- * that order, so the callbacks it runs may close connections or destroy
- * vhosts, which take the same locks in the same order.
- */
 
 #if defined(STANDALONE)
 #undef lws_context

@@ -30,20 +30,7 @@
 
 #if defined(LWS_WITH_TLS)
 
-/*
- * The size of the buffers the client tls backends read the connection's host
- * name into, for SNI and the server cert name check.  lws_client_create_tls()
- * refuses a longer name, so no backend ever works with a truncated one (C-667)
- */
-#define LWS_TLS_CLIENT_HOSTNAME_LEN 128
-
 #include "private-jit-trust.h"
-
-#if defined(WIN32) && defined(LWS_WITH_SCHANNEL)
- #include <wincrypt.h>
- #include <bcrypt.h>
- #include <ncrypt.h>
-#else
 
 #if defined(USE_WOLFSSL)
  #if defined(USE_OLD_CYASSL)
@@ -74,33 +61,25 @@
    #undef MBEDTLS_CONFIG_FILE
    #define MBEDTLS_CONFIG_FILE <mbedtls/esp_config.h>
   #endif
-   #include <mbedtls/ssl.h>
-#if !defined(LWS_HAVE_MBEDTLS_V4)
+  #include <mbedtls/ssl.h>
   #include <mbedtls/aes.h>
   #include <mbedtls/gcm.h>
-#endif
   #include <mbedtls/x509_crt.h>
+  #include "ssl.h" /* wrapper !!!! */
  #else /* not esp32 */
   #if defined(LWS_WITH_MBEDTLS)
    #include <mbedtls/ssl.h>
-#if !defined(LWS_HAVE_MBEDTLS_V4)
    #include <mbedtls/aes.h>
    #include <mbedtls/gcm.h>
-#endif
    #include <mbedtls/x509_crt.h>
    #include <mbedtls/x509_csr.h>
-#if !defined(LWS_HAVE_MBEDTLS_V4)
    #include <mbedtls/ecp.h>
    #include <mbedtls/ecdsa.h>
-#else
-   #include <psa/crypto.h>
-#endif
-  #elif defined(LWS_WITH_GNUTLS)
-   #include <gnutls/gnutls.h>
-   #include <gnutls/abstract.h>
-   #include <gnutls/crypto.h>
-  #elif defined(LWS_WITH_OPENHITLS)
-   #include "openhitls/private.h"
+  #if defined(LWS_AMAZON_LINUX)
+   #include "ssl.h" /* wrapper !!!! */
+  #else
+   #include "openssl/ssl.h" /* wrapper !!!! */
+  #endif
   #else
    #include <openssl/ssl.h>
    #include <openssl/evp.h>
@@ -131,72 +110,6 @@
  #endif /* not ESP32 */
 #endif /* not USE_WOLFSSL */
 
-#endif /* !LWS_WITH_SCHANNEL */
-
-#if defined(LWS_WITH_MBEDTLS)
-/*
- * Where mbedtls randomness comes from.  mbedtls 3.x may be built without its
- * entropy and CTR-DRBG modules when a PSA driver supplies the randomness
- * (MBEDTLS_PSA_CRYPTO_EXTERNAL_RNG); then, as always on mbedtls 4, the RNG is
- * PSA's and there is no DRBG of ours: struct lws_context has no mec / mcdc,
- * and nothing seeds or frees them.  Private, so apps don't see a macro that
- * depends on how the mbedtls they happen to compile against was configured.
- *
- * LWS_MBEDTLS_F_RNG / LWS_MBEDTLS_P_RNG() in private-lib-tls-mbedtls.h give
- * the f_rng / p_rng pair for the mbedtls 3.x apis that take one.
- */
-#if defined(LWS_HAVE_MBEDTLS_V4) || \
-    !defined(MBEDTLS_ENTROPY_C) || !defined(MBEDTLS_CTR_DRBG_C)
-#define LWS_MBEDTLS_PSA_RNG
-#if !defined(LWS_HAVE_MBEDTLS_V4)
-#if !defined(MBEDTLS_PSA_CRYPTO_C) && !defined(MBEDTLS_PSA_CRYPTO_CLIENT)
-#error "mbedtls has no entropy / CTR-DRBG module and no PSA crypto to take the RNG from"
-#endif
-#include <mbedtls/psa_util.h>
-#endif
-#endif
-#endif /* LWS_WITH_MBEDTLS */
-
-/*
- * The public info .ssl_options_set / .ssl_options_clear (and the _client_
- * variants) are documented as carrying OpenSSL SSL_OP_ bit values, whatever
- * TLS backend is actually built in: they are the portable way an app lowers
- * the protocol floor or re-enables peer-initiated renegotiation.
- *
- * Backends that do not include the openssl headers still have to be able to
- * interpret them, so provide the (ABI-fixed) OpenSSL 1.1.x / 3.x bit values
- * for the ones the backends act on.  Each is guarded so that a backend
- * private header that already defined it wins.
- *
- * This is deliberately NOT done for openssl / wolfSSL builds: those have the
- * real definitions, and some of these bit positions meant something else
- * entirely in openssl 1.0.x (0x40000000L was
- * SSL_OP_NETSCAPE_DEMO_CIPHER_CHANGE_BUG), so on those backends the absence
- * of a macro has to keep meaning "this version does not have the feature".
- */
-
-#if defined(LWS_WITH_SCHANNEL) || defined(LWS_WITH_GNUTLS) || \
-    defined(LWS_WITH_BEARSSL) || defined(LWS_WITH_MBEDTLS) || \
-    defined(LWS_WITH_OPENHITLS)
-
-#if !defined(SSL_OP_NO_TLSv1)
- #define SSL_OP_NO_TLSv1	0x04000000L
-#endif
-#if !defined(SSL_OP_NO_TLSv1_2)
- #define SSL_OP_NO_TLSv1_2	0x08000000L
-#endif
-#if !defined(SSL_OP_NO_TLSv1_1)
- #define SSL_OP_NO_TLSv1_1	0x10000000L
-#endif
-#if !defined(SSL_OP_NO_TLSv1_3)
- #define SSL_OP_NO_TLSv1_3	0x20000000L
-#endif
-#if !defined(SSL_OP_NO_RENEGOTIATION)
- #define SSL_OP_NO_RENEGOTIATION	0x40000000L
-#endif
-
-#endif /* non-openssl-derived backends */
-
 #endif /* LWS_WITH_TLS */
 
 enum lws_tls_extant {
@@ -213,9 +126,6 @@ enum lws_tls_extant {
 #endif
 
 int
-lws_tls_restrict_reached(struct lws_context *cx);
-
-int
 lws_tls_restrict_borrow(struct lws *wsi);
 
 void
@@ -224,95 +134,14 @@ lws_tls_restrict_return(struct lws *wsi);
 void
 lws_tls_restrict_return_handshake(struct lws *wsi);
 
-void
-lws_tls_restrict_return(struct lws *wsi);
-
-void
-lws_tls_restrict_return_handshake(struct lws *wsi);
-
-#if defined(LWS_WITH_SCHANNEL)
-struct lws_tls_schannel_conn;
-struct lws_tls_schannel_ctx;
-struct lws_tls_schannel_bio;
-struct lws_tls_schannel_x509;
-typedef struct lws_tls_schannel_conn lws_tls_conn;
-typedef struct lws_tls_schannel_ctx lws_tls_ctx;
-typedef struct lws_tls_schannel_bio lws_tls_bio;
-typedef struct lws_tls_schannel_x509 lws_tls_x509;
-int lws_tls_schannel_server_conn_alpn(struct lws *wsi);
-#elif defined(LWS_WITH_GNUTLS)
-#include "gnutls/private.h"
-#elif defined(LWS_WITH_BEARSSL)
-#include "bearssl/private-lib-tls-bearssl.h"
-#elif defined(LWS_WITH_MBEDTLS)
-#include "mbedtls/private-lib-tls-mbedtls.h"
-#elif defined(LWS_WITH_OPENHITLS)
-/* openhitls types are already defined in openhitls/private.h */
-#else
 typedef SSL lws_tls_conn;
 typedef SSL_CTX lws_tls_ctx;
 typedef BIO lws_tls_bio;
 typedef X509 lws_tls_x509;
-#endif
 
 #if defined(LWS_WITH_NETWORK)
-
-/*
- * A server vhost whose cert + key come from files notices them being renewed
- * on disk (tls-cert-watch.c).  Platforms whose "files" are not a filesystem
- * (eg, esp32 nvs) only get renewals told to lws_tls_cert_updated().
- */
-#if defined(LWS_WITH_SERVER) && !defined(LWS_PLAT_FREERTOS) && \
-    !defined(LWS_PLAT_OPTEE) && !defined(LWS_PLAT_BAREMETAL)
-#define LWS_TLS_CERT_WATCH 1
-#endif
-
 #include "private-network.h"
-
-/*
- * The connection's tls session moves from one wsi to another, which takes it
- * over (keep-warm hand-off, quic netconn re-homing)
- */
-void
-lws_tls_transfer_wsi(struct lws *from, struct lws *to);
-
-/*
- * Backend: the session at wsi->io->tls.ssl belongs to wsi now, re-point
- * whatever the tls library holds for its callbacks to find the wsi
- */
-void
-lws_tls_conn_set_wsi(struct lws *wsi);
 #endif
-
-#if defined(LWS_ROLE_QUIC) && defined(LWS_WITH_TLS) && !defined(LWS_WITH_WOLFSSL) && !defined(LWS_WITH_SCHANNEL) && !defined(LWS_WITH_GNUTLS) && !defined(LWS_WITH_BEARSSL)
-int
-lws_tls_quic_vhost_init(lws_tls_ctx *ctx);
-#endif
-
-#if defined(LWS_ROLE_QUIC) && defined(LWS_WITH_TLS)
-/*
- * Feed parsed QUIC CRYPTO frame data into the active TLS backend
- * (e.g., via OpenSSL SSL_provide_quic_data)
- */
-int
-lws_tls_quic_rx_crypto(struct lws *wsi, int level, const uint8_t *buf, size_t len);
-
-/*
- * Callback from the TLS backend when it has generated outbound CRYPTO data
- * (e.g., ServerHello). LWS wraps this in a tx_frame and queues it to pending_tx.
- */
-int
-lws_tls_quic_tx_crypto_cb(struct lws *wsi, int level, const uint8_t *buf, size_t len);
-#endif
-
-enum {
-	CCTLS_RETURN_ERROR		= -1,
-	CCTLS_RETURN_DONE		= 0,
-	CCTLS_RETURN_RETRY		= 1,
-};
-
-int
-lws_client_create_tls(struct lws *wsi, const char **pcce, int do_c1);
 
 int
 lws_context_init_ssl_library(struct lws_context *cx,
@@ -321,9 +150,7 @@ void
 lws_context_deinit_ssl_library(struct lws_context *context);
 #define LWS_SSL_ENABLED(vh) (vh && vh->tls.use_ssl)
 
-extern const struct lws_tls_ops tls_ops_openssl, tls_ops_mbedtls, tls_ops_schannel,
-				 tls_ops_gnutls, tls_ops_bearssl;
-extern const struct lws_tls_ops tls_ops_openhitls;
+extern const struct lws_tls_ops tls_ops_openssl, tls_ops_mbedtls;
 
 struct lws_ec_valid_curves {
 	int id;
@@ -337,35 +164,11 @@ extern int openssl_websocket_private_data_index;
 void
 lws_tls_err_describe_clear(void);
 
-#if !defined(LWS_WITH_MBEDTLS)
 int
 lws_tls_openssl_cert_info(X509 *x509, enum lws_tls_cert_info type,
 			  union lws_tls_cert_info_results *buf, size_t len);
-#endif
 int
 lws_tls_check_all_cert_lifetimes(struct lws_context *context);
-
-LWS_VISIBLE int
-lws_tls_cert_get_x509_remaining(struct lws_context *context, const char *filepath, int *days_left, int *total_days);
-
-#if defined(LWS_WITH_NETWORK) && defined(LWS_WITH_CLIENT)
-int
-lws_tls_client_strip_port(char *host);
-
-int
-lws_tls_client_host_is_literal(const char *host);
-
-int
-lws_tls_client_alpn_transport(struct lws *wsi, const char **alpn_comma,
-			      char *buf, size_t len);
-
-int
-lws_tls_client_vhost_extra_cert_mem(struct lws_vhost *vh, const uint8_t *der, size_t len);
-
-int
-lws_tls_client_vhost_ca_mem_parse(struct lws_vhost *vh, const void *ca_mem,
-				  unsigned int ca_mem_len);
-#endif
 
 int
 lws_tls_alloc_pem_to_der_file(struct lws_context *context, const char *filename,
@@ -377,30 +180,6 @@ lws_gencrypto_bits_to_bytes(int bits);
 
 void
 lws_gencrypto_destroy_elements(struct lws_gencrypto_keyelem *el, int m);
-
-#if defined(LWS_WITH_GENCRYPTO)
-/* genaes: lws-genaes-common.c, for all backends */
-
-int
-lws_genaes_create_common(struct lws_genaes_ctx *ctx, enum enum_aes_modes mode,
-			 enum enum_aes_padding padding);
-int
-lws_genaes_cbc_crypt(struct lws_genaes_ctx *ctx, const uint8_t *in,
-		     size_t len, uint8_t *out, const uint8_t *iv,
-		     size_t *olen);
-int
-lws_genaes_cbc_destroy(struct lws_genaes_ctx *ctx, unsigned char *tag,
-		       size_t tlen);
-
-/*
- * genaes: provided by each backend.  CBC over len bytes, a multiple of 16,
- * without any padding, continuing the chain in ctx.  The first call starts
- * it from the iv lws_genaes_cbc_crypt() left in ctx->tag.
- */
-int
-lws_genaes_cbc_blocks(struct lws_genaes_ctx *ctx, const uint8_t *in,
-		      size_t len, uint8_t *out);
-#endif
 
 /* genec */
 
@@ -419,27 +198,8 @@ int
 lws_genec_confirm_curve_allowed_by_tls_id(const char *allowed, int id,
 					  struct lws_jwk *jwk);
 
-#if defined(LWS_WITH_GNUTLS)
-int
-lws_tls_session_new_gnutls(struct lws *wsi);
 void
-lws_tls_session_forget_gnutls(struct lws *wsi);
-#endif
-
-int
 lws_tls_reuse_session(struct lws *wsi);
-
-/* the session cache's locking and entry expiry, common to the backends */
-void
-lws_tls_session_cache_lock(struct lws_vhost *vh);
-void
-lws_tls_session_cache_unlock(struct lws_vhost *vh);
-void
-__lws_tls_session_ttl_schedule(struct lws_vhost *vh,
-			       lws_sorted_usec_list_t *sul, sul_cb_t cb,
-			       lws_usec_t us);
-void
-__lws_tls_session_ttl_cancel(struct lws_vhost *vh, lws_sorted_usec_list_t *sul);
 
 void
 lws_tls_session_cache(struct lws_vhost *vh, uint32_t ttl);
@@ -458,35 +218,10 @@ lws_tls_session_name_from_wsi(struct lws *wsi, char *buf, size_t len);
  *
  * Creates a tag string representing a specific host, for use with serializing
  * sessions made with the host.
- *
- * Returns 0 if the tag fits in \p len, else nonzero, and then there is no
- * tag: a truncated one would be shared by every host with the same prefix,
- * so nothing may be cached or looked up with it.
  */
-int
+void
 lws_tls_session_tag_discrete(const char *vhname, const char *host,
 			     uint16_t port, char *buf, size_t len);
-
-/**
- * lws_tls_session_tag_dump() - the tag the session dump / load apis use
- *
- * \param vh: the vhost
- * \param host: name of the host we are connecting to, like warmcat.com
- * \param port: the port we connected to
- * \param flags: LWS_TLS_SESSION_DUMP_F_ flags from the dump / load api
- * \param buf: the destination buffer for the tag
- * \param len: the max available size of the destination buffer
- *
- * The tag of a fully validated session over the transport \p flags selects,
- * the same one lws_tls_session_tag_from_wsi() gives such a connection.
- *
- * Returns 0 if there is a tag, else nonzero: unknown flags, a transport this
- * build has no role for, or a tag too long for \p len.
- */
-int
-lws_tls_session_tag_dump(const struct lws_vhost *vh, const char *host,
-			 uint16_t port, unsigned int flags, char *buf,
-			 size_t len);
 
 /**
  * lws_tls_session_name_from_wsi() - form an lws session tag name from a client wsi
@@ -500,13 +235,6 @@ lws_tls_session_tag_dump(const struct lws_vhost *vh, const char *host,
  */
 int
 lws_tls_session_tag_from_wsi(struct lws *wsi, char *buf, size_t len);
-
-int
-lws_tls_cert_get_x509_validity(struct lws_context *context, const char *filepath,
-			       time_t *not_before, time_t *not_after);
-int
-lws_tls_cert_get_x509_validity_mem(const char *pem, size_t len,
-				   time_t *not_before, time_t *not_after);
 
 #else /* ! WITH_TLS */
 

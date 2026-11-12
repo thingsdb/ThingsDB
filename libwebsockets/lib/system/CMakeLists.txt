@@ -30,7 +30,6 @@
 # and keep everything else private
 
 include_directories(./async-dns)
-include_directories(./dnssec-crypto)
 
 if (NOT LWS_PLAT_FREERTOS AND NOT LWS_PLAT_BAREMETAL AND NOT LWS_PLAT_ANDROID AND LWS_WITH_NETWORK)
 	list(APPEND SOURCES system/stdin.c)
@@ -38,8 +37,7 @@ endif()
 
 if (NOT LWS_ONLY_SSPC)
 	list(APPEND SOURCES
-		system/system.c
-		system/policy.c)
+		system/system.c)
 endif()
 	
 if (LWS_WITH_NETWORK)
@@ -47,46 +45,12 @@ if (LWS_WITH_NETWORK)
 	if (LWS_WITH_SYS_ASYNC_DNS)
 		list(APPEND SOURCES
 			system/async-dns/async-dns.c
-			system/async-dns/async-dns-direct.c
 			system/async-dns/async-dns-parse.c)
-
-		if (LWS_WITH_SYS_ASYNC_DNS_DNSSEC)
-			list(APPEND SOURCES
-				system/async-dns/dnssec.c)
-		endif()
-	endif()
-
-	if (LWS_WITH_AUTHORITATIVE_DNS)
-		list(APPEND SOURCES
-			system/auth-dns/auth-dns.c
-			system/auth-dns/sign.c)
-	endif()
-
-	if ((LWS_WITH_SYS_ASYNC_DNS AND LWS_WITH_SYS_ASYNC_DNS_DNSSEC) OR
-	    LWS_WITH_AUTHORITATIVE_DNS)
-		list(APPEND SOURCES
-			system/dnssec-crypto/dnssec-crypto.c)
 	endif()
 
 	if (LWS_WITH_SYS_NTPCLIENT)
 		list(APPEND SOURCES
 			system/ntpclient/ntpclient.c)
-	endif()
-	if (LWS_WITH_SYS_INFO)
-		include_directories(./sysinfo)
-		list(APPEND SOURCES
-			system/sysinfo/sysinfo.c)
-	endif()
-	
-	if (LWS_WITH_SYS_WHOIS)
-		list(APPEND SOURCES
-			system/whois/whois.c
-			system/whois/whois-json.c)
-	endif()
-
-	if (LWS_WITH_EMAIL)
-		list(APPEND SOURCES
-			system/smtp/smtpc.c)
 	endif()
 
 	if (LWS_WITH_SYS_DHCP_CLIENT)

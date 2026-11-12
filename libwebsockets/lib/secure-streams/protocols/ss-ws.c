@@ -24,10 +24,6 @@
 
 #include <private-lib-core.h>
 
-int
-secstream_h1(struct lws *wsi, enum lws_callback_reasons reason, void *user,
-	     void *in, size_t len);
-
 static int
 secstream_ws(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 	     void *in, size_t len)
@@ -59,11 +55,7 @@ secstream_ws(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 		if (r == LWSSSSRET_DESTROY_ME)
 			return _lws_ss_handle_state_ret_CAN_DESTROY_HANDLE(r, wsi, &h);
 
-		if (h->wsi == wsi) /* not a newer wsi the app just started */
-			h->wsi = NULL;
-		if (h->wsi)
-			/* the app connected again from inside the callback */
-			break;
+		h->wsi = NULL;
 		r = lws_ss_backoff(h);
 		if (r != LWSSSSRET_OK)
 			return _lws_ss_handle_state_ret_CAN_DESTROY_HANDLE(r, wsi, &h);
@@ -83,17 +75,9 @@ secstream_ws(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 		if (r == LWSSSSRET_DESTROY_ME)
 			return _lws_ss_handle_state_ret_CAN_DESTROY_HANDLE(r, wsi, &h);
 
-		/*
-		 * The DISCONNECTED helper above already cleared h->wsi before
-		 * calling the app's state callback... if it's set now, the app
-		 * started a new connection from inside that callback and we
-		 * must detach only the wsi that is actually closing, not the
-		 * live one that has taken its place
-		 */
-		if (h->wsi == wsi) {
-			lws_set_opaque_user_data(wsi, NULL);
-			h->wsi = NULL;
-		}
+		if (h->wsi)
+			lws_set_opaque_user_data(h->wsi, NULL);
+		h->wsi = NULL;
 
 #if defined(LWS_WITH_SERVER)
 		lws_pt_lock(pt, __func__);
@@ -102,8 +86,7 @@ secstream_ws(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 #endif
 
 		if (reason == LWS_CALLBACK_CLIENT_CLOSED) {
-			if (!h->wsi && /* not if one is already live */
-			    h->policy &&
+			if (h->policy &&
 			    !(h->policy->flags & LWSSSPOLF_OPPORTUNISTIC) &&
 #if defined(LWS_WITH_SERVER)
 			    !(h->info.flags & LWSSSINFLAGS_ACCEPTED) && /* not server */
@@ -205,20 +188,14 @@ secstream_ws(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 
 		if ((f & LWSSS_FLAG_SOM) && wsi->ws->last_valid && !wsi->ws->last_fin) {
 			lwsl_ss_err(h, "%s TX: Illegal LWSSS_FLAG_SOM after previous frame without LWSSS_FLAG_EOM", h->policy ? h->policy->streamtype : "unknown");
-			lwsl_err("Dumping cutting-in payload: %.*s\n", (int)buflen, buf + LWS_PRE);
-			lwsl_hexdump_err(buf + LWS_PRE, buflen);
 			assert(0);
 		}
 		if (!(f & LWSSS_FLAG_SOM) && wsi->ws->last_valid && wsi->ws->last_fin) {
 			lwsl_ss_err(h, "%s TX: Missing LWSSS_FLAG_SOM after previous frame with LWSSS_FLAG_EOM", h->policy ? h->policy->streamtype : "unknown");
-			lwsl_err("Dumping payload: %.*s\n", (int)buflen, buf + LWS_PRE);
-			lwsl_hexdump_err(buf + LWS_PRE, buflen);
 			assert(0);
 		}
 		if (!(f & LWSSS_FLAG_SOM) && !wsi->ws->last_valid) {
 			lwsl_ss_err(h, "%s TX: Missing LWSSS_FLAG_SOM on first frame", h->policy ? h->policy->streamtype : "unknown");
-			lwsl_err("Dumping payload: %.*s\n", (int)buflen, buf + LWS_PRE);
-			lwsl_hexdump_err(buf + LWS_PRE, buflen);
 			assert(0);
 		}
 
@@ -236,13 +213,6 @@ secstream_ws(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 		}
 
 		return 0;
-
-#if defined(LWS_WITH_SERVER)
-	case LWS_CALLBACK_HTTP_WRITEABLE:
-	case LWS_CALLBACK_HTTP:
-	case LWS_CALLBACK_CLOSED_HTTP: /* server */
-		return secstream_h1(wsi, reason, user, in, len);
-#endif
 
 	default:
 		break;
@@ -301,24 +271,15 @@ secstream_connect_munge_ws(lws_ss_handle_t *h, char *buf, size_t len,
 			      &used_in, &used_out) != LSTRX_DONE)
 		return 1;
 
+	__lws_lc_tag_append(&h->lc, buf);
+
 	i->protocol = h->policy->u.http.u.ws.subprotocol;
 
-	{
-		char lp[64];
-
-		/*
-		 * The tag is in every log line about the stream: show the
-		 * path without the query string, which may carry tokens
-		 */
-		__lws_lc_tag_append(&h->lc, lws_http_log_path(lp, sizeof(lp),
-							      buf));
-		lwsl_ss_info(h, "url %s, ws subprotocol %s", lp, i->protocol);
-	}
+	lwsl_ss_info(h, "url %s, ws subprotocol %s", buf, i->protocol);
 
 	return 0;
 }
 
 const struct ss_pcols ss_pcol_ws = {
-	"ws",  "http/1.1",  &protocol_secstream_ws, secstream_connect_munge_ws, 0, 0,
-	NULL
+	"ws",  "http/1.1",  &protocol_secstream_ws, secstream_connect_munge_ws, 0, 0
 };

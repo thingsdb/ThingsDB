@@ -47,21 +47,6 @@
  *
  *  Since v3.2 internally the timeout wait is ignored, the lws scheduler is
  *  smart enough to stay asleep until an event is queued.
- *
- *  Returns >= 0 normally, and -1 when the app should leave its service loop
- *  and call lws_context_destroy(): either lws_default_loop_exit() was called
- *  (from a signal handler or any callback; that is the recommended way for an
- *  app that owns its loop to stop, on the poll loop and on an event library's
- *  internal loop alike), or the context is being destroyed.  On the default
- *  poll loop, -1 after a destroy that was deferred from inside a callback
- *  means it has already completed and the context pointer is invalid (set
- *  info.pcontext to have it NULLed), which is why calling
- *  lws_context_destroy() from a callback is not the recommended way to stop.
- *  On an event library's internal loop (eg, LWS_SERVER_OPTION_LIBUV), -1
- *  means the loop has exited because a destroy was started, by
- *  lws_default_loop_exit(), by lws' own signal handler on the loop or by
- *  lws_context_destroy() from a callback, and the app's call to
- *  lws_context_destroy() is what completes it.
  */
 LWS_VISIBLE LWS_EXTERN int
 lws_service(struct lws_context *context, int timeout_ms);
@@ -104,45 +89,6 @@ lws_cancel_service_pt(struct lws *wsi);
  */
 LWS_VISIBLE LWS_EXTERN void
 lws_cancel_service(struct lws_context *context);
-
-/**
- * lws_service_wake_fd() - the fd that wakes a service thread
- * \param context:	Websocket context
- * \param tsi:		thread service index
- *
- * lws_cancel_service() and lws_cancel_service_pt() wake a service thread by
- * making this fd readable.  They are how another thread hands work to the
- * service thread: an async worker's finished file read, a message for smd,
- * and the app's own wakes all arrive this way.  lws' own event loops watch
- * it; an embedder running its own loop around lws_service_fd() must poll it
- * for POLLIN as well, and pass it to lws_service_fd_tsi() when it is
- * readable, or that work is never picked up.  It is not announced by
- * LWS_CALLBACK_ADD_POLL_FD, since it belongs to no vhost.
- *
- * Returns LWS_SOCK_INVALID when the thread has no such fd, because the
- * platform or event library wakes it some other way.
- */
-LWS_VISIBLE LWS_EXTERN lws_sockfd_type
-lws_service_wake_fd(struct lws_context *context, int tsi);
-
-/**
- * lws_service_work_outstanding() - work out on other threads, not back yet
- * \param context:	Websocket context
- *
- * Returns how many jobs lws has handed to its async worker threads
- * (LWS_WITH_ASYNC_QUEUE: the file server's reads, tls accepts) whose result
- * a service thread has not picked up yet: queued, being worked on, or done
- * with the service thread's wake fd (lws_service_wake_fd()) signalled.
- * Always 0 in a build without the queue.
- *
- * A connection waiting on one has nothing to say at its transport until it
- * is back.  An embedder that steps lws deterministically, rather than
- * waiting in poll(), can use it to know there is still something to wait
- * for on the wake fd.  It is a snapshot: a job may be handed out or come
- * back as soon as it returns.
- */
-LWS_VISIBLE LWS_EXTERN int
-lws_service_work_outstanding(struct lws_context *context);
 
 /**
  * lws_service_fd() - Service polled socket with something waiting
@@ -202,41 +148,9 @@ lws_service_fd_tsi(struct lws_context *context, struct lws_pollfd *pollfd,
  * If anybody needs "forced service", returned timeout is zero.  In that case,
  * you can call lws_service_tsi() with a timeout of -1 to only service
  * guys who need forced service.
- *
- * Otherwise it returns timeout_ms, or less if an lws timer is due sooner: the
- * ms until it is due, rounded up, so it is at least 1.  A timer that is not
- * due yet does not make it return zero.
  */
 LWS_VISIBLE LWS_EXTERN int
 lws_service_adjust_timeout(struct lws_context *context, int timeout_ms, int tsi);
-
-/**
- * lws_service_set_now() - the time is this, for an embedder running its own loop
- * \param context:	lws context
- * \param tsi:		thread service index
- * \param now_us:	the monotonic time, in the same units as lws_now_usecs()
- * \param now_wall:	the wall time, seconds since 1970
- *
- * Time is an input to lws' protocol half (READMEs/README.sans-io-split.md,
- * "Time"): what it decides by the clock, the timers it schedules and the
- * times it writes are taken from here once this has been called for the
- * service thread, instead of from the platform's clock, and stay at what
- * was given until the next call.  So an embedder that is the event loop
- * (the sansIO harness, a replay of recorded traffic) says what the time is
- * before each thing it hands lws, and the same inputs at the same times give
- * the same outputs.
- *
- * It also runs the timers due by now_us, as lws' own loops do on waking, and
- * returns the time from now_us until the next one is due, or 0 when none
- * is scheduled.
- *
- * Time only moves forwards: a now_us earlier than the last is taken as the
- * last.  Don't mix it with lws_service() on the same thread: lws' own loops
- * keep the platform's clock.
- */
-LWS_VISIBLE LWS_EXTERN lws_usec_t
-lws_service_set_now(struct lws_context *context, int tsi, lws_usec_t now_us,
-		    time_t now_wall);
 
 /* Backwards compatibility */
 #define lws_plat_service_tsi lws_service_tsi

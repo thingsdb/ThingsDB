@@ -49,8 +49,7 @@ enum lws_spa_fileupload_states {
 	LWS_UFS_FINAL_CONTENT,
 	/**< the last chunk (possibly zero length) of file content has arrived */
 	LWS_UFS_OPEN,
-	/**< a new file is starting to arrive: once per multipart part that
-	 * names a filename, before any of its content */
+	/**< a new file is starting to arrive */
 	LWS_UFS_CLOSE
 	/**< the file decode stuff is being destroyed */
 };
@@ -86,12 +85,7 @@ struct lws_spa;
  * \param opt_cb: NULL, or callback to receive file upload data.
  * \param opt_data: NULL, or user pointer provided to opt_cb.
  *
- * Creates a urldecode parser and initializes it.  Whether the body is a
- * multipart form, and its boundary, come from the request's Content-Type as
- * it was when the request was dispatched, so the parser may be created at
- * any time during the request, eg, lazily at the first
- * LWS_CALLBACK_HTTP_BODY, whether or not the request headers are still
- * around then.
+ * Creates a urldecode parser and initializes it.
  *
  * It's recommended to use the newer api, lws_spa_create_via_info()
  * instead.
@@ -109,13 +103,7 @@ lws_spa_create(struct lws *wsi, const char * const *param_names,
 
 typedef struct lws_spa_create_info {
 	const char * const *param_names; /**< array of form parameter names, like "username"
-			These may be NULL, to make space for arbitrary POST
-			items: with \p ac set and \p param_names_stride 0,
-			each unknown name the form brings takes the first
-			NULL slot left, for the life of this spa only.  Get
-			the name a slot ended up with from lws_spa_get_name().
-			The array is only ever read, so it can be one const
-			array shared by every spa. */
+			These may be NULL, to make space for arbitrary POST items */
 	int count_params; /* count of param_names */
 	int max_storage; /* total amount of form parameter values we can store */
 	lws_spa_fileupload_cb opt_cb; /* NULL, or callback to receive file upload data. */
@@ -175,27 +163,9 @@ lws_spa_get_length(struct lws_spa *spa, int n);
  * lws_spa_get_string() - return pointer to parameter value
  * \param spa: the parser object previously created
  * \param n: parameter ordinal to return pointer to value for
- *
- * Returns NULL if the form did not have the parameter at all, and "" if it
- * had it with an empty value (urlencoded `name`, `name=`, or a multipart
- * part with no content).
  */
 LWS_VISIBLE LWS_EXTERN const char *
 lws_spa_get_string(struct lws_spa *spa, int n);
-
-/**
- * lws_spa_get_name() - return the name of a parameter
- * \param spa: the parser object previously created
- * \param n: parameter ordinal to return the name of
- *
- * Returns the name from param_names for ordinal \p n, or if that slot was
- * NULL, the name the form brought that this spa gave the slot (see
- * lws_spa_create_info_t.param_names).  Returns NULL for a NULL slot no name
- * took, or if \p n is out of range.  A name given to a NULL slot lives as
- * long as the spa.
- */
-LWS_VISIBLE LWS_EXTERN const char *
-lws_spa_get_name(struct lws_spa *spa, int n);
 
 /**
  * lws_spa_destroy() - destroy parser object

@@ -1463,8 +1463,8 @@ static int do__instance(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             if (!field)
                 continue;
 
-            if (    ti_do_statement(query, name_nd->next->next, e) ||
-                    ti_field_make_assignable(field, &query->rval, thing, e))
+            if (ti_do_statement(query, name_nd->next->next, e) ||
+                ti_field_make_assignable(field, &query->rval, thing, e))
                 goto fail;
         }
 
@@ -1936,7 +1936,7 @@ static inline int do__int(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         int64_t i = strx_to_int64(nd->str, NULL);
         if (errno == ERANGE)
         {
-            ex_set(e, EX_OVERFLOW, "integer overflow");
+            ex_set_integer_overflow(e);
             return e->nr;
         }
         nd->data = ti_vint_create(i);

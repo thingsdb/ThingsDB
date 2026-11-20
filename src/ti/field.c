@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <ti.h>
 #include <ti/closure.h>
+#include <ti/collection.inline.h>
 #include <ti/condition.h>
 #include <ti/data.h>
 #include <ti/dict.inline.h>
@@ -33,6 +34,13 @@
 #include <ti/vset.h>
 #include <ti/vtask.h>
 #include <util/strx.h>
+
+static int field__auto_convert(
+        ti_val_t ** val,
+        ti_collection_t * collection,
+        uint16_t spec,
+        uint16_t nested_spec,
+        ex_t * e);
 
 static void field__remove_dep(ti_field_t * field)
 {
@@ -259,7 +267,7 @@ static ti_val_t * field__dval_closure(ti_field_t * UNUSED(field))
 
 static ti_val_t * field__dval_error(ti_field_t * UNUSED(field))
 {
-    return (ti_val_t *) ti_verror_from_code(-100);
+    return (ti_val_t *) ti_verror_from_code(TI_VERROR_DEF_CODE);
 }
 
 static ti_val_t * field__dval_room(ti_field_t * field)
@@ -1630,7 +1638,6 @@ static int field__varr_assign(
             return e->nr;
         }
     }
-
 done:
     if (ti_varr_to_list(varr))
     {
@@ -2039,6 +2046,464 @@ static _Bool field__maps_set_to_arr(ti_field_t * field)
     return ((field->nested_spec & TI_SPEC_MASK_NILLABLE) <= TI_SPEC_OBJECT);
 }
 
+static int field__auto_convert_int(ti_val_t ** val, ex_t * e)
+{
+    if (ti_val_is_float(*val))
+    {
+        double d = VFLOAT(*val);
+        if (!isfinite(d))
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                    "cannot convert non-finite float to integer");
+            return e->nr;
+        }
+        if (ti_val_overflow_cast(d))
+        {
+            ex_set_integer_overflow(e);
+            return e->nr;
+        }
+        if (trunc(d) != d)
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                    "cannot convert float with fractional part to integer");
+            return e->nr;
+        }
+        int64_t i = (int64_t) VFLOAT(*val);
+        if (ti_val_make_int(val, i))
+            ex_set_mem(e);
+    }
+    return e->nr;
+}
+
+typedef struct
+{
+    ti_collection_t * collection;
+    ex_t * e;
+    uint16_t nested_spec;
+} field__auto_convert_t;
+
+static int field__walk_auto_convert(ti_item_t * item, field__auto_convert_t * w)
+{
+    return field__auto_convert(
+            &item->val,
+            w->collection,
+            w->nested_spec,
+            TI_SPEC_ANY,
+            w->e);
+}
+
+static int field__auto_convert_thing(
+        ti_val_t ** val,
+        ti_collection_t * collection,
+        uint16_t spec,
+        uint16_t nested_spec,
+        ex_t * e)
+{
+    if (ti_val_is_thing(*val))
+    {
+        ti_thing_t * tsrc = (ti_thing_t *) (*val);
+        if (ti_thing_is_object(tsrc))
+        {
+            if (spec < TI_SPEC_ANY)
+            {
+                ti_thing_t * thing;
+                ti_type_t * type = ti_types_by_id(collection->types, spec);
+                assert(type && !ti_type_is_wrap_only(type));
+                thing = ti_type_from_thing(type, tsrc, e);
+                if (thing)
+                {
+                    ti_val_unsafe_gc_drop(*val);
+                    *val = (ti_val_t *) thing;
+                }
+                return e->nr;
+            }
+            else if (nested_spec != TI_SPEC_ANY && !tsrc->id)
+            {
+                if (ti_thing_is_dict(tsrc))
+                {
+                    field__auto_convert_t w = {
+                        .collection = collection,
+                        .e = e,
+                        .nested_spec = nested_spec,
+                    };
+                    (void) smap_values(
+                            tsrc->items.smap,
+                            (smap_val_cb) field__walk_auto_convert,
+                            &w);
+                    return e->nr;
+                }
+                for (vec_each(tsrc->items.vec, ti_prop_t, prop))
+                {
+                    if (field__auto_convert(
+                            &prop->val,
+                            collection,
+                            nested_spec,
+                            TI_SPEC_ANY,
+                            e))
+                        return e->nr;
+                }
+            }
+        }
+        return 0;
+    }
+
+    if (field__auto_convert_int(val, e))
+        return e->nr;
+
+    if (ti_val_is_int(*val))
+    {
+        ti_thing_t * thing;
+        int64_t thing_id = VINT(*val);
+        thing = thing_id
+            ? ti_collection_thing_by_id(collection, (uint64_t) thing_id)
+            : NULL;
+        if (!thing)
+        {
+            ex_set(e, EX_LOOKUP_ERROR,
+                    "collection `%.*s` has no `thing` with id %"PRId64,
+                    collection->name->n,
+                    (char *) collection->name->data,
+                    thing_id);
+            return e->nr;
+        }
+        ti_incref(thing);
+        ti_val_unsafe_drop(*val);
+        *val = (ti_val_t *) thing;
+    }
+    return 0;
+}
+
+static int field__auto_convert_arr(
+        ti_val_t ** val,
+        ti_collection_t * collection,
+        uint16_t nested_spec,
+        ex_t * e)
+{
+    if (ti_val_is_array(*val))
+    {
+        ti_varr_t * varr = (ti_varr_t *) (*val);
+        assert(varr->parent && !varr->parent->id);
+        for (vec_each_addr(varr->vec, ti_val_t, vaddr))
+        {
+            if (field__auto_convert(
+                    vaddr,
+                    collection,
+                    nested_spec,
+                    TI_SPEC_ANY,
+                    e))
+                return e->nr;
+        }
+    }
+    return 0;
+}
+
+static int field__auto_convert_float(ti_val_t ** val, ex_t * e)
+{
+    if (ti_val_is_int(*val))
+    {
+        double d = (double) VINT(*val);
+        if (ti_val_make_float(val, d))
+            ex_set_mem(e);
+    }
+    return e->nr;
+}
+
+static int field__auto_convert_regex(ti_val_t ** val, ex_t * e)
+{
+    if (ti_val_is_str(*val))
+    {
+        ti_regex_t * regex = ti_regex_from_raw((ti_raw_t *) *val, e);
+        if (regex)
+        {
+            ti_val_unsafe_drop(*val);
+            *val = (ti_val_t *) regex;
+        }
+    }
+    return e->nr;
+}
+
+static int field__auto_convert_closure(ti_val_t ** val, ex_t * e)
+{
+    if (ti_val_is_str(*val))
+    {
+        ti_qbind_t syntax = {
+            .immutable_n = 0,
+            .flags = TI_QBIND_FLAG_COLLECTION
+        };
+        ti_str_t * str = (ti_str_t *) (*val);
+        ti_closure_t * closure = ti_closure_from_strn(
+                &syntax,
+                str->str,
+                str->n,
+                e);
+        if (closure)
+        {
+            ti_val_unsafe_drop(*val);
+            *val = (ti_val_t *) closure;
+        }
+    }
+    return e->nr;
+}
+
+static int field__auto_convert_error(ti_val_t ** val, ex_t * e)
+{
+    if (ti_val_is_str(*val))
+    {
+        ti_str_t * msg = (ti_str_t *) (*val);
+        if (ti_verror_check_msg(msg->str, msg->n, e))
+            return e->nr;
+
+        ti_verror_t * verror = ti_verror_create(
+                msg->str,
+                msg->n,
+                TI_VERROR_DEF_CODE);
+        if (!verror)
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
+        ti_val_unsafe_drop(*val);
+        *val = (ti_val_t *) verror;
+    }
+    return 0;
+}
+
+static int field__auto_convert_set(
+        ti_val_t ** val,
+        ti_collection_t * collection,
+        uint16_t nested_spec,
+        ex_t * e)
+{
+    if (ti_val_is_array(*val))
+    {
+        ti_varr_t * varr = (ti_varr_t *) (*val);
+        ti_vset_t * vset = ti_vset_create();
+        if (!vset)
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
+        for (vec_each(varr->vec, ti_val_t, v))
+        {
+            ti_incref(v);
+            (void) field__auto_convert_thing(
+                    &v,
+                    collection,
+                    nested_spec,
+                    TI_SPEC_ANY,
+                    e);
+
+            if (!e->nr)
+                (void) ti_vset_add_val(vset, v, e);
+            ti_val_unsafe_drop(v);
+
+            if (e->nr)
+            {
+                ti_vset_destroy(vset);
+                return e->nr;
+            }
+        }
+        vset->parent = varr->parent;
+        vset->key_ = varr->key_;
+
+        ti_val_unassign_unsafe_drop(*val);
+        *val = (ti_val_t *) vset;
+    }
+    return 0;
+}
+
+static int field__auto_convert_datetime(
+            ti_val_t ** val,
+            ti_collection_t * collection,
+            ex_t * e)
+{
+    if (ti_val_is_str(*val))
+    {
+        ti_datetime_t * dt = ti_datetime_from_str(
+                (ti_raw_t *) (*val),
+                collection->tz,
+                e);
+        if (dt)
+        {
+            ti_val_unsafe_drop(*val);
+            *val = (ti_val_t *) dt;
+        }
+    }
+    return e->nr;
+}
+
+static int field__auto_convert_timeval(
+            ti_val_t ** val,
+            ti_collection_t * collection,
+            ex_t * e)
+{
+    switch ((ti_val_enum) (*val)->tp)
+    {
+    case TI_VAL_INT:
+    {
+        int64_t i = VINT(*val);
+        ti_datetime_t * dt = ti_datetime_from_i64(i, 0, collection->tz);
+        if (dt)
+        {
+            dt->flags |= DT_AS_TIMEVAL;
+            ti_val_unsafe_drop(*val);
+            *val = (ti_val_t *) dt;
+        }
+        else
+            ex_set_mem(e);
+        return e->nr;
+    }
+    case TI_VAL_FLOAT:
+    {
+        double d = VFLOAT(*val);
+        int64_t i;
+        if (ti_val_overflow_cast(d))
+        {
+            ex_set(e, EX_OVERFLOW, "date/time overflow");
+            return e->nr;
+        }
+        i = (int64_t) d;
+        ti_datetime_t * dt = ti_datetime_from_i64(i, 0, collection->tz);
+        if (dt)
+        {
+            dt->flags |= DT_AS_TIMEVAL;
+            ti_val_unsafe_drop(*val);
+            *val = (ti_val_t *) dt;
+        }
+        else
+            ex_set_mem(e);
+        return e->nr;
+    }
+    default:
+        return 0;
+    }
+}
+
+static int field__auto_convert_enum(
+            ti_val_t ** val,
+            ti_collection_t * collection,
+            uint16_t enum_id,
+            ex_t * e)
+{
+    ti_member_t * member;
+    ti_enum_t * enum_ = ti_enums_by_id(collection->enums, enum_id);
+
+    member = ti_val_is_str(*val)
+        ? ti_enum_member_by_raw(enum_, (ti_raw_t *) (*val))
+        : NULL;
+
+    if (!member)
+    {
+        member = ti_enum_member_by_val_e(enum_, *val, e);
+        if (!member)
+            return e->nr;
+    }
+    ti_incref(member);
+    ti_val_unsafe_drop(*val);  /* this is always safe */
+    *val = (ti_val_t *) member;
+    return 0;
+}
+
+static int field__auto_convert(
+        ti_val_t ** val,
+        ti_collection_t * collection,
+        uint16_t spec,
+        uint16_t nested_spec,
+        ex_t * e)
+{
+    if (spec < TI_SPEC_ANY)
+        return field__auto_convert_thing(val, collection, spec, TI_SPEC_ANY, e);
+
+    switch ((ti_spec_enum_t) spec)
+    {
+    case TI_SPEC_ANY:
+        return 0;
+    case TI_SPEC_OBJECT:
+        return field__auto_convert_thing(val, collection, spec, nested_spec, e);
+    case TI_SPEC_RAW:
+    case TI_SPEC_STR:
+    case TI_SPEC_UTF8:
+    case TI_SPEC_BYTES:
+        return 0;
+    case TI_SPEC_INT:
+    case TI_SPEC_UINT:
+    case TI_SPEC_PINT:
+    case TI_SPEC_NINT:
+        return field__auto_convert_int(val, e);
+    case TI_SPEC_FLOAT:
+        return field__auto_convert_float(val, e);
+    case TI_SPEC_NUMBER:
+    case TI_SPEC_BOOL:
+    case TI_SPEC_UUID:
+        return 0;
+    case TI_SPEC_DATETIME:
+        return field__auto_convert_datetime(val, collection, e);
+    case TI_SPEC_TIMEVAL:
+        return field__auto_convert_timeval(val, collection, e);
+    case TI_SPEC_REGEX:
+        return field__auto_convert_regex(val, e);
+    case TI_SPEC_CLOSURE:
+        return field__auto_convert_closure(val, e);
+    case TI_SPEC_ERROR:
+        return field__auto_convert_error(val, e);
+    case TI_SPEC_ROOM:
+    case TI_SPEC_TASK:
+    case TI_SPEC_EMAIL:
+    case TI_SPEC_URL:
+    case TI_SPEC_TEL:
+    case TI_SPEC_ENUM:
+        return 0;
+    case TI_SPEC_ARR:
+        return field__auto_convert_arr(val, collection, nested_spec, e);
+    case TI_SPEC_SET:
+        return field__auto_convert_set(val, collection, nested_spec, e);
+    case TI_SPEC_DICT:
+        return 0;  /* TODO: convert to dict? */
+    case TI_SPEC_REMATCH:
+        return 0;
+    case TI_SPEC_INT_RANGE:
+        return field__auto_convert_int(val, e);
+    case TI_SPEC_FLOAT_RANGE:
+        return field__auto_convert_float(val, e);
+    case TI_SPEC_STR_RANGE:
+    case TI_SPEC_UTF8_RANGE:
+        return 0;
+    case TI_SPEC_TYPE:
+    case TI_SPEC_ARR_TYPE:
+        assert(0);  /* both are only for wrap-only type */
+    }
+
+    assert(spec >= TI_ENUM_ID_FLAG);
+    return ti_val_is_member(*val)
+        ? 0
+        : field__auto_convert_enum(val, collection, spec & TI_ENUM_ID_MASK, e);
+}
+
+int ti_field_auto_convert(
+        ti_field_t * field,
+        ti_val_t ** val,
+        ti_thing_t * parent,
+        ex_t * e)
+{
+    if (!parent->id && parent->collection && field__auto_convert(
+            val,
+            parent->collection,
+            field->spec,
+            field->nested_spec,
+            e))
+    {
+        ex_t e_ = {0};
+        ex_setn(&e_, e->nr, e->msg, e->n);
+        ex_set(e, e_.nr,
+            "mismatch in type `%s`; "
+            "conversion error for property `%s`: %s",
+            field->type->name,
+            field->name->str,
+            e_.msg);
+    }
+    return e->nr;
+}
+
 /*
  * Returns 0 if the given value is valid for this field
  */
@@ -2323,7 +2788,6 @@ int ti_field_make_assignable(
     }
 
     assert(spec >= TI_ENUM_ID_FLAG);
-
     if (ti_spec_enum_eq_to_val(spec, *val))
         return 0;
 

@@ -32,7 +32,7 @@ static int do__f_randint(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (b > 0 && a < LLONG_MIN + b)
     {
-        ex_set(e, EX_OVERFLOW, "integer overflow");
+        ex_set_integer_overflow(e);
         return e->nr;
     }
 

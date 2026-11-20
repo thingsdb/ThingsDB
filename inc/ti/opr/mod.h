@@ -87,7 +87,7 @@ static int opr__mod(ti_val_t * a, ti_val_t ** b, ex_t * e)
     return e->nr;  /* success */
 
 overflow:
-    ex_set(e, EX_OVERFLOW, "integer overflow");
+    ex_set_integer_overflow(e);
     return e->nr;
 
 zerodiv:

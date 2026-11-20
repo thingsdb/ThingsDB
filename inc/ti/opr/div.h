@@ -81,7 +81,7 @@ type_int:
     return e->nr;
 
 overflow:
-    ex_set(e, EX_OVERFLOW, "integer overflow");
+    ex_set_integer_overflow(e);
     return e->nr;
 
 zerodiv:

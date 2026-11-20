@@ -1640,10 +1640,14 @@ ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
                 val = prop->val;
                 val->ref += !is_last_ref;
 
-                if (ti_field_make_assignable(field, &val, thing, e))
+                if (ti_field_auto_convert(field, &val, thing, e) ||
+                    ti_field_make_assignable(field, &val, thing, e))
                 {
                     if (!is_last_ref)
                         ti_val_unsafe_gc_drop(val);
+                    else
+                        prop->val = val;
+
                     goto failed;
                 }
 

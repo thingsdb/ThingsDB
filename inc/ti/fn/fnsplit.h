@@ -202,7 +202,7 @@ static int do__split_get_int(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
 
     if (((ti_vint_t *) query->rval)->int_ == LLONG_MIN)
-        ex_set(e, EX_OVERFLOW, "integer overflow");
+        ex_set_integer_overflow(e);
 
     return e->nr;
 }
@@ -263,7 +263,7 @@ static int do__f_split(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         vnum = (ti_vint_t *) query->rval;
         if (vnum->int_ == LLONG_MIN)
         {
-            ex_set(e, EX_OVERFLOW, "integer overflow");
+            ex_set_integer_overflow(e);
             goto fail0;
         }
 

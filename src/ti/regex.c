@@ -10,7 +10,7 @@
 #include <ti/val.inline.h>
 #include <util/logger.h>
 
-static ti_regex_t * regex_create(ti_raw_t * re, ex_t * e)
+ti_regex_t * ti_regex_from_raw(ti_raw_t * re, ex_t * e)
 {
     ti_regex_t * regex;
     size_t n = re->n;
@@ -31,7 +31,7 @@ static ti_regex_t * regex_create(ti_raw_t * re, ex_t * e)
     regex->flags = 0;
     regex->pattern = re;
 
-    while(1)
+    while(n)
     {
         switch (str[--n])
         {
@@ -56,6 +56,12 @@ static ti_regex_t * regex_create(ti_raw_t * re, ex_t * e)
             goto fail0;
         }
         break;
+    }
+
+    if (!n || str[0] != '/' || str[n] != '/')
+    {
+        ex_set(e, EX_VALUE_ERROR, "malformed regular expression");
+        goto fail0;
     }
 
     /* skip the first `/` and shorten the length by one */
@@ -124,7 +130,7 @@ ti_regex_t * ti_regex_create(ti_raw_t * pattern, ti_raw_t * flags, ex_t * e)
     memcpy(ptr, pattern->data, pattern->n);
     ptr += pattern->n;
 
-    /* write initial slash */
+    /* write final slash */
     *ptr = '/';
     ptr++;
 
@@ -137,7 +143,7 @@ ti_regex_t * ti_regex_create(ti_raw_t * pattern, ti_raw_t * flags, ex_t * e)
             return NULL;
         }
     }
-    return regex_create(re, e);
+    return ti_regex_from_raw(re, e);
 }
 
 ti_regex_t * ti_regex_from_strn(const char * str, size_t n, ex_t * e)
@@ -148,7 +154,7 @@ ti_regex_t * ti_regex_from_strn(const char * str, size_t n, ex_t * e)
         ex_set_mem(e);
         return NULL;
     }
-    return regex_create(re, e);
+    return ti_regex_from_raw(re, e);
 }
 
 ti_regex_t * ti_regex_from_str(const char * str)
@@ -159,7 +165,7 @@ ti_regex_t * ti_regex_from_str(const char * str)
     {
         return NULL;
     }
-    return regex_create(re, &e);
+    return ti_regex_from_raw(re, &e);
 }
 
 void ti_regex_destroy(ti_regex_t * regex)

@@ -2144,7 +2144,8 @@ int ti_thing_assign(
                  * bug #309
                  */
                 ti_incref(val);
-                if (ti_field_make_assignable(field, &val, thing, e))
+                if (ti_field_auto_convert(field, &val, thing, e) ||
+                    ti_field_make_assignable(field, &val, thing, e))
                 {
                     ti_val_unsafe_gc_drop(val);
                     goto fail;

@@ -451,7 +451,7 @@ static int do__replace_str(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         if (vnum->int_ == LLONG_MIN)
         {
-            ex_set(e, EX_OVERFLOW, "integer overflow");
+            ex_set_integer_overflow(e);
             goto done;
         }
 

@@ -2382,11 +2382,13 @@ static int field__auto_convert_timeval(
 static int field__auto_convert_enum(
             ti_val_t ** val,
             ti_collection_t * collection,
-            uint16_t enum_id,
+            uint16_t spec,
             ex_t * e)
 {
     ti_member_t * member;
-    ti_enum_t * enum_ = ti_enums_by_id(collection->enums, enum_id);
+    ti_enum_t * enum_ = ti_enums_by_id(collection->enums,
+                                       spec & TI_ENUM_ID_MASK);
+    assert(enum_);
 
     member = ti_val_is_str(*val)
         ? ti_enum_member_by_raw(enum_, (ti_raw_t *) (*val))
@@ -2411,6 +2413,8 @@ static int field__auto_convert(
         uint16_t nested_spec,
         ex_t * e)
 {
+    spec &= TI_SPEC_MASK_NILLABLE;
+
     if (spec < TI_SPEC_ANY)
         return field__auto_convert_thing(val, collection, spec, TI_SPEC_ANY, e);
 
@@ -2476,7 +2480,7 @@ static int field__auto_convert(
     assert(spec >= TI_ENUM_ID_FLAG);
     return ti_val_is_member(*val)
         ? 0
-        : field__auto_convert_enum(val, collection, spec & TI_ENUM_ID_MASK, e);
+        : field__auto_convert_enum(val, collection, spec, e);
 }
 
 int ti_field_auto_convert(

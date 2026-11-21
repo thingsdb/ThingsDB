@@ -2099,8 +2099,8 @@ static _Bool field__require_convert(uint16_t spec)
         return true;
     case TI_SPEC_NUMBER:
     case TI_SPEC_BOOL:
-    case TI_SPEC_UUID:
         return false;
+    case TI_SPEC_UUID:
     case TI_SPEC_DATETIME:
     case TI_SPEC_TIMEVAL:
     case TI_SPEC_REGEX:
@@ -2164,8 +2164,9 @@ static int field__test_object_convert(ti_val_t * val, uint16_t spec)
         return ti_val_is_int(val);
     case TI_SPEC_NUMBER:
     case TI_SPEC_BOOL:
-    case TI_SPEC_UUID:
         return 0;
+    case TI_SPEC_UUID:
+        return ti_val_is_str(val) || ti_val_is_bytes(val);
     case TI_SPEC_DATETIME:
         return ti_val_is_str(val);
     case TI_SPEC_TIMEVAL:
@@ -2397,6 +2398,15 @@ static int field__auto_convert_regex(ti_val_t ** val, ex_t * e)
     return e->nr;
 }
 
+static int field__auto_convert_uuid(ti_val_t ** val, ex_t * e)
+{
+    if (ti_val_is_str(*val))
+        return val__str_to_uuid(val, e);
+    if (ti_val_is_bytes(*val))
+        return ti_val_bytes_to_uuid(val, e);
+    return 0;
+}
+
 static int field__auto_convert_closure(ti_val_t ** val, ex_t * e)
 {
     if (ti_val_is_str(*val))
@@ -2611,8 +2621,9 @@ static int field__auto_convert(
         return field__auto_convert_float(val, e);
     case TI_SPEC_NUMBER:
     case TI_SPEC_BOOL:
-    case TI_SPEC_UUID:
         return 0;
+    case TI_SPEC_UUID:
+        return field__auto_convert_uuid(val, e);
     case TI_SPEC_DATETIME:
         return field__auto_convert_datetime(val, collection, e);
     case TI_SPEC_TIMEVAL:

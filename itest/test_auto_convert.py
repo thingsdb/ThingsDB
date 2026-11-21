@@ -65,6 +65,7 @@ class TestAutoConvert(TestBase):
                 regex: 'regex',
                 error: 'error',
                 func: 'closure',
+                uuid: 'uuid',
                 enum: 'Color',
                 senum: 'Theme',
                 arr: '&[X]?',
@@ -389,6 +390,42 @@ class TestAutoConvert(TestBase):
                     r"property `func` with definition `closure`"):
             await q("""//ti
                 T({func: 123});
+            """)
+
+        # --- UUID ---
+
+        await q("""//ti
+            u = uuid('550e8400-e29b-41d4-a716-446655440000');
+
+            t_str = T({uuid: '550e8400-e29b-41d4-a716-446655440000'});
+            assert(type(t_str.uuid) == 'uuid');
+            assert(t_str.uuid == u);
+
+            t_bytes = T({uuid: bytes(u)});
+            assert(type(t_bytes.uuid) == 'uuid');
+            assert(t_bytes.uuid == u);
+        """)
+
+        with self.assertRaisesRegex(
+                    ValueError,
+                    r"mismatch in type `T`; conversion error for "
+                    r"property `uuid`: invalid UUID string length"):
+            await q("""//ti
+                T({uuid: 'not-a-valid-uuid'});
+            """)
+        with self.assertRaisesRegex(
+                    ValueError,
+                    r"mismatch in type `T`; conversion error for "
+                    r"property `uuid`: invalid UUID \(expecting 16 bytes\)"):
+            await q("""//ti
+                T({uuid: bytes('short')});
+            """)
+        with self.assertRaisesRegex(
+                    TypeError,
+                    r"mismatch in type `T`; type `int` is invalid for "
+                    r"property `uuid` with definition `uuid`"):
+            await q("""//ti
+                T({uuid: 123});
             """)
 
         # --- Enum (by name first, then by value) ---

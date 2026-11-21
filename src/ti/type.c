@@ -1606,8 +1606,6 @@ fail0:
  */
 ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
 {
-    _Bool is_last_ref = from->ref == 1;
-
     ti_thing_t * thing = ti_thing_t_create(0, type, type->types->collection);
     if (!thing)
     {
@@ -1638,26 +1636,13 @@ ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
             else
             {
                 val = prop->val;
-                val->ref += !is_last_ref;
-
+                ti_incref(val);
                 if (ti_field_auto_convert(field, &val, thing, e) ||
                     ti_field_make_assignable(field, &val, thing, e))
                 {
-                    if (!is_last_ref)
-                        ti_val_unsafe_gc_drop(val);
-                    else
-                        prop->val = val;
-
+                    ti_val_unsafe_gc_drop(val);
                     goto failed;
                 }
-
-                /*
-                 * This is a hack, but safe, because `from` will definitely be
-                 * destroyed after this call. Must replace the value because if
-                 * the value is a set or array, the parent must be left alone.
-                 */
-                if (is_last_ref)
-                    prop->val = (ti_val_t *) ti_nil_get();
             }
             VEC_push(thing->items.vec, val);
         }
@@ -1677,24 +1662,12 @@ ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
         for (vec_each(type->fields, ti_field_t, field))
         {
             ti_val_t * val = VEC_get(from->items.vec, field->idx);
-
-            val->ref += !is_last_ref;
-
+            ti_incref(val);
             if (ti_val_make_assignable(&val, thing, field, e))
             {
-                if (!is_last_ref)
-                    ti_val_unsafe_gc_drop(val);
+                ti_val_unsafe_gc_drop(val);
                 goto failed;
             }
-
-            /*
-             * This is a hack, but safe, because `from` will definitely be
-             * destroyed after this call. Must replace the value because if
-             * the value is a set or array, the parent must be left alone.
-             */
-            if (is_last_ref)
-                VEC_set(from->items.vec, ti_nil_get(), field->idx);
-
             VEC_push(thing->items.vec, val);
         }
     }

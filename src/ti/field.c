@@ -2075,6 +2075,150 @@ static int field__auto_convert_int(ti_val_t ** val, ex_t * e)
     return e->nr;
 }
 
+static _Bool field__require_convert(uint16_t spec)
+{
+    if (spec < TI_SPEC_ANY)
+        return true;
+
+    switch ((ti_spec_enum_t) spec)
+    {
+    case TI_SPEC_ANY:
+        return false;
+    case TI_SPEC_OBJECT:
+        return true;
+    case TI_SPEC_RAW:
+    case TI_SPEC_STR:
+    case TI_SPEC_UTF8:
+    case TI_SPEC_BYTES:
+        return false;
+    case TI_SPEC_INT:
+    case TI_SPEC_UINT:
+    case TI_SPEC_PINT:
+    case TI_SPEC_NINT:
+    case TI_SPEC_FLOAT:
+        return true;
+    case TI_SPEC_NUMBER:
+    case TI_SPEC_BOOL:
+    case TI_SPEC_UUID:
+        return false;
+    case TI_SPEC_DATETIME:
+    case TI_SPEC_TIMEVAL:
+    case TI_SPEC_REGEX:
+    case TI_SPEC_CLOSURE:
+    case TI_SPEC_ERROR:
+        return true;
+    case TI_SPEC_ROOM:
+    case TI_SPEC_TASK:
+    case TI_SPEC_EMAIL:
+    case TI_SPEC_URL:
+    case TI_SPEC_TEL:
+    case TI_SPEC_ENUM:
+        return false;
+    case TI_SPEC_ARR:
+    case TI_SPEC_SET:
+        return true;
+    case TI_SPEC_DICT:
+        return false;  /* TODO: convert to dict? */
+    case TI_SPEC_REMATCH:
+        return false;
+    case TI_SPEC_INT_RANGE:
+    case TI_SPEC_FLOAT_RANGE:
+        return true;
+    case TI_SPEC_STR_RANGE:
+    case TI_SPEC_UTF8_RANGE:
+    case TI_SPEC_TYPE:
+    case TI_SPEC_ARR_TYPE:
+        return false;
+    }
+
+    return true;
+}
+
+/* no conversion when nested in objects for arr, set and dict;
+ * these need make assignable calls;
+ */
+static int field__test_object_convert(ti_val_t * val, uint16_t spec)
+{
+    if (spec < TI_SPEC_ANY)
+        return (ti_val_is_object(val) ||
+                ti_val_is_int(val) ||
+                ti_val_is_float(val));
+
+    switch ((ti_spec_enum_t) spec)
+    {
+    case TI_SPEC_ANY:
+        return 0;
+    case TI_SPEC_OBJECT:
+        return (ti_val_is_int(val) || ti_val_is_float(val));
+    case TI_SPEC_RAW:
+    case TI_SPEC_STR:
+    case TI_SPEC_UTF8:
+    case TI_SPEC_BYTES:
+        return 0;
+    case TI_SPEC_INT:
+    case TI_SPEC_UINT:
+    case TI_SPEC_PINT:
+    case TI_SPEC_NINT:
+        return ti_val_is_float(val);
+    case TI_SPEC_FLOAT:
+        return ti_val_is_int(val);
+    case TI_SPEC_NUMBER:
+    case TI_SPEC_BOOL:
+    case TI_SPEC_UUID:
+        return 0;
+    case TI_SPEC_DATETIME:
+        return ti_val_is_str(val);
+    case TI_SPEC_TIMEVAL:
+        return ti_val_is_int(val) || ti_val_is_float(val);
+    case TI_SPEC_REGEX:
+    case TI_SPEC_CLOSURE:
+    case TI_SPEC_ERROR:
+        return ti_val_is_str(val);
+    case TI_SPEC_ROOM:
+    case TI_SPEC_TASK:
+    case TI_SPEC_EMAIL:
+    case TI_SPEC_URL:
+    case TI_SPEC_TEL:
+    case TI_SPEC_ENUM:
+    case TI_SPEC_ARR:  /* no conversion when nested in objects */
+    case TI_SPEC_SET:  /* no conversion when nested in objects */
+    case TI_SPEC_DICT:  /* no conversion when nested in objects */
+    case TI_SPEC_REMATCH:
+        return 0;
+    case TI_SPEC_INT_RANGE:
+        return ti_val_is_float(val);
+    case TI_SPEC_FLOAT_RANGE:
+        return ti_val_is_int(val);
+    case TI_SPEC_STR_RANGE:
+    case TI_SPEC_UTF8_RANGE:
+    case TI_SPEC_TYPE:
+    case TI_SPEC_ARR_TYPE:
+        return 0;
+    }
+
+    assert(spec >= TI_ENUM_ID_FLAG);
+    return !ti_val_is_member(val);
+}
+
+static int field__object_convert_wall(ti_item_t * item, uint16_t * spec)
+{
+    return field__test_object_convert(item->val, *spec);
+}
+
+static _Bool field__object_require_convert(ti_thing_t * thing, uint16_t spec)
+{
+    if (ti_thing_is_dict(thing))
+        return smap_values(
+                thing->items.smap,
+                (smap_val_cb) field__object_convert_wall,
+                &spec);
+
+    for (vec_each(thing->items.vec, ti_prop_t, prop))
+        if (field__test_object_convert(prop->val, spec))
+            return true;
+    return false;
+}
+
 typedef struct
 {
     ti_collection_t * collection;
@@ -2117,22 +2261,35 @@ static int field__auto_convert_thing(
                 }
                 return e->nr;
             }
-            else if (nested_spec != TI_SPEC_ANY && !tsrc->id)
+
+            if (field__require_convert(nested_spec) &&
+                field__object_require_convert(tsrc, nested_spec))
             {
-                if (ti_thing_is_dict(tsrc))
+                ti_thing_t * thing = tsrc;
+                ti_incref(thing);
+                if (ti_thing_copy(&thing, 1))
+                {
+                    ti_val_unsafe_drop((ti_val_t *) thing);
+                    ex_set_mem(e);
+                    return e->nr;
+                }
+                if (ti_thing_is_dict(thing))
                 {
                     field__auto_convert_t w = {
                         .collection = collection,
                         .e = e,
                         .nested_spec = nested_spec,
                     };
-                    (void) smap_values(
-                            tsrc->items.smap,
+                    if (smap_values(
+                            thing->items.smap,
                             (smap_val_cb) field__walk_auto_convert,
-                            &w);
-                    return e->nr;
+                            &w))
+                    {
+                        ti_val_unsafe_drop((ti_val_t *) thing);
+                        return e->nr;
+                    }
                 }
-                for (vec_each(tsrc->items.vec, ti_prop_t, prop))
+                else for (vec_each(thing->items.vec, ti_prop_t, prop))
                 {
                     if (field__auto_convert(
                             &prop->val,
@@ -2140,8 +2297,13 @@ static int field__auto_convert_thing(
                             nested_spec,
                             TI_SPEC_ANY,
                             e))
+                    {
+                        ti_val_unsafe_drop((ti_val_t *) thing);
                         return e->nr;
+                    }
                 }
+                ti_val_unsafe_gc_drop(*val);
+                *val = (ti_val_t *) thing;
             }
         }
         return 0;
@@ -2181,8 +2343,15 @@ static int field__auto_convert_arr(
 {
     if (ti_val_is_array(*val))
     {
-        ti_varr_t * varr = (ti_varr_t *) (*val);
-        assert(varr->parent && !varr->parent->id);
+        /* there is no reason for testing if conversion is required,
+         * by creating a new one we prevent duplication later */
+        ti_varr_t * varr = ti_varr_cp((ti_varr_t *) (*val));
+        if (!varr)
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
+
         for (vec_each_addr(varr->vec, ti_val_t, vaddr))
         {
             if (field__auto_convert(
@@ -2191,8 +2360,13 @@ static int field__auto_convert_arr(
                     nested_spec,
                     TI_SPEC_ANY,
                     e))
+            {
+                ti_varr_destroy(varr);
                 return e->nr;
+            }
         }
+        ti_val_unsafe_drop(*val);
+        *val = (ti_val_t *) varr;
     }
     return 0;
 }
@@ -2303,10 +2477,7 @@ static int field__auto_convert_set(
                 return e->nr;
             }
         }
-        vset->parent = varr->parent;
-        vset->key_ = varr->key_;
-
-        ti_val_unassign_unsafe_drop(*val);
+        ti_val_unsafe_drop(*val);
         *val = (ti_val_t *) vset;
     }
     return 0;
@@ -2414,6 +2585,7 @@ static int field__auto_convert(
         ex_t * e)
 {
     spec &= TI_SPEC_MASK_NILLABLE;
+    nested_spec &= TI_SPEC_MASK_NILLABLE;
 
     if (spec < TI_SPEC_ANY)
         return field__auto_convert_thing(val, collection, spec, TI_SPEC_ANY, e);
@@ -2458,7 +2630,9 @@ static int field__auto_convert(
     case TI_SPEC_ENUM:
         return 0;
     case TI_SPEC_ARR:
-        return field__auto_convert_arr(val, collection, nested_spec, e);
+        return field__require_convert(nested_spec)
+            ? field__auto_convert_arr(val, collection, nested_spec, e)
+            : 0;
     case TI_SPEC_SET:
         return field__auto_convert_set(val, collection, nested_spec, e);
     case TI_SPEC_DICT:
@@ -2489,7 +2663,7 @@ int ti_field_auto_convert(
         ti_thing_t * parent,
         ex_t * e)
 {
-    if (!parent->id && parent->collection && field__auto_convert(
+    if (parent->collection && field__auto_convert(
             val,
             parent->collection,
             field->spec,

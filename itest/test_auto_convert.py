@@ -132,5 +132,44 @@ class TestAutoConvert(TestBase):
             assert(v.i.t.x.n == 'stored_x');
         """, xid=float(xid))
 
+        with self.assertRaisesRegex(
+                ValueError,
+                r"mismatch in type `T`; conversion error for "
+                r"property `regex`: malformed regular expression"):
+            await q("""//ti
+                T({regex: '/i'});
+            """)
+        with self.assertRaisesRegex(
+                ValueError,
+                r"mismatch in type `T`; conversion error for "
+                r"property `int`: cannot convert float with "
+                r"fractional part to integer"):
+            await q("""//ti
+                T({int: 0.1});
+            """)
+        with self.assertRaisesRegex(
+                LookupError,
+                r"mismatch in type `T`; conversion error for "
+                r"property `x`: collection `stuff` has no `thing` with id 0"):
+            await q("""//ti
+                T({x: 0});
+            """)
+        with self.assertRaisesRegex(
+                TypeError,
+                r"mismatch in type `T`; type `thing` is invalid for "
+                r"property `x` with definition `&X"):
+            await q("""//ti
+                T({x: 1});
+            """)
+        with self.assertRaisesRegex(
+                ValueError,
+                r"mismatch in type `T`; conversion error for "
+                r"property `error`: error messages should not "
+                r"exceed 16383 characters, got 16384 characters"):
+            await q("""//ti
+                T({error: msg});
+            """, msg='t'*16384)
+
+
 if __name__ == '__main__':
     run_test(TestAutoConvert())

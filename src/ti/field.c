@@ -2386,6 +2386,7 @@ static int field__auto_convert_regex(ti_val_t ** val, ex_t * e)
 {
     if (ti_val_is_str(*val))
     {
+        ti_incref(*val);
         ti_regex_t * regex = ti_regex_from_raw((ti_raw_t *) *val, e);
         if (regex)
         {

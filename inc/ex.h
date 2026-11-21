@@ -123,6 +123,7 @@ struct ex_s
 #define ex_set_return(e__) ex_setn((e__), EX_RETURN, EX_RETURN_S, 6)
 #define ex_set_continue(e__) ex_setn((e__), EX_CONTINUE, EX_CONTINUE_S, 8)
 #define ex_set_break(e__) ex_setn((e__), EX_BREAK, EX_BREAK_S, 5)
+#define ex_set_integer_overflow(e_) ex_sets(e, EX_OVERFLOW, "integer overflow")
 
 static inline void ex_clear(ex_t * e)
 {

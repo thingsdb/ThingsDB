@@ -39,6 +39,11 @@ int ti_field_del(ti_field_t * field);
 void ti_field_remove(ti_field_t * field);
 void ti_field_destroy(ti_field_t * field);
 void ti_field_destroy_dep(ti_field_t * field);
+int ti_field_auto_convert(
+        ti_field_t * field,
+        ti_val_t ** val,
+        ti_thing_t * parent,
+        ex_t * e);
 int ti_field_make_assignable(
         ti_field_t * field,
         ti_val_t ** val,

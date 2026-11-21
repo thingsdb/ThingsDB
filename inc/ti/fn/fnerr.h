@@ -39,7 +39,7 @@ static int do__f_err_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs == 0)
     {
-        query->rval = (ti_val_t *) ti_verror_from_code(-100);
+        query->rval = (ti_val_t *) ti_verror_from_code(TI_VERROR_DEF_CODE);
         return e->nr;
     }
 

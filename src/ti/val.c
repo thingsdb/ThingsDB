@@ -610,7 +610,7 @@ ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e)
     {
         if (obj.via.u64 > INT64_MAX)
         {
-            ex_set(e, EX_OVERFLOW, "integer overflow");
+            ex_set_integer_overflow(e);
             return NULL;
         }
         ti_vint_t * vint = ti_vint_create((int64_t) obj.via.u64);
@@ -1302,7 +1302,7 @@ int ti_val_convert_to_int(ti_val_t ** val, ex_t * e)
     return e->nr;
 
 overflow:
-    ex_set(e, EX_OVERFLOW, "integer overflow");
+    ex_set_integer_overflow(e);
     return e->nr;
 }
 

@@ -16,7 +16,7 @@ static int do__f_abs(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             return e->nr;
         if (i == LLONG_MIN)
         {
-            ex_set(e, EX_OVERFLOW, "integer overflow");
+            ex_set_integer_overflow(e);
             return e->nr;
         }
         ti_val_unsafe_drop(query->rval);

@@ -2118,7 +2118,7 @@ static _Bool field__require_convert(uint16_t spec)
     case TI_SPEC_SET:
         return true;
     case TI_SPEC_DICT:
-        return false;  /* TODO: convert to dict? */
+        return false;
     case TI_SPEC_REMATCH:
         return false;
     case TI_SPEC_INT_RANGE:
@@ -2637,7 +2637,6 @@ static int field__auto_convert(
     case TI_SPEC_SET:
         return field__auto_convert_set(val, collection, nested_spec, e);
     case TI_SPEC_DICT:
-        return 0;  /* TODO: convert to dict? */
     case TI_SPEC_REMATCH:
         return 0;
     case TI_SPEC_INT_RANGE:

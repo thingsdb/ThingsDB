@@ -38,6 +38,14 @@ class TestAutoConvert(TestBase):
     async def test_auto_conversion(self, client: Client):
         q = client.query
         dt, xid = await q("""//ti
+            set_enum('Color', {
+                Red: 0,
+                Green: 1,
+            });
+            set_enum('Theme', {
+                Light: 'light',
+                Dark: 'dark',
+            });
             set_type('X', {
                 dt: 'datetime',
                 n: 'str',
@@ -57,6 +65,8 @@ class TestAutoConvert(TestBase):
                 regex: 'regex',
                 error: 'error',
                 func: 'closure',
+                enum: 'Color',
+                senum: 'Theme',
                 arr: '&[X]?',
                 set: '&{X}',
                 x: '&X',
@@ -73,6 +83,9 @@ class TestAutoConvert(TestBase):
             .x = X{n: 'stored_x'};
             [datetime(), .x.id()];
         """)
+
+        # --- General tests ---
+
         with self.assertRaisesRegex(
                 ValueError,
                 r"mismatch in type `X`; conversion error for "
@@ -169,6 +182,334 @@ class TestAutoConvert(TestBase):
             await q("""//ti
                 T({error: msg});
             """, msg='t'*16384)
+
+        # --- Integer variants (int, uint, nint, pint, ranged int) ---
+
+        await q("""//ti
+            t = T({
+                int: -42.0,
+                uint: 0.0,
+                nint: -1.0,
+                pint: 5.0,
+                rint: -5.0,
+            });
+            assert(t.int == -42);
+            assert(t.uint == 0);
+            assert(t.nint == -1);
+            assert(t.pint == 5);
+            assert(t.rint == -5);
+
+            t_nil = T({uint: nil});
+            assert(t_nil.uint == nil);
+        """)
+
+        # Non-finite floats & integer overflow
+        with self.assertRaisesRegex(
+                ValueError,
+                r"mismatch in type `T`; conversion error for "
+                r"property `int`: cannot convert non-finite float to integer"):
+            await q("""//ti
+                T({int: float('nan')});
+            """)
+        with self.assertRaisesRegex(
+                ValueError,
+                r"mismatch in type `T`; conversion error for "
+                r"property `int`: cannot convert non-finite float to integer"):
+            await q("""//ti
+                T({int: float('inf')});
+            """)
+        with self.assertRaisesRegex(
+                OverflowError,
+                r"mismatch in type `T`; conversion error for "
+                r"property `int`: integer overflow"):
+            await q("""//ti
+                T({int: 1.0e+30});
+            """)
+
+        # Range / sign violations after float -> int conversion
+        with self.assertRaisesRegex(
+                ValueError,
+                r"mismatch in type `T`; property `uint` only accepts integer "
+                r"values greater than or equal to 0"):
+            await q("""//ti
+                T({uint: -1.0});
+            """)
+        with self.assertRaisesRegex(
+                ValueError,
+                r"mismatch in type `T`; property `nint` only accepts negative "
+                r"integer values"):
+            await q("""//ti
+                T({nint: 0.0});
+            """)
+        with self.assertRaisesRegex(
+                    ValueError,
+                    r"mismatch in type `T`; property `pint` only accepts "
+                    r"positive integer values"):
+            await q("""//ti
+                T({pint: 0.0});
+            """)
+        with self.assertRaisesRegex(
+                    ValueError,
+                    r"mismatch in type `T`; property `rint` requires an "
+                    r"integer value between -5 and 5 \(both inclusive\)"):
+            await q("""//ti
+                T({rint: 6.0});
+            """)
+        with self.assertRaisesRegex(
+                    ValueError,
+                    r"mismatch in type `T`; property `rint` requires an "
+                    r"integer value between -5 and 5 \(both inclusive\)"):
+            await q("""//ti
+                T({rint: -6.0});
+            """)
+
+        # Disallowed types for int (e.g. bool, str)
+        with self.assertRaisesRegex(
+                    TypeError,
+                    r"mismatch in type `T`; type `bool` is invalid for "
+                    r"property `int` with definition `int`"):
+            await q("""//ti
+                T({int: true});
+            """)
+        with self.assertRaisesRegex(
+                    TypeError,
+                    r"mismatch in type `T`; type `str` is invalid for "
+                    r"property `int` with definition `int`"):
+            await q("""//ti
+                T({int: "123"});
+            """)
+
+        # --- Float & ranged float ---
+
+        await q("""//ti
+            t = T({
+                float: 7,
+                rfloat: -5,
+            });
+            assert(type(t.float) == 'float');
+            assert(t.float == 7.0);
+            assert(type(t.rfloat) == 'float');
+            assert(t.rfloat == -5.0);
+        """)
+
+        with self.assertRaisesRegex(
+                    ValueError,
+                    r"mismatch in type `T`; property `rfloat` requires a "
+                    r"float value between -5.000000 and "
+                    r"5.000000 \(both inclusive\)"):
+            await q("""//ti
+                T({rfloat: 6});
+            """)
+        with self.assertRaisesRegex(
+                    TypeError,
+                    r"mismatch in type `T`; type `str` is invalid for "
+                    r"property `float` with definition `float`"):
+            await q("""//ti
+                T({float: "1.5"});
+            """)
+
+        # --- Timeval ---
+
+        await q("""//ti
+            t1 = T({tv: 1795214029});
+            assert(type(t1.tv) == 'timeval');
+            assert(t1.tv == timeval(1795214029));
+
+            t2 = T({tv: 1795214029.5});
+            assert(type(t2.tv) == 'timeval');
+            assert(t2.tv == timeval(1795214029.5));
+        """)
+
+        with self.assertRaisesRegex(
+                OverflowError,
+                r"mismatch in type `T`; conversion error for "
+                r"property `tv`: date/time overflow"):
+            await q("""//ti
+                T({tv: float('nan')});
+            """)
+        with self.assertRaisesRegex(
+                TypeError,
+                r"mismatch in type `T`; type `str` is invalid for "
+                r"property `tv` with definition `timeval`"):
+            await q("""//ti
+                T({tv: "2026-11-20T22:32:28Z"});
+            """)
+
+        # --- Regex ---
+
+        await q("""//ti
+            t = T({regex: '/^hello.*/i'});
+            assert(type(t.regex) == 'regex');
+            assert(t.regex.test('HELLO world'));
+        """)
+
+        with self.assertRaisesRegex(
+                    TypeError,
+                    r"mismatch in type `T`; type `int` is invalid for "
+                    r"property `regex` with definition `regex`"):
+            await q("""//ti
+                T({regex: 123});
+            """)
+
+        # --- Error ---
+
+        await q("""//ti
+            t = T({error: 'something went wrong'});
+            assert(type(t.error) == 'error');
+            assert(t.error.msg() == 'something went wrong');
+            assert(t.error.code() == -100);
+        """)
+
+        with self.assertRaisesRegex(
+                    TypeError,
+                    r"mismatch in type `T`; type `int` is invalid for "
+                    r"property `error` with definition `error"):
+            await q("""//ti
+                T({error: 123});
+            """)
+
+        # --- Closure ---
+
+        await q("""//ti
+            t = T({func: '|a, b| a + b'});
+            assert(type(t.func) == 'closure');
+            assert(t.func(2, 3) == 5);
+        """)
+
+        with self.assertRaisesRegex(
+                    SyntaxError,
+                    r"mismatch in type `T`; conversion error for "
+                    r"property `func`: invalid syntax in closure"):
+            await q("""//ti
+                T({func: '|a, b| a +'});
+            """)
+        with self.assertRaisesRegex(
+                    TypeError,
+                    r"mismatch in type `T`; type `int` is invalid for "
+                    r"property `func` with definition `closure`"):
+            await q("""//ti
+                T({func: 123});
+            """)
+
+        # --- Enum (by name first, then by value) ---
+
+        await q("""//ti
+            t_name = T({enum: 'Green'});
+            assert(t_name.enum == Color{Green});
+
+            t_val = T({enum: 0});
+            assert(t_val.enum == Color{Red});
+
+            t_str_name = T({senum: 'Light'});
+            assert(t_str_name.senum == Theme{Light});
+
+            t_str_val = T({senum: 'dark'});
+            assert(t_str_val.senum == Theme{Dark});
+        """)
+
+        with self.assertRaisesRegex(
+                    TypeError,
+                    r"mismatch in type `T`; conversion error for "
+                    r"property `enum`: enum `Color` is expecting a value of "
+                    r"type `int` but got type `str` instead"):
+            await q("""//ti
+                T({enum: 'Unknown'});
+            """)
+        with self.assertRaisesRegex(
+                    LookupError,
+                    r"mismatch in type `T`; conversion error for "
+                    r"property `enum`: enum `Color` has no member with "
+                    r"value 99"):
+            await q("""//ti
+                T({enum: 99});
+            """)
+        with self.assertRaisesRegex(
+                    LookupError,
+                    r"mismatch in type `T`; conversion error for "
+                    r"property `senum`: enum `Theme` has no member with "
+                    r"value `unknown`"):
+            await q("""//ti
+                T({senum: 'unknown'});
+            """)
+
+        # --- Typed thing & array/set element conversion errors ---
+
+        with self.assertRaisesRegex(
+                    ValueError,
+                    r"mismatch in type `T`; conversion error for "
+                    r"property `tx`: mismatch in type `X`; conversion "
+                    r"error for property `dt`: invalid date/time "
+                    r"string \(does not match format `%Y-%m-%d`\)"):
+            await q("""//ti
+                T({tx: {a: {dt: 'not-a-date'}}});
+            """)
+        with self.assertRaisesRegex(
+                    ValueError,
+                    r"mismatch in type `T`; conversion error for "
+                    r"property `arr`: mismatch in type `X`; conversion "
+                    r"error for property `dt`: invalid date/time "
+                    r"string \(does not match format `%Y-%m-%d`\)"):
+            await q("""//ti
+                T({arr: [{dt: 'not-a-date'}]});
+            """)
+        with self.assertRaisesRegex(
+                    ValueError,
+                    r"mismatch in type `T`; conversion error for "
+                    r"property `set`: mismatch in type `X`; conversion "
+                    r"error for property `dt`: invalid date/time "
+                    r"string \(does not match format `%Y-%m-%d`\)"):
+            await q("""//ti
+                T({set: [{dt: 'not-a-date'}]});
+            """)
+        with self.assertRaisesRegex(
+                    TypeError,
+                    r"mismatch in type `T`; type `str` is invalid for "
+                    r"property `set` with definition `&{X}`"):
+            await q("""//ti
+                T({set: 'not-an-array'});
+            """)
+
+        # --- .assign() auto-conversion & strict literal T{...} check ---
+
+        await q("""//ti
+            t = T{};
+            t.assign({
+                int: 10.0,
+                float: 3,
+                dt: dt,
+                tv: 1795214029,
+                regex: '/abc/',
+                error: 'boom',
+                func: '|x| x * 2',
+                enum: 'Green',
+                set: [{dt:,}],
+            });
+            assert(t.int == 10);
+            assert(t.float == 3.0);
+            assert(t.dt == datetime(dt));
+            assert(t.tv == timeval(1795214029));
+            assert(t.regex.test('abc'));
+            assert(t.error.msg() == 'boom');
+            assert(t.func(4) == 8);
+            assert(t.enum == Color{Green});
+            assert(is_set(t.set) && t.set.len() == 1);
+        """, dt=dt)
+
+        # Direct literal initialization must remain strict (no auto-conversion)
+        with self.assertRaisesRegex(
+                    TypeError,
+                    r"mismatch in type `T`; type `float` is invalid for "
+                    r"property `int` with definition `int`"):
+            await q("""//ti
+                T{int: 10.0};
+            """)
+        with self.assertRaisesRegex(
+                    TypeError,
+                    r"mismatch in type `T`; type `str` is invalid for "
+                    r"property `enum` with definition `Color`"):
+            await q("""//ti
+                T{enum: 'Green'};
+            """)
 
 
 if __name__ == '__main__':

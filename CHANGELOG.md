@@ -1,4 +1,4 @@
-# v1.11.2-alpha4
+# v1.11.2
 
 * Expose `libwebsockets` version without git hash, issue #477.
 * Auto conversion on instance creation and assign, pr #478.

@@ -118,31 +118,28 @@ int ti_enum_set_enum_tp(ti_enum_t * enum_, ti_val_t * val, ex_t * e)
     return e->nr;
 }
 
-static int enum__check_val(ti_enum_t * enum_, ti_val_t * val, ex_t * e)
+_Bool ti_enum_check_tp(ti_enum_t * enum_, ti_val_t * val)
 {
     switch((ti_enum_enum) enum_->enum_tp)
     {
     case TI_ENUM_INT:
-        if (ti_val_is_int(val))
-            return 0;
-        break;
+        return ti_val_is_int(val);
     case TI_ENUM_FLOAT:
-        if (ti_val_is_float(val))
-            return 0;
-        break;
+        return ti_val_is_float(val);
     case TI_ENUM_STR:
-        if (ti_val_is_str(val))
-            return 0;
-        break;
+        return ti_val_is_str(val);
     case TI_ENUM_BYTES:
-        if (ti_val_is_bytes(val))
-            return 0;
-        break;
+        return ti_val_is_bytes(val);
     case TI_ENUM_THING:
-        if (ti_val_is_thing(val))
-            return 0;
-        break;
+        return ti_val_is_thing(val);
     }
+    return false;
+}
+
+static int enum__check_val(ti_enum_t * enum_, ti_val_t * val, ex_t * e)
+{
+    if (ti_enum_check_tp(enum_, val))
+        return 0;
 
     ex_set(e, EX_TYPE_ERROR,
             "enumerators must not contain members of mixed types; "
@@ -710,7 +707,7 @@ ti_member_t * ti_enum_member_by_val_e(
         ex_t * e)
 {
     for(vec_each(enum_->members, ti_member_t, member))
-        if (ti_opr_eq(VMEMBER(member), val))
+        if (ti_enum_check_tp(enum_, val) && ti_opr_eq(VMEMBER(member), val))
             return member;
 
     switch((ti_val_enum) val->tp)

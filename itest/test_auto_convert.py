@@ -468,6 +468,15 @@ class TestAutoConvert(TestBase):
             await q("""//ti
                 T({senum: 'unknown'});
             """)
+        # bug #479.
+        with self.assertRaisesRegex(
+                    TypeError,
+                    r"mismatch in type `T`; conversion error for "
+                    r"property `enum`: enum `Color` is expecting a value "
+                    r"of type `int` but got type `bool` instead"):
+            await q("""//ti
+                T({enum: true});
+            """)
 
         # --- Typed thing & array/set element conversion errors ---
 

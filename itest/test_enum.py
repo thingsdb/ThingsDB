@@ -1182,6 +1182,20 @@ class TestEnum(TestBase):
                            """)
         self.assertEqual(res, {"e": 'A'})
 
+    async def test_enum_by_other_type(self, client):
+        # bug #479.
+        await client.query("""//ti
+            set_enum("E", {
+                A: 0,
+                B: 1,
+            });
+        """)
+        with self.assertRaisesRegex(
+                TypeError,
+                r'enum `E` is expecting a value of type `int` but got '
+                r'type `bool` instead'):
+            await client.query('E(true)')
+
 
 if __name__ == '__main__':
     run_test(TestEnum())

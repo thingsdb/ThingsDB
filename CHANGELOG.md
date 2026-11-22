@@ -1,8 +1,9 @@
-# v1.11.2-alpha3
+# v1.11.2-alpha4
 
 * Expose `libwebsockets` version without git hash, issue #477.
 * Auto conversion on instance creation and assign, pr #478.
   - See docs: https://docs.thingsdb.io/v1/overview/auto-conversion/
+* Enforce type equality when looking up enum members by value, issue #479.
 
 # v1.11.1
 

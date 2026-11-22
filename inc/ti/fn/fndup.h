@@ -8,7 +8,6 @@ static int do__f_dup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     /* use deep value of 0 for arr, set and dict, 1 for thing, wrap, wano */
     uint8_t deep = !ti_val_has_parent(query->rval);
 
-
     doc = doc_dup(query->rval);
     if (!doc)
         return fn_call_try("dup", query, nd, e);

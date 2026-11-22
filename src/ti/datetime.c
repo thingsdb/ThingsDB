@@ -624,7 +624,7 @@ int ti_datetime_move(
 
         if (num < INT_MIN || num > INT_MAX)
         {
-            ex_set(e, EX_OVERFLOW, "integer overflow");
+            ex_set_integer_overflow(e);
             return e->nr;
         }
 
@@ -637,7 +637,7 @@ int ti_datetime_move(
             if ((num > 0 && tm.tm_mday > INT_MAX - num) ||
                 (num < 0 && tm.tm_mday < INT_MIN - num))
             {
-                ex_set(e, EX_OVERFLOW, "integer overflow");
+                ex_set_integer_overflow(e);
                 return e->nr;
             }
             tm.tm_mday += num;
@@ -646,7 +646,7 @@ int ti_datetime_move(
             if ((num > 0 && tm.tm_mon > INT_MAX - num) ||
                 (num < 0 && tm.tm_mon < INT_MIN - num))
             {
-                ex_set(e, EX_OVERFLOW, "integer overflow");
+                ex_set_integer_overflow(e);
                 return e->nr;
             }
             tm.tm_mon += num;
@@ -655,7 +655,7 @@ int ti_datetime_move(
             if ((num > 0 && tm.tm_year > INT_MAX - num) ||
                 (num < 0 && tm.tm_year < INT_MIN - num))
             {
-                ex_set(e, EX_OVERFLOW, "integer overflow");
+                ex_set_integer_overflow(e);
                 return e->nr;
             }
             tm.tm_year += num;
@@ -698,7 +698,7 @@ int ti_datetime_move(
         if ((num > 0 && dt->ts > LLONG_MAX - num) ||
             (num < 0 && dt->ts < LLONG_MIN - num))
         {
-            ex_set(e, EX_OVERFLOW, "integer overflow");
+            ex_set_integer_overflow(e);
             return e->nr;
         }
 

@@ -114,24 +114,32 @@ class TestCommits(TestBase):
                         """, scope='/t')
             self.assertEqual(r, 'disabled')
 
-        await q0("""//ti
+        change_id = await q0("""//ti
             set_history("/t", true);
+            change_id();
         """, scope='/t')
         for q in (q0, q1):
-            r = await q("""//ti
-                        wse();
-                        node_info().load().commit_history;
-                        """, scope='/n')
+            while True:
+                r, cid = await q("""//ti
+                    n = node_info().load();
+                    [n.commit_history, n.local_committed_change_id];
+                """, scope='/n')
+                if cid >= change_id:
+                    break
             self.assertEqual(r, 0)
 
-        await q0("""//ti
+        change_id = await q0("""//ti
             set_history("/t", false);
+            change_id();
         """, scope='/t')
         for q in (q0, q1):
-            r = await q("""//ti
-                        wse();
-                        node_info().load().commit_history;
-                        """, scope='/n')
+            while True:
+                r, cid = await q("""//ti
+                    n = node_info().load();
+                    [n.commit_history, n.local_committed_change_id];
+                """, scope='/n')
+                if cid >= change_id:
+                    break
             self.assertEqual(r, 'disabled')
 
     async def test_access(self, q0, q1, c0):

@@ -212,7 +212,7 @@ int ti_condition_field_info_init(
 
         if (errno == ERANGE)
         {
-            ex_set(e, EX_OVERFLOW, "integer overflow");
+            ex_set_integer_overflow(e);
             return e->nr;
         }
 
@@ -239,7 +239,7 @@ int ti_condition_field_info_init(
 
         if (errno == ERANGE)
         {
-            ex_set(e, EX_OVERFLOW, "integer overflow");
+            ex_set_integer_overflow(e);
             return e->nr;
         }
 
@@ -294,7 +294,7 @@ int ti_condition_field_info_init(
 
         if (errno == ERANGE)
         {
-            ex_set(e, EX_OVERFLOW, "integer overflow");
+            ex_set_integer_overflow(e);
             return e->nr;
         }
 
@@ -311,7 +311,7 @@ int ti_condition_field_info_init(
 
         if (errno == ERANGE)
         {
-            ex_set(e, EX_OVERFLOW, "integer overflow");
+            ex_set_integer_overflow(e);
             return e->nr;
         }
 
@@ -327,7 +327,7 @@ int ti_condition_field_info_init(
 
             if (errno == ERANGE)
             {
-                ex_set(e, EX_OVERFLOW, "integer overflow");
+                ex_set_integer_overflow(e);
                 return e->nr;
             }
 

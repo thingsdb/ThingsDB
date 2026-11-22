@@ -1385,7 +1385,7 @@ ti_room_t * ti_query_room_from_id(
     }
 
     /* No need to check for garbage collected things */
-    room = room_id
+    room = room_id > 0
             ? ti_collection_room_by_id(query->collection, (uint64_t) room_id)
             : NULL;
 

@@ -140,7 +140,7 @@ int ti_preopr_calc(int preopr, ti_val_t ** val, ex_t * e)
             {
                 if (i == LLONG_MIN)
                 {
-                    ex_set(e, EX_OVERFLOW, "integer overflow");
+                    ex_set_integer_overflow(e);
                     return e->nr;
                 }
                 i = -i;
@@ -183,7 +183,7 @@ int ti_preopr_calc(int preopr, ti_val_t ** val, ex_t * e)
             int64_t i = VINT(v);
             if (i == LLONG_MIN)
             {
-                ex_set(e, EX_OVERFLOW, "integer overflow");
+                ex_set_integer_overflow(e);
                 return e->nr;
             }
             ti_val_unsafe_drop(v);

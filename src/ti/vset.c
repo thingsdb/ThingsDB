@@ -263,7 +263,7 @@ int ti_vset_dup(ti_vset_t ** vsetaddr, uint8_t deep)
 
 
 /*
- * Increments the reference for each moved value to the set.
+ * Increments the reference for each value added to the set.
  * The return value is <0 in case of an error and `e` will contain the reason,
  * If 0, then the `thing` was already in the set, and 1 if it was added.
  */

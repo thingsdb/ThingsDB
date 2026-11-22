@@ -55,7 +55,7 @@ static int sum__add(sum__t * sum, ti_val_t * val, ex_t * e)
 
     }
 overflow:
-    ex_set(e, EX_OVERFLOW, "integer overflow");
+    ex_set_integer_overflow(e);
     return e->nr;
 }
 

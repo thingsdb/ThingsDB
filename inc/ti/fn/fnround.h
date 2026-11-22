@@ -42,7 +42,7 @@ static int do__f_round(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         int64_t i;
         if (ti_val_overflow_cast(d))
         {
-            ex_set(e, EX_OVERFLOW, "integer overflow");
+            ex_set_integer_overflow(e);
             return e->nr;
         }
         i = (int64_t) d;

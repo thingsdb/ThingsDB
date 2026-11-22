@@ -299,7 +299,7 @@ static int ncache__expr_choice(
         int64_t i = strx_to_int64(nd->str, NULL);
         if (errno == ERANGE)
         {
-            ex_set(e, EX_OVERFLOW, "integer overflow");
+            ex_set_integer_overflow(e);
             return e->nr;
         }
         nd->data = ti_vint_create(i);

@@ -1,6 +1,6 @@
 # v1.11.3
 
-* Avoid re-allocating/packing for mpdata; write as mpkg directly,
+* Avoid re-allocating/packing for mpdata; write as mpkg directly, pr #480.
 
 # v1.11.2
 

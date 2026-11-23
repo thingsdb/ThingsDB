@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <ti/node.t.h>
 #include <ti/pkg.t.h>
+#include <ti/mpkg.h>
 #include <ti/rpkg.t.h>
 #include <ti/stream.t.h>
 #include <ti/user.t.h>
@@ -23,6 +24,7 @@ void ti_stream_on_data(uv_stream_t * uvstream, ssize_t n, const uv_buf_t * buf);
 const char * ti_stream_name(ti_stream_t * stream);
 void ti_stream_on_response(ti_stream_t * stream, ti_pkg_t * pkg);
 int ti_stream_write_pkg(ti_stream_t * stream, ti_pkg_t * pkg);
+int ti_stream_write_mpkg(ti_stream_t * stream, ti_mpkg_t * mpkg);
 int ti_stream_write_rpkg(ti_stream_t * stream, ti_rpkg_t * rpkg);
 size_t ti_stream_client_connections(void);
 

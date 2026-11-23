@@ -22,6 +22,7 @@
 #include <ti/future.h>
 #include <ti/future.inline.h>
 #include <ti/gc.h>
+#include <ti/mpkg.h>
 #include <ti/names.h>
 #include <ti/nil.h>
 #include <ti/procedures.h>
@@ -1205,14 +1206,60 @@ response_err:
     return -(ti_api_close_with_err(ar, e) || 1);
 }
 
+static void query__future_mpdata(ti_query_t * query)
+{
+    ti_future_t * future = (ti_future_t *) query->rval;
+    ti_raw_t * mpdata = (ti_raw_t *) future->rval;
+    ti_mpkg_t * mpkg = (ti_mpkg_t *) mpdata;
+    size_t n = mpdata->n;
+
+    mpkg_init(mpkg, query->pkg_id, TI_PROTO_CLIENT_RES_DATA, n);
+    future->rval = NULL;
+
+    if (n > ti.counters->largest_result_size)
+        ti.counters->largest_result_size = n;
+
+    if (ti_stream_write_mpkg(query->via.stream, mpkg))
+    {
+        free(mpkg);
+        log_critical(EX_MEMORY_S);
+    }
+}
+
+static void query__mpdata(ti_query_t * query)
+{
+    ti_raw_t * mpdata = (ti_raw_t *) query->rval;
+    ti_mpkg_t * mpkg = (ti_mpkg_t *) mpdata;
+    size_t n = mpdata->n;
+
+    mpkg_init(mpkg, query->pkg_id, TI_PROTO_CLIENT_RES_DATA, n);
+    query->rval = NULL;
+
+    if (n > ti.counters->largest_result_size)
+        ti.counters->largest_result_size = n;
+
+    if (ti_stream_write_mpkg(query->via.stream, mpkg))
+    {
+        free(mpkg);
+        log_critical(EX_MEMORY_S);
+    }
+}
+
 static int query__response_pkg(ti_query_t * query, ex_t * e)
 {
-    ti_pkg_t * pkg;
-    msgpack_sbuffer buffer;
-
     if (e->nr)
         goto pkg_err;
 
+    /* avoid re-allocating/packing for mpdata; write as mpkg directly */
+    if (ti_val_is_future(query->rval) &&
+        ti_future_own_mpdata((ti_future_t *) query->rval))
+        return query__future_mpdata(query), 0;
+
+    if (ti_val_is_mpdata(query->rval) && query->rval->ref == 1)
+        return query__mpdata(query), 0;
+
+    ti_pkg_t * pkg;
+    msgpack_sbuffer buffer;
     if (mp_sbuffer_alloc_init(
             &buffer,
             ti_val_alloc_size(query->rval),
@@ -1226,10 +1273,7 @@ static int query__response_pkg(ti_query_t * query, ex_t * e)
         goto pkg_err;
 
     pkg = (ti_pkg_t *) buffer.data;
-    pkg_init(pkg,
-            query->pkg_id,
-            TI_PROTO_CLIENT_RES_DATA ,
-            buffer.size);
+    pkg_init(pkg, query->pkg_id, TI_PROTO_CLIENT_RES_DATA, buffer.size);
 
     if (ti_stream_write_pkg(query->via.stream, pkg))
     {

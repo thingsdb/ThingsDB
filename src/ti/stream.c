@@ -16,6 +16,7 @@
 #include <util/logger.h>
 
 static void stream__write_pkg_cb(ti_write_t * req, ex_enum status);
+static void stream__write_mpkg_cb(ti_write_t * req, ex_enum status);
 static void stream__write_rpkg_cb(ti_write_t * req, ex_enum status);
 static void stream__close(ti_stream_t * stream);
 static void stream__close_cb(uv_handle_t * uvstream);
@@ -311,6 +312,11 @@ int ti_stream_write_pkg(ti_stream_t * stream, ti_pkg_t * pkg)
     return ti_write(stream, pkg, NULL, stream__write_pkg_cb);
 }
 
+int ti_stream_write_mpkg(ti_stream_t * stream, ti_mpkg_t * mpkg)
+{
+    return ti_write(stream, ti_mpkg_pkg(mpkg), mpkg, stream__write_mpkg_cb);
+}
+
 /* increases with a new reference as long as required */
 int ti_stream_write_rpkg(ti_stream_t * stream, ti_rpkg_t * rpkg)
 {
@@ -332,6 +338,13 @@ static void stream__write_pkg_cb(ti_write_t * req, ex_enum status)
 {
     (void)(status);     /* errors are logged by ti__write_cb() */
     free(req->pkg);
+    ti_write_destroy(req);
+}
+
+static void stream__write_mpkg_cb(ti_write_t * req, ex_enum status)
+{
+    (void)(status);     /* errors are logged by ti__write_cb() */
+    free(req->data);
     ti_write_destroy(req);
 }
 

@@ -32,5 +32,12 @@ static inline uint8_t ti_future_should_load(ti_future_t * future)
     return future->options & TI_FUTURE_LOAD_FLAG;
 }
 
+static inline _Bool ti_future_own_mpdata(ti_future_t * future)
+{
+    return (future->rval &&
+            future->rval->ref == 1 &&
+            ti_val_is_mpdata(future->rval));
+}
+
 
 #endif  /* TI_FUTURE_INLINE_H_ */

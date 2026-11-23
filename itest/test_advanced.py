@@ -3198,6 +3198,18 @@ mod_enum('E', 'mod', 'A', {
                 r"add a space between `\)` and `!=` to resolve"):
             await client.query('test()!=0;')
 
+    async def test_mpdata_from_future(self, client: Client):
+        # pr #480 (test for allocation/package skip for mpdata)
+        user_info = await client.query("""//ti
+            user_info();
+        """)
+
+        check = await client.query("""//ti
+            future(|| user_info());
+        """)
+        self.assertEqual(user_info, check)
+        self.assertEqual(user_info["name"], "admin")
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

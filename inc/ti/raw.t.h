@@ -8,7 +8,7 @@ typedef struct ti_raw_s ti_raw_t;
 
 #include <inttypes.h>
 
-struct ti_raw_s
+struct __attribute__((packed)) ti_raw_s
 {
     uint32_t ref;
     uint8_t tp;

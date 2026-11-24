@@ -28,7 +28,7 @@
 #include <util/fx.h>
 
 #define MODULE__TOO_MANY_RESTARTS 3
-
+#define MODULE__MAX_ERROR_SZ 16383
 
 static void module__write_req_cb(uv_write_t * req, int status)
 {
@@ -214,6 +214,28 @@ mem_error0:
         ex_set_internal(&e);
         ti_query_on_future_result(future, &e);
     }
+}
+
+static void module__clear_conf_error(ti_module_t * module)
+{
+    free(module->conf_error);
+    module->conf_error = NULL;
+}
+
+static void module__set_conf_error(ti_module_t * module, ti_pkg_t * pkg)
+{
+    mp_unp_t up;
+    mp_obj_t mp_err;
+    mp_unp_init(&up, pkg->data, pkg->n);
+    if (mp_next(&up, &mp_err) == MP_STR &&
+        mp_err.via.str.n < EX_MAX_SZ &&
+        asprintf(
+                &module->conf_error,
+                "[@node:%u] %.*s",
+                ti.node->id,
+                (int) mp_err.via.str.n,
+                mp_err.via.str.data) < 0)
+        module->conf_error = NULL;
 }
 
 ti_pkg_t * ti_module_conf_pkg(ti_val_t * val, ti_query_t * query)
@@ -1036,6 +1058,8 @@ int ti_module_deploy(ti_module_t * module, const void * data, size_t n)
 
 void ti_module_update_conf(ti_module_t * module)
 {
+    module__clear_conf_error(module);
+
     if (module->flags & TI_MODULE_FLAG_IN_USE)
         module__conf(module);
     else
@@ -1259,14 +1283,20 @@ void ti_module_on_pkg(ti_module_t * module, ti_pkg_t * pkg)
     switch(pkg->tp)
     {
     case TI_PROTO_MODULE_CONF_OK:
+        module__clear_conf_error(module);
+
         log_info("module `%s` is successfully configured", module->name->str);
         module->status &= ~TI_MODULE_STAT_CONFIGURATION_ERR;
         module->flags &= ~TI_MODULE_FLAG_WAIT_CONF;
         return;
     case TI_PROTO_MODULE_CONF_ERR:
+        module__clear_conf_error(module);
+
         log_info("failed to configure module `%s`", module->name->str);
         module->status = TI_MODULE_STAT_CONFIGURATION_ERR;
         module->flags &= ~TI_MODULE_FLAG_WAIT_CONF;
+
+        module__set_conf_error(module, pkg);
         return;
     }
 
@@ -1339,6 +1369,7 @@ static int module__info_to_vp(ti_module_t * module, ti_vp_t * vp, int flags)
             !!manifest->load;
     size_t sz = 5 + \
             !!(module->file) + \
+            !!(module->conf_error) + \
             !!(flags & TI_MODULE_FLAG_WITH_CONF) + \
             !!(flags & TI_MODULE_FLAG_WITH_TASKS) + \
             !!(flags & TI_MODULE_FLAG_WITH_RESTARTS) + \
@@ -1370,6 +1401,10 @@ static int module__info_to_vp(ti_module_t * module, ti_vp_t * vp, int flags)
         (module->file && (
             mp_pack_str(pk, "file") ||
             mp_pack_str(pk, module->file))) ||
+
+        (module->conf_error && (
+            mp_pack_str(pk, "conf_error") ||
+            mp_pack_str(pk, module->conf_error))) ||
 
         ((flags & TI_MODULE_FLAG_WITH_CONF) && (
                 mp_pack_str(pk, "conf") ||
@@ -1700,6 +1735,7 @@ void ti_module_destroy(ti_module_t * module)
     free(module->args);
     free(module->conf_pkg);
     free(module->scope_id);
+    free(module->conf_error);
 
     switch (module->source_type)
     {

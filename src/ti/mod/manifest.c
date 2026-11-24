@@ -2,6 +2,7 @@
  * ti/mod/manifest.c
  */
 #define _GNU_SOURCE
+#include <math.h>
 #include <ctype.h>
 #include <stdarg.h>
 #include <stdio.h>

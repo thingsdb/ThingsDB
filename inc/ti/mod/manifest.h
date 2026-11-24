@@ -23,6 +23,7 @@ void ti_mod_manifest_clear(ti_mod_manifest_t * manifest);
 static inline void ti_mod_manifest_init(ti_mod_manifest_t * manifest)
 {
     memset(manifest, 0, sizeof(ti_mod_manifest_t));
+    manifest->schema = TI_MANIFEST_SCHEMA_V1;
 }
 
 #endif  /* TI_MOD_MANIFEST_H_ */

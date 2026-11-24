@@ -322,6 +322,7 @@ ti_module_t* ti_module_create(
             name,
             name_n);
     module->orig = strndup(source, source_n);
+    module->manifest.schema = TI_MANIFEST_SCHEMA_V1;
 
 
     if (!module->name || !module->futures || !module->path || !module->orig)
@@ -1336,7 +1337,7 @@ static int module__info_to_vp(ti_module_t * module, ti_vp_t * vp, int flags)
             (manifest->defaults ? manifest->defaults->n : 0) + \
             !!manifest->deep + \
             !!manifest->load;
-    size_t sz = 4 + \
+    size_t sz = 5 + \
             !!(module->file) + \
             !!(flags & TI_MODULE_FLAG_WITH_CONF) + \
             !!(flags & TI_MODULE_FLAG_WITH_TASKS) + \
@@ -1348,6 +1349,9 @@ static int module__info_to_vp(ti_module_t * module, ti_vp_t * vp, int flags)
             !!defaults_n;
 
     if (msgpack_pack_map(pk, sz) ||
+
+        mp_pack_str(pk, "schema") ||
+        msgpack_pack_uint8(pk, manifest->schema) ||
 
         mp_pack_str(pk, "name") ||
         mp_pack_strn(pk, module->name->str, module->name->n) ||

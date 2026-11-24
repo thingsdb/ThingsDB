@@ -855,6 +855,10 @@ finish:
 void ti_query_on_future_result(ti_future_t * future, ex_t * e)
 {
     ti_query_t * query = future->query;
+    _Bool result_only = (
+        future == (ti_future_t *) query->rval &&
+        future->module &&
+        future->module->manifest.schema >= TI_MANIFEST_SCHEMA_V2);
 
     --ti.futures_count;
 
@@ -936,6 +940,17 @@ done:
     {
         if (query->flags & TI_QUERY_FLAG_RAISE_ERR)
             ti_verror_to_e((ti_verror_t *) query->rval, e);
+        else if (result_only)
+        {
+            /* For Schema Version 2 Modules or higher, we no longer return
+             * the array as a result as this is never what you want. If, in
+             * some rare case you do want the arguments, use .then(|..| [..])
+             */
+            ti_varr_t * varr = (ti_varr_t *) future->rval;
+            future->rval = VEC_first(varr->vec);
+            ti_incref(future->rval);
+            ti_val_unsafe_drop((ti_val_t *) varr);
+        }
 
         ti_query_response(query, e);
     }

@@ -228,7 +228,7 @@ static void module__set_conf_error(ti_module_t * module, ti_pkg_t * pkg)
     mp_obj_t mp_err;
     mp_unp_init(&up, pkg->data, pkg->n);
     if (mp_next(&up, &mp_err) == MP_STR &&
-        mp_err.via.str.n < EX_MAX_SZ &&
+        mp_err.via.str.n < MODULE__MAX_ERROR_SZ &&
         asprintf(
                 &module->conf_error,
                 "[@node:%u] %.*s",

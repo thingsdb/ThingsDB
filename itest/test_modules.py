@@ -113,6 +113,7 @@ class TestModules(TestBase):
         res = await client.query('module_info("X");', scope="/t")
         self.assertIsInstance(res.pop('created_at'), int)
         self.assertEqual(res, {
+            "schema": 1,
             "name": "X",
             "conf": None,
             "scope": "@collection:stuff",
@@ -121,6 +122,7 @@ class TestModules(TestBase):
         res = await client.query('module_info("X");', scope="/n")
         self.assertIsInstance(res.pop('created_at'), int)
         self.assertEqual(res, {
+            "schema": 1,
             "name": "X",
             "conf": None,
             "restarts": 0,
@@ -143,6 +145,7 @@ class TestModules(TestBase):
         res = await testcl.query('module_info("X");', scope="//stuff")
         self.assertIsInstance(res.pop('created_at'), int)
         self.assertEqual(res, {
+            "schema": 1,
             "name": "X",
             "scope": "@collection:stuff",
             "status": "module not installed",

@@ -38,6 +38,7 @@ typedef enum
     MF__MAIN_OSARCH,
     MF__MAIN_NO_OSARCH,
     MF__VERSION,
+    MF__SCHEMA,
     MF__DOC,
     MF__DEFAULTS,
     MF__DEFAULTS_MAP,
@@ -282,6 +283,10 @@ static ti_item_t * manifest__make_item(
     manifest__set_err(__ctx, "expecting a string or number as `version` in "TI_MANIFEST", "__notv);
 
 
+#define manifest__err_schema(__ctx, __notv) \
+    manifest__set_err(__ctx, "expecting a number as `schema` in "TI_MANIFEST", "__notv);
+
+
 #define manifest__err_doc(__ctx, __notv) \
     manifest__set_err(__ctx, "expecting a string as `doc` in "TI_MANIFEST", "__notv);
 
@@ -346,6 +351,7 @@ static int manifest__json_null(void * data)
     case MF__MAIN_OSARCH:
     case MF__MAIN_NO_OSARCH:    return manifest__err_osarch(ctx, TI_NNULL);
     case MF__VERSION:           return manifest__err_version(ctx, TI_NNULL);
+    case MF__SCHEMA:            return manifest__err_schema(ctx, TI_NNULL);
     case MF__DOC:               return manifest__set_mode(ctx, MF__ROOT_MAP);
     case MF__DEFAULTS:          return manifest__err_defaults(ctx, TI_NNULL);
     case MF__DEFAULTS_DEEP:     return manifest__err_deep(ctx, TI_NNULL);
@@ -389,6 +395,7 @@ static int manifest__json_boolean(void * data, int boolean)
     case MF__MAIN_OSARCH:
     case MF__MAIN_NO_OSARCH:    return manifest__err_osarch(ctx, TI_NBOOL);
     case MF__VERSION:           return manifest__err_version(ctx, TI_NBOOL);
+    case MF__SCHEMA:            return manifest__err_schema(ctx, TI_NBOOL);
     case MF__DOC:               return manifest__err_doc(ctx, TI_NBOOL);
     case MF__DEFAULTS:          return manifest__err_defaults(ctx, TI_NBOOL);
     case MF__DEFAULTS_DEEP:     return manifest__err_deep(ctx, TI_NBOOL);
@@ -452,6 +459,16 @@ static int manifest__json_integer(void * data, long long i)
         if (!ctx->manifest->version)
             if (asprintf(&ctx->manifest->version, "%lld", i) < 0)
                 return manifest__set_err(ctx, manifest__err_alloc);
+        return manifest__set_mode(ctx, MF__ROOT_MAP);
+    case MF__SCHEMA:
+        if (i < TI_MANIFEST_SCHEMA_V1 || i > TI_MANIFEST_SCHEMA_V2)
+            return manifest__set_err(
+                    ctx,
+                    "expecting a `schema` version 1 or 2 "
+                    "in "TI_MANIFEST", not %lld; a newer version of "
+                    "ThingsDB is most likely required to install this module",
+                    i);
+        ctx->manifest->schema = (uint8_t) i;
         return manifest__set_mode(ctx, MF__ROOT_MAP);
     case MF__DOC:               return manifest__err_doc(ctx, TI_NNUM);
     case MF__DEFAULTS:          return manifest__err_defaults(ctx, TI_NNUM);
@@ -527,13 +544,24 @@ static int manifest__json_double(void * data, double d)
             if (asprintf(&ctx->manifest->version, "%g", d) < 0)
                 return manifest__set_err(ctx, manifest__err_alloc);
         return manifest__set_mode(ctx, MF__ROOT_MAP);
+    case MF__SCHEMA:
+        if (!(d >= TI_MANIFEST_SCHEMA_V1 && d <= TI_MANIFEST_SCHEMA_V2) ||
+            trunc(d) != d)
+            return manifest__set_err(
+                    ctx,
+                    "expecting a `schema` version 1 or 2 "
+                    "in "TI_MANIFEST", not %f; a newer version of "
+                    "ThingsDB is most likely required to install this module",
+                    d);
+        ctx->manifest->schema = (uint8_t) d;
+        return manifest__set_mode(ctx, MF__ROOT_MAP);
     case MF__DOC:               return manifest__err_doc(ctx, TI_NNUM);
     case MF__DEFAULTS:          return manifest__err_defaults(ctx, TI_NNUM);
     case MF__DEFAULTS_DEEP:
-        if (d < 0 || d > TI_MAX_DEEP)
+        if (!(d >= 0.0 && d <= TI_MAX_DEEP) || trunc(d) != d)
             return manifest__set_err(
                     ctx,
-                    "expecting a `deep` value between 0 and %d "
+                    "expecting a `deep` integer value between 0 and %d "
                     "in "TI_MANIFEST", not %f",
                     TI_MAX_DEEP, d);
         if (!ctx->manifest->deep)
@@ -560,10 +588,10 @@ static int manifest__json_double(void * data, double d)
     case MF__X_DEFAULTS_DEEP:
     {
         ti_mod_expose_t * expose = ctx->data;
-        if (d < 0 || d > TI_MAX_DEEP)
+        if (!(d >= 0.0 && d <= TI_MAX_DEEP) || trunc(d) != d)
             return manifest__set_err(
                     ctx,
-                    "expecting a `deep` value between 0 and %d "
+                    "expecting a `deep` integer value between 0 and %d "
                     "in "TI_MANIFEST", not %f",
                     TI_MAX_DEEP, d);
         if (!expose->deep)
@@ -608,6 +636,7 @@ static int manifest__json_string(
         if (!ctx->manifest->version)
             ctx->manifest->version = strndup((const char *) s, n);
         return manifest__set_mode(ctx, MF__ROOT_MAP);
+    case MF__SCHEMA:            return manifest__err_schema(ctx, TI_NSTR);
     case MF__DOC:
         if (!ctx->manifest->doc)
             ctx->manifest->doc = strndup((const char *) s, n);
@@ -756,6 +785,7 @@ static int manifest__json_start_map(void * data)
     case MF__MAIN_OSARCH:
     case MF__MAIN_NO_OSARCH:    return manifest__err_osarch(ctx, TI_NOMAP);
     case MF__VERSION:           return manifest__err_version(ctx, TI_NOMAP);
+    case MF__SCHEMA:            return manifest__err_schema(ctx, TI_NOMAP);
     case MF__DOC:               return manifest__err_doc(ctx, TI_NOMAP);
     case MF__DEFAULTS:          return manifest__set_mode(ctx, MF__DEFAULTS_MAP);
     case MF__DEFAULTS_DEEP:     return manifest__err_deep(ctx, TI_NOMAP);
@@ -807,6 +837,8 @@ static int manifest__json_map_key(
             return manifest__set_mode(ctx, MF__MAIN);
         if (manifest__key_equals(s, n, "version", 7))
             return manifest__set_mode(ctx, MF__VERSION);
+        if (manifest__key_equals(s, n, "schema", 6))
+            return manifest__set_mode(ctx, MF__SCHEMA);
         if (manifest__key_equals(s, n, "doc", 3))
             return manifest__set_mode(ctx, MF__DOC);
         if (manifest__key_equals(s, n, "defaults", 8))
@@ -939,6 +971,7 @@ static int manifest__json_start_array(void * data)
     case MF__MAIN_OSARCH:
     case MF__MAIN_NO_OSARCH:    return manifest__err_osarch(ctx, NOARRAY);
     case MF__VERSION:           return manifest__err_version(ctx, NOARRAY);
+    case MF__SCHEMA:            return manifest__err_schema(ctx, NOARRAY);
     case MF__DOC:               return manifest__err_doc(ctx, NOARRAY);
     case MF__DEFAULTS:          return manifest__err_defaults(ctx, NOARRAY);
     case MF__DEFAULTS_DEEP:     return manifest__err_deep(ctx, NOARRAY);
@@ -1347,6 +1380,7 @@ _Bool ti_mod_manifest_skip_install(
     if (!module->manifest.version)
     {
         ti_mod_manifest_t tmpm = {0};
+        tmpm.schema = TI_MANIFEST_SCHEMA_V1;
         _Bool skip_install;
 
         if (ti_mod_manifest_local(&tmpm, module))
@@ -1390,5 +1424,6 @@ void ti_mod_manifest_clear(ti_mod_manifest_t * manifest)
     vec_destroy(manifest->requirements, (vec_destroy_cb) free);
     smap_destroy(manifest->exposes, (smap_destroy_cb) ti_mod_expose_destroy);
     memset(manifest, 0, sizeof(ti_mod_manifest_t));
+    manifest->schema = TI_MANIFEST_SCHEMA_V1;
 }
 

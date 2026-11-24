@@ -6,6 +6,9 @@
 
 #define TI_MANIFEST "module.json"
 
+#define TI_MANIFEST_SCHEMA_V1 1
+#define TI_MANIFEST_SCHEMA_V2 2
+
 typedef struct ti_mod_manifest_s ti_mod_manifest_t;
 
 #include <util/vec.h>
@@ -14,6 +17,7 @@ typedef struct ti_mod_manifest_s ti_mod_manifest_t;
 struct ti_mod_manifest_s
 {
     _Bool is_py;                        /* true/false */
+    uint8_t schema;                     /* schema version */
     char * main;                        /* required */
     char * version;                     /* required */
     char * doc;                         /* NULL or string */

@@ -10,7 +10,7 @@
 
 typedef struct ti_mpkg_s ti_mpkg_t;
 
-struct __attribute__((packed)) ti_mpkg_s
+struct ti_mpkg_s
 {
     int:32;
     uint32_t n;     /* size of data */

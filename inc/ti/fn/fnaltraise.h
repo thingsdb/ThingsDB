@@ -20,7 +20,7 @@ static int do__f_alt_raise(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = NULL;
 
     if (ti_do_statement(query, nd->children->next->next, &ex) ||
-        fn_arg_int("alt_raise", DOC_ALT_RAISE, 2, query->rval, &ex))
+        fn_arg_int_slow("alt_raise", DOC_ALT_RAISE, 2, query->rval, &ex))
         goto exerr;
 
     vcode = (ti_vint_t *) query->rval;

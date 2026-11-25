@@ -6,6 +6,13 @@
 
 typedef struct ti_future_s ti_future_t;
 
+#include <doc.h>
+
+#define TI_FUTURE_NESTED_ERR \
+    "cannot store a `future` in a `thing`, `dict`, `list` or `tuple`; " \
+    "use the `then(..)` callback to assign the resolved value" \
+    DOC_FUTURE_THEN
+
 #define VFUT(__v) ((ti_future_t *) (__v))->rval
 
 #include <inttypes.h>

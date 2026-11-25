@@ -36,6 +36,37 @@ class TestModules(TestBase):
         client.close()
         await client.wait_closed()
 
+    async def test_error(self, client):
+        with self.assertRaisesRegex(
+                TypeError,
+                r"cannot store a `module` in a `thing`, `dict`, `list` "
+                r"or `tuple`"):
+            await client.query("""//ti
+                new_module("M", "m", nil);
+                m = M;
+                d = dict();
+                d[0] = m;
+            """, scope='/t')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r"cannot store a `module` in a `thing`, `dict`, `list` "
+                r"or `tuple`"):
+            await client.query("""//ti
+                .m = M;
+            """, scope='//stuff')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r"mismatch in type `T`; property `a` allows `any` type with "
+                r"the exception of the `future` and `module` type"):
+            await client.query("""//ti
+                set_type('T', {a: 'any'});
+                T{
+                    a: M
+                };
+            """, scope='//stuff')
+
     async def test_new_module(self, client):
         client.set_default_scope('//stuff')
         with self.assertRaisesRegex(
@@ -168,7 +199,7 @@ class TestModules(TestBase):
             await client.query('modules_info("X", "x");')
 
         res = await client.query('modules_info();', scope="/t")
-        self.assertEqual(len(res), 2)
+        self.assertEqual(len(res), 3)
         res = await client.query('["X", "Y"].each(|m| del_module(m));')
         self.assertIs(res, None)
 

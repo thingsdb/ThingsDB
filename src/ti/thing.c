@@ -471,9 +471,11 @@ int ti_thing_p_prop_add_assign(
         ti_incref(val);
         break;
     case TI_VAL_FUTURE:
+        ex_set(e, EX_TYPE_ERROR, TI_FUTURE_NESTED_ERR);
+        return e->nr;
     case TI_VAL_MODULE:
-        val = (ti_val_t *) ti_nil_get();
-        break;
+        ex_set(e, EX_TYPE_ERROR, TI_MODULE_NESTED_ERR);
+        return e->nr;
     case TI_VAL_TEMPLATE:
         assert(0);
         break;
@@ -585,9 +587,11 @@ int ti_thing_i_item_add_assign(
         ti_incref(val);
         break;
     case TI_VAL_FUTURE:
+        ex_set(e, EX_TYPE_ERROR, TI_FUTURE_NESTED_ERR);
+        return e->nr;
     case TI_VAL_MODULE:
-        val = (ti_val_t *) ti_nil_get();
-        break;
+        ex_set(e, EX_TYPE_ERROR, TI_MODULE_NESTED_ERR);
+        return e->nr;
     case TI_VAL_TEMPLATE:
         assert(0);
         break;

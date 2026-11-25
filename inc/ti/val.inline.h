@@ -360,7 +360,10 @@ static inline int val__dict_to_nested(ti_val_t ** v, ti_parent_t * p, ex_t * e)
 static inline int val__member_to_nested(ti_val_t ** v,
                                         ti_parent_t * p,
                                         ex_t * e);
-static inline int val__as_nil_to_nested(ti_val_t ** v,
+static inline int val__future_to_nested(ti_val_t ** v,
+                                        ti_parent_t * UNUSED(p),
+                                        ex_t * UNUSED(e));
+static inline int val__module_to_nested(ti_val_t ** v,
                                         ti_parent_t * UNUSED(p),
                                         ex_t * UNUSED(e));
 static inline int val__closure_to_nested(ti_val_t ** v,
@@ -701,7 +704,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .destroy = (ti_val_destroy_cb) ti_future_destroy,
         .to_str = val__no_to_str,
         .to_uuid = val__no_to_uuid,
-        .to_nested = val__as_nil_to_nested,
+        .to_nested = val__future_to_nested,
         .to_client_pk = (ti_val_to_client_pk_cb) val__future_to_client_pk,
         .get_type_str = val__future_type_str,
         .as_bool = val__as_bool_true,
@@ -713,7 +716,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .destroy = (ti_val_destroy_cb) ti_module_destroy,
         .to_str = val__no_to_str,
         .to_uuid = val__no_to_uuid,
-        .to_nested = val__as_nil_to_nested,
+        .to_nested = val__module_to_nested,
         .to_client_pk = (ti_val_to_client_pk_cb) val__module_to_client_pk,
         .get_type_str = val__module_type_str,
         .as_bool = val__as_bool_true,
@@ -1393,10 +1396,11 @@ static inline int ti_val_make_assignable(
     case TI_VAL_UUID:
         return 0;
     case TI_VAL_FUTURE:
+        ex_set(e, EX_TYPE_ERROR, TI_FUTURE_NESTED_ERR);
+        return e->nr;
     case TI_VAL_MODULE:
-        ti_val_unsafe_drop(*val);
-        *val = (ti_val_t *) ti_nil_get();
-        return 0;
+        ex_set(e, EX_TYPE_ERROR, TI_MODULE_NESTED_ERR);
+        return e->nr;
     case TI_VAL_TEMPLATE:
         assert(0);
         return -1;
@@ -1628,13 +1632,22 @@ static inline int val__member_to_nested(ti_val_t ** v,
     return e->nr;
 }
 
-static inline int val__as_nil_to_nested(ti_val_t ** v,
+static inline int val__future_to_nested(ti_val_t ** UNUSED(v),
                                         ti_parent_t * UNUSED(p),
-                                        ex_t * UNUSED(e))
+                                        ex_t * e)
 {
-    ti_val_unsafe_drop(*v);
-    *v = (ti_val_t *) ti_nil_get();
-    return 0;
+    ex_set(e, EX_TYPE_ERROR, TI_FUTURE_NESTED_ERR);
+    return e->nr;
+}
+
+
+
+static inline int val__module_to_nested(ti_val_t ** UNUSED(v),
+                                        ti_parent_t * UNUSED(p),
+                                        ex_t * e)
+{
+    ex_set(e, EX_TYPE_ERROR, TI_MODULE_NESTED_ERR);
+    return e->nr;
 }
 
 /*

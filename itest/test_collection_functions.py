@@ -2156,7 +2156,6 @@ class TestCollectionFunctions(TestBase):
             'is_future(future(nil).then(||nil));'))
         self.assertTrue(await client.query(
             'is_future(future(nil).else(||nil));'))
-        self.assertFalse(await client.query('is_future([future(nil)][0]); '))
         self.assertFalse(await client.query('is_future( 42 );'))
         self.assertFalse(await client.query('is_future( nil );'))
 

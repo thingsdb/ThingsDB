@@ -10,6 +10,8 @@ typedef void (*ti_module_cb)(void * future);
 #define TI_MODULE_MAX_ERR 255
 #define TI_MODULE_DEFAULT_LOAD false
 #define TI_MODULE_DEFAULT_DEEP 1
+#define TI_MODULE_NESTED_ERR \
+    "cannot store a `module` in a `thing`, `dict`, `list` or `tuple`"
 
 #include <inttypes.h>
 #include <ti/mod/github.t.h>

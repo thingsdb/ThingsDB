@@ -230,7 +230,7 @@ static int do__search_thing(
     case TI_VAL_WANO:
         return search__do_thing(((ti_wano_t *) val)->thing, root, key, w);
     case TI_VAL_UUID:
-    case TI_VAL_FUTURE:
+    case TI_VAL_FUTURE:  /* can't be assigned, so no need to look */
     case TI_VAL_MODULE:
     case TI_VAL_TEMPLATE:
         return 0;

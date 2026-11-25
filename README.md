@@ -44,6 +44,8 @@ Learn ThingsDB: https://docs.thingsdb.io/v1/getting-started/book/
 
 - From source: https://docs.thingsdb.io/v1/getting-started/build-from-source/
 - Image GitHub: https://github.com/thingsdb/ThingsDB/pkgs/container/node/
+- Kubernetes: https://github.com/thingsdb/ThingsDB/tree/main/gke#readme
+- Azure: https://docs.thingsdb.io/v1/getting-started/azure/
 
 ## Docker
 

@@ -6,10 +6,14 @@
 
 typedef struct ti_future_s ti_future_t;
 
-#define VFUT(__v) ((ti_future_t *) (__v))->rval
+#include <doc.h>
+
 #define TI_FUTURE_NESTED_ERR \
-    "future and modules cannot be assigned to a thing, dict, or array; " \
-    "use the `then(..)` callback if you need to set or append the value"
+    "cannot store a `future` in a `thing`, `dict`, `list` or `tuple`; " \
+    "use the `then(..)` callback to assign the resolved value" \
+    DOC_FUTURE_THEN
+
+#define VFUT(__v) ((ti_future_t *) (__v))->rval
 
 #include <inttypes.h>
 #include <ti/query.t.h>

@@ -53,12 +53,16 @@ class TestFuture(TestBase):
         ''')
         self.assertEqual(res, "future")
 
-        res = await client.query(r'''
-            f = future(nil);
-            .x = f;  // Assign to collectoin converts the future to `nil`
-            type(.x);
-        ''')
-        self.assertEqual(res, "nil")
+        # pr #483  // used to silently convert
+        with self.assertRaisesRegex(
+                TypeError,
+                r"cannot store a `future` in a `thing`, `dict`, `list` "
+                r"or `tuple`; "
+                r"use the `then\(..\)` callback to assign the resolved value"):
+            res = await client.query(r'''
+                f = future(nil);
+                .x = f;
+            ''')
 
         res = await client.query(r'''
             f = future(nil);
@@ -67,12 +71,16 @@ class TestFuture(TestBase):
         ''')
         self.assertEqual(res, "future")
 
-        res = await client.query(r'''
-            f = future(nil);
-            x = [f];
-            type(x[0]);
-        ''')
-        self.assertEqual(res, "nil")
+        # pr #483  // used to silently convert
+        with self.assertRaisesRegex(
+                TypeError,
+                r"cannot store a `future` in a `thing`, `dict`, `list` "
+                r"or `tuple`; "
+                r"use the `then\(..\)` callback to assign the resolved value"):
+            res = await client.query(r'''
+                f = future(nil);
+                x = [f];
+            ''')
 
     async def test_future_mod_type(self, client):
         res = await client.query(r'''

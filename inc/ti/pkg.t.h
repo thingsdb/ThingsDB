@@ -11,7 +11,7 @@ typedef struct ti_pkg_s ti_pkg_t;
 
 #include <inttypes.h>
 
-struct ti_pkg_s
+struct __attribute__((packed)) ti_pkg_s
 {
     uint32_t n;     /* size of data */
     uint16_t id;    /* id 0 is used for fire-and-forget packages */

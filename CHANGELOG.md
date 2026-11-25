@@ -1,4 +1,4 @@
-# v1.12.0-alpha3
+# v1.12.0
 
 * Avoid re-allocating/packing for `mpdata`; write as `mpkg` directly, pr #480.
 * Added module `schema` version (`1` or `2`); `2` returns only the result, pr #481.

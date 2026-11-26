@@ -25,8 +25,8 @@ static int do__f_unique(ti_query_t *query, cleri_node_t *nd, ex_t *e)
     for (vec_each_addr(varr->vec, ti_val_t, va))
     {
         ti_val_t
-            ** vp = (ti_val_t **) (retv->vec)->data,
-            ** ve = vp + (retv->vec)->n;
+            **vp = (ti_val_t **) (retv->vec)->data,
+            **ve = vp + (retv->vec)->n;
 
         for (;vp < ve; vp++)
             if (ti_opr_eq(*va, *vp))

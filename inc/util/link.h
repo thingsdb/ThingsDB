@@ -5,7 +5,7 @@
 #define LINK_H_
 
 typedef struct link_s  link_t;
-typedef struct link__s ** link_iter_t;
+typedef struct link__s **link_iter_t;
 
 typedef void (*link_destroy_cb)(void *data);
 

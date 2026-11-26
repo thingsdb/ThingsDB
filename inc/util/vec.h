@@ -60,8 +60,8 @@ static inline void *VEC_get(const vec_t *vec, uint32_t i);
 
 /* use vec_each in a for loop to go through all values by it's address */
 #define vec_each_addr(vec__, dt__, var__) \
-    dt__ ** var__ = (dt__ **) (vec__)->data, \
-         ** end__ = var__ + (vec__)->n; \
+    dt__ **var__ = (dt__ **) (vec__)->data, \
+         **end__ = var__ + (vec__)->n; \
     var__ < end__; \
     var__++
 
@@ -69,8 +69,8 @@ static inline void *VEC_get(const vec_t *vec, uint32_t i);
  * do not change the vector while iterating over the values */
 #define vec_each(vec__, dt__, var__) \
     dt__ * var__, \
-    ** v__ = (dt__ **) (vec__)->data, \
-    ** e__ = v__ + (vec__)->n; \
+    **v__ = (dt__ **) (vec__)->data, \
+    **e__ = v__ + (vec__)->n; \
     v__ < e__ && ((var__ = *v__) || 1); \
     v__++
 
@@ -78,8 +78,8 @@ static inline void *VEC_get(const vec_t *vec, uint32_t i);
  * do not change the vector while iterating over the values */
 #define vec_each_rev(vec__, dt__, var__) \
     dt__ * var__, \
-    ** e__ = (dt__ **) (vec__)->data, \
-    ** v__ = e__ + (vec__)->n; \
+    **e__ = (dt__ **) (vec__)->data, \
+    **v__ = e__ + (vec__)->n; \
     v__ > e__ && ((var__ = *(--v__)) || 1);
 
 struct vec_s

@@ -336,7 +336,7 @@ int ti_archive_init(void)
 
 int ti_archive_load(void)
 {
-    struct dirent ** file_list;
+    struct dirent **file_list;
     int n, total, rc = 0;
     ti_archfile_t *archfile;
     const uint64_t *ccid = &ti.node->ccid;

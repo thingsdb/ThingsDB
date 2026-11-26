@@ -47,11 +47,11 @@ int queue_walk(queue_t *queue, queue_cb cb, void *arg);
  * do not change the queue while iterating, with the exception of one
  * queue_shift per iteration which is allowed. */
 #define queue_each(q__, dt__, var__)\
-        dt__ * var__, \
-        ** b__ = (dt__ **) (q__)->data_, \
-        ** v__ = b__ + (q__)->s_, \
-        ** e__ = b__ + (q__)->sz, \
-        ** n__ = v__ + (q__)->n; \
+        dt__ *var__, \
+        **b__ = (dt__ **) (q__)->data_, \
+        **v__ = b__ + (q__)->s_, \
+        **e__ = b__ + (q__)->sz, \
+        **n__ = v__ + (q__)->n; \
         (v__ < e__ && v__ < n__ && ((var__ = *v__) || 1)) || \
         (       e__ < n__ && \
                 (v__ = b__) && \

@@ -216,8 +216,8 @@ static inline ti_prop_t *ti_thing_o_prop_weak_get(
 
 #define thing_t_each(t__, name__, val__)                        \
     void **v__ = t__->items.vec->data,                         \
-    ** e__ = v__ + t__->items.vec->n,                           \
-    ** n__ = (t__)->via.type->fields->data;                     \
+    **e__ = v__ + t__->items.vec->n,                           \
+    **n__ = (t__)->via.type->fields->data;                     \
     v__ < e__ &&                                                \
     (name__ = ((ti_field_t *) *n__)->name) &&                   \
     (val__ = *v__);                                             \
@@ -225,8 +225,8 @@ static inline ti_prop_t *ti_thing_o_prop_weak_get(
 
 #define thing_t_each_addr(t__, name__, val__)                   \
     void **v__ = t__->items.vec->data,                         \
-    ** e__ = v__ + t__->items.vec->n,                           \
-    ** n__ = (t__)->via.type->fields->data;                     \
+    **e__ = v__ + t__->items.vec->n,                           \
+    **n__ = (t__)->via.type->fields->data;                     \
     v__ < e__ &&                                                \
     (name__ = ((ti_field_t *) *n__)->name) &&                   \
     (val__ = (ti_val_t **) v__);                                \

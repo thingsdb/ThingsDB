@@ -45,6 +45,7 @@
 #include <ti/fn/fncount.h>
 #include <ti/fn/fncounters.h>
 #include <ti/fn/fndatetime.h>
+#include <ti/fn/fndecrypt.h>
 #include <ti/fn/fndeep.h>
 #include <ti/fn/fndel.h>
 #include <ti/fn/fndelbackup.h>
@@ -65,6 +66,7 @@
 #include <ti/fn/fneach.h>
 #include <ti/fn/fnelse.h>
 #include <ti/fn/fnemit.h>
+#include <ti/fn/fnencrypt.h>
 #include <ti/fn/fnendswith.h>
 #include <ti/fn/fnenum.h>
 #include <ti/fn/fnenuminfo.h>
@@ -310,11 +312,11 @@ static void qbind__statement(ti_qbind_t *qbind, cleri_node_t *nd);
  *
  * Command:
  *
- *    pcregrep -o1 '\.name\=\"(\w+)' qbind.c | gperf -E -k '*,1,$' -m 400
+ *    pcre2grep -o1 '\.name\=\"(\w+)' qbind.c | gperf -E -k '*,1,$' -m 400
  */
 enum
 {
-    TOTAL_KEYWORDS = 289,
+    TOTAL_KEYWORDS = 291,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
     MIN_HASH_VALUE = 42,
@@ -537,6 +539,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="count",             .fn=do__f_count,                CHAIN_NE},
     {.name="counters",          .fn=do__f_counters,             ROOT_NE},
     {.name="datetime",          .fn=do__f_datetime,             ROOT_NE},
+    {.name="decrypt",           .fn=do__f_decrypt,              CHAIN_NE},
     {.name="deep",              .fn=do__f_deep,                 ROOT_NE},
     {.name="del",               .fn=do__f_del,                  CHAIN_BE_X},
     {.name="del_backup",        .fn=do__f_del_backup,           ROOT_NE},
@@ -557,6 +560,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="each",              .fn=do__f_each,                 CHAIN_NE},
     {.name="else",              .fn=do__f_else,                 CHAIN_FUT},
     {.name="emit",              .fn=do__f_emit,                 CHAIN_NE},
+    {.name="encrypt",           .fn=do__f_encrypt,              CHAIN_NE},
     {.name="ends_with",         .fn=do__f_ends_with,            CHAIN_NE},
     {.name="enum",              .fn=do__f_enum,                 ROOT_NE},
     {.name="enum_info",         .fn=do__f_enum_info,            ROOT_NE},

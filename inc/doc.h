@@ -210,6 +210,8 @@
 #define DOC_RUN_PROCEDURE           DOC_SEE("procedures-api/run")
 
 /* Data Types */
+#define DOC_BYTES_DECRYPT           DOC_SEE("data-types/bytes/decrypt")
+#define DOC_BYTES_ENCRYPT           DOC_SEE("data-types/bytes/encrypt")
 #define DOC_BYTES_LEN               DOC_SEE("data-types/bytes/len")
 #define DOC_CLOSURE_CALL            DOC_SEE("data-types/closure/call")
 #define DOC_CLOSURE_DOC             DOC_SEE("data-types/closure/doc")

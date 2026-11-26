@@ -1,6 +1,7 @@
 /*
  * ti/module.c
  */
+#define _GNU_SOURCE
 #include <ex.h>
 #include <stdlib.h>
 #include <ti.h>

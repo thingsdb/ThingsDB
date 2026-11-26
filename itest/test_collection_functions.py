@@ -6225,6 +6225,90 @@ class TestCollectionFunctions(TestBase):
         r = await q('[nil].max()')
         self.assertEqual(r, None)
 
+    async def test_encrypt_decrypt(self, client):
+        q = client.query
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'function `encrypt` is undefined'):
+            await q('encrypt(bytes("hi"), "secret");')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `encrypt` takes 1 argument but 0 were given;'):
+            await q('bytes("hi").encrypt();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `decrypt` takes 1 argument but 0 were given;'):
+            await q('bytes("hi").decrypt();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `encrypt` expects argument 1 to be of type `str` '
+                'or `bytes` but got type `int` instead;'):
+            await q('bytes("hi").encrypt(123);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `decrypt` expects argument 1 to be of type `str` '
+                'or `bytes` but got type `nil` instead;'):
+            await q('bytes("hi").decrypt(nil);')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                'key must not be empty'):
+            await q('bytes("hi").encrypt("");')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                'key must not be empty'):
+            await q('bytes("hi").encrypt(bytes());')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                'key must not be empty'):
+            await q('bytes("hi").decrypt("");')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'decryption failed: invalid data or key'):
+            await q('bytes("not-valid-ciphertext").decrypt("secret");')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'decryption failed: invalid data or key'):
+            await q('''
+                enc = bytes("hello").encrypt("secret");
+                enc.decrypt("wrong-secret");
+            ''')
+
+        r = await q('''
+            enc = bytes("hello world").encrypt("my-secret");
+            str(enc.decrypt("my-secret"));
+        ''')
+        self.assertEqual(r, 'hello world')
+
+        r = await q('''
+            key = bytes("raw-binary-key");
+            enc = bytes("hello world").encrypt(key);
+            str(enc.decrypt(key));
+        ''')
+        self.assertEqual(r, 'hello world')
+
+        r = await q('''
+            enc = bytes().encrypt("my-secret");
+            enc.decrypt("my-secret");
+        ''')
+        self.assertEqual(r, b'')
+
+        r = await q('''
+            a = bytes("same").encrypt("my-secret");
+            b = bytes("same").encrypt("my-secret");
+            a != b;
+        ''')
+        self.assertTrue(r)
+
 
 if __name__ == '__main__':
     run_test(TestCollectionFunctions())

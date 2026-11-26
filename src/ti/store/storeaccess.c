@@ -9,7 +9,7 @@
 #include <util/fx.h>
 #include <util/mpack.h>
 
-int ti_store_access_store(const vec_t * access, const char * fn)
+int ti_store_access_store(const vec_t *access, const char *fn)
 {
     msgpack_packer pk;
     FILE * f = fopen(fn, "w");
@@ -48,15 +48,15 @@ done:
     return 0;
 }
 
-int ti_store_access_restore(vec_t ** access, const char * fn)
+int ti_store_access_restore(vec_t **access, const char *fn)
 {
     int rc = -1;
     size_t i;
     ssize_t n;
     mp_obj_t obj, mp_user_id, mp_mask;
     mp_unp_t up;
-    ti_user_t * user;
-    uchar * data = fx_read(fn, &n);
+    ti_user_t *user;
+    uchar *data = fx_read(fn, &n);
     if (!data)
         return -1;
 

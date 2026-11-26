@@ -17,7 +17,7 @@
 #include <ti/val.inline.h>
 #include <ti/vint.h>
 
-static inline size_t index__slice_also_not_nil(ti_val_t * val, ex_t * e)
+static inline size_t index__slice_also_not_nil(ti_val_t *val, ex_t *e)
 {
     if (!ti_val_is_nil(val))
         ex_set(e, EX_TYPE_ERROR,
@@ -28,19 +28,19 @@ static inline size_t index__slice_also_not_nil(ti_val_t * val, ex_t * e)
 }
 
 static int index__read_slice_indices(
-        ti_query_t * query,
-        cleri_node_t * slice,
-        ssize_t * start,
-        ssize_t * stop,
-        ssize_t * step,
-        ex_t * e)
+        ti_query_t *query,
+        cleri_node_t *slice,
+        ssize_t *start,
+        ssize_t *stop,
+        ssize_t *step,
+        ex_t *e)
 {
     assert(query->rval == NULL);
 
     const ssize_t n = *stop;
-    cleri_node_t * child = slice->children;
-    ssize_t * start_ = NULL;
-    ssize_t * stop_ = NULL;
+    cleri_node_t *child = slice->children;
+    ssize_t *start_ = NULL;
+    ssize_t *stop_ = NULL;
 
     if (!child || !(*stop))
         return e->nr;
@@ -141,9 +141,9 @@ static int index__read_slice_indices(
     return e->nr;
 }
 
-static int index__slice_str(ti_query_t * query, cleri_node_t * slice, ex_t * e)
+static int index__slice_str(ti_query_t *query, cleri_node_t *slice, ex_t *e)
 {
-    ti_raw_t * source = (ti_raw_t *) query->rval;
+    ti_raw_t *source = (ti_raw_t *) query->rval;
     ssize_t start = 0, stop = (ssize_t) source->n, step = 1;
 
     query->rval = NULL;
@@ -160,9 +160,9 @@ done:
     return e->nr;
 }
 
-static int index__slice_bin(ti_query_t * query, cleri_node_t * slice, ex_t * e)
+static int index__slice_bin(ti_query_t *query, cleri_node_t *slice, ex_t *e)
 {
-    ti_raw_t * source = (ti_raw_t *) query->rval;
+    ti_raw_t *source = (ti_raw_t *) query->rval;
     ssize_t start = 0, stop = (ssize_t) source->n, step = 1;
 
     query->rval = NULL;
@@ -179,9 +179,9 @@ done:
     return e->nr;
 }
 
-static int index__slice_arr(ti_query_t * query, cleri_node_t * slice, ex_t * e)
+static int index__slice_arr(ti_query_t *query, cleri_node_t *slice, ex_t *e)
 {
-    ti_varr_t * source = (ti_varr_t *) query->rval;
+    ti_varr_t *source = (ti_varr_t *) query->rval;
     ssize_t start = 0, stop = (ssize_t) source->vec->n, step = 1;
 
     query->rval = NULL;
@@ -198,12 +198,12 @@ done:
     return e->nr;
 }
 
-static int index__slice_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
+static int index__slice_ass(ti_query_t *query, cleri_node_t *inode, ex_t *e)
 {
-    cleri_node_t * slice = inode->children->next;
-    cleri_node_t * ass_statem = inode->children->next->next->next;
-    cleri_node_t * ass_tokens = ass_statem->children;
-    ti_varr_t * evarr, * varr = (ti_varr_t *) query->rval;
+    cleri_node_t *slice = inode->children->next;
+    cleri_node_t *ass_statem = inode->children->next->next->next;
+    cleri_node_t *ass_tokens = ass_statem->children;
+    ti_varr_t *evarr, *varr = (ti_varr_t *) query->rval;
     ssize_t c, n;
     ssize_t start = 0, stop = (ssize_t) varr->vec->n, step = 1;
     uint32_t current_n, new_n;
@@ -280,7 +280,7 @@ static int index__slice_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
 
     if (varr->parent && varr->parent->id)
     {
-        ti_task_t * task = ti_task_get_task(query->change, varr->parent);
+        ti_task_t *task = ti_task_get_task(query->change, varr->parent);
         if (!task || ti_task_add_splice(
                 task,
                 ti_varr_key(varr),
@@ -299,11 +299,11 @@ fail1:
 }
 
 static int index__numeric(
-        ti_query_t * query,
-        cleri_node_t * statement,
-        size_t * idx,
+        ti_query_t *query,
+        cleri_node_t *statement,
+        size_t *idx,
         size_t n,
-        ex_t * e)
+        ex_t *e)
 {
     ssize_t i;
 
@@ -336,11 +336,11 @@ static int index__numeric(
 }
 
 static int index__index_str(
-        ti_query_t * query,
-        cleri_node_t * statement,
-        ex_t * e)
+        ti_query_t *query,
+        cleri_node_t *statement,
+        ex_t *e)
 {
-    ti_str_t * source = (ti_str_t *) query->rval;
+    ti_str_t *source = (ti_str_t *) query->rval;
     size_t idx = 0;  /* only set to prevent warning */
 
     query->rval = NULL;
@@ -358,11 +358,11 @@ done:
 }
 
 static int index__index_bin(
-        ti_query_t * query,
-        cleri_node_t * statement,
-        ex_t * e)
+        ti_query_t *query,
+        cleri_node_t *statement,
+        ex_t *e)
 {
-    ti_raw_t * source = (ti_raw_t *) query->rval;
+    ti_raw_t *source = (ti_raw_t *) query->rval;
     size_t idx = 0;  /* only set to prevent warning */
 
     query->rval = NULL;
@@ -380,11 +380,11 @@ done:
 }
 
 static int index__index_arr(
-        ti_query_t * query,
-        cleri_node_t * statement,
-        ex_t * e)
+        ti_query_t *query,
+        cleri_node_t *statement,
+        ex_t *e)
 {
-    ti_varr_t * source = (ti_varr_t *) query->rval;
+    ti_varr_t *source = (ti_varr_t *) query->rval;
     size_t idx = 0;  /* only set to prevent warning */
 
     query->rval = NULL;
@@ -400,12 +400,12 @@ done:
     return e->nr;
 }
 
-static int index__array_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
+static int index__array_ass(ti_query_t *query, cleri_node_t *inode, ex_t *e)
 {
-    cleri_node_t * idx_statem = inode->children->next->children;
-    cleri_node_t * ass_statem = inode->children->next->next->next;
-    cleri_node_t * ass_tokens = ass_statem->children;
-    ti_varr_t * varr;
+    cleri_node_t *idx_statem = inode->children->next->children;
+    cleri_node_t *ass_statem = inode->children->next->next->next;
+    cleri_node_t *ass_tokens = ass_statem->children;
+    ti_varr_t *varr;
     size_t idx = 0;  /* only set to prevent warning */
 
     if (ti_query_test_varr_operation(query, e) ||
@@ -421,7 +421,7 @@ static int index__array_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
 
     if (ass_tokens->len == 2)
     {
-        ti_val_t * val = VEC_get(varr->vec, idx);
+        ti_val_t *val = VEC_get(varr->vec, idx);
         if (ti_opr_a_to_b(val, ass_tokens, &query->rval, e))
             goto fail1;
 
@@ -435,7 +435,7 @@ static int index__array_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
 
     if (varr->parent && varr->parent->id)
     {
-        ti_task_t * task = ti_task_get_task(query->change, varr->parent);
+        ti_task_t *task = ti_task_get_task(query->change, varr->parent);
         if (!task || ti_task_add_splice(
                 task,
                 ti_varr_key(varr),
@@ -453,12 +453,12 @@ fail1:
 }
 
 static int index__get_thing(
-        ti_query_t * query,
-        cleri_node_t * statement,
-        ex_t * e)
+        ti_query_t *query,
+        cleri_node_t *statement,
+        ex_t *e)
 {
     ti_witem_t witem;
-    ti_thing_t * thing = (ti_thing_t *) query->rval;
+    ti_thing_t *thing = (ti_thing_t *) query->rval;
     query->rval = NULL;
 
     if (ti_do_statement(query, statement, e))
@@ -486,17 +486,17 @@ fail0:
 }
 
 static int index__get_dict(
-        ti_query_t * query,
-        cleri_node_t * statement,
-        ex_t * e)
+        ti_query_t *query,
+        cleri_node_t *statement,
+        ex_t *e)
 {
-    ti_dict_t * dict = (ti_dict_t *) query->rval;
+    ti_dict_t *dict = (ti_dict_t *) query->rval;
     query->rval = NULL;
 
     if (ti_do_statement(query, statement, e))
         goto fail0;
 
-    ti_val_t * val = ti_dict_get_weak(dict, query->rval);
+    ti_val_t *val = ti_dict_get_weak(dict, query->rval);
     if (!val)
     {
         ti_dict_set_key_err(query->rval, e);
@@ -513,12 +513,12 @@ fail0:
 }
 
 static inline int index__o_upd_prop(
-        ti_witem_t * witem,
-        ti_query_t * query,
-        ti_thing_t * thing,
-        ti_raw_t * rname,
-        cleri_node_t * tokens_nd,
-        ex_t * e)
+        ti_witem_t *witem,
+        ti_query_t *query,
+        ti_thing_t *thing,
+        ti_raw_t *rname,
+        cleri_node_t *tokens_nd,
+        ex_t *e)
 {
     return (ti_thing_get_by_raw_e(witem, thing, rname, e) ||
             ti_opr_a_to_b(*witem->val, tokens_nd, &query->rval, e)
@@ -526,15 +526,15 @@ static inline int index__o_upd_prop(
 }
 
 static inline int index__t_upd_prop(
-        ti_wprop_t * wprop,
-        ti_query_t * query,
-        ti_thing_t * thing,
-        ti_raw_t * rname,
-        cleri_node_t * tokens_nd,
-        ex_t * e)
+        ti_wprop_t *wprop,
+        ti_query_t *query,
+        ti_thing_t *thing,
+        ti_raw_t *rname,
+        cleri_node_t *tokens_nd,
+        ex_t *e)
 {
-    ti_field_t * field;
-    ti_name_t * name = ti_names_weak_from_raw(rname);
+    ti_field_t *field;
+    ti_name_t *name = ti_names_weak_from_raw(rname);
 
     if (name && (field = ti_field_by_name(thing->via.type, name)))
     {
@@ -549,12 +549,12 @@ static inline int index__t_upd_prop(
 }
 
 static inline int index__upd_prop(
-        ti_witem_t * witem,
-        ti_query_t * query,
-        ti_thing_t * thing,
-        ti_raw_t * rname,
-        cleri_node_t * tokens_nd,
-        ex_t * e)
+        ti_witem_t *witem,
+        ti_query_t *query,
+        ti_thing_t *thing,
+        ti_raw_t *rname,
+        cleri_node_t *tokens_nd,
+        ex_t *e)
 {
     if (ti_thing_is_object(thing)
             ? index__o_upd_prop(witem, query, thing, rname, tokens_nd, e)
@@ -570,14 +570,14 @@ static inline int index__upd_prop(
     return 0;
 }
 
-static int index__set_thing(ti_query_t * query, cleri_node_t * inode, ex_t * e)
+static int index__set_thing(ti_query_t *query, cleri_node_t *inode, ex_t *e)
 {
-    cleri_node_t * idx_statem = inode->children->next->children;
-    cleri_node_t * ass_statem = inode->children->next->next->next;
-    cleri_node_t * ass_tokens = ass_statem->children;
+    cleri_node_t *idx_statem = inode->children->next->children;
+    cleri_node_t *ass_statem = inode->children->next->next->next;
+    cleri_node_t *ass_tokens = ass_statem->children;
     ti_witem_t witem;
-    ti_thing_t * thing;
-    ti_raw_t * rname;
+    ti_thing_t *thing;
+    ti_raw_t *rname;
 
     if (ti_query_test_thing_operation(query, e) ||
         ti_val_try_lock(query->rval, e))
@@ -617,7 +617,7 @@ static int index__set_thing(ti_query_t * query, cleri_node_t * inode, ex_t * e)
 
     if (thing->id)
     {
-        ti_task_t * task = ti_task_get_task(query->change, thing);
+        ti_task_t *task = ti_task_get_task(query->change, thing);
         if (!task || ti_task_add_set(task, witem.key, *witem.val))
             ex_set_mem(e);
     }
@@ -630,13 +630,13 @@ fail0:
     return e->nr;
 }
 
-static int index__set_dict(ti_query_t * query, cleri_node_t * inode, ex_t * e)
+static int index__set_dict(ti_query_t *query, cleri_node_t *inode, ex_t *e)
 {
-    cleri_node_t * idx_statem = inode->children->next->children;
-    cleri_node_t * ass_statem = inode->children->next->next->next;
-    cleri_node_t * ass_tokens = ass_statem->children;
-    ti_dict_t * dict;
-    ti_val_t * key;
+    cleri_node_t *idx_statem = inode->children->next->children;
+    cleri_node_t *ass_statem = inode->children->next->next->next;
+    cleri_node_t *ass_tokens = ass_statem->children;
+    ti_dict_t *dict;
+    ti_val_t *key;
 
     if (ti_query_test_dict_operation(query, e) ||
         ti_val_try_lock(query->rval, e))
@@ -653,7 +653,7 @@ static int index__set_dict(ti_query_t * query, cleri_node_t * inode, ex_t * e)
 
     if (ass_tokens->len == 2)
     {
-        ti_val_t * val = ti_dict_get_weak(dict, key);
+        ti_val_t *val = ti_dict_get_weak(dict, key);
         if (!val)
         {
             ti_dict_set_key_err(key, e);
@@ -670,7 +670,7 @@ static int index__set_dict(ti_query_t * query, cleri_node_t * inode, ex_t * e)
 
     if (dict->parent && dict->parent->id)
     {
-        ti_task_t * task = ti_task_get_task(query->change, dict->parent);
+        ti_task_t *task = ti_task_get_task(query->change, dict->parent);
         if (!task || ti_task_add_dict_set(
                 task,
                 ti_dict_key(dict),
@@ -687,12 +687,12 @@ fail0:
     return e->nr;
 }
 
-int ti_index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+int ti_index(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     assert(query->rval);
 
-    ti_val_t * val = query->rval;
-    cleri_node_t * slice = nd->children->next;
+    ti_val_t *val = query->rval;
+    cleri_node_t *slice = nd->children->next;
 
     assert(slice->cl_obj->gid == CLERI_GID_SLICE);
 

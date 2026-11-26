@@ -1,18 +1,18 @@
 #include <ti/fn/fn.h>
 
-static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_new_backup(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    cleri_node_t * child = nd->children;
-    ti_raw_t * rname;
+    cleri_node_t *child = nd->children;
+    ti_raw_t *rname;
     uint64_t backup_id;
     uint64_t timestamp = 0;
     uint64_t repeat = 0;
     uint64_t max_files = 1;
-    ti_backup_t * backup;
-    ti_raw_t * tar_gz_str = (ti_raw_t *) ti_val_borrow_tar_gz_str();
-    ti_raw_t * gs_str = (ti_raw_t *) ti_val_borrow_gs_str();
-    queue_t * files_queue;
+    ti_backup_t *backup;
+    ti_raw_t *tar_gz_str = (ti_raw_t *) ti_val_borrow_tar_gz_str();
+    ti_raw_t *gs_str = (ti_raw_t *) ti_val_borrow_gs_str();
+    queue_t *files_queue;
 
     if (fn_not_node_scope("new_backup", query, e) ||
         ti_access_check_err(ti.access_node, query->user, TI_AUTH_CHANGE, e) ||

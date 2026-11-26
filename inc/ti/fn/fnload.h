@@ -1,11 +1,11 @@
 #include <ti/fn/fn.h>
 
-static int do__f_load(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_load(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     mp_unp_t up;
     const int nargs = fn_get_nargs(nd);
-    ti_raw_t * mpdata;
-    ti_val_t * val;
+    ti_raw_t *mpdata;
+    ti_val_t *val;
     ti_vup_t vup = {
             .isclient = true,
             .collection = query->collection,

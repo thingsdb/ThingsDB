@@ -56,19 +56,19 @@
 ti_t ti;
 
 /* settings, nodes etc. */
-const char * ti__fn = "ti.mp";
-const char * ti__node_fn = ".node";
+const char *ti__fn = "ti.mp";
+const char *ti__node_fn = ".node";
 static int shutdown_counter = 6;  /* overwritten by ti.cfg->shutdown_period */
 static int wait_for_modules_timeout = 120;
 static int wait_for_modules = 0;
-static uv_timer_t * shutdown_timer = NULL;
-static uv_timer_t * delayed_start_timer = NULL;
+static uv_timer_t *shutdown_timer = NULL;
+static uv_timer_t *delayed_start_timer = NULL;
 static uv_loop_t loop_;
 
-static void ti__shutdown_free(uv_handle_t * UNUSED(timer));
+static void ti__shutdown_free(uv_handle_t *UNUSED(timer));
 static void ti__shutdown_stop(void);
-static void ti__shutdown_cb(uv_timer_t * shutdown);
-static void ti__close_handles(uv_handle_t * handle, void * arg);
+static void ti__shutdown_cb(uv_timer_t *shutdown);
+static void ti__close_handles(uv_handle_t *handle, void *arg);
 static void ti__stop(void);
 
 /*
@@ -292,7 +292,7 @@ int ti_build_node(void)
 int ti_build(void)
 {
     int rc = -1;
-    ti_change_t * change = NULL;
+    ti_change_t *change = NULL;
 
     /* In ThingsDB versions before 1.2.0 the deep value was set to one (1) but
      * is changed to make it easier for new users. The need for a "low" deep
@@ -357,7 +357,7 @@ int ti_rebuild(void)
     return ti_store_init() || ti_backups_rm() || ti_archive_rmdir() ? -1 : 0;
 }
 
-int ti_write_node_id(uint32_t * node_id)
+int ti_write_node_id(uint32_t *node_id)
 {
     assert(ti.node_fn);
 
@@ -376,7 +376,7 @@ finish:
     return rc;
 }
 
-int ti_read_node_id(uint32_t * node_id)
+int ti_read_node_id(uint32_t *node_id)
 {
     assert(ti.node_fn);
 
@@ -404,7 +404,7 @@ int ti_read(void)
 {
     int rc;
     ssize_t n;
-    uchar * data = fx_read(ti.fn, &n);
+    uchar *data = fx_read(ti.fn, &n);
     if (!data)
         return -1;
 
@@ -413,7 +413,7 @@ int ti_read(void)
     return rc;
 }
 
-int ti_unpack(uchar * data, size_t n)
+int ti_unpack(uchar *data, size_t n)
 {
     mp_unp_t up;
     mp_obj_t obj,
@@ -507,7 +507,7 @@ int ti_unpack(uchar * data, size_t n)
 
     if (strcmp(ti.node->addr, ti.cfg->node_name) != 0)
     {
-        char * addr = strdup(ti.cfg->node_name);
+        char *addr = strdup(ti.cfg->node_name);
         if (addr)
         {
             free(ti.node->addr);
@@ -525,7 +525,7 @@ fail:
     return -1;
 }
 
-static void ti__delayed_start_free(uv_handle_t * UNUSED(timer))
+static void ti__delayed_start_free(uv_handle_t *UNUSED(timer))
 {
     free(delayed_start_timer);
     delayed_start_timer = NULL;
@@ -539,7 +539,7 @@ static void ti__delayed_start_stop(void)
 }
 
 
-static void ti__delayed_start_cb(uv_timer_t * UNUSED(timer))
+static void ti__delayed_start_cb(uv_timer_t *UNUSED(timer))
 {
     ssize_t n = ti_changes_trigger_loop();
 
@@ -853,7 +853,7 @@ void ti_update_rel_id(void)
             ++ti.rel_id;
 }
 
-_Bool ti_ask_continue(const char * warn)
+_Bool ti_ask_continue(const char *warn)
 {
     if (ti.args->yes)
         return true;  /* continue without asking */
@@ -884,13 +884,13 @@ void ti_print_connect_info(void)
         ti.cfg->node_port);
 }
 
-ti_rpkg_t * ti_node_status_rpkg(void)
+ti_rpkg_t *ti_node_status_rpkg(void)
 {
     msgpack_packer pk;
     msgpack_sbuffer buffer;
-    ti_pkg_t * pkg;
-    ti_rpkg_t * rpkg;
-    ti_node_t * ti_node = ti.node;
+    ti_pkg_t *pkg;
+    ti_rpkg_t *rpkg;
+    ti_node_t *ti_node = ti.node;
 
     if (mp_sbuffer_alloc_init(&buffer, TI_NODE_INFO_PK_SZ, sizeof(ti_pkg_t)))
         return NULL;
@@ -938,7 +938,7 @@ void ti_set_and_broadcast_node_zone(uint8_t zone)
 
 void ti_broadcast_node_info(void)
 {
-    ti_rpkg_t * node_rpkg;
+    ti_rpkg_t *node_rpkg;
 
     node_rpkg = ti_node_status_rpkg();
     if (!node_rpkg)
@@ -953,16 +953,16 @@ fail:
     ti_rpkg_drop(node_rpkg);
 }
 
-int ti_this_node_to_pk(msgpack_packer * pk)
+int ti_this_node_to_pk(msgpack_packer *pk)
 {
     struct timespec timing;
     (void) clock_gettime(TI_CLOCK_MONOTONIC, &timing);
     int yv = yajl_version();
 
     double uptime = util_time_diff(&ti.boottime, &timing);
-    const char * platform = osarch_get_os();
-    const char * architecture = osarch_get_arch();
-    const char * lws_ver = lws_get_library_version();
+    const char *platform = osarch_get_os();
+    const char *architecture = osarch_get_arch();
+    const char *lws_ver = lws_get_library_version();
 
     return (
         msgpack_pack_map(pk, 42) ||
@@ -1104,9 +1104,9 @@ int ti_this_node_to_pk(msgpack_packer * pk)
     );
 }
 
-ti_val_t * ti_this_node_as_mpval(void)
+ti_val_t *ti_this_node_as_mpval(void)
 {
-    ti_raw_t * raw;
+    ti_raw_t *raw;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -1125,7 +1125,7 @@ ti_val_t * ti_this_node_as_mpval(void)
     return (ti_val_t *) raw;
 }
 
-static void ti__shutdown_free(uv_handle_t * UNUSED(timer))
+static void ti__shutdown_free(uv_handle_t *UNUSED(timer))
 {
     free(shutdown_timer);
     shutdown_timer = NULL;
@@ -1137,7 +1137,7 @@ static void ti__shutdown_stop(void)
     uv_close((uv_handle_t *) shutdown_timer, ti__shutdown_free);
 }
 
-static void ti__num_proc_cb(uv_handle_t * handle, void * arg)
+static void ti__num_proc_cb(uv_handle_t *handle, void *arg)
 {
     if (handle->type == UV_PROCESS)
         (*((intptr_t *) arg))++;
@@ -1150,7 +1150,7 @@ static int ti__num_proc(void)
     return count;
 }
 
-static void ti__shutdown_cb(uv_timer_t * UNUSED(timer))
+static void ti__shutdown_cb(uv_timer_t *UNUSED(timer))
 {
     int num_modules;
     /*
@@ -1192,7 +1192,7 @@ static void ti__shutdown_cb(uv_timer_t * UNUSED(timer))
     ti_stop();
 }
 
-static void ti__close_handles(uv_handle_t * handle, void * UNUSED(arg))
+static void ti__close_handles(uv_handle_t *handle, void *UNUSED(arg))
 {
     if (uv_is_closing(handle))
         return;

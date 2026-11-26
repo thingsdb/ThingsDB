@@ -18,7 +18,7 @@
  * to find if the function is native available on the called type.
  */
 
-static inline const char * doc_len(ti_val_t * val)
+static inline const char *doc_len(ti_val_t *val)
 {
     switch ((ti_val_enum) val->tp)
     {
@@ -35,7 +35,7 @@ static inline const char * doc_len(ti_val_t * val)
     }
 }
 
-static inline const char * doc_filter(ti_val_t * val)
+static inline const char *doc_filter(ti_val_t *val)
 {
     switch ((ti_val_enum) val->tp)
     {
@@ -47,7 +47,7 @@ static inline const char * doc_filter(ti_val_t * val)
     }
 }
 
-static inline const char * doc_find(ti_val_t * val)
+static inline const char *doc_find(ti_val_t *val)
 {
     switch ((ti_val_enum) val->tp)
     {
@@ -57,7 +57,7 @@ static inline const char * doc_find(ti_val_t * val)
     }
 }
 
-static inline const char * doc_some(ti_val_t * val)
+static inline const char *doc_some(ti_val_t *val)
 {
     switch ((ti_val_enum) val->tp)
     {
@@ -67,7 +67,7 @@ static inline const char * doc_some(ti_val_t * val)
     }
 }
 
-static inline const char * doc_every(ti_val_t * val)
+static inline const char *doc_every(ti_val_t *val)
 {
     switch ((ti_val_enum) val->tp)
     {
@@ -77,7 +77,7 @@ static inline const char * doc_every(ti_val_t * val)
     }
 }
 
-static inline const char * doc_reduce(ti_val_t * val)
+static inline const char *doc_reduce(ti_val_t *val)
 {
     switch ((ti_val_enum) val->tp)
     {
@@ -87,7 +87,7 @@ static inline const char * doc_reduce(ti_val_t * val)
     }
 }
 
-static inline const char * doc_map(ti_val_t * val)
+static inline const char *doc_map(ti_val_t *val)
 {
     switch ((ti_val_enum) val->tp)
     {
@@ -99,7 +99,7 @@ static inline const char * doc_map(ti_val_t * val)
     }
 }
 
-static inline const char * doc_map_id(ti_val_t * val)
+static inline const char *doc_map_id(ti_val_t *val)
 {
     switch ((ti_val_enum) val->tp)
     {
@@ -109,7 +109,7 @@ static inline const char * doc_map_id(ti_val_t * val)
     }
 }
 
-static inline const char * doc_map_wrap(ti_val_t * val)
+static inline const char *doc_map_wrap(ti_val_t *val)
 {
     switch ((ti_val_enum) val->tp)
     {
@@ -119,7 +119,7 @@ static inline const char * doc_map_wrap(ti_val_t * val)
     }
 }
 
-static inline const char * doc_each(ti_val_t * val)
+static inline const char *doc_each(ti_val_t *val)
 {
     switch ((ti_val_enum) val->tp)
     {
@@ -131,7 +131,7 @@ static inline const char * doc_each(ti_val_t * val)
     }
 }
 
-static inline const char * doc_copy(ti_val_t * val)
+static inline const char *doc_copy(ti_val_t *val)
 {
     switch ((ti_val_enum) val->tp)
     {
@@ -145,7 +145,7 @@ static inline const char * doc_copy(ti_val_t * val)
     }
 }
 
-static inline const char * doc_dup(ti_val_t * val)
+static inline const char *doc_dup(ti_val_t *val)
 {
     switch ((ti_val_enum) val->tp)
     {

@@ -16,10 +16,10 @@ typedef struct ti_types_s ti_types_t;
 
 struct ti_types_s
 {
-    imap_t * imap;
-    smap_t * smap;
-    smap_t * removed;  /* map with type id's which are removed */
-    ti_collection_t * collection;
+    imap_t *imap;
+    smap_t *smap;
+    smap_t *removed;  /* map with type id's which are removed */
+    ti_collection_t *collection;
     uint16_t next_id;
     uint16_t locked;
 };

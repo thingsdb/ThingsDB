@@ -5,14 +5,14 @@
 #include <assert.h>
 #include <cleri/ref.h>
 
-static void ref__free(cleri_t * cl_object);
+static void ref__free(cleri_t *cl_object);
 
 /*
  * Returns NULL in case an error has occurred.
  */
-cleri_t * cleri_ref(void)
+cleri_t *cleri_ref(void)
 {
-    cleri_t * cl_object = cleri_new(
+    cleri_t *cl_object = cleri_new(
             0,
             CLERI_TP_REF,
             &ref__free,
@@ -24,7 +24,7 @@ cleri_t * cleri_ref(void)
 /*
  * Both ref and cl_obj are not allowed to be NULL.
  */
-void cleri_ref_set(cleri_t * ref, cleri_t * cl_obj)
+void cleri_ref_set(cleri_t *ref, cleri_t *cl_obj)
 {
     /* cl_obj should have no other refs */
     assert (ref != NULL &&
@@ -47,7 +47,7 @@ void cleri_ref_set(cleri_t * ref, cleri_t * cl_obj)
 /*
  * Destroy ref object. (only used when ref is not set)
  */
-static void ref__free(cleri_t * cl_object __attribute__((unused)))
+static void ref__free(cleri_t *cl_object __attribute__((unused)))
 {
     /* nothing, this just must exist */
 }

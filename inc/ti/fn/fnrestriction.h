@@ -1,10 +1,10 @@
 #include <ti/fn/fn.h>
 
 
-static int do__f_restriction_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_restriction_thing(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_thing_t * thing;
+    ti_thing_t *thing;
 
     if (fn_nargs("restriction", DOC_THING_RESTRICTION, 0, nargs, e))
         return e->nr;
@@ -22,10 +22,10 @@ static int do__f_restriction_thing(ti_query_t * query, cleri_node_t * nd, ex_t *
     return e->nr;
 }
 
-static int do__f_restriction_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_restriction_list(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_varr_t * varr;
+    ti_varr_t *varr;
     uint16_t spec;
 
     if (fn_nargs("restriction", DOC_LIST_RESTRICTION, 0, nargs, e))
@@ -44,10 +44,10 @@ static int do__f_restriction_list(ti_query_t * query, cleri_node_t * nd, ex_t * 
     return e->nr;
 }
 
-static int do__f_restriction_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_restriction_set(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_vset_t * vset;
+    ti_vset_t *vset;
     uint16_t spec;
 
     if (fn_nargs("restriction", DOC_SET_RESTRICTION, 0, nargs, e))
@@ -66,12 +66,12 @@ static int do__f_restriction_set(ti_query_t * query, cleri_node_t * nd, ex_t * e
     return e->nr;
 }
 
-static int do__f_restriction_dict(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_restriction_dict(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_dict_t * dict;
-    ti_varr_t * varr;
-    ti_raw_t * key, * val;
+    ti_dict_t *dict;
+    ti_varr_t *varr;
+    ti_raw_t *key, *val;
 
     if (fn_nargs("restriction", DOC_DICT_RESTRICTION, 0, nargs, e))
         return e->nr;
@@ -100,7 +100,7 @@ static int do__f_restriction_dict(ti_query_t * query, cleri_node_t * nd, ex_t * 
     return e->nr;
 }
 
-static inline int do__f_restriction(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static inline int do__f_restriction(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     return ti_val_is_object(query->rval)
             ? do__f_restriction_thing(query, nd, e)

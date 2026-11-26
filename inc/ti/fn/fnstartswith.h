@@ -1,9 +1,9 @@
 #include <ti/fn/fn.h>
 
-static int do__f_starts_with(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_starts_with(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_raw_t * raw;
+    ti_raw_t *raw;
     _Bool starts_with;
 
     if (!ti_val_is_str(query->rval))

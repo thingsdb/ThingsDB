@@ -17,7 +17,7 @@ static cleri_t regex_t = {
     .tp = CLERI_TP_REGEX,
 };
 
-static size_t template__escaped(const char * s, size_t n)
+static size_t template__escaped(const char *s, size_t n)
 {
     size_t count = 0;
 
@@ -35,10 +35,10 @@ static size_t template__escaped(const char * s, size_t n)
     return count;
 }
 
-static str_t * template__str(const char * s, size_t n, size_t nn)
+static str_t *template__str(const char *s, size_t n, size_t nn)
 {
-    char * dest;
-    str_t * nstr = malloc(sizeof(str_t) + nn);
+    char *dest;
+    str_t *nstr = malloc(sizeof(str_t) + nn);
     if (!nstr)
         return NULL;
 
@@ -58,9 +58,9 @@ static str_t * template__str(const char * s, size_t n, size_t nn)
     return nstr;
 }
 
-static int template__child(cleri_node_t ** childaddr, const char * str, size_t n)
+static int template__child(cleri_node_t **childaddr, const char *str, size_t n)
 {
-    cleri_node_t * inode = cleri__node_new(&regex_t, str, n);
+    cleri_node_t *inode = cleri__node_new(&regex_t, str, n);
     if (!inode)
         return -1;
 
@@ -70,12 +70,12 @@ static int template__child(cleri_node_t ** childaddr, const char * str, size_t n
     return 0;
 }
 
-int ti_template_build(cleri_node_t * node)
+int ti_template_build(cleri_node_t *node)
 {
-    ti_template_t * tmplate = malloc(sizeof(ti_template_t));
-    cleri_node_t ** childaddr;
+    ti_template_t *tmplate = malloc(sizeof(ti_template_t));
+    cleri_node_t **childaddr;
     size_t count, diff = 0;
-    const char * node_end;
+    const char *node_end;
 
     if (!tmplate)
         return -1;
@@ -93,7 +93,7 @@ int ti_template_build(cleri_node_t * node)
 
     for (; *childaddr; childaddr = &(*childaddr)->next)
     {
-        cleri_node_t * nd = (*childaddr);
+        cleri_node_t *nd = (*childaddr);
 
         diff = nd->str - node_end;
 
@@ -136,13 +136,13 @@ failed:
     return -1;
 }
 
-int ti_template_compile(ti_template_t * tmplate, ti_query_t * query, ex_t * e)
+int ti_template_compile(ti_template_t *tmplate, ti_query_t *query, ex_t *e)
 {
-    cleri_node_t * node = tmplate->node;
-    cleri_node_t * child;
+    cleri_node_t *node = tmplate->node;
+    cleri_node_t *child;
     size_t n = 0;
-    ti_raw_t * raw;
-    unsigned char * ptr;
+    ti_raw_t *raw;
+    unsigned char *ptr;
 
     assert(query->rval == NULL);
 
@@ -200,7 +200,7 @@ int ti_template_compile(ti_template_t * tmplate, ti_query_t * query, ex_t * e)
             if (child->data)
             {
                 /* Removed escaping copy */
-                str_t * str = child->data;
+                str_t *str = child->data;
                 memcpy(ptr, str->s, str->n);
                 ptr += str->n;
             }
@@ -214,7 +214,7 @@ int ti_template_compile(ti_template_t * tmplate, ti_query_t * query, ex_t * e)
         else
         {
             /* Copy expression value (as string) */
-            ti_raw_t * expr = child->data;
+            ti_raw_t *expr = child->data;
             child->data = NULL;
             memcpy(ptr, expr->data, expr->n);
             ptr += expr->n;
@@ -245,9 +245,9 @@ failed:
     return e->nr;
 }
 
-void ti_template_destroy(ti_template_t * tmplate)
+void ti_template_destroy(ti_template_t *tmplate)
 {
-    cleri_node_t * child;
+    cleri_node_t *child;
 
     child = tmplate->node               /* sequence */
             ->children->next            /* repeat */

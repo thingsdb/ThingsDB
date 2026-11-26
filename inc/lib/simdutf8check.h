@@ -9,8 +9,8 @@
 
 static bool validate_utf8_fast(const char *src, size_t len)
 {
-    const unsigned char * bytes = (const unsigned char *) src;
-    const unsigned char * end = bytes+len;
+    const unsigned char *bytes = (const unsigned char *) src;
+    const unsigned char *end = bytes+len;
 
     while(bytes < end)
     {

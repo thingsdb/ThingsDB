@@ -1,11 +1,11 @@
 #include <ti/fn/fn.h>
 
-static int do__f_task(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_task(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    vec_t ** tasks = ti_query_tasks(query);
-    cleri_node_t * child;
-    ti_vtask_t * vtask;
+    vec_t **tasks = ti_query_tasks(query);
+    cleri_node_t *child;
+    ti_vtask_t *vtask;
 
     if (fn_not_thingsdb_or_collection_scope("task", query, e) ||
         fn_nargs_max("task", DOC_TASK, 3, nargs, e))
@@ -47,9 +47,9 @@ static int do__f_task(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     else
     {
         time_t run_at;
-        ti_closure_t * closure;
-        vec_t * args;
-        ti_task_t * task;
+        ti_closure_t *closure;
+        vec_t *args;
+        ti_task_t *task;
         size_t m, mm;
         const _Bool ti_scope = query->collection==NULL;
 

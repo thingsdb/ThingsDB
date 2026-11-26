@@ -8,9 +8,9 @@
 #include <ti/quorum.h>
 #include <ti/proto.h>
 
-ti_quorum_t * ti_quorum_new(ti_quorum_cb cb, void * data)
+ti_quorum_t *ti_quorum_new(ti_quorum_cb cb, void *data)
 {
-    ti_quorum_t * quorum;
+    ti_quorum_t *quorum;
 
     quorum = malloc(sizeof(ti_quorum_t));
     if (!quorum)
@@ -33,7 +33,7 @@ ti_quorum_t * ti_quorum_new(ti_quorum_cb cb, void * data)
     return quorum;
 }
 
-void ti_quorum_go(ti_quorum_t * quorum)
+void ti_quorum_go(ti_quorum_t *quorum)
 {
     uint8_t n = quorum->accepted + quorum->rejected + quorum->collisions;
 
@@ -80,9 +80,9 @@ void ti_quorum_go(ti_quorum_t * quorum)
     free(quorum);
 }
 
-void ti_quorum_req_cb(ti_req_t * req, ex_enum status)
+void ti_quorum_req_cb(ti_req_t *req, ex_enum status)
 {
-    ti_quorum_t * quorum = req->data;
+    ti_quorum_t *quorum = req->data;
     uint8_t tp = status == 0 ? req->pkg_res->tp : TI_PROTO_NODE_ERR;
 
     switch (tp)

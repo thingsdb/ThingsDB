@@ -1,12 +1,12 @@
 #include <ti/fn/fn.h>
 
-static int do__f_set_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_set_enum(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_enum_t * enum_;
-    ti_thing_t * thing;
-    ti_task_t * task;
-    ti_raw_t * rname;
+    ti_enum_t *enum_;
+    ti_thing_t *thing;
+    ti_task_t *task;
+    ti_raw_t *rname;
     uint16_t enum_id;
     uint64_t ts_now = util_now_usec();
 

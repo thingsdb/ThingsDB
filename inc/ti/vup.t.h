@@ -11,8 +11,8 @@ typedef struct ti_vup_s ti_vup_t;
 
 struct ti_vup_s
 {
-    ti_collection_t * collection;
-    mp_unp_t * up;
+    ti_collection_t *collection;
+    mp_unp_t *up;
     _Bool isclient;
 };
 

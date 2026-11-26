@@ -1,11 +1,11 @@
 #include <ti/fn/fn.h>
 
-static int do__f_commit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_commit(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_raw_t * message;
-    vec_t ** commits = ti_query_commits(query);
-    ti_commit_t * commit;
+    ti_raw_t *message;
+    vec_t **commits = ti_query_commits(query);
+    ti_commit_t *commit;
 
     if (fn_not_thingsdb_or_collection_scope("commit", query, e) ||
         fn_nargs("commit", DOC_COMMIT, 1, nargs, e) ||

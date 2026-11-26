@@ -2,7 +2,7 @@
 #include <util/link.h>
 
 static const unsigned int num_entries = 8;
-static char * entries[] = {
+static char *entries[] = {
     "Zero",
     "First entry",
     "Second entry",
@@ -17,7 +17,7 @@ int main()
 {
     test_start("link");
 
-    link_t * link = link_create();
+    link_t *link = link_create();
 
     _assert (link);
 
@@ -37,7 +37,7 @@ int main()
     /* test each */
     {
         size_t i = 0;
-        char ** entry = entries;
+        char **entry = entries;
         link_iter_t iter = link_iter(link);
         for (link_each(iter, char, val), i++, entry++)
         {

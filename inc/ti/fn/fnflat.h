@@ -1,6 +1,6 @@
 #include <ti/fn/fn.h>
 
-static size_t flat__count(vec_t * vec, int64_t i)
+static size_t flat__count(vec_t *vec, int64_t i)
 {
     size_t n = vec->n;
     if (i > 0)
@@ -10,7 +10,7 @@ static size_t flat__count(vec_t * vec, int64_t i)
     return n;
 }
 
-static void flat__fill(ti_varr_t * vold, ti_varr_t * vnew, int64_t i)
+static void flat__fill(ti_varr_t *vold, ti_varr_t *vnew, int64_t i)
 {
     vnew->flags |= ti_val_may_flags(vold);
 
@@ -28,11 +28,11 @@ static void flat__fill(ti_varr_t * vold, ti_varr_t * vnew, int64_t i)
     }
 }
 
-static int do__f_flat(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_flat(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     int64_t i = 1;
-    ti_varr_t * varr, * vnew;
+    ti_varr_t *varr, *vnew;
 
     if (!ti_val_is_array(query->rval))
         return fn_call_try("flat", query, nd, e);

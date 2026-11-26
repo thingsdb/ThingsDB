@@ -24,22 +24,22 @@
 
 #define CLOSURE__QBOUND (TI_CLOSURE_FLAG_BTSCOPE|TI_CLOSURE_FLAG_BCSCOPE)
 
-static inline _Bool closure__is_unbound(ti_closure_t * closure)
+static inline _Bool closure__is_unbound(ti_closure_t *closure)
 {
     return (~closure->flags & CLOSURE__QBOUND) == CLOSURE__QBOUND;
 }
 
-static cleri_node_t * closure__node_from_strn(
-        ti_qbind_t * syntax,
-        const char * str,
+static cleri_node_t *closure__node_from_strn(
+        ti_qbind_t *syntax,
+        const char *str,
         size_t n,
-        ex_t * e)
+        ex_t *e)
 {
     assert(e->nr == 0);
-    ti_ncache_t * ncache;
-    cleri_parse_t * res;
-    cleri_node_t * node, * statement;
-    char * query = strndup(str, n);
+    ti_ncache_t *ncache;
+    cleri_parse_t *res;
+    cleri_node_t *node, *statement;
+    char *query = strndup(str, n);
     if (!query)
     {
         ex_set_mem(e);
@@ -141,7 +141,7 @@ fail0:
     return NULL;
 }
 
-static void closure__node_to_buf(cleri_node_t * nd, char * buf, size_t * n)
+static void closure__node_to_buf(cleri_node_t *nd, char *buf, size_t *n)
 {
     switch (nd->cl_obj->tp)
     {
@@ -200,15 +200,15 @@ static void closure__node_to_buf(cleri_node_t * nd, char * buf, size_t * n)
         break;
     }
 
-    for (cleri_node_t * child = nd->children; child; child = child->next)
+    for (cleri_node_t *child = nd->children; child; child = child->next)
         closure__node_to_buf(child, buf, n);
 }
 
-static vec_t * closure__create_vars(ti_closure_t * closure)
+static vec_t *closure__create_vars(ti_closure_t *closure)
 {
-    vec_t * vars;
+    vec_t *vars;
     size_t n;
-    cleri_node_t * child, * first;
+    cleri_node_t *child, *first;
 
     first = closure->node               /* sequence */
             ->children->next            /* list */
@@ -224,9 +224,9 @@ static vec_t * closure__create_vars(ti_closure_t * closure)
 
     for (child = first; child; child = child->next->next)
     {
-        ti_val_t * val = (ti_val_t *) ti_nil_get();
-        ti_name_t * name = ti_names_get(child->str, child->len);
-        ti_prop_t * prop;
+        ti_val_t *val = (ti_val_t *) ti_nil_get();
+        ti_name_t *name = ti_names_get(child->str, child->len);
+        ti_prop_t *prop;
         if (!name)
             goto failed;
 
@@ -256,9 +256,9 @@ failed:
  * will be stored for later usage, a call to `ti_closure_unbound` must be
  * made.
  */
-ti_closure_t * ti_closure_from_node(cleri_node_t * node, uint8_t flags)
+ti_closure_t *ti_closure_from_node(cleri_node_t *node, uint8_t flags)
 {
-    ti_closure_t * closure = malloc(sizeof(ti_closure_t));
+    ti_closure_t *closure = malloc(sizeof(ti_closure_t));
     if (!closure)
         return NULL;
 
@@ -278,13 +278,13 @@ ti_closure_t * ti_closure_from_node(cleri_node_t * node, uint8_t flags)
     return closure;
 }
 
-ti_closure_t * ti_closure_from_strn(
-        ti_qbind_t * syntax,
-        const char * str,
+ti_closure_t *ti_closure_from_strn(
+        ti_qbind_t *syntax,
+        const char *str,
         size_t n,
-        ex_t * e)
+        ex_t *e)
 {
-    ti_closure_t * closure = malloc(sizeof(ti_closure_t));
+    ti_closure_t *closure = malloc(sizeof(ti_closure_t));
     if (!closure)
         return NULL;
 
@@ -308,7 +308,7 @@ ti_closure_t * ti_closure_from_strn(
     return closure;
 }
 
-void ti_closure_destroy(ti_closure_t * closure)
+void ti_closure_destroy(ti_closure_t *closure)
 {
     if (!closure)
         return;
@@ -324,9 +324,9 @@ void ti_closure_destroy(ti_closure_t * closure)
     free(closure);
 }
 
-int ti_closure_unbound(ti_closure_t * closure, ex_t * e)
+int ti_closure_unbound(ti_closure_t *closure, ex_t *e)
 {
-    cleri_node_t * node;
+    cleri_node_t *node;
 
     if (closure__is_unbound(closure))
         return 0;
@@ -353,9 +353,9 @@ int ti_closure_unbound(ti_closure_t * closure, ex_t * e)
     return e->nr;
 }
 
-static char * closure__char(ti_closure_t * closure, size_t * n)
+static char *closure__char(ti_closure_t *closure, size_t *n)
 {
-    char * buf;
+    char *buf;
     buf = malloc(closure->node->len);
     if (!buf)
         return NULL;
@@ -364,12 +364,12 @@ static char * closure__char(ti_closure_t * closure, size_t * n)
     return buf;
 }
 
-int ti_closure_to_client_pk(ti_closure_t * closure, msgpack_packer * pk)
+int ti_closure_to_client_pk(ti_closure_t *closure, msgpack_packer *pk)
 {
     if (closure__is_unbound(closure))
     {
         int rc;
-        char * buf;
+        char *buf;
         size_t n = 0;
         buf = closure__char(closure, &n);
         if (!buf)
@@ -384,12 +384,12 @@ int ti_closure_to_client_pk(ti_closure_t * closure, msgpack_packer * pk)
     return mp_pack_strn(pk, closure->node->str, closure->node->len);
 }
 
-int ti_closure_to_store_pk(ti_closure_t * closure, msgpack_packer * pk)
+int ti_closure_to_store_pk(ti_closure_t *closure, msgpack_packer *pk)
 {
     if (closure__is_unbound(closure))
     {
         int rc;
-        char * buf;
+        char *buf;
         size_t n = 0;
         buf = closure__char(closure, &n);
         if (!buf)
@@ -408,7 +408,7 @@ int ti_closure_to_store_pk(ti_closure_t * closure, msgpack_packer * pk)
             closure->node->len);
 }
 
-int ti_closure_inc(ti_closure_t * closure, ti_query_t * query, ex_t * e)
+int ti_closure_inc(ti_closure_t *closure, ti_query_t *query, ex_t *e)
 {
     uint32_t n = closure->vars->n;
 
@@ -449,7 +449,7 @@ err_alloc:
 }
 
 /* Unlock use, resets all variable to `nil` */
-void ti_closure_dec(ti_closure_t * closure, ti_query_t * query)
+void ti_closure_dec(ti_closure_t *closure, ti_query_t *query)
 {
     uint32_t n = closure->vars->n;
 
@@ -487,9 +487,9 @@ void ti_closure_dec(ti_closure_t * closure, ti_query_t * query)
     }
 }
 
-void ti_closure_vars_val(ti_closure_t * closure, ti_val_t * val)
+void ti_closure_vars_val(ti_closure_t *closure, ti_val_t *val)
 {
-    ti_prop_t * prop;
+    ti_prop_t *prop;
     switch(closure->vars->n)
     {
     default:
@@ -505,11 +505,11 @@ void ti_closure_vars_val(ti_closure_t * closure, ti_val_t * val)
 }
 
 void ti_closure_vars_nameval(
-        ti_closure_t * closure,
-        ti_val_t * name,
-        ti_val_t * val)
+        ti_closure_t *closure,
+        ti_val_t *name,
+        ti_val_t *val)
 {
-    ti_prop_t * prop;
+    ti_prop_t *prop;
     switch(closure->vars->n)
     {
     default:
@@ -530,9 +530,9 @@ void ti_closure_vars_nameval(
     }
 }
 
-int ti_closure_vars_val_idx(ti_closure_t * closure, ti_val_t * v, int64_t i)
+int ti_closure_vars_val_idx(ti_closure_t *closure, ti_val_t *v, int64_t i)
 {
-    ti_prop_t * prop;
+    ti_prop_t *prop;
     switch(closure->vars->n)
     {
     default:
@@ -556,12 +556,12 @@ int ti_closure_vars_val_idx(ti_closure_t * closure, ti_val_t * v, int64_t i)
 }
 
 int ti_closure_vars_replace_str(
-        ti_closure_t * closure,
+        ti_closure_t *closure,
         size_t pos,
         size_t n,
-        ti_raw_t * vstr)
+        ti_raw_t *vstr)
 {
-    ti_prop_t * prop;
+    ti_prop_t *prop;
     switch(closure->vars->n)
     {
     default:
@@ -592,12 +592,12 @@ int ti_closure_vars_replace_str(
 }
 
 int ti_closure_vars_replace_regex(
-        ti_closure_t * closure,
-        ti_raw_t * vstr,
+        ti_closure_t *closure,
+        ti_raw_t *vstr,
         PCRE2_SIZE * ovector,
         uint32_t sz)
 {
-    ti_prop_t * prop;
+    ti_prop_t *prop;
     uint32_t m = closure->vars->n;
     uint32_t i = 1, j = 0;
 
@@ -662,9 +662,9 @@ int ti_closure_vars_replace_regex(
 }
 
 
-int ti_closure_vars_vset(ti_closure_t * closure, ti_thing_t * t)
+int ti_closure_vars_vset(ti_closure_t *closure, ti_thing_t *t)
 {
-    ti_prop_t * prop;
+    ti_prop_t *prop;
     switch(closure->vars->n)
     {
     default:
@@ -689,9 +689,9 @@ int ti_closure_vars_vset(ti_closure_t * closure, ti_thing_t * t)
     return 0;
 }
 
-void ti_closure_vars_dict(ti_closure_t * closure, ti_val_t * k, ti_val_t * v)
+void ti_closure_vars_dict(ti_closure_t *closure, ti_val_t *k, ti_val_t *v)
 {
-    ti_prop_t * prop;
+    ti_prop_t *prop;
     switch(closure->vars->n)
     {
     default:
@@ -713,10 +713,10 @@ void ti_closure_vars_dict(ti_closure_t * closure, ti_val_t * k, ti_val_t * v)
 }
 
 int ti_closure_call(
-        ti_closure_t * closure,
-        ti_query_t * query,
-        vec_t * args,  /* NULL is allowed if the closure accepts no arguments */
-        ex_t * e)
+        ti_closure_t *closure,
+        ti_query_t *query,
+        vec_t *args,  /* NULL is allowed if the closure accepts no arguments */
+        ex_t *e)
 {
     assert(closure);
     assert(closure->vars);
@@ -749,10 +749,10 @@ int ti_closure_call(
  * bug #332
  */
 int ti_closure_call_one_arg(
-        ti_closure_t * closure,
-        ti_query_t * query,
-        ti_val_t * arg,
-        ex_t * e)
+        ti_closure_t *closure,
+        ti_query_t *query,
+        ti_val_t *arg,
+        ex_t *e)
 {
     assert(closure);
     assert(closure->vars);
@@ -763,7 +763,7 @@ int ti_closure_call_one_arg(
 
     if (closure->vars->n)
     {
-        ti_prop_t * prop = VEC_first(closure->vars);
+        ti_prop_t *prop = VEC_first(closure->vars);
         ti_val_unsafe_drop(prop->val);
         prop->val = arg;
         ti_incref(arg);
@@ -775,10 +775,10 @@ int ti_closure_call_one_arg(
     return e->nr;
 }
 
-ti_raw_t * ti_closure_doc(ti_closure_t * closure)
+ti_raw_t *ti_closure_doc(ti_closure_t *closure)
 {
-    ti_raw_t * doc = NULL;
-    cleri_node_t * node = ti_closure_statement(closure)->children;
+    ti_raw_t *doc = NULL;
+    cleri_node_t *node = ti_closure_statement(closure)->children;
 
     if (node->cl_obj->gid != CLERI_GID_BLOCK)
         goto done;
@@ -805,9 +805,9 @@ done:
     return doc ? doc : (ti_raw_t *) ti_val_empty_str();
 }
 
-ti_raw_t * ti_closure_def(ti_closure_t * closure)
+ti_raw_t *ti_closure_def(ti_closure_t *closure)
 {
-    ti_raw_t * def;
+    ti_raw_t *def;
     ti_fmt_t fmt;
     ti_fmt_init(&fmt, TI_FMT_TAB);
 
@@ -819,9 +819,9 @@ ti_raw_t * ti_closure_def(ti_closure_t * closure)
     return def;
 }
 
-_Bool ti_closure_arg_used(ti_closure_t * closure, size_t n)
+_Bool ti_closure_arg_used(ti_closure_t *closure, size_t n)
 {
-    cleri_node_t * nd = closure->node               /* sequence */
+    cleri_node_t *nd = closure->node               /* sequence */
                         ->children->next            /* list */
                         ->children;                 /* first child */
 

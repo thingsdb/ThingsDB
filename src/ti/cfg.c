@@ -15,19 +15,19 @@
 #include <ti.h>
 #include <util/fx.h>
 
-static ti_cfg_t * cfg;
-static const char * cfg__section = "thingsdb";
+static ti_cfg_t *cfg;
+static const char *cfg__section = "thingsdb";
 
 static void cfg__port(
-        cfgparser_t * parser,
-        const char * cfg_file,
-        const char * option_name,
-        uint16_t * port)
+        cfgparser_t *parser,
+        const char *cfg_file,
+        const char *option_name,
+        uint16_t *port)
 {
     const int min_ = 0;
     const int max_ = 65535;
 
-    cfgparser_option_t * option;
+    cfgparser_option_t *option;
     cfgparser_return_t rc;
     rc = cfgparser_get_option(&option, parser, cfg__section, option_name);
 
@@ -54,14 +54,14 @@ static void cfg__port(
 }
 
 static void cfg__zone(
-        cfgparser_t * parser,
-        const char * cfg_file,
-        uint8_t * zone)
+        cfgparser_t *parser,
+        const char *cfg_file,
+        uint8_t *zone)
 {
     const int min_ = 0;
     const int max_ = 255;
 
-    cfgparser_option_t * option;
+    cfgparser_option_t *option;
     cfgparser_return_t rc;
     rc = cfgparser_get_option(&option, parser, cfg__section, "zone");
 
@@ -87,14 +87,14 @@ static void cfg__zone(
 }
 
 static void cfg__shutdown_period(
-        cfgparser_t * parser,
-        const char * cfg_file,
-        uint8_t * shutdown_period)
+        cfgparser_t *parser,
+        const char *cfg_file,
+        uint8_t *shutdown_period)
 {
     const int min_ = 0;
     const int max_ = 255;
 
-    cfgparser_option_t * option;
+    cfgparser_option_t *option;
     cfgparser_return_t rc;
     rc = cfgparser_get_option(&option, parser, cfg__section, "shutdown_period");
 
@@ -119,10 +119,10 @@ static void cfg__shutdown_period(
     *shutdown_period = (uint8_t) option->val->integer;
 }
 
-static void cfg__ip_support(cfgparser_t * parser, const char * cfg_file)
+static void cfg__ip_support(cfgparser_t *parser, const char *cfg_file)
 {
-    const char * option_name = "ip_support";
-    cfgparser_option_t * option;
+    const char *option_name = "ip_support";
+    cfgparser_option_t *option;
     cfgparser_return_t rc;
     rc = cfgparser_get_option(&option, parser, cfg__section, option_name);
     if (rc != CFGPARSER_SUCCESS)
@@ -154,12 +154,12 @@ static void cfg__ip_support(cfgparser_t * parser, const char * cfg_file)
 }
 
 static int cfg__str(
-        cfgparser_t * parser,
-        const char * cfg_file,
-        const char * option_name,
-        char ** str)
+        cfgparser_t *parser,
+        const char *cfg_file,
+        const char *option_name,
+        char **str)
 {
-    cfgparser_option_t * option;
+    cfgparser_option_t *option;
     cfgparser_return_t rc;
     rc = cfgparser_get_option(&option, parser, cfg__section, option_name);
     if (rc != CFGPARSER_SUCCESS)
@@ -194,12 +194,12 @@ static int cfg__str(
 }
 
 static void cfg__threshold_full_storage(
-        cfgparser_t * parser,
-        const char * cfg_file)
+        cfgparser_t *parser,
+        const char *cfg_file)
 {
-    const char * option_name = "threshold_full_storage";
+    const char *option_name = "threshold_full_storage";
 
-    cfgparser_option_t * option;
+    cfgparser_option_t *option;
     cfgparser_return_t rc;
     rc = cfgparser_get_option(&option, parser, cfg__section, option_name);
 
@@ -223,12 +223,12 @@ static void cfg__threshold_full_storage(
 }
 
 static void cfg__threshold_query_cache(
-        cfgparser_t * parser,
-        const char * cfg_file)
+        cfgparser_t *parser,
+        const char *cfg_file)
 {
-    const char * option_name = "threshold_query_cache";
+    const char *option_name = "threshold_query_cache";
 
-    cfgparser_option_t * option;
+    cfgparser_option_t *option;
     cfgparser_return_t rc;
     rc = cfgparser_get_option(&option, parser, cfg__section, option_name);
 
@@ -252,12 +252,12 @@ static void cfg__threshold_query_cache(
 }
 
 static void cfg__cache_expiration_time(
-        cfgparser_t * parser,
-        const char * cfg_file)
+        cfgparser_t *parser,
+        const char *cfg_file)
 {
-    const char * option_name = "cache_expiration_time";
+    const char *option_name = "cache_expiration_time";
 
-    cfgparser_option_t * option;
+    cfgparser_option_t *option;
     cfgparser_return_t rc;
     rc = cfgparser_get_option(&option, parser, cfg__section, option_name);
 
@@ -281,11 +281,11 @@ static void cfg__cache_expiration_time(
 }
 
 
-static void cfg__result_size_limit(cfgparser_t * parser, const char * cfg_file)
+static void cfg__result_size_limit(cfgparser_t *parser, const char *cfg_file)
 {
-    const char * option_name = "result_size_limit";
+    const char *option_name = "result_size_limit";
 
-    cfgparser_option_t * option;
+    cfgparser_option_t *option;
     cfgparser_return_t rc;
     rc = cfgparser_get_option(&option, parser, cfg__section, option_name);
 
@@ -309,13 +309,13 @@ static void cfg__result_size_limit(cfgparser_t * parser, const char * cfg_file)
 }
 
 static void cfg__duration(
-        cfgparser_t * parser,
-        const char * cfg_file,
-        const char * option_name,
+        cfgparser_t *parser,
+        const char *cfg_file,
+        const char *option_name,
         double * duration)
 {
     double d;
-    cfgparser_option_t * option;
+    cfgparser_option_t *option;
     cfgparser_return_t rc;
     rc = cfgparser_get_option(&option, parser, cfg__section, option_name);
 
@@ -343,12 +343,12 @@ static void cfg__duration(
 }
 
 static void cfg__bool(
-        cfgparser_t * parser,
-        const char * option_name,
-        const char * cfg_file,
+        cfgparser_t *parser,
+        const char *option_name,
+        const char *cfg_file,
         _Bool * cfgbool)
 {
-    cfgparser_option_t * option;
+    cfgparser_option_t *option;
     cfgparser_return_t rc;
     int32_t i;
     rc = cfgparser_get_option(
@@ -382,8 +382,8 @@ int ti_cfg_create(void)
     /* SUSv2 guarantees that "Host names are limited to 255 bytes,
      * excluding terminating null byte" */
     char hostname[256];
-    char * sysuser = getenv("USER");
-    char * homedir = getenv("HOME");
+    char *sysuser = getenv("USER");
+    char *homedir = getenv("HOME");
     if (gethostname(hostname, sizeof(hostname)))
         return -1;
 
@@ -452,10 +452,10 @@ void ti_cfg_destroy(void)
     cfg = ti.cfg = NULL;
 }
 
-int ti_cfg_parse(const char * cfg_file)
+int ti_cfg_parse(const char *cfg_file)
 {
     int rc;
-    cfgparser_t * parser = cfgparser_create();
+    cfgparser_t *parser = cfgparser_create();
     if (!parser)
     {
         printf("allocation error\n");
@@ -557,7 +557,7 @@ exit_parse:
 int ti_cfg_ensure_storage_path(void)
 {
     size_t len;
-    char * storage_path;
+    char *storage_path;
 
     if (!fx_is_dir(cfg->storage_path) &&
         mkdir(cfg->storage_path, FX_DEFAULT_DIR_ACCESS))
@@ -586,7 +586,7 @@ int ti_cfg_ensure_storage_path(void)
 
     if (!len || cfg->storage_path[len - 1] != '/')
     {
-        char * tmp = malloc(len + 2);
+        char *tmp = malloc(len + 2);
 
         if (!tmp)
         {

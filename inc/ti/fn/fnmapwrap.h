@@ -2,15 +2,15 @@
 
 typedef struct
 {
-    ti_type_t * type;
-    ti_ano_t * ano;
-    ti_varr_t * varr;
-    ex_t * e;
+    ti_type_t *type;
+    ti_ano_t *ano;
+    ti_varr_t *varr;
+    ex_t *e;
 } map_wrap__walk_t;
 
-static int map_wrap__walk_set(ti_thing_t * thing, map_wrap__walk_t * w)
+static int map_wrap__walk_set(ti_thing_t *thing, map_wrap__walk_t *w)
 {
-    void * wrap;
+    void *wrap;
 
     if (w->type)
     {
@@ -43,15 +43,15 @@ static int map_wrap__walk_set(ti_thing_t * thing, map_wrap__walk_t * w)
     return 0;
 }
 
-static int do__f_map_wrap(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_map_wrap(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
-    const char * doc;
+    const char *doc;
     const int nargs = fn_get_nargs(nd);
     size_t n;
-    ti_varr_t * varr;
-    ti_type_t * type = NULL;
-    ti_ano_t * ano = NULL;
-    ti_val_t * iterable;
+    ti_varr_t *varr;
+    ti_type_t *type = NULL;
+    ti_ano_t *ano = NULL;
+    ti_val_t *iterable;
 
     doc = doc_map_wrap(query->rval);
     if (!doc)
@@ -102,8 +102,8 @@ static int do__f_map_wrap(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case TI_VAL_ARR:
         for (vec_each(VARR(iterable), ti_val_t, val))
         {
-            void * wrap;
-            ti_thing_t * thing;
+            void *wrap;
+            ti_thing_t *thing;
 
             if (!ti_val_is_thing(val))
             {

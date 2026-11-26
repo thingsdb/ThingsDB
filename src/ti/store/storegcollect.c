@@ -14,7 +14,7 @@
 #include <util/fx.h>
 #include <util/mpack.h>
 
-static int store__gcollect_cb(ti_gc_t * gc, msgpack_packer * pk)
+static int store__gcollect_cb(ti_gc_t *gc, msgpack_packer *pk)
 {
     return (
             msgpack_pack_uint64(pk, gc->thing->id) ||
@@ -24,7 +24,7 @@ static int store__gcollect_cb(ti_gc_t * gc, msgpack_packer * pk)
     );
 }
 
-int ti_store_gcollect_store(queue_t * queue, const char * fn)
+int ti_store_gcollect_store(queue_t *queue, const char *fn)
 {
     msgpack_packer pk;
     FILE * f = fopen(fn, "w");
@@ -59,7 +59,7 @@ done:
     return 0;
 }
 
-static int store__walk_i(ti_item_t * item, msgpack_packer * pk)
+static int store__walk_i(ti_item_t *item, msgpack_packer *pk)
 {
     uintptr_t p = (uintptr_t) item->key;
 
@@ -70,7 +70,7 @@ static int store__walk_i(ti_item_t * item, msgpack_packer * pk)
 }
 
 
-static int store__walk_data(ti_thing_t * thing, msgpack_packer * pk)
+static int store__walk_data(ti_thing_t *thing, msgpack_packer *pk)
 {
     if (msgpack_pack_uint64(pk, thing->id))
         return -1;
@@ -107,7 +107,7 @@ static int store__walk_data(ti_thing_t * thing, msgpack_packer * pk)
     return 0;
 }
 
-int ti_store_gcollect_store_data(queue_t * queue, const char * fn)
+int ti_store_gcollect_store_data(queue_t *queue, const char *fn)
 {
     msgpack_packer pk;
     FILE * f = fopen(fn, "w");
@@ -142,7 +142,7 @@ done:
     return 0;
 }
 
-int ti_store_gcollect_restore(ti_collection_t * collection, const char * fn)
+int ti_store_gcollect_restore(ti_collection_t *collection, const char *fn)
 {
     int rc = -1;
     size_t i;
@@ -150,10 +150,10 @@ int ti_store_gcollect_restore(ti_collection_t * collection, const char * fn)
     ssize_t n;
     mp_obj_t obj, mp_ver, mp_thing_id, mp_type_id, mp_change_id;
     mp_unp_t up;
-    ti_type_t * type;
-    ti_thing_t * thing;
-    ti_gc_t * gc;
-    uchar * data = fx_read(fn, &n);
+    ti_type_t *type;
+    ti_thing_t *thing;
+    ti_gc_t *gc;
+    uchar *data = fx_read(fn, &n);
     if (!data)
         return -1;
 
@@ -212,17 +212,17 @@ fail:
 }
 
 int ti_store_gcollect_restore_data(
-        ti_collection_t * collection,
-        imap_t * names,
-        const char * fn)
+        ti_collection_t *collection,
+        imap_t *names,
+        const char *fn)
 {
     int rc = -1;
     ex_t e = {0};
     fx_mmap_t fmap;
-    ti_thing_t * thing;
-    ti_raw_t * key;
-    ti_type_t * type;
-    ti_val_t * val;
+    ti_thing_t *thing;
+    ti_raw_t *key;
+    ti_type_t *type;
+    ti_val_t *val;
     mp_obj_t obj, mp_ver, mp_thing_id, mp_key;
     mp_unp_t up;
     size_t i, ii;

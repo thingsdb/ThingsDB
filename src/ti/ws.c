@@ -17,7 +17,7 @@
 static struct lws_context * ws__context;
 const size_t ws__mf = LWS_SS_MTU-LWS_PRE;
 
-static int ws__callback_established(struct lws * wsi, ti_ws_t * pss)
+static int ws__callback_established(struct lws * wsi, ti_ws_t *pss)
 {
     const size_t sugsz = 8192;
 
@@ -51,21 +51,21 @@ fail0:
     return -1;
 }
 
-static inline void ws__done(ti_ws_t * pss, ti_write_t * req, ex_enum status)
+static inline void ws__done(ti_ws_t *pss, ti_write_t *req, ex_enum status)
 {
     (void) queue_shift(pss->queue);
     pss->f = 0;  /* reset to frame 0 */
     req->cb_(req, status);
 }
 
-static int ws__callback_server_writable(struct lws * wsi, ti_ws_t * pss)
+static int ws__callback_server_writable(struct lws * wsi, ti_ws_t *pss)
 {
     unsigned char mtubuff[LWS_SS_MTU];
-    unsigned char * out = mtubuff + LWS_PRE;
-    unsigned char * pt;
+    unsigned char *out = mtubuff + LWS_PRE;
+    unsigned char *pt;
     int flags, m, is_end;
     size_t len;
-    ti_write_t * req = queue_first(pss->queue);
+    ti_write_t *req = queue_first(pss->queue);
     if (!req)
         return 0;  /* nothing to write */
 
@@ -117,18 +117,18 @@ static int ws__callback_server_writable(struct lws * wsi, ti_ws_t * pss)
 
 static int ws__callback_receive(
         struct lws * wsi,
-        ti_ws_t * pss,
-        void * in,
+        ti_ws_t *pss,
+        void *in,
         size_t len)
 {
-    ti_stream_t * stream = pss->stream;
+    ti_stream_t *stream = pss->stream;
     if (lws_is_first_fragment(wsi))
         stream->n = 0;
 
     if (len > stream->sz - stream->n)
     {
         size_t sz = stream->n + len;
-        char * nbuf = realloc(stream->buf, sz);
+        char *nbuf = realloc(stream->buf, sz);
         if (!nbuf)
         {
             log_error(EX_MEMORY_S);
@@ -143,7 +143,7 @@ static int ws__callback_receive(
 
     if (lws_is_final_fragment(wsi))
     {
-        ti_pkg_t * pkg;
+        ti_pkg_t *pkg;
         if (stream->n < sizeof(ti_pkg_t))
         {
             log_error(
@@ -176,7 +176,7 @@ struct per_vhost_data__minimal {
     const struct lws_protocols *protocol;
 };
 
-static void ws__kill_req(ti_write_t * req)
+static void ws__kill_req(ti_write_t *req)
 {
     req->cb_(req, EX_WRITE_UV);
 }
@@ -185,11 +185,11 @@ static void ws__kill_req(ti_write_t * req)
 int ws__callback(
         struct lws * wsi,
         enum lws_callback_reasons reason,
-        void * user,
-        void * in,
+        void *user,
+        void *in,
         size_t len)
 {
-    ti_ws_t * pss = (ti_ws_t *) user;
+    ti_ws_t *pss = (ti_ws_t *) user;
 
     switch (reason)
     {
@@ -227,7 +227,7 @@ static struct lws_protocols ws__protocols[] = {
     { NULL, NULL, 0, 0, 0, NULL, 0 } // Protocol list ends with NULL
 };
 
-void ws__log(int level, const char * line)
+void ws__log(int level, const char *line)
 {
     switch(level)
     {
@@ -361,7 +361,7 @@ int ti_ws_init()
     return 0;
 }
 
-int ti_ws_write(ti_ws_t * pss, ti_write_t * req)
+int ti_ws_write(ti_ws_t *pss, ti_write_t *req)
 {
     if (!pss->wsi)
         return 0;  /* ignore dead connections */
@@ -373,17 +373,17 @@ int ti_ws_write(ti_ws_t * pss, ti_write_t * req)
     return 0;
 }
 
-char * ti_ws_name(const char * prefix, ti_ws_t * pss)
+char *ti_ws_name(const char *prefix, ti_ws_t *pss)
 {
     size_t n = strlen(prefix);
     struct lws_vhost * vhost = lws_get_vhost(pss->wsi);
     if (vhost)
     {
-        const char * name = lws_get_vhost_iface(vhost);
+        const char *name = lws_get_vhost_iface(vhost);
         if (name)
         {
             size_t m = strlen(name);
-            char * buffer = malloc(n + m + 1);
+            char *buffer = malloc(n + m + 1);
 
             memcpy(buffer, prefix, n);
             memcpy(buffer+n, name, m);

@@ -1,11 +1,11 @@
 #include <ti/fn/fn.h>
 
 
-static int do__f_set_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_set_name(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_room_t * room;
-    ti_task_t * task;
+    ti_room_t *room;
+    ti_task_t *task;
 
     if (!ti_val_is_room(query->rval))
         return fn_call_try("set_name", query, nd, e);
@@ -32,9 +32,9 @@ static int do__f_set_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_val_is_str(query->rval))
     {
-        ti_room_t * prev;
-        ti_name_t * name;
-        ti_raw_t * raw = (ti_raw_t *) query->rval;
+        ti_room_t *prev;
+        ti_name_t *name;
+        ti_raw_t *raw = (ti_raw_t *) query->rval;
         if (!ti_name_is_valid_strn((const char *) raw->data, raw->n))
         {
             ex_set(e, EX_VALUE_ERROR,

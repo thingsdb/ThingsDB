@@ -16,7 +16,7 @@
 #include <util/fx.h>
 #include <util/logger.h>
 
-int fx_write(const char * fn, const void * data, size_t n)
+int fx_write(const char *fn, const void *data, size_t n)
 {
     int rc = 0;
     FILE * fp = fopen(fn, "w");
@@ -41,9 +41,9 @@ int fx_write(const char * fn, const void * data, size_t n)
     return rc;
 }
 
-unsigned char * fx_read(const char * fn, ssize_t * size)
+unsigned char *fx_read(const char *fn, ssize_t *size)
 {
-    unsigned char * data = NULL;
+    unsigned char *data = NULL;
     FILE * fp = fopen(fn, "r");
     if (!fp)
     {
@@ -81,24 +81,24 @@ final:
     return data;
 }
 
-_Bool fx_file_exist(const char * fn)
+_Bool fx_file_exist(const char *fn)
 {
     return access(fn, F_OK) != -1;
 }
 
-_Bool fx_is_executable(const char * fn)
+_Bool fx_is_executable(const char *fn)
 {
     return access(fn, F_OK | X_OK) != -1;
 }
 
-char * fx_get_executable_in_path(const char * fn)
+char *fx_get_executable_in_path(const char *fn)
 {
     int nchars;
     char fullpath[FX_PATH_MAX];
-    const char * item;
-    char * paths = strdup(getenv("PATH"));
-    char * tmp = paths; // to use in free
-    char * fpath = NULL;
+    const char *item;
+    char *paths = strdup(getenv("PATH"));
+    char *tmp = paths; // to use in free
+    char *fpath = NULL;
     if (!paths)
         return NULL;
 
@@ -118,16 +118,16 @@ char * fx_get_executable_in_path(const char * fn)
     return fpath;
 }
 
-_Bool fx_is_dir(const char * path)
+_Bool fx_is_dir(const char *path)
 {
     struct stat st = {0};
     return !stat(path, &st) && S_ISDIR(st.st_mode);
 }
 
-int fx_mkdir_n(const char * path, size_t n)
+int fx_mkdir_n(const char *path, size_t n)
 {
     int rc = 0;
-    char * tmp = strndup(path, n);
+    char *tmp = strndup(path, n);
     if (!tmp)
         return -1;
     if (!fx_is_dir(tmp))
@@ -140,10 +140,10 @@ int fx_mkdir_n(const char * path, size_t n)
     return rc;
 }
 
-int fx_unlink_n(const char * str, size_t n)
+int fx_unlink_n(const char *str, size_t n)
 {
     int rc;
-    char * tmp = strndup(str, n);
+    char *tmp = strndup(str, n);
     if (!tmp)
         return -1;
 
@@ -156,16 +156,16 @@ int fx_unlink_n(const char * str, size_t n)
     return rc;
 }
 
-int fx_rmdir(const char * path)
+int fx_rmdir(const char *path)
 {
     DIR * d = opendir(path);
     if (!d)
         return -1;
 
     size_t bufsz = 0, path_len = strlen(path);
-    const char * slash = (path[path_len - 1] == '/') ? "" : "/";
+    const char *slash = (path[path_len - 1] == '/') ? "" : "/";
     struct dirent * p;
-    char * buf = NULL;
+    char *buf = NULL;
 
     while ((p = readdir(d)))
     {
@@ -179,7 +179,7 @@ int fx_rmdir(const char * path)
         if (len > bufsz)
         {
             bufsz = len;
-            char * tmp = realloc(buf, bufsz);
+            char *tmp = realloc(buf, bufsz);
             if (!tmp)
                 goto stop;
             buf = tmp;
@@ -198,15 +198,15 @@ stop:
     return rmdir(path);
 }
 
-char * fx_path_join_strn(
-        const char * s1,
+char *fx_path_join_strn(
+        const char *s1,
         size_t n1,
-        const char * s2,
+        const char *s2,
         size_t n2)
 {
     int add_slash = (s1[n1-1] != '/');
     size_t sz = n1 + n2 + 1 + add_slash;
-    char * s = malloc(sz);
+    char *s = malloc(sz);
     if (!s)
         return NULL;
 
@@ -221,11 +221,11 @@ char * fx_path_join_strn(
     return s;
 }
 
-char * fx_get_exec_path(void)
+char *fx_get_exec_path(void)
 {
     int rc;
     size_t buffer_sz = 1024;
-    char * tmp, * buffer;
+    char *tmp, *buffer;
 
     buffer = malloc(buffer_sz);
     if (!buffer)
@@ -258,7 +258,7 @@ failed:
     return NULL;
 }
 
-int fx_mmap_open(fx_mmap_t * x)
+int fx_mmap_open(fx_mmap_t *x)
 {
     int pagesize = getpagesize();
     struct stat st;
@@ -296,7 +296,7 @@ fail:
     return -1;
 }
 
-int fx_mmap_close(fx_mmap_t * x)
+int fx_mmap_close(fx_mmap_t *x)
 {
     if (x->data && munmap(x->data, x->n))
     {
@@ -311,10 +311,10 @@ int fx_mmap_close(fx_mmap_t * x)
     return 0;
 }
 
-int fx_starts_with(const char * fn, const char * starts_with)
+int fx_starts_with(const char *fn, const char *starts_with)
 {
     const size_t sz = strlen(starts_with);
-    char * buf = malloc(sz);
+    char *buf = malloc(sz);
     FILE * fp = fopen(fn, "r");
     int is_true = 0;
     if (!fp || !buf)

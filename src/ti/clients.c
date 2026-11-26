@@ -28,13 +28,13 @@
 
 #define CLIENTS__UV_BACKLOG 64
 
-static ti_clients_t * clients;
+static ti_clients_t *clients;
 static ti_clients_t clients_;
 
-static void clients__fwd_cb(ti_req_t * req, ex_enum status)
+static void clients__fwd_cb(ti_req_t *req, ex_enum status)
 {
-    ti_pkg_t * resp;
-    ti_fwd_t * fwd = req->data;
+    ti_pkg_t *resp;
+    ti_fwd_t *fwd = req->data;
     if (status)
     {
         ex_t e = {0};
@@ -62,22 +62,22 @@ finish:
     ti_req_destroy(req);
 }
 
-_Bool ti_clients_is_fwd_req(ti_req_t * req)
+_Bool ti_clients_is_fwd_req(ti_req_t *req)
 {
     return req->cb_ == clients__fwd_cb;
 }
 
 static int clients__fwd(
-        ti_node_t * to_node,
-        ti_stream_t * src_stream,
-        ti_pkg_t * orig_pkg,
+        ti_node_t *to_node,
+        ti_stream_t *src_stream,
+        ti_pkg_t *orig_pkg,
         ti_proto_enum_t proto)
 {
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
-    ti_fwd_t * fwd;
-    ti_pkg_t * pkg_req = NULL;
+    ti_fwd_t *fwd;
+    ti_pkg_t *pkg_req = NULL;
 
     fwd = ti_fwd_create(orig_pkg->id, src_stream);
     if (!fwd)
@@ -112,9 +112,9 @@ fail0:
     return -1;
 }
 
-static void clients__on_deprecated(ti_stream_t * stream, ti_pkg_t * pkg)
+static void clients__on_deprecated(ti_stream_t *stream, ti_pkg_t *pkg)
 {
-    ti_pkg_t * resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_OK, NULL, 0);
+    ti_pkg_t *resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_OK, NULL, 0);
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
         free(resp);
@@ -122,9 +122,9 @@ static void clients__on_deprecated(ti_stream_t * stream, ti_pkg_t * pkg)
     }
 }
 
-static void clients__on_ping(ti_stream_t * stream, ti_pkg_t * pkg)
+static void clients__on_ping(ti_stream_t *stream, ti_pkg_t *pkg)
 {
-    ti_pkg_t * resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_PONG, NULL, 0);
+    ti_pkg_t *resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_PONG, NULL, 0);
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
         free(resp);
@@ -132,13 +132,13 @@ static void clients__on_ping(ti_stream_t * stream, ti_pkg_t * pkg)
     }
 }
 
-static void clients__on_auth(ti_stream_t * stream, ti_pkg_t * pkg)
+static void clients__on_auth(ti_stream_t *stream, ti_pkg_t *pkg)
 {
     ex_t e = {0};
-    ti_pkg_t * resp;
+    ti_pkg_t *resp;
     mp_unp_t up;
     mp_obj_t mp_name, mp_pass, mp_token;
-    ti_user_t * user;
+    ti_user_t *user;
 
     mp_unp_init(&up, pkg->data, pkg->n);
 
@@ -186,7 +186,7 @@ finish:
     }
 }
 
-static inline int clients__check(ti_user_t * user, ex_t * e)
+static inline int clients__check(ti_user_t *user, ex_t *e)
 {
     if (!user)
     {
@@ -201,16 +201,16 @@ static inline int clients__check(ti_user_t * user, ex_t * e)
     return e->nr;
 }
 
-static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg)
+static void clients__on_query(ti_stream_t *stream, ti_pkg_t *pkg)
 {
     ex_t e = {0};
     mp_obj_t mp_query;
     mp_unp_t up;
-    ti_pkg_t * resp = NULL;
-    ti_query_t * query = NULL;
-    ti_node_t * this_node = ti.node, * other_node;
-    ti_user_t * user = stream->via.user;
-    vec_t * access_;
+    ti_pkg_t *resp = NULL;
+    ti_query_t *query = NULL;
+    ti_node_t *this_node = ti.node, *other_node;
+    ti_user_t *user = stream->via.user;
+    vec_t *access_;
     ti_scope_t scope;
 
     mp_unp_init(&up, pkg->data, pkg->n);
@@ -337,13 +337,13 @@ finish:
     }
 }
 
-static void clients__on_join(ti_stream_t * stream, ti_pkg_t * pkg)
+static void clients__on_join(ti_stream_t *stream, ti_pkg_t *pkg)
 {
     ex_t e = {0};
-    ti_user_t * user = stream->via.user;
-    ti_pkg_t * resp = NULL;
+    ti_user_t *user = stream->via.user;
+    ti_pkg_t *resp = NULL;
     ti_scope_t scope;
-    ti_collection_t * collection;
+    ti_collection_t *collection;
 
     if (clients__check(user, &e) || ti_scope_init_pkg(&scope, pkg, &e))
         goto on_error;
@@ -381,13 +381,13 @@ done:
     }
 }
 
-static void clients__on_leave(ti_stream_t * stream, ti_pkg_t * pkg)
+static void clients__on_leave(ti_stream_t *stream, ti_pkg_t *pkg)
 {
     ex_t e = {0};
-    ti_user_t * user = stream->via.user;
-    ti_pkg_t * resp = NULL;
+    ti_user_t *user = stream->via.user;
+    ti_pkg_t *resp = NULL;
     ti_scope_t scope;
-    ti_collection_t * collection;
+    ti_collection_t *collection;
 
     if (clients__check(user, &e) || ti_scope_init_pkg(&scope, pkg, &e))
         goto on_error;
@@ -425,15 +425,15 @@ done:
     }
 }
 
-static void clients__on_emit(ti_stream_t * stream,
-                             ti_stream_t * peer,  /* null for echo */
-                             ti_pkg_t * pkg)
+static void clients__on_emit(ti_stream_t *stream,
+                             ti_stream_t *peer,  /* null for echo */
+                             ti_pkg_t *pkg)
 {
     ex_t e = {0};
-    ti_user_t * user = stream->via.user;
-    ti_pkg_t * resp = NULL;
+    ti_user_t *user = stream->via.user;
+    ti_pkg_t *resp = NULL;
     ti_scope_t scope;
-    ti_collection_t * collection;
+    ti_collection_t *collection;
 
     if (clients__check(user, &e) || ti_scope_init_pkg(&scope, pkg, &e))
         goto on_error;
@@ -473,14 +473,14 @@ done:
     }
 }
 
-static void clients__on_run(ti_stream_t * stream, ti_pkg_t * pkg)
+static void clients__on_run(ti_stream_t *stream, ti_pkg_t *pkg)
 {
     ex_t e = {0};
-    ti_user_t * user = stream->via.user;
-    ti_node_t * this_node = ti.node;
-    ti_pkg_t * resp = NULL;
-    vec_t * access_;
-    ti_query_t * query = NULL;
+    ti_user_t *user = stream->via.user;
+    ti_node_t *this_node = ti.node;
+    ti_pkg_t *resp = NULL;
+    vec_t *access_;
+    ti_query_t *query = NULL;
     ti_scope_t scope;
 
     if (clients__check(user, &e) || ti_scope_init_pkg(&scope, pkg, &e))
@@ -489,7 +489,7 @@ static void clients__on_run(ti_stream_t * stream, ti_pkg_t * pkg)
     if (this_node->status < TI_NODE_STAT_READY &&
         this_node->status != TI_NODE_STAT_SHUTTING_DOWN)
     {
-        ti_node_t * other_node = ti_nodes_random_ready_node();
+        ti_node_t *other_node = ti_nodes_random_ready_node();
         if (!other_node)
         {
             ti_nodes_set_not_ready_err(&e);
@@ -554,7 +554,7 @@ finish:
     }
 }
 
-void ti_clients_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
+void ti_clients_pkg_cb(ti_stream_t *stream, ti_pkg_t *pkg)
 {
     switch (pkg->tp)
     {
@@ -594,10 +594,10 @@ void ti_clients_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
     }
 }
 
-static void clients__tcp_connection(uv_stream_t * uvstream, int status)
+static void clients__tcp_connection(uv_stream_t *uvstream, int status)
 {
     int rc;
-    ti_stream_t * stream;
+    ti_stream_t *stream;
 
     if (status < 0)
     {
@@ -639,10 +639,10 @@ failed:
     ti_stream_drop(stream);
 }
 
-static void clients__pipe_connection(uv_stream_t * uvstream, int status)
+static void clients__pipe_connection(uv_stream_t *uvstream, int status)
 {
     int rc;
-    ti_stream_t * stream;
+    ti_stream_t *stream;
 
     if (status < 0)
     {
@@ -705,10 +705,10 @@ void ti_clients_destroy(void)
 int ti_clients_listen(void)
 {
     int rc;
-    ti_cfg_t * cfg = ti.cfg;
+    ti_cfg_t *cfg = ti.cfg;
     struct sockaddr_storage addr = {0};
     _Bool is_ipv6 = false;
-    char * ip;
+    char *ip;
 
     uv_tcp_init(ti.loop, &clients->tcp);
     uv_pipe_init(ti.loop, &clients->pipe, 0);

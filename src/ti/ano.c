@@ -7,9 +7,9 @@
 #include <ti/val.inline.h>
 #include <util/logger.h>
 
-ti_ano_t * ti_ano_new(void)
+ti_ano_t *ti_ano_new(void)
 {
-    ti_ano_t * ano = calloc(1, sizeof(ti_ano_t));
+    ti_ano_t *ano = calloc(1, sizeof(ti_ano_t));
     if (!ano)
         return NULL;
     ano->ref = 1;
@@ -17,7 +17,7 @@ ti_ano_t * ti_ano_new(void)
     return ano;
 }
 
-int ano__dep_check(ti_type_t * type, ex_t * e)
+int ano__dep_check(ti_type_t *type, ex_t *e)
 {
     if (ti_type_has_dependencies(type))
         ex_set(e, EX_TYPE_ERROR,
@@ -29,14 +29,14 @@ int ano__dep_check(ti_type_t * type, ex_t * e)
 }
 
 int ti_ano_init(
-        ti_ano_t * ano,
-        ti_collection_t * collection,
-        ti_raw_t * spec_raw,
-        ex_t * e)
+        ti_ano_t *ano,
+        ti_collection_t *collection,
+        ti_raw_t *spec_raw,
+        ex_t *e)
 {
     uint8_t flags = TI_TYPE_FLAG_WRAP_ONLY | TI_TYPE_FLAG_HIDE_ID;
-    ti_type_t * type;
-    ti_val_t * val;
+    ti_type_t *type;
+    ti_val_t *val;
     mp_unp_t up;
     ti_vup_t vup = {
             .isclient = true,
@@ -58,7 +58,7 @@ int ti_ano_init(
     /* can't be a dict; this is not allowed by the &{..} and ano() function */
     for (vec_each(((ti_thing_t *) val)->items.vec, ti_prop_t, prop))
     {
-        ti_raw_t * sr = (ti_raw_t *) prop->val;
+        ti_raw_t *sr = (ti_raw_t *) prop->val;
         if (ti_val_is_raw(prop->val) && sr->n)
         {
             if (sr->data[0] == '#')
@@ -70,7 +70,7 @@ int ti_ano_init(
                     .immutable_n = 0,
                     .flags = TI_QBIND_FLAG_COLLECTION,
                 };
-                ti_closure_t * closure = ti_closure_from_strn(
+                ti_closure_t *closure = ti_closure_from_strn(
                         &syntax,
                         (const char *) sr->data,
                         sr->n,
@@ -113,12 +113,12 @@ fail0:
     return e->nr;
 }
 
-ti_ano_t * ti_ano_from_raw(
-        ti_collection_t * collection,
-        ti_raw_t * spec_raw,
-        ex_t * e)
+ti_ano_t *ti_ano_from_raw(
+        ti_collection_t *collection,
+        ti_raw_t *spec_raw,
+        ex_t *e)
 {
-    ti_ano_t * ano = ti_ano_new();
+    ti_ano_t *ano = ti_ano_new();
     if (!ano)
     {
         ex_set_mem(e);
@@ -132,14 +132,14 @@ ti_ano_t * ti_ano_from_raw(
     return ano;
 }
 
-ti_ano_t * ti_ano_create(
-        ti_collection_t * collection,
-        const unsigned char * bin,
+ti_ano_t *ti_ano_create(
+        ti_collection_t *collection,
+        const unsigned char *bin,
         size_t n,
-        ex_t * e)
+        ex_t *e)
 {
-    ti_raw_t * spec_raw;
-    ti_ano_t * ano = smap_getn(collection->ano_types, (const char *) bin, n);
+    ti_raw_t *spec_raw;
+    ti_ano_t *ano = smap_getn(collection->ano_types, (const char *) bin, n);
     if (ano)
     {
         ti_incref(ano);
@@ -154,7 +154,7 @@ ti_ano_t * ti_ano_create(
     return ano;
 }
 
-void ti_ano_destroy(ti_ano_t * ano)
+void ti_ano_destroy(ti_ano_t *ano)
 {
     /* we must check type as we might have spec_raw without a type */
     if (ano->type)

@@ -1,11 +1,11 @@
 #include <ti/fn/fn.h>
 
 
-static int do__f_of_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_of_type(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_thing_t * thing;
-    ti_type_t * type;
+    ti_thing_t *thing;
+    ti_type_t *type;
     uint64_t id;
 
     if (!ti_val_is_int(query->rval))

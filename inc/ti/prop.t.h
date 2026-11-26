@@ -11,8 +11,8 @@ typedef struct ti_prop_s ti_prop_t;
 
 struct ti_prop_s
 {
-    ti_name_t * name;   /* with reference */
-    ti_val_t * val;     /* with reference */
+    ti_name_t *name;   /* with reference */
+    ti_val_t *val;     /* with reference */
 };
 
 #endif /* TI_PROP_T_H_ */

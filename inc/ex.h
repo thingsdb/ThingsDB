@@ -102,14 +102,14 @@ typedef struct ex_s ex_t;
 #include <stdarg.h>
 #include <string.h>
 
-void ex_sets(ex_t * e, ex_enum errnr, const char * errmsg);
-void ex_set(ex_t * e, ex_enum errnr, const char * errmsg, ...)
+void ex_sets(ex_t *e, ex_enum errnr, const char *errmsg);
+void ex_set(ex_t *e, ex_enum errnr, const char *errmsg, ...)
         __attribute__((format(printf, 3, 4)));
-void ex_setv(ex_t * e, ex_enum errnr, const char * errmsg, va_list args);
-void ex_setn(ex_t * e, ex_enum errnr, const char * errmsg, size_t n);
-void ex_append(ex_t * e, const char * errmsg, ...)
+void ex_setv(ex_t *e, ex_enum errnr, const char *errmsg, va_list args);
+void ex_setn(ex_t *e, ex_enum errnr, const char *errmsg, size_t n);
+void ex_append(ex_t *e, const char *errmsg, ...)
         __attribute__((format(printf, 2, 3)));;
-const char * ex_str(ex_enum errnr);
+const char *ex_str(ex_enum errnr);
 
 struct ex_s
 {
@@ -125,7 +125,7 @@ struct ex_s
 #define ex_set_break(e__) ex_setn((e__), EX_BREAK, EX_BREAK_S, 5)
 #define ex_set_integer_overflow(e_) ex_sets(e, EX_OVERFLOW, "integer overflow")
 
-static inline void ex_clear(ex_t * e)
+static inline void ex_clear(ex_t *e)
 {
     memset(e, 0, sizeof(ex_t));
 }

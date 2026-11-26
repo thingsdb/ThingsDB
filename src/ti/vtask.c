@@ -27,15 +27,15 @@ static ti_vtask_t vtask__nil = {
         .tp=TI_VAL_TASK,
 };
 
-ti_vtask_t * ti_vtask_create(
+ti_vtask_t *ti_vtask_create(
         uint64_t id,
         uint64_t run_at,
-        ti_user_t * user,
-        ti_closure_t * closure,
-        ti_verror_t * verr,     /* may be NULL */
-        vec_t * args /* may be NULL temporary when loading tasks */)
+        ti_user_t *user,
+        ti_closure_t *closure,
+        ti_verror_t *verr,     /* may be NULL */
+        vec_t *args /* may be NULL temporary when loading tasks */)
 {
-    ti_vtask_t * vtask = malloc(sizeof(ti_vtask_t));
+    ti_vtask_t *vtask = malloc(sizeof(ti_vtask_t));
     if (!vtask)
         return NULL;
 
@@ -57,13 +57,13 @@ ti_vtask_t * ti_vtask_create(
     return vtask;
 }
 
-ti_vtask_t * ti_vtask_nil(void)
+ti_vtask_t *ti_vtask_nil(void)
 {
     ti_incref(&vtask__nil);
     return &vtask__nil;
 }
 
-void ti_vtask_destroy(ti_vtask_t * vtask)
+void ti_vtask_destroy(ti_vtask_t *vtask)
 {
     if (vtask && vtask->id)
     {
@@ -79,13 +79,13 @@ void ti_vtask_destroy(ti_vtask_t * vtask)
  * If this function is not able to forward the vtask, an exception will
  * be set but `ti_vtask_done(..)` will not be called.
  */
-static int vtask__fwd(ti_vtask_t * vtask, ti_collection_t * collection)
+static int vtask__fwd(ti_vtask_t *vtask, ti_collection_t *collection)
 {
 
     msgpack_packer pk;
     msgpack_sbuffer buffer;
-    ti_pkg_t * pkg;
-    ti_node_t * node = ti_nodes_random_ready_node();
+    ti_pkg_t *pkg;
+    ti_node_t *node = ti_nodes_random_ready_node();
     uint64_t scope_id = collection ? collection->id : TI_SCOPE_THINGSDB;
 
     if (!node)
@@ -120,16 +120,16 @@ static int vtask__fwd(ti_vtask_t * vtask, ti_collection_t * collection)
     return 0;
 }
 
-void vtask__run_async_cb(uv_async_t * handle)
+void vtask__run_async_cb(uv_async_t *handle)
 {
-    ti_query_t * query = handle->data;
+    ti_query_t *query = handle->data;
     uv_close((uv_handle_t *) handle, (uv_close_cb) free);
     ti_query_run_task(query);
 }
 
-int vtask__run_async(ti_query_t * query, ex_t * e)
+int vtask__run_async(ti_query_t *query, ex_t *e)
 {
-    uv_async_t * handle = malloc(sizeof(uv_async_t));
+    uv_async_t *handle = malloc(sizeof(uv_async_t));
     if (!handle)
     {
         ex_set_mem(e);
@@ -144,14 +144,14 @@ int vtask__run_async(ti_query_t * query, ex_t * e)
     return e->nr;
 }
 
-int ti_vtask_run(ti_vtask_t * vtask, ti_collection_t * collection)
+int ti_vtask_run(ti_vtask_t *vtask, ti_collection_t *collection)
 {
-    ti_node_t * this_node = ti.node;
+    ti_node_t *this_node = ti.node;
 
     if (this_node->status == TI_NODE_STAT_READY)
     {
         ex_t e = {0};
-        ti_query_t * query = ti_query_create(0);
+        ti_query_t *query = ti_query_create(0);
         if (!query)
         {
             log_error(EX_MEMORY_S);
@@ -194,7 +194,7 @@ int ti_vtask_run(ti_vtask_t * vtask, ti_collection_t * collection)
     return 0;
 }
 
-static void vtask__clear(ti_vtask_t * vtask)
+static void vtask__clear(ti_vtask_t *vtask)
 {
     ti_user_drop(vtask->user);
     ti_closure_drop(vtask->closure);
@@ -208,16 +208,16 @@ static void vtask__clear(ti_vtask_t * vtask)
     vtask->args = NULL;
 }
 
-void ti_vtask_del(uint64_t vtask_id, ti_collection_t * collection)
+void ti_vtask_del(uint64_t vtask_id, ti_collection_t *collection)
 {
     uint32_t idx = 0;
-    vec_t * vtasks = collection ? collection->vtasks : ti.tasks->vtasks;
+    vec_t *vtasks = collection ? collection->vtasks : ti.tasks->vtasks;
 
     for (vec_each(vtasks, ti_vtask_t, vt), ++idx)
     {
         if (vt->id == vtask_id)
         {
-            ti_vtask_t * vtask = vec_swap_remove(vtasks, idx);
+            ti_vtask_t *vtask = vec_swap_remove(vtasks, idx);
             if (--vtask->ref)
             {
                 ++vtask->ref;  /* temporary add one reference for when tasks
@@ -235,11 +235,11 @@ void ti_vtask_del(uint64_t vtask_id, ti_collection_t * collection)
     }
 }
 
-int ti_vtask_to_client_pk(ti_vtask_t * vtask, msgpack_packer * pk)
+int ti_vtask_to_client_pk(ti_vtask_t *vtask, msgpack_packer *pk)
 {
     if (vtask->id)
     {
-        const char * status, * run_at;
+        const char *status, *run_at;
         run_at = vtask->run_at
                 ? ti_datetime_ts_str((const time_t *) &vtask->run_at)
                 : "nil";
@@ -258,14 +258,14 @@ int ti_vtask_to_client_pk(ti_vtask_t * vtask, msgpack_packer * pk)
     return mp_pack_str(pk, "task:nil");
 }
 
-int ti_vtask_to_store_pk(ti_vtask_t * vtask, msgpack_packer * pk)
+int ti_vtask_to_store_pk(ti_vtask_t *vtask, msgpack_packer *pk)
 {
     unsigned char buf[8];
     mp_store_uint64(vtask->id, buf);
     return mp_pack_ext(pk, MPACK_EXT_TASK, buf, sizeof(buf));
 }
 
-int ti_vtask_check_args(vec_t * args, size_t m, _Bool ti_scope, ex_t * e)
+int ti_vtask_check_args(vec_t *args, size_t m, _Bool ti_scope, ex_t *e)
 {
     size_t n = args->n;
 
@@ -287,7 +287,7 @@ int ti_vtask_check_args(vec_t * args, size_t m, _Bool ti_scope, ex_t * e)
     return 0;
 }
 
-int ti_vtask_set_closure(ti_vtask_t * vtask, ti_closure_t * closure)
+int ti_vtask_set_closure(ti_vtask_t *vtask, ti_closure_t *closure)
 {
     uint32_t m = closure->vars->n;
 

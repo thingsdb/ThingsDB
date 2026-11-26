@@ -1,10 +1,10 @@
 #include <ti/fn/fn.h>
 
-static int do__f_del_vtask(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_del_vtask(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_task_t * task;
-    ti_vtask_t * vtask;
+    ti_task_t *task;
+    ti_vtask_t *vtask;
 
     if (!query->change)
     {
@@ -44,13 +44,13 @@ fail0:
     return e->nr;
 }
 
-static int do__f_del_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_del_thing(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_task_t * task;
-    ti_thing_t * thing;
-    ti_item_t * item;
-    ti_raw_t * rname;
+    ti_task_t *task;
+    ti_thing_t *thing;
+    ti_item_t *item;
+    ti_raw_t *rname;
 
     if (!ti_val_is_object(query->rval))
         return fn_call_try("del", query, nd, e);
@@ -93,12 +93,12 @@ fail0:
     return e->nr;
 }
 
-static int do__f_del_dict(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_del_dict(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_task_t * task;
-    ti_dict_t * dict;
-    ti_val_t * key;
+    ti_task_t *task;
+    ti_dict_t *dict;
+    ti_val_t *key;
 
     if (fn_nargs("del", DOC_DICT_DEL, 1, nargs, e) ||
         ti_query_test_dict_operation(query, e) ||
@@ -138,7 +138,7 @@ fail0:
     return e->nr;
 }
 
-static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_del(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     return ti_val_is_thing(query->rval)
             ? do__f_del_thing(query, nd, e)

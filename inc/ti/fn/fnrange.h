@@ -2,12 +2,12 @@
 
 #define TI_RANGE_MAX 100000
 
-static int do__f_range(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_range(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     int64_t start = 0, stop, step = 1, n;
-    ti_varr_t * varr;
-    cleri_node_t * child = nd->children;
+    ti_varr_t *varr;
+    cleri_node_t *child = nd->children;
 
     if (fn_nargs_range("range", DOC_RANGE, 1, 3, nargs, e) ||
         ti_do_statement(query, child, e) ||
@@ -68,7 +68,7 @@ static int do__f_range(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     while (n-- > 0)
     {
-        ti_vint_t * vint = ti_vint_create(start);
+        ti_vint_t *vint = ti_vint_create(start);
         if (!vint)
         {
             ex_set_mem(e);

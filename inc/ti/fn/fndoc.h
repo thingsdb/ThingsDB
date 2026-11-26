@@ -1,9 +1,9 @@
 #include <ti/fn/fn.h>
 
-static int do__f_doc(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_doc(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_raw_t * doc;
+    ti_raw_t *doc;
 
     if (!ti_val_is_closure(query->rval))
         return fn_call_try("doc", query, nd, e);

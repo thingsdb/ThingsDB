@@ -61,14 +61,14 @@ ti_query_run_cb ti_query_run_map[] = {
  *  tasks are ordered for low to high thing ids
  *   { [0, 0]: {0: [ {'task':...} ] } }
  */
-static ti_cpkg_t * query__cpkg_change(ti_query_t * query)
+static ti_cpkg_t *query__cpkg_change(ti_query_t *query)
 {
     size_t init_buffer_sz = 40;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
-    ti_cpkg_t * cpkg;
-    ti_pkg_t * pkg;
-    vec_t * tasks = query->change->tasks;
+    ti_cpkg_t *cpkg;
+    ti_pkg_t *pkg;
+    vec_t *tasks = query->change->tasks;
 
     for (vec_each(tasks, ti_task_t, task))
         init_buffer_sz += task->approx_sz;
@@ -109,9 +109,9 @@ static ti_cpkg_t * query__cpkg_change(ti_query_t * query)
  * Void function, although errors can happen. Each error is critical since this
  * results in nodes and subscribers inconsistency.
  */
-static void query__change_handle(ti_query_t * query)
+static void query__change_handle(ti_query_t *query)
 {
-    ti_cpkg_t * cpkg = query__cpkg_change(query);
+    ti_cpkg_t *cpkg = query__cpkg_change(query);
     if (!cpkg)
     {
         log_critical(EX_MEMORY_S);
@@ -126,7 +126,7 @@ static void query__change_handle(ti_query_t * query)
     ti_cpkg_drop(cpkg);
 }
 
-int ti_query_apply_scope(ti_query_t * query, ti_scope_t * scope, ex_t * e)
+int ti_query_apply_scope(ti_query_t *query, ti_scope_t *scope, ex_t *e)
 {
     switch (scope->tp)
     {
@@ -158,9 +158,9 @@ int ti_query_apply_scope(ti_query_t * query, ti_scope_t * scope, ex_t * e)
     return e->nr;
 }
 
-ti_query_t * ti_query_create(uint8_t flags)
+ti_query_t *ti_query_create(uint8_t flags)
 {
-    ti_query_t * query = calloc(1, sizeof(ti_query_t));
+    ti_query_t *query = calloc(1, sizeof(ti_query_t));
     if (!query)
         return NULL;
 
@@ -178,7 +178,7 @@ ti_query_t * ti_query_create(uint8_t flags)
     return query;
 }
 
-void ti_query_destroy(ti_query_t * query)
+void ti_query_destroy(ti_query_t *query)
 {
     if (!query)
         return;
@@ -234,13 +234,13 @@ void ti_query_destroy(ti_query_t * query)
     free(query);
 }
 
-int ti_query_unpack_args(ti_query_t * query, mp_unp_t * up, ex_t * e)
+int ti_query_unpack_args(ti_query_t *query, mp_unp_t *up, ex_t *e)
 {
     size_t i, n;
     mp_obj_t obj, mp_key;
-    ti_name_t * name;
-    ti_prop_t * prop;
-    ti_val_t * argval;
+    ti_name_t *name;
+    ti_prop_t *prop;
+    ti_val_t *argval;
     ti_vup_t vup = {
             .isclient = true,
             .collection = query->collection,
@@ -308,18 +308,18 @@ int ti_query_unpack_args(ti_query_t * query, mp_unp_t * up, ex_t * e)
 }
 
 static int query__run_arr_props(
-        ti_query_t * query,
-        ti_vup_t * vup,
-        ti_procedure_t * procedure,
+        ti_query_t *query,
+        ti_vup_t *vup,
+        ti_procedure_t *procedure,
         size_t nargs,
-        ex_t * e)
+        ex_t *e)
 {
     size_t n = procedure->closure->vars->n;
     n = nargs < n ? nargs : n;
 
     for (size_t idx = 0; idx < n; ++idx)
     {
-        ti_val_t * val = ti_val_from_vup_e(vup, e);
+        ti_val_t *val = ti_val_from_vup_e(vup, e);
         if (!val)
         {
             assert(e->nr);
@@ -334,15 +334,15 @@ static int query__run_arr_props(
 }
 
 static int query__run_map_props(
-        ti_query_t * query,
-        ti_vup_t * vup,
-        ti_procedure_t * procedure,
+        ti_query_t *query,
+        ti_vup_t *vup,
+        ti_procedure_t *procedure,
         size_t nargs,
-        ex_t * e)
+        ex_t *e)
 {
     mp_obj_t arg_name;
-    ti_val_t * val;
-    vec_t * vars = procedure->closure->vars;
+    ti_val_t *val;
+    vec_t *vars = procedure->closure->vars;
 
     while (nargs--)
     {
@@ -382,16 +382,16 @@ static int query__run_map_props(
 }
 
 int ti_query_unp_run(
-        ti_query_t * query,
-        ti_scope_t * scope,
+        ti_query_t *query,
+        ti_scope_t *scope,
         uint16_t pkg_id,
-        const unsigned char * data,
+        const unsigned char *data,
         size_t n,
-        ex_t * e)
+        ex_t *e)
 {
-    smap_t * procedures = NULL;
+    smap_t *procedures = NULL;
     mp_obj_t obj, mp_procedure;
-    ti_procedure_t * procedure;
+    ti_procedure_t *procedure;
 
     mp_unp_t up;
     mp_unp_init(&up, data, n);
@@ -495,7 +495,7 @@ int ti_query_unp_run(
     return e->nr;
 }
 
-static inline int ti_query_investigate(ti_query_t * query, ex_t * e)
+static inline int ti_query_investigate(ti_query_t *query, ex_t *e)
 {
     assert(e->nr == 0);
 
@@ -528,10 +528,10 @@ static inline int ti_query_investigate(ti_query_t * query, ex_t * e)
 }
 
 /* improve error message, pr #468 */
-static int query__test_ambiguous_ne(ti_query_t * query, ex_t * e)
+static int query__test_ambiguous_ne(ti_query_t *query, ex_t *e)
 {
-    register cleri_parse_t * pr = query->with.parseres;
-    register const char * str = pr->str + pr->pos;
+    register cleri_parse_t *pr = query->with.parseres;
+    register const char *str = pr->str + pr->pos;
     if (pr->pos >= 4 &&
         *str == '=' &&
         *(--str) == '!' &&
@@ -549,7 +549,7 @@ static int query__test_ambiguous_ne(ti_query_t * query, ex_t * e)
     return 0;
 }
 
-static int query__syntax_err(ti_query_t * query, ex_t * e)
+static int query__syntax_err(ti_query_t *query, ex_t *e)
 {
     if (query__test_ambiguous_ne(query, e))
         return e->nr;
@@ -574,9 +574,9 @@ static int query__syntax_err(ti_query_t * query, ex_t * e)
     return e->nr;
 }
 
-int ti_query_parse(ti_query_t * query, const char * str, size_t n, ex_t * e)
+int ti_query_parse(ti_query_t *query, const char *str, size_t n, ex_t *e)
 {
-    char * querystr;
+    char *querystr;
     assert(e->nr == 0);
     if (query->with.parseres)  /* already parsed and investigated */
         return query->with.parseres->is_valid
@@ -626,7 +626,7 @@ failed:
     return e->nr;
 }
 
-void ti_query_warn_log(ti_query_t * query, const char * msg)
+void ti_query_warn_log(ti_query_t *query, const char *msg)
 {
     switch ((ti_query_with_enum) query->with_tp)
     {
@@ -656,7 +656,7 @@ void ti_query_warn_log(ti_query_t * query, const char * msg)
 }
 
 static void query__duration_log(
-        ti_query_t * query,
+        ti_query_t *query,
         double duration,
         int log_level)
 {
@@ -686,14 +686,14 @@ static void query__duration_log(
     }
 }
 
-static void query__future_cb(ti_future_t * future)
+static void query__future_cb(ti_future_t *future)
 {
     future->module->cb(future);
 }
 
-void ti_query_on_then_result(ti_query_t * query, ex_t * e)
+void ti_query_on_then_result(ti_query_t *query, ex_t *e)
 {
-    ti_future_t * future = query->with.future;
+    ti_future_t *future = query->with.future;
 
     --ti.futures_count;
 
@@ -708,7 +708,7 @@ void ti_query_on_then_result(ti_query_t * query, ex_t * e)
          * Unregistered futures might not yet have a result so we need to
          * check for NULL.
          */
-        ti_future_t * fut = (ti_future_t *) query->rval;
+        ti_future_t *fut = (ti_future_t *) query->rval;
         future->rval = fut->rval ? fut->rval : (ti_val_t *) ti_nil_get();
         fut->rval = NULL;
         ti_val_unsafe_drop(query->rval);
@@ -752,9 +752,9 @@ void ti_query_on_then_result(ti_query_t * query, ex_t * e)
     }
 }
 
-void ti_query_task_result(ti_query_t * query, ex_t * e)
+void ti_query_task_result(ti_query_t *query, ex_t *e)
 {
-    ti_vtask_t * vtask = query->with.vtask;
+    ti_vtask_t *vtask = query->with.vtask;
 
     if (query->flags & TI_QUERY_FLAG_TASK_CHANGES)
     {
@@ -805,11 +805,11 @@ void ti_query_task_result(ti_query_t * query, ex_t * e)
     }
 }
 
-static void query__then(ti_query_t * query, ex_t * e)
+static void query__then(ti_query_t *query, ex_t *e)
 {
-    ti_future_t * future = query->with.future;
-    vec_t * access_;
-    vec_t ** vecaddr;
+    ti_future_t *future = query->with.future;
+    vec_t *access_;
+    vec_t **vecaddr;
 
     ++ti.futures_count;
 
@@ -852,9 +852,9 @@ finish:
     ti_query_on_then_result(query, e);
 }
 
-void ti_query_on_future_result(ti_future_t * future, ex_t * e)
+void ti_query_on_future_result(ti_future_t *future, ex_t *e)
 {
-    ti_query_t * query = future->query;
+    ti_query_t *query = future->query;
     _Bool result_only = (
         future == (ti_future_t *) query->rval &&
         future->module &&
@@ -871,7 +871,7 @@ void ti_query_on_future_result(ti_future_t * future, ex_t * e)
 
         if (future->fail)  /* there is an `else` case */
         {
-            ti_verror_t * verror = ti_verror_ensure_from_e(e);
+            ti_verror_t *verror = ti_verror_ensure_from_e(e);
             ti_val_unsafe_drop(vec_set(future->args, verror, 0));
             future->rval = (ti_val_t *) ti_varr_from_vec_unsafe(future->args);
             if (future->rval)
@@ -898,7 +898,7 @@ then:
 
     if (future->then)
     {
-        ti_query_t * then_query = ti_query_create(0);
+        ti_query_t *then_query = ti_query_create(0);
 
         if (!then_query)
         {
@@ -946,7 +946,7 @@ done:
              * the array as a result as this is never what you want. If, in
              * some rare case you do want the arguments, use .then(|..| [..])
              */
-            ti_varr_t * varr = (ti_varr_t *) future->rval;
+            ti_varr_t *varr = (ti_varr_t *) future->rval;
             future->rval = VEC_first(varr->vec);
             ti_incref(future->rval);
             ti_val_unsafe_drop((ti_val_t *) varr);
@@ -956,9 +956,9 @@ done:
     }
 }
 
-void ti_query_run_parseres(ti_query_t * query)
+void ti_query_run_parseres(ti_query_t *query)
 {
-    cleri_node_t * child;
+    cleri_node_t *child;
     ex_t e = {0};
 
     clock_gettime(TI_CLOCK_MONOTONIC, &query->time);
@@ -998,7 +998,7 @@ stop:
     {
         if (query->commit)
         {
-            ti_task_t * task;
+            ti_task_t *task;
 
             if (e.nr)  /* set error if any, not critical if failed */
                 query->commit->err_msg = ti_str_create(e.msg, e.n);
@@ -1015,7 +1015,7 @@ stop:
     ti_query_done(query, &e, &ti_query_send_response);
 }
 
-void ti_query_run_procedure(ti_query_t * query)
+void ti_query_run_procedure(ti_query_t *query)
 {
     ex_t e = {0};
 
@@ -1038,10 +1038,10 @@ void ti_query_run_procedure(ti_query_t * query)
     ti_query_done(query, &e, &ti_query_send_response);
 }
 
-void ti_query_run_future(ti_query_t * query)
+void ti_query_run_future(ti_query_t *query)
 {
     ex_t e = {0};
-    vec_t * vec = VARR(query->with.future->rval);
+    vec_t *vec = VARR(query->with.future->rval);
 
     clock_gettime(TI_CLOCK_MONOTONIC, &query->time);
 
@@ -1054,12 +1054,12 @@ void ti_query_run_future(ti_query_t * query)
     ti_query_done(query, &e, &ti_query_on_then_result);
 }
 
-void query__task_finish(ti_query_t * query, const ex_t * e, _Bool set_err)
+void query__task_finish(ti_query_t *query, const ex_t *e, _Bool set_err)
 {
-    ti_vtask_t * vtask = query->with.vtask;
+    ti_vtask_t *vtask = query->with.vtask;
     if (vtask->id)
     {
-        ti_task_t * task = ti_task_get_task(
+        ti_task_t *task = ti_task_get_task(
                 query->change,
                 query->collection ? query->collection->root : ti.thing0);
 
@@ -1099,10 +1099,10 @@ void query__task_finish(ti_query_t * query, const ex_t * e, _Bool set_err)
     query->flags |= TI_QUERY_FLAG_TASK_CHANGES;
 }
 
-void ti_query_run_task_finish(ti_query_t * query)
+void ti_query_run_task_finish(ti_query_t *query)
 {
     ex_t e;
-    ti_vtask_t * vtask = query->with.vtask;
+    ti_vtask_t *vtask = query->with.vtask;
     ex_setn(&e, vtask->verr->code, vtask->verr->msg, vtask->verr->msg_n);
     query__task_finish(query, &e, false /* do not set the task error */);
     query__change_handle(query);  /* errors will be logged only */
@@ -1112,14 +1112,14 @@ void ti_query_run_task_finish(ti_query_t * query)
     ti_query_task_result(query, &e);
 }
 
-void ti_query_run_task(ti_query_t * query)
+void ti_query_run_task(ti_query_t *query)
 {
     ex_t e = {0};
-    ti_vtask_t * vtask = query->with.vtask;
+    ti_vtask_t *vtask = query->with.vtask;
 
     if (vtask->run_at)
     {
-        ti_closure_t * callback = vtask->closure;
+        ti_closure_t *callback = vtask->closure;
         uint32_t n = vtask->args ? vtask->args->n : 0;
 
         clock_gettime(TI_CLOCK_MONOTONIC, &query->time);
@@ -1164,9 +1164,9 @@ void ti_query_run_task(ti_query_t * query)
 }
 
 static inline int query__pack_response(
-        ti_query_t * query,
+        ti_query_t *query,
         msgpack_sbuffer * buffer,
-        ex_t * e)
+        ex_t *e)
 {
     ti_vp_t vp = {
             .query=query,
@@ -1198,9 +1198,9 @@ static inline int query__pack_response(
     return 0;
 }
 
-static int query__response_api(ti_query_t * query, ex_t * e)
+static int query__response_api(ti_query_t *query, ex_t *e)
 {
-    ti_api_request_t * ar = query->via.api_request;
+    ti_api_request_t *ar = query->via.api_request;
     msgpack_sbuffer buffer;
 
     if (e->nr)
@@ -1221,11 +1221,11 @@ response_err:
     return -(ti_api_close_with_err(ar, e) || 1);
 }
 
-static void query__future_mpdata(ti_query_t * query)
+static void query__future_mpdata(ti_query_t *query)
 {
-    ti_future_t * future = (ti_future_t *) query->rval;
-    ti_raw_t * mpdata = (ti_raw_t *) future->rval;
-    ti_mpkg_t * mpkg = (ti_mpkg_t *) mpdata;
+    ti_future_t *future = (ti_future_t *) query->rval;
+    ti_raw_t *mpdata = (ti_raw_t *) future->rval;
+    ti_mpkg_t *mpkg = (ti_mpkg_t *) mpdata;
     size_t n = mpdata->n;
 
     mpkg_init(mpkg, query->pkg_id, TI_PROTO_CLIENT_RES_DATA, n);
@@ -1241,10 +1241,10 @@ static void query__future_mpdata(ti_query_t * query)
     }
 }
 
-static void query__mpdata(ti_query_t * query)
+static void query__mpdata(ti_query_t *query)
 {
-    ti_raw_t * mpdata = (ti_raw_t *) query->rval;
-    ti_mpkg_t * mpkg = (ti_mpkg_t *) mpdata;
+    ti_raw_t *mpdata = (ti_raw_t *) query->rval;
+    ti_mpkg_t *mpkg = (ti_mpkg_t *) mpdata;
     size_t n = mpdata->n;
 
     mpkg_init(mpkg, query->pkg_id, TI_PROTO_CLIENT_RES_DATA, n);
@@ -1260,7 +1260,7 @@ static void query__mpdata(ti_query_t * query)
     }
 }
 
-static int query__response_pkg(ti_query_t * query, ex_t * e)
+static int query__response_pkg(ti_query_t *query, ex_t *e)
 {
     if (e->nr)
         goto pkg_err;
@@ -1273,7 +1273,7 @@ static int query__response_pkg(ti_query_t * query, ex_t * e)
     if (ti_val_is_mpdata(query->rval) && query->rval->ref == 1)
         return query__mpdata(query), 0;
 
-    ti_pkg_t * pkg;
+    ti_pkg_t *pkg;
     msgpack_sbuffer buffer;
     if (mp_sbuffer_alloc_init(
             &buffer,
@@ -1309,7 +1309,7 @@ pkg_err:
 
 typedef int (*query__cb)(ti_query_t *, ex_t *);
 
-void ti_query_send_response(ti_query_t * query, ex_t * e)
+void ti_query_send_response(ti_query_t *query, ex_t *e)
 {
     double duration, warn = ti.cfg->query_duration_warn;
     query__cb cb = query->flags & TI_QUERY_FLAG_API
@@ -1358,7 +1358,7 @@ done:
     ti_query_destroy_or_return(query);
 }
 
-void ti_query_done(ti_query_t * query, ex_t * e, ti_query_done_cb cb)
+void ti_query_done(ti_query_t *query, ex_t *e, ti_query_done_cb cb)
 {
     if (query->futures.n)
     {
@@ -1384,7 +1384,7 @@ void ti_query_done(ti_query_t * query, ex_t * e, ti_query_done_cb cb)
     cb(query, e);
 }
 
-ti_prop_t * ti_query_var_get(ti_query_t * query, ti_name_t * name)
+ti_prop_t *ti_query_var_get(ti_query_t *query, ti_name_t *name)
 {
     for (vec_each_rev(query->vars, ti_prop_t, prop))
         if (prop->name == name)
@@ -1392,12 +1392,12 @@ ti_prop_t * ti_query_var_get(ti_query_t * query, ti_name_t * name)
     return NULL;
 }
 
-ti_thing_t * ti_query_thing_from_id(
-        ti_query_t * query,
+ti_thing_t *ti_query_thing_from_id(
+        ti_query_t *query,
         int64_t thing_id,
-        ex_t * e)
+        ex_t *e)
 {
-    ti_thing_t * thing;
+    ti_thing_t *thing;
 
     if (!query->collection)
     {
@@ -1427,12 +1427,12 @@ ti_thing_t * ti_query_thing_from_id(
     return thing;
 }
 
-ti_room_t * ti_query_room_from_id(
-        ti_query_t * query,
+ti_room_t *ti_query_room_from_id(
+        ti_query_t *query,
         int64_t room_id,
-        ex_t * e)
+        ex_t *e)
 {
-    ti_room_t * room;
+    ti_room_t *room;
 
     if (!query->collection)
     {
@@ -1462,13 +1462,13 @@ ti_room_t * ti_query_room_from_id(
     return room;
 }
 
-ti_room_t * ti_query_room_from_strn(
-        ti_query_t * query,
-        const char * str,
+ti_room_t *ti_query_room_from_strn(
+        ti_query_t *query,
+        const char *str,
         size_t n,
-        ex_t * e)
+        ex_t *e)
 {
-    ti_room_t * room;
+    ti_room_t *room;
 
     if (!query->collection)
     {
@@ -1509,13 +1509,13 @@ typedef struct
     uint16_t type_id;
 } query__count_t;
 
-static inline int query__count(ti_thing_t * t, query__count_t * c)
+static inline int query__count(ti_thing_t *t, query__count_t *c)
 {
     c->n += t->type_id == c->type_id;
     return 0;
 }
 
-ssize_t ti_query_count_type(ti_query_t * query, ti_type_t * type)
+ssize_t ti_query_count_type(ti_query_t *query, ti_type_t *type)
 {
     query__count_t c = {
             .n = 0,
@@ -1538,9 +1538,9 @@ ssize_t ti_query_count_type(ti_query_t * query, ti_type_t * type)
     return c.n;
 }
 
-static int query__var_walk_thing(ti_thing_t * thing, imap_t * imap);
+static int query__var_walk_thing(ti_thing_t *thing, imap_t *imap);
 
-static int query__get_things(ti_val_t * val, imap_t * imap)
+static int query__get_things(ti_val_t *val, imap_t *imap)
 {
     int rc;
 
@@ -1597,12 +1597,12 @@ static int query__get_things(ti_val_t * val, imap_t * imap)
     return 0;
 }
 
-static int query__val_walk_i_cb(ti_item_t * item, imap_t * imap)
+static int query__val_walk_i_cb(ti_item_t *item, imap_t *imap)
 {
     return query__get_things(item->val, imap);
 }
 
-static int query__var_walk_thing(ti_thing_t * thing, imap_t * imap)
+static int query__var_walk_thing(ti_thing_t *thing, imap_t *imap)
 {
     if (thing->id)
         return 0;
@@ -1647,13 +1647,13 @@ static int query__var_walk_thing(ti_thing_t * thing, imap_t * imap)
  * The callback will only be called on things without an ID.
  */
 int ti_query_vars_walk(
-        vec_t * vars,
-        ti_collection_t * collection,
+        vec_t *vars,
+        ti_collection_t *collection,
         imap_cb cb,
-        void * args)
+        void *args)
 {
     int rc;
-    imap_t * imap = imap_create();
+    imap_t *imap = imap_create();
     if (!imap)
         return -1;
 
@@ -1683,7 +1683,7 @@ fail:
  * task is not cancelled. The task must have been checked to have an Id before
  * calling this function.
  */
-int ti_query_task_context(ti_query_t * query, ti_vtask_t * vtask, ex_t * e)
+int ti_query_task_context(ti_query_t *query, ti_vtask_t *vtask, ex_t *e)
 {
     assert(vtask->id);  /* must not be called with `empty` tasks */
     do
@@ -1712,11 +1712,11 @@ int ti_query_task_context(ti_query_t * query, ti_vtask_t * vtask, ex_t * e)
 
 typedef struct
 {
-    ti_thing_t * thing;
-    vec_t * fields_to_check;
+    ti_thing_t *thing;
+    vec_t *fields_to_check;
 } query__thing_spec_cb_t;
 
-static int query__spec_cb(ti_thing_t * thing, query__thing_spec_cb_t * w)
+static int query__spec_cb(ti_thing_t *thing, query__thing_spec_cb_t *w)
 {
     for (vec_each(w->fields_to_check, ti_field_t, field))
         if (thing->type_id == field->type->type_id &&
@@ -1725,7 +1725,7 @@ static int query__spec_cb(ti_thing_t * thing, query__thing_spec_cb_t * w)
     return 0;
 }
 
-static int query__type_spec_cp(ti_type_t * type, query__thing_spec_cb_t * w)
+static int query__type_spec_cp(ti_type_t *type, query__thing_spec_cb_t *w)
 {
     for (vec_each(type->fields, ti_field_t, field))
     {
@@ -1739,10 +1739,10 @@ static int query__type_spec_cp(ti_type_t * type, query__thing_spec_cb_t * w)
     return 0;
 }
 
-_Bool ti_query_thing_can_change_spec(ti_query_t * query, ti_thing_t * thing)
+_Bool ti_query_thing_can_change_spec(ti_query_t *query, ti_thing_t *thing)
 {
     int rc;
-    ti_collection_t * collection = thing->collection;
+    ti_collection_t *collection = thing->collection;
     query__thing_spec_cb_t w = {
             .thing = thing,
             .fields_to_check = NULL,

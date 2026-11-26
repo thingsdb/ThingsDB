@@ -1,12 +1,12 @@
 #include <ti/fn/fn.h>
 
-static int do__f_set_history(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_set_history(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     _Bool state;
-    ti_task_t * task;
+    ti_task_t *task;
     uint64_t  scope_id;
-    vec_t ** access_, ** commits;
+    vec_t **access_, **commits;
 
     if (fn_not_thingsdb_scope("set_history", query, e) ||
         fn_nargs("set_history", DOC_SET_HISTORY, 2, nargs, e) ||

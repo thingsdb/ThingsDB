@@ -13,12 +13,12 @@
  * Returns 0 if the file is complete, 1 if more data is available and -1 on
  * error.
  */
-int syncpart_to_pk(msgpack_packer * pk, const char * fn, off_t offset)
+int syncpart_to_pk(msgpack_packer *pk, const char *fn, off_t offset)
 {
     int more;
     size_t sz;
     off_t restsz;
-    unsigned char * buff;
+    unsigned char *buff;
     FILE * fp = fopen(fn, "r");
     if (!fp)
     {
@@ -80,11 +80,11 @@ fail0:
 }
 
 int syncpart_write(
-        const char * fn,
-        const unsigned char * data,
+        const char *fn,
+        const unsigned char *data,
         size_t size,
         off_t offset,
-        ex_t * e)
+        ex_t *e)
 {
     off_t sz;
     FILE * fp;

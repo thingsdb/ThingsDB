@@ -54,10 +54,10 @@ int ti_init(void);
 int ti_build_node(void);
 int ti_build(void);
 int ti_rebuild(void);
-int ti_write_node_id(uint32_t * node_id);
-int ti_read_node_id(uint32_t * node_id);
+int ti_write_node_id(uint32_t *node_id);
+int ti_read_node_id(uint32_t *node_id);
 int ti_read(void);
-int ti_unpack(uchar * data, size_t n);
+int ti_unpack(uchar *data, size_t n);
 int ti_run(void);
 void ti_shutdown(void);
 void ti_offline(void);
@@ -66,62 +66,62 @@ int ti_save(void);
 int ti_lock(void);
 int ti_unlock(void);
 void ti_update_rel_id(void);
-_Bool ti_ask_continue(const char * warn);
+_Bool ti_ask_continue(const char *warn);
 void ti_print_connect_info(void);
-ti_rpkg_t * ti_node_status_rpkg(void);  /* returns package with next_thing_id,
+ti_rpkg_t *ti_node_status_rpkg(void);  /* returns package with next_thing_id,
                                            ccid, ti_node->status
                                         */
 void ti_set_and_broadcast_node_status(ti_node_status_t status);
 void ti_set_and_broadcast_node_zone(uint8_t zone);
 void ti_broadcast_node_info(void);
-int ti_this_node_to_pk(msgpack_packer * pk);
-ti_val_t * ti_this_node_as_mpval(void);
+int ti_this_node_to_pk(msgpack_packer *pk);
+ti_val_t *ti_this_node_as_mpval(void);
 static inline uint64_t ti_next_free_id(void);
 static inline int ti_sleep(int ms);
-static inline int ti_to_pk(msgpack_packer * pk);
+static inline int ti_to_pk(msgpack_packer *pk);
 
 struct ti_s
 {
-    char * fn;                  /* ti__fn */
-    char * node_fn;             /* ti__node_fn */
+    char *fn;                  /* ti__fn */
+    char *node_fn;             /* ti__node_fn */
     uint64_t last_change_id;    /* when `ti__fn` was saved */
     uint64_t global_stored_change_id;    /* used for garbage collection */
-    ti_archive_t * archive;     /* committed changes archive */
-    ti_args_t * args;
-    ti_away_t * away;
-    ti_build_t * build;         /* only when using --secret */
-    ti_cfg_t * cfg;
-    ti_clients_t * clients;
-    ti_collections_t * collections;
-    ti_connect_t * connect_loop;
-    ti_counters_t * counters;   /* counters for statistics */
-    ti_changes_t * changes;
-    ti_node_t * node;
-    ti_nodes_t * nodes;
-    ti_store_t * store;
-    ti_sync_t * sync;
-    ti_thing_t * thing0;        /* thing with id 0 */
-    ti_room_t * room0;          /* room with id 0 */
-    ti_backups_t * backups;
-    ti_tasks_t * tasks;
-    vec_t * users;              /* ti_user_t */
-    vec_t * access_node;        /* ti_auth_t */
-    vec_t * access_thingsdb;    /* ti_auth_t */
-    vec_t * commits;            /* ti_commit_t */
-    smap_t * procedures;        /* ti_procedure_t */
-    smap_t * names;             /* weak map for ti_name_t */
-    smap_t * qcache;            /* pointer to cache in stack */
-    smap_t * modules;           /* ti_module_t */
-    uv_loop_t * loop;
-    cleri_grammar_t * langdef;
-    cleri_grammar_t * compat1;  /* TODO (COMPAT): For < v1.5 */
-    cleri_grammar_t * compat2;  /* TODO (COMPAT): For < v1.10.1 */
+    ti_archive_t *archive;     /* committed changes archive */
+    ti_args_t *args;
+    ti_away_t *away;
+    ti_build_t *build;         /* only when using --secret */
+    ti_cfg_t *cfg;
+    ti_clients_t *clients;
+    ti_collections_t *collections;
+    ti_connect_t *connect_loop;
+    ti_counters_t *counters;   /* counters for statistics */
+    ti_changes_t *changes;
+    ti_node_t *node;
+    ti_nodes_t *nodes;
+    ti_store_t *store;
+    ti_sync_t *sync;
+    ti_thing_t *thing0;        /* thing with id 0 */
+    ti_room_t *room0;          /* room with id 0 */
+    ti_backups_t *backups;
+    ti_tasks_t *tasks;
+    vec_t *users;              /* ti_user_t */
+    vec_t *access_node;        /* ti_auth_t */
+    vec_t *access_thingsdb;    /* ti_auth_t */
+    vec_t *commits;            /* ti_commit_t */
+    smap_t *procedures;        /* ti_procedure_t */
+    smap_t *names;             /* weak map for ti_name_t */
+    smap_t *qcache;            /* pointer to cache in stack */
+    smap_t *modules;           /* ti_module_t */
+    uv_loop_t *loop;
+    cleri_grammar_t *langdef;
+    cleri_grammar_t *compat1;  /* TODO (COMPAT): For < v1.5 */
+    cleri_grammar_t *compat2;  /* TODO (COMPAT): For < v1.10.1 */
     size_t futures_count;       /* number of running futures */
     uint32_t rel_id;            /* relative node id */
     int flags;                  /* changed and read by multiple treads */
     struct timespec boottime;   /* keep the up-time */
-    ti_tz_t * t_tz;             /* @thingsdb scope time zone */
-    ti_tz_t * n_tz;             /* @node scope time zone (unchangeable) */
+    ti_tz_t *t_tz;             /* @thingsdb scope time zone */
+    ti_tz_t *n_tz;             /* @node scope time zone (unchangeable) */
     uint8_t t_deep;             /* @thingsdb scope default deep */
     uint8_t n_deep;             /* @node scope default deep (unchangeable)*/
 };
@@ -160,7 +160,7 @@ static inline int ti_sleep(int ms)
             : nanosleep((const struct timespec[]){{0, ms * 1000000L}}, NULL);
 }
 
-static inline int ti_to_pk(msgpack_packer * pk)
+static inline int ti_to_pk(msgpack_packer *pk)
 {
     return -(
         msgpack_pack_map(pk, 6) ||

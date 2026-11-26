@@ -1,10 +1,10 @@
 #include <ti/fn/fn.h>
 
-static int do__f_type_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_type_assert(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_val_t * type_str;
-    cleri_node_t * child = nd->children;    /* first in argument list */
+    ti_val_t *type_str;
+    cleri_node_t *child = nd->children;    /* first in argument list */
 
     if (fn_nargs_range("type_assert", DOC_TYPE_ASSERT, 2, 3, nargs, e) ||
         ti_do_statement(query, child, e))
@@ -26,7 +26,7 @@ static int do__f_type_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_val_is_array(query->rval))
     {
-        vec_t * vec = VARR(query->rval);
+        vec_t *vec = VARR(query->rval);
         for (vec_each(vec, ti_val_t, val))
         {
             if (!ti_val_is_str(val))
@@ -60,7 +60,7 @@ invalid:
 
     if (nargs == 3)
     {
-        ti_raw_t * msg;
+        ti_raw_t *msg;
 
         if (ti_do_statement(query, child->next->next, e) ||
             fn_arg_str("type_assert", DOC_STR_CONTAINS, 3, query->rval, e))

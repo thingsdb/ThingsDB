@@ -15,9 +15,9 @@
 #include <ti/ws.h>
 #include <util/logger.h>
 
-static ti_build_t * build;
+static ti_build_t *build;
 
-static void build__on_setup_cb(ti_req_t * req, ex_enum status);
+static void build__on_setup_cb(ti_req_t *req, ex_enum status);
 
 
 int ti_build_create(void)
@@ -47,11 +47,11 @@ int ti_build_setup(
         uint8_t from_node_zone,
         uint16_t from_node_syntax_ver,
         uint16_t from_node_port,
-        ti_stream_t * stream)
+        ti_stream_t *stream)
 {
     assert(build->status == TI_BUILD_WAITING);
 
-    ti_pkg_t * pkg;
+    ti_pkg_t *pkg;
 
     if (ti_write_node_id(&this_node_id))
         return -1;
@@ -87,11 +87,11 @@ int ti_build_setup(
     return 0;
 }
 
-static void build__on_setup_cb(ti_req_t * req, ex_enum status)
+static void build__on_setup_cb(ti_req_t *req, ex_enum status)
 {
-    ti_pkg_t * pkg = req->pkg_res;
-    ti_node_t * ti_node;
-    vec_t * nodes_vec;
+    ti_pkg_t *pkg = req->pkg_res;
+    ti_node_t *ti_node;
+    vec_t *nodes_vec;
 
     if (status)
         goto failed;

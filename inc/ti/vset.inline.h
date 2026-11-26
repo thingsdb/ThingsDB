@@ -12,11 +12,11 @@
 
 
 static inline int ti_vset_walk(
-        ti_vset_t * vset,
-        ti_query_t * query,
-        ti_closure_t * closure,
+        ti_vset_t *vset,
+        ti_query_t *query,
+        ti_closure_t *closure,
         imap_cb cb,
-        void * arg)
+        void *arg)
 {
     if (ti_vset_has_relation(vset))
     {
@@ -39,7 +39,7 @@ static inline int ti_vset_walk(
              * see pull request #303
              * */
             int rc;
-            ti_change_t * change = query->change;
+            ti_change_t *change = query->change;
             query->change = NULL;
             rc = imap_walk(vset->imap, cb, arg);
             query->change = change;

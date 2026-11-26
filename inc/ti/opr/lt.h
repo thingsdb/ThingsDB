@@ -1,6 +1,6 @@
 #include <ti/opr/oprinc.h>
 
-static int opr__lt(ti_val_t * a, ti_val_t ** b, ex_t * e)
+static int opr__lt(ti_val_t *a, ti_val_t **b, ex_t *e)
 {
     _Bool bool_ = false;
     ti_opr_perm_t perm = TI_OPR_PERM(a, *b);

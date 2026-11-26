@@ -5,13 +5,13 @@ typedef struct
     uint8_t deep;
     uint8_t flags;
     int json_flags;
-    ex_t * e;
+    ex_t *e;
 } json_dumps__options_t;
 
 static int json_dump__walk_cb(
-        ti_raw_t * key,
-        ti_val_t * val,
-        json_dumps__options_t * options)
+        ti_raw_t *key,
+        ti_val_t *val,
+        json_dumps__options_t *options)
 {
     if (key == (ti_raw_t *) ti_val_borrow_deep_name())
         return ti_deep_from_val(val, &options->deep, options->e);
@@ -34,13 +34,13 @@ static int json_dump__walk_cb(
     return options->e->nr;
 }
 
-static int do__f_json_dump(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_json_dump(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     msgpack_sbuffer buffer;
     yajl_gen_status stat;
-    ti_raw_t * raw;
-    ti_val_t * val;
+    ti_raw_t *raw;
+    ti_val_t *val;
     size_t total_n;
     ti_vp_t vp = {
             .query=query,

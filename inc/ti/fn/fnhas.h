@@ -1,10 +1,10 @@
 #include <ti/fn/fn.h>
 
-static int do__f_has_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_has_set(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     _Bool has;
-    ti_vset_t * vset;
+    ti_vset_t *vset;
 
     if (fn_nargs("has", DOC_SET_HAS, 1, nargs, e))
         return e->nr;
@@ -25,11 +25,11 @@ fail1:
     return e->nr;
 }
 
-static int do__f_has_dict(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_has_dict(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     _Bool has;
-    ti_dict_t * dict;
+    ti_dict_t *dict;
 
     if (fn_nargs("has", DOC_DICT_HAS, 1, nargs, e))
         return e->nr;
@@ -49,11 +49,11 @@ fail1:
     return e->nr;
 }
 
-static int do__f_has_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_has_thing(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     _Bool has;
-    ti_thing_t * thing;
+    ti_thing_t *thing;
 
     if (fn_nargs("has", DOC_THING_HAS, 1, nargs, e))
         return e->nr;
@@ -75,11 +75,11 @@ fail1:
     return e->nr;
 }
 
-static int do__f_has_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_has_list(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     _Bool has = false;
-    ti_varr_t * varr;
+    ti_varr_t *varr;
 
     if (fn_nargs("has", DOC_LIST_HAS, 1, nargs, e))
         return e->nr;
@@ -100,7 +100,7 @@ fail1:
     return e->nr;
 }
 
-static inline int do__f_has(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static inline int do__f_has(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     switch((ti_val_enum) query->rval->tp)
     {

@@ -1,12 +1,12 @@
 #include <ti/fn/fn.h>
 
 
-static int do__f_map_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_map_type(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_varr_t * varr;
-    ti_type_t * type;
-    ti_varr_t * vsource;
+    ti_varr_t *varr;
+    ti_type_t *type;
+    ti_varr_t *vsource;
 
     if (!ti_val_is_array(query->rval))
         return fn_call_try("map_type", query, nd, e);
@@ -39,7 +39,7 @@ static int do__f_map_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     for (vec_each(vsource->vec, ti_val_t, val))
     {
-        ti_thing_t * thing;
+        ti_thing_t *thing;
 
         if (ti_val_is_int(val))
         {

@@ -1,9 +1,9 @@
 #include <ti/fn/fn.h>
 
-static int do__f_reverse(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_reverse(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_varr_t * src, * dst;
+    ti_varr_t *src, *dst;
 
     if (!ti_val_is_array(query->rval))
         return fn_call_try("reverse", query, nd, e);

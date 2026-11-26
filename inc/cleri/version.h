@@ -26,7 +26,7 @@
 extern "C" {
 #endif
 
-const char * cleri_version(void);
+const char *cleri_version(void);
 
 #ifdef __cplusplus
 }

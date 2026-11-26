@@ -43,7 +43,7 @@ time_t util_now_tsec(void)
     return util__now.tv_sec;
 }
 
-void util_get_random(void * buf, size_t n)
+void util_get_random(void *buf, size_t n)
 {
 #ifdef __APPLE__
     arc4random_buf(buf, n);
@@ -54,7 +54,7 @@ void util_get_random(void * buf, size_t n)
                 "getrandom(..) has failed; "
                 "fall-back using rand() for generating random data");
 
-        unsigned char * c = buf;
+        unsigned char *c = buf;
         while (n--)
         {
             *c = (unsigned char) (rand() % 255);
@@ -70,7 +70,7 @@ void util_get_random(void * buf, size_t n)
  * function cannot be used, for example, when not enough random source is
  * available, then rand() is used as a fall-back scenario.
  */
-void util_random_key(char * buf, size_t n)
+void util_random_key(char *buf, size_t n)
 {
     util_get_random(buf, n);
 
@@ -98,7 +98,7 @@ void uuid_v7(uint8_t uuid[16])
     uuid[8] = (uuid[8] & 0x3F) | 0x80;  /* 10xxxxxx (Leach-Salz RFC) */
 }
 
-bool string_to_uuid(const char * in, uint8_t uuid[16])
+bool string_to_uuid(const char *in, uint8_t uuid[16])
 {
     static const uint8_t hex_val[256] = {
         ['0']=0, ['1']=1, ['2']=2, ['3']=3, ['4']=4,

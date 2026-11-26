@@ -18,9 +18,9 @@
 #include <util/vec.h>
 #include <ex.h>
 
-ti_room_t * ti_room_create(uint64_t id, ti_collection_t * collection)
+ti_room_t *ti_room_create(uint64_t id, ti_collection_t *collection)
 {
-    ti_room_t * room = malloc(sizeof(ti_room_t));
+    ti_room_t *room = malloc(sizeof(ti_room_t));
     if (!room)
         return NULL;
 
@@ -37,7 +37,7 @@ ti_room_t * ti_room_create(uint64_t id, ti_collection_t * collection)
     return room;
 }
 
-void ti_room_unset_name(ti_room_t * room)
+void ti_room_unset_name(ti_room_t *room)
 {
     if (room->name)
     {
@@ -50,7 +50,7 @@ void ti_room_unset_name(ti_room_t * room)
     }
 }
 
-int ti_room_set_name(ti_room_t * room, ti_name_t * name)
+int ti_room_set_name(ti_room_t *room, ti_name_t *name)
 {
     int rc;
     if (room->name == name)
@@ -72,9 +72,9 @@ int ti_room_set_name(ti_room_t * room, ti_name_t * name)
     return 0;
 }
 
-static void room__write_rpkg(ti_room_t * room,
-                             ti_stream_t * stream,
-                             ti_rpkg_t * rpkg)
+static void room__write_rpkg(ti_room_t *room,
+                             ti_stream_t *stream,
+                             ti_rpkg_t *rpkg)
 {
     for (vec_each(room->listeners, ti_watch_t, watch))
     {
@@ -90,9 +90,9 @@ static void room__write_rpkg(ti_room_t * room,
  * This function destroys `pkg`. Thus, do not use or free `pkg` after calling
  * this function.
  */
-static void room__write_pkg(ti_room_t * room, ti_pkg_t * pkg)
+static void room__write_pkg(ti_room_t *room, ti_pkg_t *pkg)
 {
-    ti_rpkg_t * rpkg = ti_rpkg_create(pkg);
+    ti_rpkg_t *rpkg = ti_rpkg_create(pkg);
     if (!rpkg)
     {
         free(pkg);
@@ -106,13 +106,13 @@ static void room__write_pkg(ti_room_t * room, ti_pkg_t * pkg)
 /*
  * Emit room delete to all listeners and destroy the listeners vector.
  */
-static void room__emit_delete(ti_room_t * room)
+static void room__emit_delete(ti_room_t *room)
 {
     if (ti_room_has_listeners(room))
     {
         msgpack_packer pk;
         msgpack_sbuffer buffer;
-        ti_pkg_t * pkg;
+        ti_pkg_t *pkg;
 
         if (mp_sbuffer_alloc_init(&buffer, 320, sizeof(ti_pkg_t)))
         {
@@ -139,14 +139,14 @@ static void room__emit_delete(ti_room_t * room)
     }
 }
 
-void ti_room_emit_data(ti_room_t * room, const void * data, size_t sz)
+void ti_room_emit_data(ti_room_t *room, const void *data, size_t sz)
 {
     if (ti_room_has_listeners(room))
     {
         size_t alloc = sizeof(ti_pkg_t) + sz;
         msgpack_packer pk;
         msgpack_sbuffer buffer;
-        ti_pkg_t * pkg;
+        ti_pkg_t *pkg;
 
         if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_pkg_t)))
         {
@@ -166,19 +166,19 @@ void ti_room_emit_data(ti_room_t * room, const void * data, size_t sz)
 }
 
 int ti_room_emit(
-        ti_room_t * room,
-        ti_stream_t * stream,
-        ti_query_t * query,
-        vec_t * args,
-        const char * event,
+        ti_room_t *room,
+        ti_stream_t *stream,
+        ti_query_t *query,
+        vec_t *args,
+        const char *event,
         size_t event_n,
         int deep,
         int flags)
 {
     size_t sz, alloc = 8192;
     msgpack_sbuffer buffer;
-    ti_pkg_t * node_pkg, * client_pkg;
-    ti_rpkg_t * node_rpkg, * client_rpkg;
+    ti_pkg_t *node_pkg, *client_pkg;
+    ti_rpkg_t *node_rpkg, *client_rpkg;
     ti_vp_t vp = {
             .query=query,  /* required for wrap type, may be NULL from API */
             .size_limit=ti.cfg->result_size_limit,
@@ -251,16 +251,16 @@ fail_pack:
 }
 
 int ti_room_emit_from_pkg(
-        ti_collection_t * collection,
-        ti_pkg_t * pkg,
-        ti_stream_t * stream,
-        ex_t * e)
+        ti_collection_t *collection,
+        ti_pkg_t *pkg,
+        ti_stream_t *stream,
+        ex_t *e)
 {
     size_t nargs;
     mp_unp_t up;
     mp_obj_t obj, mp_id, mp_event;
-    ti_room_t * room;
-    vec_t * args;
+    ti_room_t *room;
+    vec_t *args;
     ti_vup_t vup = {
             .isclient = true,
             .collection = collection,
@@ -316,7 +316,7 @@ int ti_room_emit_from_pkg(
     {
         while (nargs--)
         {
-            ti_val_t * val = ti_val_from_vup_e(&vup, e);
+            ti_val_t *val = ti_val_from_vup_e(&vup, e);
             if (!val)
                 break;
 
@@ -379,13 +379,13 @@ fail0:
     return e->nr;
 }
 
-void ti_room_emit_node_status(ti_room_t * room, const char * status)
+void ti_room_emit_node_status(ti_room_t *room, const char *status)
 {
     if (ti_room_has_listeners(room))
     {
         msgpack_packer pk;
         msgpack_sbuffer buffer;
-        ti_pkg_t * pkg;
+        ti_pkg_t *pkg;
 
 
         if (mp_sbuffer_alloc_init(&buffer, 64, sizeof(ti_pkg_t)))
@@ -415,18 +415,18 @@ typedef struct
 {
     uint64_t room_id;
     char scope[268];
-    ti_stream_t * stream;
+    ti_stream_t *stream;
 } room__async_t;
 
 /*
  * Emit room leave to a given listener.
  */
-static void room__async_emit_join_cb(uv_async_t * task)
+static void room__async_emit_join_cb(uv_async_t *task)
 {
-    room__async_t * w = task->data;
+    room__async_t *w = task->data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
-    ti_pkg_t * pkg;
+    ti_pkg_t *pkg;
 
     if (ti_stream_is_closed(w->stream))
         goto done;
@@ -459,11 +459,11 @@ done:
     uv_close((uv_handle_t *) task, (uv_close_cb) free);
 }
 
-static void room__async_emit_join(ti_room_t * room, ti_stream_t * stream)
+static void room__async_emit_join(ti_room_t *room, ti_stream_t *stream)
 {
-    uv_async_t * task = malloc(sizeof(uv_async_t));
-    room__async_t * w = malloc(sizeof(room__async_t));
-    ti_raw_t * scope = room->collection->scope;
+    uv_async_t *task = malloc(sizeof(uv_async_t));
+    room__async_t *w = malloc(sizeof(room__async_t));
+    ti_raw_t *scope = room->collection->scope;
 
     if (!task || !w)
         goto failed;
@@ -492,11 +492,11 @@ failed:
 /*
  * Emit room leave to a given listener.
  */
-static void room__emit_leave(ti_room_t * room, ti_stream_t * stream)
+static void room__emit_leave(ti_room_t *room, ti_stream_t *stream)
 {
     msgpack_packer pk;
     msgpack_sbuffer buffer;
-    ti_pkg_t * pkg;
+    ti_pkg_t *pkg;
 
     if (ti_stream_is_closed(stream))
         return;
@@ -526,7 +526,7 @@ static void room__emit_leave(ti_room_t * room, ti_stream_t * stream)
         log_critical(EX_INTERNAL_S);
 }
 
-void ti_room_destroy(ti_room_t * room)
+void ti_room_destroy(ti_room_t *room)
 {
     if (!ti_flag_test(TI_FLAG_SIGNAL))
         /*
@@ -544,7 +544,7 @@ void ti_room_destroy(ti_room_t * room)
     free(room);
 }
 
-int ti_room_gen_id(ti_room_t * room)
+int ti_room_gen_id(ti_room_t *room)
 {
     assert(!room->id);
 
@@ -552,9 +552,9 @@ int ti_room_gen_id(ti_room_t * room)
     return ti_room_to_map(room);
 }
 
-int ti_room_join(ti_room_t * room, ti_stream_t * stream)
+int ti_room_join(ti_room_t *room, ti_stream_t *stream)
 {
-    ti_watch_t * watch;
+    ti_watch_t *watch;
 
     for (vec_each(room->listeners, ti_watch_t, w))
     {
@@ -591,7 +591,7 @@ failed:
     return -1;
 }
 
-int ti_room_leave(ti_room_t * room, ti_stream_t * stream)
+int ti_room_leave(ti_room_t *room, ti_stream_t *stream)
 {
     size_t idx = 0;
 
@@ -608,9 +608,9 @@ int ti_room_leave(ti_room_t * room, ti_stream_t * stream)
     return 0;
 }
 
-int ti_room_copy(ti_room_t ** roomaddr)
+int ti_room_copy(ti_room_t **roomaddr)
 {
-    ti_room_t * room = ti_room_create(0, (*roomaddr)->collection);
+    ti_room_t *room = ti_room_create(0, (*roomaddr)->collection);
     if (!room)
         return -1;
 

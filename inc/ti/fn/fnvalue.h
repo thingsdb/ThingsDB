@@ -1,9 +1,9 @@
 #include <ti/fn/fn.h>
 
-static int do__f_value(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_value(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_val_t * val;
+    ti_val_t *val;
 
     if (!ti_val_is_member(query->rval))
         return fn_call_try("value", query, nd, e);

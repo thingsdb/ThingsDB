@@ -1,11 +1,11 @@
 #include <ti/fn/fn.h>
 
-static int do__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_try(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
-    cleri_node_t * child = nd->children;    /* first in argument list */
+    cleri_node_t *child = nd->children;    /* first in argument list */
     const int nargs = fn_get_nargs(nd);
     ex_enum errnr;
-    ti_verror_t * verror;
+    ti_verror_t *verror;
 
     if (fn_nargs_min("try", DOC_TRY, 1, nargs, e))
         return e->nr;
@@ -51,7 +51,7 @@ static int do__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             goto failed;
         }
 
-        if ((ex_enum) ((ti_verror_t * ) query->rval)->code == errnr)
+        if ((ex_enum) ((ti_verror_t *) query->rval)->code == errnr)
         {
             ti_val_unsafe_drop(query->rval);
             query->rval = (ti_val_t *) verror;

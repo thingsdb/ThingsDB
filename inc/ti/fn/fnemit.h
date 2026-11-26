@@ -1,16 +1,16 @@
 #include <ti/fn/fn.h>
 
 
-static int do__f_emit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_emit(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     int sargs = 1;
     int deep = query->qbind.deep;
     int flags = 0;
-    ti_room_t * room;
-    ti_raw_t * revent;
-    vec_t * vec = NULL;
-    cleri_node_t * child = nd->children;
+    ti_room_t *room;
+    ti_raw_t *revent;
+    vec_t *vec = NULL;
+    cleri_node_t *child = nd->children;
 
     if (!ti_val_is_room(query->rval))
         return fn_call_try("emit", query, nd, e);

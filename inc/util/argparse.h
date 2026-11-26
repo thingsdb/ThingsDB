@@ -28,35 +28,35 @@ typedef struct argparse_args_s argparse_args_t;
 
 #include <stdint.h>
 
-argparse_t * argparse_create(void);
-void argparse_destroy(argparse_t * parser);
+argparse_t *argparse_create(void);
+void argparse_destroy(argparse_t *parser);
 int argparse_add_argument(
-        argparse_t * parser,
-        argparse_argument_t * argument);
-int argparse_parse(argparse_t * parser, int argc, char *argv[]);
+        argparse_t *parser,
+        argparse_argument_t *argument);
+int argparse_parse(argparse_t *parser, int argc, char *argv[]);
 
 struct argparse_argument_s
 {
-    char * name;
+    char *name;
     char shortcut;
-    char * help;
+    char *help;
     argparse_action_t action;
     int32_t default_int32_t;
-    int32_t * pt_value_int32_t;
-    char * str_default;
-    char * str_value;
-    char * choices; /* choices must be separated by commas */
+    int32_t *pt_value_int32_t;
+    char *str_default;
+    char *str_value;
+    char *choices; /* choices must be separated by commas */
 };
 
 struct argparse_args_s
 {
-    argparse_argument_t * argument;
-    argparse_args_t * next;
+    argparse_argument_t *argument;
+    argparse_args_t *next;
 };
 
 struct argparse_parser_s
 {
-    argparse_args_t * args;
+    argparse_args_t *args;
     int32_t show_help;
     argparse_argument_t help;
 };

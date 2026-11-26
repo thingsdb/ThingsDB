@@ -1,12 +1,12 @@
 #include <ti/fn/fn.h>
 
-static int do__f_join(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_join(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_varr_t * arr;
-    ti_raw_t * sep = NULL;
+    ti_varr_t *arr;
+    ti_raw_t *sep = NULL;
     size_t n = sizeof(ti_raw_t), idx = 0;
-    void * buffer;
+    void *buffer;
 
     if (!ti_val_is_array(query->rval))
         return fn_call_try("join", query, nd, e);

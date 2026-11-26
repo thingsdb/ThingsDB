@@ -20,7 +20,7 @@ typedef struct cleri_token_s cleri_token_t;
 extern "C" {
 #endif
 
-cleri_t * cleri_token(uint32_t gid, const char * token);
+cleri_t *cleri_token(uint32_t gid, const char *token);
 
 #ifdef __cplusplus
 }
@@ -29,7 +29,7 @@ cleri_t * cleri_token(uint32_t gid, const char * token);
 /* structs */
 struct cleri_token_s
 {
-    const char * token;
+    const char *token;
     size_t len;
 };
 

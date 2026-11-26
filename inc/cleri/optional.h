@@ -16,7 +16,7 @@ typedef struct cleri_optional_s cleri_optional_t;
 extern "C" {
 #endif
 
-cleri_t * cleri_optional(uint32_t gid, cleri_t * cl_obj);
+cleri_t *cleri_optional(uint32_t gid, cleri_t *cl_obj);
 
 #ifdef __cplusplus
 }
@@ -25,7 +25,7 @@ cleri_t * cleri_optional(uint32_t gid, cleri_t * cl_obj);
 /* structs */
 struct cleri_optional_s
 {
-    cleri_t * cl_obj;
+    cleri_t *cl_obj;
 };
 
 #endif /* CLERI_OPTIONAL_H_ */

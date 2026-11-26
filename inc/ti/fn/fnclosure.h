@@ -1,9 +1,9 @@
 #include <ti/fn/fn.h>
 
-static int do__f_closure_task(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_closure_task(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_vtask_t * vtask;
+    ti_vtask_t *vtask;
 
     if (!ti_val_is_task(query->rval))
         return fn_call_try("closure", query, nd, e);
@@ -21,10 +21,10 @@ static int do__f_closure_task(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
-static int do__f_closure_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_closure_new(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_str_t * str;
+    ti_str_t *str;
     ti_qbind_t syntax = {
             .immutable_n = 0,
             .flags = query->collection
@@ -91,7 +91,7 @@ static int do__f_closure_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
-static inline int do__f_closure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static inline int do__f_closure(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     return query->rval
             ? do__f_closure_task(query, nd, e)

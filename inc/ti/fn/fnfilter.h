@@ -2,13 +2,13 @@
 
 typedef struct
 {
-    ex_t * e;
-    ti_closure_t * closure;
-    ti_query_t * query;
-    ti_vset_t * vset;
+    ex_t *e;
+    ti_closure_t *closure;
+    ti_query_t *query;
+    ti_vset_t *vset;
 } filter__walk_set_t;
 
-static int filter__walk_set(ti_thing_t * t, filter__walk_set_t * w)
+static int filter__walk_set(ti_thing_t *t, filter__walk_set_t *w)
 {
     if (ti_closure_vars_vset(w->closure, t) ||
         ti_closure_do_statement(w->closure, w->query, w->e))
@@ -28,13 +28,13 @@ static int filter__walk_set(ti_thing_t * t, filter__walk_set_t * w)
 
 typedef struct
 {
-    ex_t * e;
-    ti_closure_t * closure;
-    ti_query_t * query;
-    ti_thing_t * thing;
+    ex_t *e;
+    ti_closure_t *closure;
+    ti_query_t *query;
+    ti_thing_t *thing;
 } filter__walk_i_t;
 
-static int filter__walk_i(ti_item_t * item, filter__walk_i_t * w)
+static int filter__walk_i(ti_item_t *item, filter__walk_i_t *w)
 {
     ti_closure_vars_item(w->closure, item);
     if (ti_closure_do_statement(w->closure, w->query, w->e))
@@ -51,15 +51,15 @@ static int filter__walk_i(ti_item_t * item, filter__walk_i_t * w)
 
 typedef struct
 {
-    ex_t * e;
-    ti_closure_t * closure;
-    ti_query_t * query;
-    ti_dict_t * dict;
+    ex_t *e;
+    ti_closure_t *closure;
+    ti_query_t *query;
+    ti_dict_t *dict;
 } filter__walk_dict_t;
 
-static int filter__walk_dict_items(ti_val_t * k,
-                                   ti_val_t * v,
-                                   filter__walk_dict_t * w)
+static int filter__walk_dict_items(ti_val_t *k,
+                                   ti_val_t *v,
+                                   filter__walk_dict_t *w)
 {
     ti_closure_vars_dict(w->closure, k, v);
     if (ti_closure_do_statement(w->closure, w->query, w->e))
@@ -73,9 +73,9 @@ static int filter__walk_dict_items(ti_val_t * k,
     return 0;
 }
 
-static int filter__walk_pair(ti_dict_key_t * k,
-                             ti_val_t * v,
-                             filter__walk_dict_t * w)
+static int filter__walk_pair(ti_dict_key_t *k,
+                             ti_val_t *v,
+                             filter__walk_dict_t *w)
 {
     ti_closure_vars_dict(w->closure, (ti_val_t *) ti_nil_weak_get(), v);
     if (ti_closure_do_statement(w->closure, w->query, w->e))
@@ -89,13 +89,13 @@ static int filter__walk_pair(ti_dict_key_t * k,
     return 0;
 }
 
-static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_filter(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
-    const char * doc;
+    const char *doc;
     const int nargs = fn_get_nargs(nd);
-    ti_val_t * retval = NULL;
-    ti_closure_t * closure;
-    ti_val_t * iterval;
+    ti_val_t *retval = NULL;
+    ti_closure_t *closure;
+    ti_val_t *iterval;
     int lock_was_set;
 
     doc = doc_filter(query->rval);
@@ -124,7 +124,7 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
     case TI_VAL_THING:
     {
-        ti_thing_t * thing, * t = (ti_thing_t *) iterval;
+        ti_thing_t *thing, *t = (ti_thing_t *) iterval;
 
         if (ti_thing_is_dict(t))
         {
@@ -170,8 +170,8 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         }
         else
         {
-            ti_name_t * name;
-            ti_val_t * val;
+            ti_name_t *name;
+            ti_val_t *val;
             for (thing_t_each(t, name, val))
             {
                 ti_closure_vars_nameval(closure, (ti_val_t *) name, val);
@@ -191,7 +191,7 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case TI_VAL_ARR:
     {
         int64_t idx = 0;
-        ti_varr_t * varr = ti_varr_create(VARR(iterval)->n);
+        ti_varr_t *varr = ti_varr_create(VARR(iterval)->n);
         if (!varr)
             goto fail2;
 

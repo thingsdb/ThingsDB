@@ -1,11 +1,11 @@
 #include <ti/fn/fn.h>
 
 int fn_arg_str_slow(
-        const char * name,
-        const char * doc,
+        const char *name,
+        const char *doc,
         int argn,
-        ti_val_t * val,
-        ex_t * e)
+        ti_val_t *val,
+        ex_t *e)
 {
     if (!ti_val_is_str(val))
         ex_set(e, EX_TYPE_ERROR,
@@ -16,11 +16,11 @@ int fn_arg_str_slow(
 }
 
 int fn_arg_int_slow(
-        const char * name,
-        const char * doc,
+        const char *name,
+        const char *doc,
         int argn,
-        ti_val_t * val,
-        ex_t * e)
+        ti_val_t *val,
+        ex_t *e)
 {
     if (!ti_val_is_int(val))
         ex_set(e, EX_TYPE_ERROR,
@@ -32,11 +32,11 @@ int fn_arg_int_slow(
 
 
 int fn_arg_bool_slow(
-        const char * name,
-        const char * doc,
+        const char *name,
+        const char *doc,
         int argn,
-        ti_val_t * val,
-        ex_t * e)
+        ti_val_t *val,
+        ex_t *e)
 {
     if (!ti_val_is_bool(val))
         ex_set(e, EX_TYPE_ERROR,

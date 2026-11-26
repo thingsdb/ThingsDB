@@ -1,9 +1,9 @@
 #include <ti/fn/fn.h>
 
-static int do__f_regex(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_regex(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_raw_t * pattern, * flags;
+    ti_raw_t *pattern, *flags;
 
     if (fn_nargs_range("regex", DOC_REGEX, 1, 2, nargs, e) ||
         ti_do_statement(query, nd->children, e) ||
@@ -27,8 +27,8 @@ static int do__f_regex(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     query->rval = (ti_val_t *) ti_regex_create(pattern, flags, e);
 
-    ti_val_unsafe_drop((ti_val_t * ) flags);
+    ti_val_unsafe_drop((ti_val_t *) flags);
 fail0:
-    ti_val_unsafe_drop((ti_val_t * ) pattern);
+    ti_val_unsafe_drop((ti_val_t *) pattern);
     return e->nr;
 }

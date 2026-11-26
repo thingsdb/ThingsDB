@@ -1,11 +1,11 @@
 #include <ti/fn/fn.h>
 
-static int do__f_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_new(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     int lock_was_set;
-    ti_type_t * type;
-    ti_thing_t * new_thing, * from_thing;
+    ti_type_t *type;
+    ti_thing_t *new_thing, *from_thing;
 
     if (fn_not_collection_scope("new", query, e) ||
         fn_nargs_range("new", DOC_NEW, 1, 2, nargs, e) ||

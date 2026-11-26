@@ -30,7 +30,7 @@ static inline _Bool ti_spec_is_set(uint16_t spec)
 
 static inline ti_spec_rval_enum ti_spec_check_nested_val(
         uint16_t spec,
-        ti_val_t * val)
+        ti_val_t *val)
 {
 
     return spec == TI_SPEC_ANY || ((spec & TI_SPEC_NILLABLE) && ti_val_is_nil(val))
@@ -38,7 +38,7 @@ static inline ti_spec_rval_enum ti_spec_check_nested_val(
             : ti__spec_check_nested_val(spec & TI_SPEC_MASK_NILLABLE, val);
 }
 
-static inline _Bool ti_spec_maps_to_nested_val(ti_field_t * field, ti_val_t * val)
+static inline _Bool ti_spec_maps_to_nested_val(ti_field_t *field, ti_val_t *val)
 {
     return (
         field->nested_spec == TI_SPEC_ANY ||
@@ -52,7 +52,7 @@ static inline _Bool ti_spec_is_thing(uint16_t spec)
     return spec < TI_SPEC_ANY || spec == TI_SPEC_OBJECT;
 }
 
-static inline _Bool ti_spec_enum_eq_to_val(uint16_t spec, ti_val_t * val)
+static inline _Bool ti_spec_enum_eq_to_val(uint16_t spec, ti_val_t *val)
 {
     return (
         ti_val_is_member(val) &&

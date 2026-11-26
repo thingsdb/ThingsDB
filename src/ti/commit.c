@@ -8,19 +8,19 @@
 #include <util/logger.h>
 #include <util/util.h>
 
-static ti_commit_t * commit_create(
+static ti_commit_t *commit_create(
         uint64_t id,
         time_t ts,
-        const char * code,
+        const char *code,
         size_t code_n,
-        const char * message,
+        const char *message,
         size_t message_n,
-        const char * by,
+        const char *by,
         size_t by_n,
-        const char * err_msg,
+        const char *err_msg,
         size_t err_msg_n)
 {
-    ti_commit_t * commit = malloc(sizeof(ti_commit_t));
+    ti_commit_t *commit = malloc(sizeof(ti_commit_t));
     if (!commit)
         return NULL;
 
@@ -60,7 +60,7 @@ fail0:
     return NULL;
 }
 
-ti_commit_t * ti_commit_from_up(mp_unp_t * up)
+ti_commit_t *ti_commit_from_up(mp_unp_t *up)
 {
     mp_obj_t obj, mp_id, mp_ts, mp_code, mp_by, mp_message, mp_err_msg;
 
@@ -83,13 +83,13 @@ ti_commit_t * ti_commit_from_up(mp_unp_t * up)
     );
 }
 
-ti_commit_t * ti_commit_make(
+ti_commit_t *ti_commit_make(
         uint64_t id,
-        const char * code,
-        ti_raw_t * by,
-        ti_raw_t * message)
+        const char *code,
+        ti_raw_t *by,
+        ti_raw_t *message)
 {
-    ti_commit_t * commit = malloc(sizeof(ti_commit_t));
+    ti_commit_t *commit = malloc(sizeof(ti_commit_t));
     if (!commit)
         return NULL;
 
@@ -109,7 +109,7 @@ ti_commit_t * ti_commit_make(
     return commit;
 }
 
-void ti_commit_destroy(ti_commit_t * commit)
+void ti_commit_destroy(ti_commit_t *commit)
 {
     if (!commit)
         return;
@@ -120,7 +120,7 @@ void ti_commit_destroy(ti_commit_t * commit)
     free(commit);
 }
 
-int ti_commit_to_pk(ti_commit_t * commit, msgpack_packer * pk)
+int ti_commit_to_pk(ti_commit_t *commit, msgpack_packer *pk)
 {
     return -(
         msgpack_pack_array(pk, 6) ||
@@ -137,11 +137,11 @@ int ti_commit_to_pk(ti_commit_t * commit, msgpack_packer * pk)
 }
 
 int ti_commit_to_client_pk(
-        ti_commit_t * commit,
+        ti_commit_t *commit,
         _Bool detail,
-        msgpack_packer * pk)
+        msgpack_packer *pk)
 {
-    const char * isotimestr = ti_datetime_ts_str((const time_t *) &commit->ts);
+    const char *isotimestr = ti_datetime_ts_str((const time_t *) &commit->ts);
     return -(
         msgpack_pack_map(pk, 4 + !!detail + !!commit->err_msg) ||
 
@@ -169,9 +169,9 @@ int ti_commit_to_client_pk(
     );
 }
 
-ti_val_t * ti_commit_as_mpval(ti_commit_t * commit, _Bool detail)
+ti_val_t *ti_commit_as_mpval(ti_commit_t *commit, _Bool detail)
 {
-    ti_raw_t * raw;
+    ti_raw_t *raw;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 

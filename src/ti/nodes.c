@@ -32,14 +32,14 @@
 #define NODES__UV_BACKLOG 64
 #define NODES__MAX 127
 
-typedef ti_pkg_t * (*nodes__part_cb) (ti_pkg_t *, ex_t *);
+typedef ti_pkg_t *(*nodes__part_cb) (ti_pkg_t *, ex_t *);
 
-static ti_node_t * nodes__o[63];    /* other zone */
-static ti_node_t * nodes__z[63];    /* same zone */
-static ti_nodes_t * nodes;
+static ti_node_t *nodes__o[63];    /* other zone */
+static ti_node_t *nodes__z[63];    /* same zone */
+static ti_nodes_t *nodes;
 static ti_nodes_t nodes_;
 
-static const char * nodes__status    = "global_status";
+static const char *nodes__status    = "global_status";
 
 
 #define LOG_UNAUTHORIZED_NODE \
@@ -51,10 +51,10 @@ static const char * nodes__status    = "global_status";
               ti_proto_str(pkg->tp), ti_stream_name(stream));
 
 
-static void nodes__tcp_connection(uv_stream_t * uvstream, int status)
+static void nodes__tcp_connection(uv_stream_t *uvstream, int status)
 {
     int rc;
-    ti_stream_t * stream;
+    ti_stream_t *stream;
 
     if (status < 0)
     {
@@ -89,12 +89,12 @@ failed:
     ti_stream_drop(stream);
 }
 
-static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
+static void nodes__on_req_connect(ti_stream_t *stream, ti_pkg_t *pkg)
 {
     assert(stream->tp == TI_STREAM_TCP_IN_NODE);
     assert(stream->via.node == NULL);
 
-    ti_pkg_t * resp = NULL;
+    ti_pkg_t *resp = NULL;
     mp_unp_t up;
     mp_obj_t
         obj,
@@ -124,9 +124,9 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
         from_node_syntax_ver,
         from_node_port;
 
-    ti_node_t * node, * this_node = ti.node;
-    char * min_ver = NULL;
-    char * version = NULL;
+    ti_node_t *node, *this_node = ti.node;
+    char *min_ver = NULL;
+    char *version = NULL;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -408,13 +408,13 @@ fail:
     free(min_ver);
 }
 
-static void nodes__on_req_change_id(ti_stream_t * stream, ti_pkg_t * pkg)
+static void nodes__on_req_change_id(ti_stream_t *stream, ti_pkg_t *pkg)
 {
     ex_t e = {0};
     mp_unp_t up;
-    ti_pkg_t * resp = NULL;
-    ti_node_t * other_node = stream->via.node;
-    ti_node_t * this_node = ti.node;
+    ti_pkg_t *resp = NULL;
+    ti_node_t *other_node = stream->via.node;
+    ti_node_t *this_node = ti.node;
     mp_obj_t mp_change_id;
     ti_proto_enum_t accepted;
     uint8_t n = 0;
@@ -481,11 +481,11 @@ finish:
     }
 }
 
-static void nodes__on_req_away(ti_stream_t * stream, ti_pkg_t * pkg)
+static void nodes__on_req_away(ti_stream_t *stream, ti_pkg_t *pkg)
 {
     ex_t e = {0};
-    ti_pkg_t * resp = NULL;
-    ti_node_t * other_node = stream->via.node;
+    ti_pkg_t *resp = NULL;
+    ti_node_t *other_node = stream->via.node;
     _Bool accepted;
 
     if (!other_node)
@@ -524,16 +524,16 @@ finish:
     }
 }
 
-static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
+static void nodes__on_req_query(ti_stream_t *stream, ti_pkg_t *pkg)
 {
     ex_t e = {0};
-    vec_t * access_;
-    ti_user_t * user;
+    vec_t *access_;
+    ti_user_t *user;
     mp_unp_t up;
-    ti_pkg_t * resp = NULL;
-    ti_query_t * query = NULL;
-    ti_node_t * other_node = stream->via.node;
-    ti_node_t * this_node = ti.node;
+    ti_pkg_t *resp = NULL;
+    ti_query_t *query = NULL;
+    ti_node_t *other_node = stream->via.node;
+    ti_node_t *this_node = ti.node;
     mp_obj_t obj, mp_user_id, mp_orig, mp_query;
     ti_scope_t scope;
 
@@ -650,16 +650,16 @@ finish:
     }
 }
 
-static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
+static void nodes__on_req_run(ti_stream_t *stream, ti_pkg_t *pkg)
 {
     ex_t e = {0};
-    vec_t * access_;
-    ti_user_t * user;
+    vec_t *access_;
+    ti_user_t *user;
     mp_unp_t up;
-    ti_pkg_t * resp = NULL;
-    ti_query_t * query = NULL;
-    ti_node_t * other_node = stream->via.node;
-    ti_node_t * this_node = ti.node;
+    ti_pkg_t *resp = NULL;
+    ti_query_t *query = NULL;
+    ti_node_t *other_node = stream->via.node;
+    ti_node_t *this_node = ti.node;
     mp_obj_t obj, mp_user_id, mp_orig;
     ti_scope_t scope;
 
@@ -760,12 +760,12 @@ finish:
     }
 }
 
-static void nodes__on_req_setup(ti_stream_t * stream, ti_pkg_t * pkg)
+static void nodes__on_req_setup(ti_stream_t *stream, ti_pkg_t *pkg)
 {
-    ti_pkg_t * resp;
+    ti_pkg_t *resp;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
-    ti_node_t * other_node = stream->via.node;
+    ti_node_t *other_node = stream->via.node;
 
     if (!other_node)
     {
@@ -793,11 +793,11 @@ static void nodes__on_req_setup(ti_stream_t * stream, ti_pkg_t * pkg)
     }
 }
 
-static void nodes__on_req_sync(ti_stream_t * stream, ti_pkg_t * pkg)
+static void nodes__on_req_sync(ti_stream_t *stream, ti_pkg_t *pkg)
 {
     ex_t e = {0};
-    ti_pkg_t * resp = NULL;
-    ti_node_t * other_node = stream->via.node;
+    ti_pkg_t *resp = NULL;
+    ti_node_t *other_node = stream->via.node;
     mp_unp_t up;
     mp_obj_t mp_start;
 
@@ -853,13 +853,13 @@ finish:
 }
 
 static void nodes__on_req_syncpart(
-        ti_stream_t * stream,
-        ti_pkg_t * pkg,
+        ti_stream_t *stream,
+        ti_pkg_t *pkg,
         nodes__part_cb part_cb)
 {
     ex_t e = {0};
-    ti_pkg_t * resp = NULL;
-    ti_node_t * other_node = stream->via.node;
+    ti_pkg_t *resp = NULL;
+    ti_node_t *other_node = stream->via.node;
 
     if (!other_node)
     {
@@ -897,11 +897,11 @@ finish:
     }
 }
 
-static void nodes__on_req_syncfdone(ti_stream_t * stream, ti_pkg_t * pkg)
+static void nodes__on_req_syncfdone(ti_stream_t *stream, ti_pkg_t *pkg)
 {
     ex_t e = {0};
-    ti_pkg_t * resp = NULL;
-    ti_node_t * other_node = stream->via.node;
+    ti_pkg_t *resp = NULL;
+    ti_node_t *other_node = stream->via.node;
 
     if (!other_node)
     {
@@ -938,11 +938,11 @@ finish:
     }
 }
 
-static void nodes__on_req_syncadone(ti_stream_t * stream, ti_pkg_t * pkg)
+static void nodes__on_req_syncadone(ti_stream_t *stream, ti_pkg_t *pkg)
 {
     ex_t e = {0};
-    ti_pkg_t * resp = NULL;
-    ti_node_t * other_node = stream->via.node;
+    ti_pkg_t *resp = NULL;
+    ti_node_t *other_node = stream->via.node;
 
     if (!other_node)
     {
@@ -980,11 +980,11 @@ finish:
     }
 }
 
-static void nodes__on_req_syncedone(ti_stream_t * stream, ti_pkg_t * pkg)
+static void nodes__on_req_syncedone(ti_stream_t *stream, ti_pkg_t *pkg)
 {
     ex_t e = {0};
-    ti_pkg_t * resp = NULL;
-    ti_node_t * other_node = stream->via.node;
+    ti_pkg_t *resp = NULL;
+    ti_node_t *other_node = stream->via.node;
 
     if (!other_node)
     {
@@ -1023,9 +1023,9 @@ finish:
     }
 }
 
-static void nodes__on_event(ti_stream_t * stream, ti_pkg_t * pkg)
+static void nodes__on_event(ti_stream_t *stream, ti_pkg_t *pkg)
 {
-    ti_node_t * other_node = stream->via.node;
+    ti_node_t *other_node = stream->via.node;
 
     if (!other_node)
     {
@@ -1036,10 +1036,10 @@ static void nodes__on_event(ti_stream_t * stream, ti_pkg_t * pkg)
     ti_changes_on_change(other_node, pkg);
 }
 
-static void nodes__on_info(ti_stream_t * stream, ti_pkg_t * pkg)
+static void nodes__on_info(ti_stream_t *stream, ti_pkg_t *pkg)
 {
     mp_unp_t up;
-    ti_node_t * other_node = stream->via.node;
+    ti_node_t *other_node = stream->via.node;
 
     if (!other_node)
     {
@@ -1056,12 +1056,12 @@ static void nodes__on_info(ti_stream_t * stream, ti_pkg_t * pkg)
     }
 }
 
-static void nodes__on_missing_change(ti_stream_t * stream, ti_pkg_t * pkg)
+static void nodes__on_missing_change(ti_stream_t *stream, ti_pkg_t *pkg)
 {
     mp_unp_t up;
-    ti_node_t * other_node = stream->via.node;
+    ti_node_t *other_node = stream->via.node;
     mp_obj_t mp_id;
-    ti_cpkg_t * cpkg;
+    ti_cpkg_t *cpkg;
 
     if (!other_node)
     {
@@ -1087,12 +1087,12 @@ static void nodes__on_missing_change(ti_stream_t * stream, ti_pkg_t * pkg)
             other_node->id);
 }
 
-static void nodes__on_room_emit(ti_stream_t * stream, ti_pkg_t * pkg)
+static void nodes__on_room_emit(ti_stream_t *stream, ti_pkg_t *pkg)
 {
-    ti_collection_t * collection;
-    ti_room_t * room;
+    ti_collection_t *collection;
+    ti_room_t *room;
     mp_unp_t up;
-    ti_node_t * other_node = stream->via.node;
+    ti_node_t *other_node = stream->via.node;
     mp_obj_t obj, mp_collection_id, mp_room_id;
 
     if (!other_node)
@@ -1129,10 +1129,10 @@ static void nodes__on_room_emit(ti_stream_t * stream, ti_pkg_t * pkg)
     uv_mutex_unlock(collection->lock);
 }
 
-static void nodes__on_fwd_warn(ti_stream_t * stream, ti_pkg_t * pkg)
+static void nodes__on_fwd_warn(ti_stream_t *stream, ti_pkg_t *pkg)
 {
-    ti_node_t * other_node = stream->via.node;
-    ti_req_t * req = omap_get(stream->reqmap, pkg->id);
+    ti_node_t *other_node = stream->via.node;
+    ti_req_t *req = omap_get(stream->reqmap, pkg->id);
 
     if (!other_node)
     {
@@ -1177,14 +1177,14 @@ static void nodes__on_fwd_warn(ti_stream_t * stream, ti_pkg_t * pkg)
     }
 }
 
-static void nodes__on_fwd_task(ti_stream_t * stream, ti_pkg_t * pkg)
+static void nodes__on_fwd_task(ti_stream_t *stream, ti_pkg_t *pkg)
 {
     mp_unp_t up;
-    ti_node_t * other_node = stream->via.node;
-    ti_node_t * this_node = ti.node;
+    ti_node_t *other_node = stream->via.node;
+    ti_node_t *this_node = ti.node;
     mp_obj_t obj, mp_scope_id, mp_id;
-    vec_t * vtasks;
-    ti_collection_t * collection;
+    vec_t *vtasks;
+    ti_collection_t *collection;
 
     if (!other_node)
     {
@@ -1229,7 +1229,7 @@ static void nodes__on_fwd_task(ti_stream_t * stream, ti_pkg_t * pkg)
             mp_id.via.u64);
 }
 
-static const char * nodes__get_status_fn(void)
+static const char *nodes__get_status_fn(void)
 {
     if (nodes->status_fn)
         return nodes->status_fn;
@@ -1273,7 +1273,7 @@ int ti_nodes_read_sccid(void)
 {
     int rc = -1;
     uint64_t ccid, scid;
-    const char * fn = nodes__get_status_fn();
+    const char *fn = nodes__get_status_fn();
     FILE * f;
 
     if (!fn)
@@ -1321,7 +1321,7 @@ int ti_nodes_write_global_status(void)
     int rc = 0;
     uint64_t ccid = ti_nodes_ccid();
     uint64_t scid = ti_nodes_scid();
-    const char * fn = nodes__get_status_fn();
+    const char *fn = nodes__get_status_fn();
     FILE * f;
 
     if (!fn)
@@ -1388,7 +1388,7 @@ _Bool ti_nodes_has_quorum(void)
     return false;
 }
 
-ti_node_t * ti_nodes_not_ready(void)
+ti_node_t *ti_nodes_not_ready(void)
 {
     for (vec_each(nodes->vec, ti_node_t, node))
         if (node->status != TI_NODE_STAT_READY)
@@ -1410,10 +1410,10 @@ _Bool ti_nodes_offline_found(void)
 }
 
 /* increases with a new reference as long as required */
-void ti_nodes_write_rpkg(ti_rpkg_t * rpkg)
+void ti_nodes_write_rpkg(ti_rpkg_t *rpkg)
 {
-    ti_node_t * this_node = ti.node;
-    vec_t * nodes_vec = nodes->vec;
+    ti_node_t *this_node = ti.node;
+    vec_t *nodes_vec = nodes->vec;
     for (vec_each(nodes_vec, ti_node_t, node))
     {
         ti_node_status_t status = node->status;
@@ -1431,9 +1431,9 @@ void ti_nodes_write_rpkg(ti_rpkg_t * rpkg)
     }
 }
 
-int ti_nodes_to_pk(msgpack_packer * pk)
+int ti_nodes_to_pk(msgpack_packer *pk)
 {
-    vec_t * nodes_vec = nodes->vec;
+    vec_t *nodes_vec = nodes->vec;
     if (msgpack_pack_array(pk, nodes_vec->n))
         return -1;
 
@@ -1451,7 +1451,7 @@ int ti_nodes_to_pk(msgpack_packer * pk)
     return 0;
 }
 
-int ti_nodes_from_up(mp_unp_t * up)
+int ti_nodes_from_up(mp_unp_t *up)
 {
     size_t i;
     mp_obj_t obj, mp_id, mp_zone, mp_port, mp_addr, mp_secret;
@@ -1530,9 +1530,9 @@ _Bool ti_nodes_require_sync(void)
  * nodes. The rule is that at least a quorum can still be reached, even if the
  * new node fails to connect.
  */
-int ti_nodes_check_add(const char * addr, uint16_t port, ex_t * e)
+int ti_nodes_check_add(const char *addr, uint16_t port, ex_t *e)
 {
-    vec_t * nodes_vec = nodes->vec;
+    vec_t *nodes_vec = nodes->vec;
     uint8_t may_skip = nodes_vec->n >= 4
             ? ((uint8_t) (nodes_vec->n / 2)) - 1
             : 0;
@@ -1634,14 +1634,14 @@ void ti_nodes_update_syntax_ver(uint16_t syntax_ver)
 }
 
 
-ti_node_t * ti_nodes_new_node(
+ti_node_t *ti_nodes_new_node(
         uint32_t id,
         uint8_t zone,
         uint16_t port,
-        const char * addr,
-        const char * secret)
+        const char *addr,
+        const char *secret)
 {
-    ti_node_t * node = ti_node_create(id, zone, port, addr, secret);
+    ti_node_t *node = ti_node_create(id, zone, port, addr, secret);
     if (!node || vec_push(&nodes->vec, node))
     {
         ti_node_drop(node);
@@ -1677,7 +1677,7 @@ void ti_nodes_del_node(uint32_t node_id)
 /*
  * Returns a weak reference to a node, of NULL if not found
  */
-ti_node_t * ti_nodes_node_by_id(uint32_t node_id)
+ti_node_t *ti_nodes_node_by_id(uint32_t node_id)
 {
     for (vec_each(nodes->vec, ti_node_t, node))
         if (node->id == node_id)
@@ -1689,9 +1689,9 @@ int ti_nodes_listen(void)
 {
     struct sockaddr_storage addr = {0};
     int rc;
-    ti_cfg_t * cfg = ti.cfg;
+    ti_cfg_t *cfg = ti.cfg;
     _Bool is_ipv6 = false;
-    char * ip;
+    char *ip;
 
     uv_tcp_init(ti.loop, &nodes->tcp);
 
@@ -1760,7 +1760,7 @@ int ti_nodes_listen(void)
 /*
  * Returns a borrowed node in away mode or NULL if none is found
  */
-ti_node_t * ti_nodes_get_away(void)
+ti_node_t *ti_nodes_get_away(void)
 {
     for (vec_each(nodes->vec, ti_node_t, node))
         if (node->status == TI_NODE_STAT_AWAY)
@@ -1771,7 +1771,7 @@ ti_node_t * ti_nodes_get_away(void)
 /*
  * Returns a borrowed node in away or soon mode or NULL if none is found
  */
-ti_node_t * ti_nodes_get_away_or_soon(void)
+ti_node_t *ti_nodes_get_away_or_soon(void)
 {
     for (vec_each(nodes->vec, ti_node_t, node))
         if (node->status == TI_NODE_STAT_AWAY ||
@@ -1784,9 +1784,9 @@ ti_node_t * ti_nodes_get_away_or_soon(void)
  * Returns another borrowed node with status READY if possible from the same
  * zone of NULL if no ready node is found. (not thread safe)
  */
-ti_node_t * ti_nodes_random_ready_node(void)
+ti_node_t *ti_nodes_random_ready_node(void)
 {
-    ti_node_t * this_node = ti.node;
+    ti_node_t *this_node = ti.node;
     uint32_t zn = 0, on = 0;
     for (vec_each(nodes->vec, ti_node_t, node))
     {
@@ -1801,7 +1801,7 @@ ti_node_t * ti_nodes_random_ready_node(void)
     return zn ? nodes__z[rand() % zn] : on ? nodes__o[rand() % on] : NULL;
 }
 
-void ti_nodes_set_not_ready_err(ex_t * e)
+void ti_nodes_set_not_ready_err(ex_t *e)
 {
     for (vec_each(nodes->vec, ti_node_t, node))
     {
@@ -1838,7 +1838,7 @@ void ti_nodes_set_not_ready_err(ex_t * e)
     ex_set(e, EX_NODE_ERROR, "cannot find a node for handling this request");
 }
 
-void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
+void ti_nodes_pkg_cb(ti_stream_t *stream, ti_pkg_t *pkg)
 {
     switch (pkg->tp)
     {
@@ -1926,15 +1926,15 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
     }
 }
 
-ti_varr_t * ti_nodes_info(void)
+ti_varr_t *ti_nodes_info(void)
 {
-    ti_varr_t * varr = ti_varr_create(nodes->vec->n);
+    ti_varr_t *varr = ti_varr_create(nodes->vec->n);
     if (!varr)
         return NULL;
 
     for (vec_each(nodes->vec, ti_node_t, node))
     {
-        ti_val_t * mpinfo = ti_node_as_mpval(node);
+        ti_val_t *mpinfo = ti_node_as_mpval(node);
         if (!mpinfo)
         {
             ti_val_unsafe_drop((ti_val_t *) varr);
@@ -1945,7 +1945,7 @@ ti_varr_t * ti_nodes_info(void)
     return varr;
 }
 
-int ti_nodes_check_syntax(uint16_t syntax_ver, ex_t * e)
+int ti_nodes_check_syntax(uint16_t syntax_ver, ex_t *e)
 {
     if (nodes_.syntax_ver >= syntax_ver)
         return 0;

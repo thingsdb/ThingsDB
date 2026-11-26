@@ -15,10 +15,10 @@
 /*
  * Returns NULL in case an error has occurred.
  */
-uint8_t * cleri__kwcache_new(const char * str)
+uint8_t *cleri__kwcache_new(const char *str)
 {
     size_t n = strlen(str);
-    uint8_t * kwcache = cleri__mallocn(n, uint8_t);
+    uint8_t *kwcache = cleri__mallocn(n, uint8_t);
     if (kwcache != NULL)
     {
         memset(kwcache, NOT_FOUND, n * sizeof(uint8_t));
@@ -30,9 +30,9 @@ uint8_t * cleri__kwcache_new(const char * str)
  * Returns 0 when no kw_match is found, -1 when an error has occurred, or the
  * new kwcache->len value.
  */
-uint8_t cleri__kwcache_match(cleri_parse_t * pr, const char * str)
+uint8_t cleri__kwcache_match(cleri_parse_t *pr, const char *str)
 {
-    uint8_t * len;
+    uint8_t *len;
 
     if (*str == '\0')
     {
@@ -62,7 +62,7 @@ uint8_t cleri__kwcache_match(cleri_parse_t * pr, const char * str)
 /*
  * Destroy kwcache. (parsing NULL is allowed)
  */
-void cleri__kwcache_free(uint8_t * kwcache)
+void cleri__kwcache_free(uint8_t *kwcache)
 {
     free(kwcache);
 }

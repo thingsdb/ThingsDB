@@ -1,17 +1,17 @@
 #include <ti/fn/fn.h>
 
 static void enum__add(
-        ti_query_t * query,
-        ti_enum_t * enum_,
-        ti_name_t * name,
-        cleri_node_t * nd,
-        ex_t * e)
+        ti_query_t *query,
+        ti_enum_t *enum_,
+        ti_name_t *name,
+        cleri_node_t *nd,
+        ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
 
-    static const char * fnname = "mod_enum` with task `add";
-    cleri_node_t * child;
-    ti_task_t * task;
+    static const char *fnname = "mod_enum` with task `add";
+    cleri_node_t *child;
+    ti_task_t *task;
 
     if (fn_nargs(fnname, DOC_MOD_ENUM_ADD, 4, nargs, e))
         return;
@@ -50,17 +50,17 @@ panic:
 }
 
 static void enum__def(
-        ti_query_t * query,
-        ti_enum_t * enum_,
-        ti_name_t * name,
-        cleri_node_t * nd,
-        ex_t * e)
+        ti_query_t *query,
+        ti_enum_t *enum_,
+        ti_name_t *name,
+        cleri_node_t *nd,
+        ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
 
-    static const char * fnname = "mod_enum` with task `def";
-    ti_member_t * member = ti_enum_member_by_strn(enum_, name->str, name->n);
-    ti_task_t * task;
+    static const char *fnname = "mod_enum` with task `def";
+    ti_member_t *member = ti_enum_member_by_strn(enum_, name->str, name->n);
+    ti_task_t *task;
 
     if (fn_nargs(fnname, DOC_MOD_ENUM_DEF, 3, nargs, e))
         return;
@@ -97,17 +97,17 @@ static void enum__def(
 
 
 static void enum__del(
-        ti_query_t * query,
-        ti_enum_t * enum_,
-        ti_name_t * name,
-        cleri_node_t * nd,
-        ex_t * e)
+        ti_query_t *query,
+        ti_enum_t *enum_,
+        ti_name_t *name,
+        cleri_node_t *nd,
+        ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    static const char * fnname = "mod_enum` with task `del";
-    ti_member_t * member = ti_enum_member_by_strn(enum_, name->str, name->n);
-    ti_method_t * method = member ? NULL : ti_enum_get_method(enum_, name);
-    ti_task_t * task;
+    static const char *fnname = "mod_enum` with task `del";
+    ti_member_t *member = ti_enum_member_by_strn(enum_, name->str, name->n);
+    ti_method_t *method = member ? NULL : ti_enum_get_method(enum_, name);
+    ti_task_t *task;
 
     if (fn_nargs(fnname, DOC_MOD_ENUM_DEL, 3, nargs, e))
         return;
@@ -159,18 +159,18 @@ static void enum__del(
 }
 
 static void enum__mod(
-        ti_query_t * query,
-        ti_enum_t * enum_,
-        ti_name_t * name,
-        cleri_node_t * nd,
-        ex_t * e)
+        ti_query_t *query,
+        ti_enum_t *enum_,
+        ti_name_t *name,
+        cleri_node_t *nd,
+        ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    static const char * fnname = "mod_enum` with task `mod";
-    cleri_node_t * child;
-    ti_member_t * member = ti_enum_member_by_strn(enum_, name->str, name->n);
-    ti_method_t * method = member ? NULL : ti_enum_get_method(enum_, name);
-    ti_task_t * task;
+    static const char *fnname = "mod_enum` with task `mod";
+    cleri_node_t *child;
+    ti_member_t *member = ti_enum_member_by_strn(enum_, name->str, name->n);
+    ti_method_t *method = member ? NULL : ti_enum_get_method(enum_, name);
+    ti_task_t *task;
 
     if (fn_nargs(fnname, DOC_MOD_ENUM_MOD, 4, nargs, e))
         return;
@@ -232,20 +232,20 @@ static void enum__mod(
 }
 
 static void enum__ren(
-        ti_query_t * query,
-        ti_enum_t * enum_,
-        ti_name_t * name,
-        cleri_node_t * nd,
-        ex_t * e)
+        ti_query_t *query,
+        ti_enum_t *enum_,
+        ti_name_t *name,
+        cleri_node_t *nd,
+        ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    static const char * fnname = "mod_enum` with task `ren";
-    cleri_node_t * child;
-    ti_member_t * member = ti_enum_member_by_strn(enum_, name->str, name->n);
-    ti_method_t * method = member ? NULL : ti_enum_get_method(enum_, name);
-    ti_task_t * task;
-    ti_raw_t * rname;
-    ti_name_t * to;
+    static const char *fnname = "mod_enum` with task `ren";
+    cleri_node_t *child;
+    ti_member_t *member = ti_enum_member_by_strn(enum_, name->str, name->n);
+    ti_method_t *method = member ? NULL : ti_enum_get_method(enum_, name);
+    ti_task_t *task;
+    ti_raw_t *rname;
+    ti_name_t *to;
 
     if (fn_nargs(fnname, DOC_MOD_ENUM_REN, 4, nargs, e))
         return;
@@ -304,12 +304,12 @@ static void enum__ren(
         ex_set_mem(e);
 }
 
-static int do__f_mod_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_mod_enum(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
-    ti_enum_t * enum_;
-    ti_name_t * name;
-    ti_raw_t * rmod;
-    cleri_node_t * child = nd->children;
+    ti_enum_t *enum_;
+    ti_name_t *name;
+    ti_raw_t *rmod;
+    cleri_node_t *child = nd->children;
     const int nargs = fn_get_nargs(nd);
 
     if (fn_not_collection_scope("mod_enum", query, e) ||

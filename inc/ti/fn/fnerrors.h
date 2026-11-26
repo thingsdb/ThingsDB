@@ -1,16 +1,16 @@
 #include <ti/fn/fn.h>
 
 static int do__make_err(
-        ti_query_t * query,
-        cleri_node_t * nd,
-        ex_t * e,
+        ti_query_t *query,
+        cleri_node_t *nd,
+        ex_t *e,
         int8_t code,
-        const char * fn_name,
-        const char * fn_doc)
+        const char *fn_name,
+        const char *fn_doc)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_raw_t * msg;
-    ti_verror_t * verror;
+    ti_raw_t *msg;
+    ti_verror_t *verror;
 
     if (fn_nargs_max(fn_name, fn_doc, 1, nargs, e))
         return e->nr;
@@ -45,7 +45,7 @@ static int do__make_err(
     return e->nr;
 }
 
-static inline int do__f_cancelled_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static inline int do__f_cancelled_err(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     assert(e->nr == 0);
     assert(nd->cl_obj->tp == CLERI_TP_LIST);
@@ -56,7 +56,7 @@ static inline int do__f_cancelled_err(ti_query_t * query, cleri_node_t * nd, ex_
             DOC_CANCELLED_ERR);
 }
 
-static inline int do__f_operation_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static inline int do__f_operation_err(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     assert(e->nr == 0);
     assert(nd->cl_obj->tp == CLERI_TP_LIST);
@@ -67,7 +67,7 @@ static inline int do__f_operation_err(ti_query_t * query, cleri_node_t * nd, ex_
             DOC_OPERATION_ERR);
 }
 
-static inline int do__f_num_arguments_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static inline int do__f_num_arguments_err(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     assert(e->nr == 0);
     assert(nd->cl_obj->tp == CLERI_TP_LIST);
@@ -78,7 +78,7 @@ static inline int do__f_num_arguments_err(ti_query_t * query, cleri_node_t * nd,
             DOC_NUM_ARGUMENTS_ERR);
 }
 
-static inline int do__f_type_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static inline int do__f_type_err(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     assert(e->nr == 0);
     assert(nd->cl_obj->tp == CLERI_TP_LIST);
@@ -89,7 +89,7 @@ static inline int do__f_type_err(ti_query_t * query, cleri_node_t * nd, ex_t * e
             DOC_TYPE_ERR);
 }
 
-static inline int do__f_value_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static inline int do__f_value_err(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     assert(e->nr == 0);
     assert(nd->cl_obj->tp == CLERI_TP_LIST);
@@ -100,7 +100,7 @@ static inline int do__f_value_err(ti_query_t * query, cleri_node_t * nd, ex_t * 
             DOC_VALUE_ERR);
 }
 
-static inline int do__f_overflow_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static inline int do__f_overflow_err(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     assert(e->nr == 0);
     assert(nd->cl_obj->tp == CLERI_TP_LIST);
@@ -111,7 +111,7 @@ static inline int do__f_overflow_err(ti_query_t * query, cleri_node_t * nd, ex_t
             DOC_OVERFLOW_ERR);
 }
 
-static inline int do__f_zero_div_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static inline int do__f_zero_div_err(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     assert(e->nr == 0);
     assert(nd->cl_obj->tp == CLERI_TP_LIST);
@@ -122,7 +122,7 @@ static inline int do__f_zero_div_err(ti_query_t * query, cleri_node_t * nd, ex_t
             DOC_ZERO_DIV_ERR);
 }
 
-static inline int do__f_max_quota_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static inline int do__f_max_quota_err(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     assert(e->nr == 0);
     assert(nd->cl_obj->tp == CLERI_TP_LIST);
@@ -133,7 +133,7 @@ static inline int do__f_max_quota_err(ti_query_t * query, cleri_node_t * nd, ex_
             DOC_MAX_QUOTA_ERR);
 }
 
-static inline int do__f_auth_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static inline int do__f_auth_err(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     assert(e->nr == 0);
     assert(nd->cl_obj->tp == CLERI_TP_LIST);
@@ -144,7 +144,7 @@ static inline int do__f_auth_err(ti_query_t * query, cleri_node_t * nd, ex_t * e
             DOC_AUTH_ERR);
 }
 
-static inline int do__f_forbidden_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static inline int do__f_forbidden_err(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     assert(e->nr == 0);
     assert(nd->cl_obj->tp == CLERI_TP_LIST);
@@ -155,7 +155,7 @@ static inline int do__f_forbidden_err(ti_query_t * query, cleri_node_t * nd, ex_
             DOC_FORBIDDEN_ERR);
 }
 
-static inline int do__f_lookup_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static inline int do__f_lookup_err(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     assert(e->nr == 0);
     assert(nd->cl_obj->tp == CLERI_TP_LIST);
@@ -166,7 +166,7 @@ static inline int do__f_lookup_err(ti_query_t * query, cleri_node_t * nd, ex_t *
             DOC_LOOKUP_ERR);
 }
 
-static inline int do__f_bad_data_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static inline int do__f_bad_data_err(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     assert(e->nr == 0);
     assert(nd->cl_obj->tp == CLERI_TP_LIST);
@@ -177,7 +177,7 @@ static inline int do__f_bad_data_err(ti_query_t * query, cleri_node_t * nd, ex_t
             DOC_BAD_DATA_ERR);
 }
 
-static inline int do__f_syntax_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static inline int do__f_syntax_err(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     assert(e->nr == 0);
     assert(nd->cl_obj->tp == CLERI_TP_LIST);
@@ -188,7 +188,7 @@ static inline int do__f_syntax_err(ti_query_t * query, cleri_node_t * nd, ex_t *
             DOC_SYNTAX_ERR);
 }
 
-static inline int do__f_node_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static inline int do__f_node_err(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     assert(e->nr == 0);
     assert(nd->cl_obj->tp == CLERI_TP_LIST);
@@ -199,7 +199,7 @@ static inline int do__f_node_err(ti_query_t * query, cleri_node_t * nd, ex_t * e
             DOC_NODE_ERR);
 }
 
-static inline int do__f_assert_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static inline int do__f_assert_err(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     assert(e->nr == 0);
     assert(nd->cl_obj->tp == CLERI_TP_LIST);

@@ -17,19 +17,19 @@
 #define STRX__MAX_CONV_SZ 50
 static char strx__buf[STRX__MAX_CONV_SZ];
 
-void strx_lower_case(char * str)
+void strx_lower_case(char *str)
 {
    for (; *str; str++)
        *str = tolower(*str);
 }
 
-void strx_upper_case(char * str)
+void strx_upper_case(char *str)
 {
    for (; *str; str++)
        *str = toupper(*str);
 }
 
-void strx_replace_char(char * str, char find, char replace)
+void strx_replace_char(char *str, char find, char replace)
 {
     for (; *str; str++)
         if (*str == find)
@@ -43,10 +43,10 @@ void strx_replace_char(char * str, char find, char replace)
  * Returns 0 if successful or -1 if the replaced string does not fit. In this
  * case the original string is untouched. The new string is terminated.
  */
-int strx_replace_str(char * str, char * o, char * r, size_t n)
+int strx_replace_str(char *str, char *o, char *r, size_t n)
 {
     char buffer[n];
-    char * pos, * s;
+    char *pos, *s;
     size_t l, size = 0, olen = strlen(o), rlen = strlen(r);
 
     for (s = str; (pos = strstr(s, o)) != NULL; s = pos + olen)
@@ -83,10 +83,10 @@ int strx_replace_str(char * str, char * o, char * r, size_t n)
  *      split: ' ' and join with '_'
  *      result: "this_is_a_test"
  */
-void strx_split_join(char * pt, char split_chr, char join_chr)
+void strx_split_join(char *pt, char split_chr, char join_chr)
 {
     int join = -1;
-    char * dest = pt;
+    char *dest = pt;
 
     for (; *pt != '\0'; pt++)
     {
@@ -110,13 +110,13 @@ void strx_split_join(char * pt, char split_chr, char join_chr)
     *dest = '\0';
 }
 
-void strx_trim(char ** str, char chr)
+void strx_trim(char **str, char chr)
 {
     /*
      * trim: when chr is 0 we will trim whitespace,
      * otherwise only the given char.
      */
-    char * end;
+    char *end;
 
     /* trim leading chars */
     while ((chr && **str == chr) || (!chr && isspace(**str)))
@@ -144,7 +144,7 @@ void strx_trim(char ** str, char chr)
 /*
  * returns true or false
  */
-_Bool strx_is_empty(const char * str)
+_Bool strx_is_empty(const char *str)
 {
     for (; *str; str++)
         if (!isspace(*str))
@@ -152,7 +152,7 @@ _Bool strx_is_empty(const char * str)
     return true;
 }
 
-_Bool strx_is_int(const char * str)
+_Bool strx_is_int(const char *str)
 {
    /* Handle signed numbers. */
    if (*str == '-' || *str == '+')
@@ -170,7 +170,7 @@ _Bool strx_is_int(const char * str)
    return true;
 }
 
-_Bool strx_is_float(const char * str)
+_Bool strx_is_float(const char *str)
 {
    size_t dots = 0;
 
@@ -192,7 +192,7 @@ _Bool strx_is_float(const char * str)
    return dots == 1;
 }
 
-_Bool strx_is_graph(const char * str)
+_Bool strx_is_graph(const char *str)
 {
     for (; *str; str++)
         if (!isgraph(*str))
@@ -200,7 +200,7 @@ _Bool strx_is_graph(const char * str)
     return true;
 }
 
-_Bool strx_is_graphn(const char * str, size_t n)
+_Bool strx_is_graphn(const char *str, size_t n)
 {
     for (; n--; str++)
         if (!isgraph(*str))
@@ -208,7 +208,7 @@ _Bool strx_is_graphn(const char * str, size_t n)
     return true;
 }
 
-_Bool strx_is_printable(const char * str)
+_Bool strx_is_printable(const char *str)
 {
     for (; *str; str++)
         if (!isprint(*str))
@@ -216,7 +216,7 @@ _Bool strx_is_printable(const char * str)
     return true;
 }
 
-_Bool strx_is_printablen(const char * str, size_t n)
+_Bool strx_is_printablen(const char *str, size_t n)
 {
     for (; n--; str++)
         if (!isprint(*str))
@@ -224,7 +224,7 @@ _Bool strx_is_printablen(const char * str, size_t n)
     return true;
 }
 
-_Bool strx_is_asciin(const char * str, size_t n)
+_Bool strx_is_asciin(const char *str, size_t n)
 {
     for (; n--; str++)
         if (*str <= 0)
@@ -232,7 +232,7 @@ _Bool strx_is_asciin(const char * str, size_t n)
     return true;
 }
 
-_Bool strx_is_utf8n(const char * str, size_t n)
+_Bool strx_is_utf8n(const char *str, size_t n)
 {
     return validate_utf8_fast(str, n);
 }
@@ -242,7 +242,7 @@ _Bool strx_is_utf8n(const char * str, size_t n)
  *
  *      [-+]?((inf|nan)([^0-9A-Za-z_]|$)|[0-9]*\.[0-9]+(e[+-][0-9]+)?)
  */
-double strx_to_double(const char * str, char **restrict endptr)
+double strx_to_double(const char *str, char **restrict endptr)
 {
     double d;
     double negative = 0;
@@ -303,7 +303,7 @@ double strx_to_double(const char * str, char **restrict endptr)
  *
  * This function may set errno to ERANGE
  */
-int64_t strx_to_int64(const char * str, char **restrict endptr)
+int64_t strx_to_int64(const char *str, char **restrict endptr)
 {
     int64_t i;
     int negative = 0;
@@ -353,7 +353,7 @@ int64_t strx_to_int64(const char * str, char **restrict endptr)
 /* not thread safe, the returned string might not be NULL terminated when the
  * output exceeds STRX__MAX_CONV_SZ. If this is the case,
  * then size `n` is set to 0. */
-const char * strx_from_double(const double d, size_t * n)
+const char *strx_from_double(const double d, size_t *n)
 {
     int r = snprintf(strx__buf, STRX__MAX_CONV_SZ, "%g", d);
     *n = (r < 0 || r >= STRX__MAX_CONV_SZ) ? 0 : (size_t) r;
@@ -363,18 +363,18 @@ const char * strx_from_double(const double d, size_t * n)
 /* not thread safe, the returned string might not be NULL terminated when the
  * output exceeds STRX__MAX_CONV_SZ. If this is the case,
  * then size `n` is set to 0. */
-const char * strx_from_int64(const int64_t i, size_t * n)
+const char *strx_from_int64(const int64_t i, size_t *n)
 {
     int r = snprintf(strx__buf, STRX__MAX_CONV_SZ, "%"PRId64, i);
     *n = (r < 0 || r >= STRX__MAX_CONV_SZ) ? 0 : (size_t) r;
     return strx__buf;
 }
 
-const char * strx_printable(const char * s, size_t n)
+const char *strx_printable(const char *s, size_t n)
 {
     const size_t m = STRX__MAX_CONV_SZ-4;
     size_t nn = n <= m ? n : m;
-    char * pt = strx__buf;
+    char *pt = strx__buf;
 
     if (!strx_is_printablen(s, nn))
     {
@@ -393,12 +393,12 @@ const char * strx_printable(const char * s, size_t n)
     return pt;
 }
 
-char * strx_cat(const char * s1, const char * s2)
+char *strx_cat(const char *s1, const char *s2)
 {
     size_t n1 = strlen(s1);
     size_t n2 = strlen(s2);
 
-    char * s = malloc(n1 + n2 + 1);
+    char *s = malloc(n1 + n2 + 1);
     if (!s)
         return NULL;
 

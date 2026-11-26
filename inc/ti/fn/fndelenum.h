@@ -1,10 +1,10 @@
 #include <ti/fn/fn.h>
 
-static int do__f_del_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_del_enum(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_enum_t * enum_;
-    ti_task_t * task;
+    ti_enum_t *enum_;
+    ti_task_t *task;
     uint16_t spec;
 
     if (fn_not_collection_scope("del_enum", query, e) ||
@@ -57,7 +57,7 @@ static int do__f_del_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         if (ti_val_is_thing(prop->val))
         {
-            ti_thing_t * thing = (ti_thing_t *) prop->val;
+            ti_thing_t *thing = (ti_thing_t *) prop->val;
 
             if (ti_thing_is_object(thing) &&
                     (thing->via.spec & TI_SPEC_MASK_NILLABLE) == spec)

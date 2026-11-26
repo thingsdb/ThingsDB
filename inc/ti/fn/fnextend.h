@@ -1,10 +1,10 @@
 #include <ti/fn/fn.h>
 
-static int do__f_extend(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_extend(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     uint32_t current_n, source_n;
-    ti_varr_t * varr_dest, * varr_source;
+    ti_varr_t *varr_dest, *varr_source;
 
     if (!ti_val_is_list(query->rval))
         return fn_call_try("extend", query, nd, e);
@@ -53,7 +53,7 @@ static int do__f_extend(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (varr_dest->parent && varr_dest->parent->id && source_n)
     {
-        ti_task_t * task = ti_task_get_task(query->change, varr_dest->parent);
+        ti_task_t *task = ti_task_get_task(query->change, varr_dest->parent);
         if (!task || ti_task_add_splice(
                 task,
                 ti_varr_key(varr_dest),

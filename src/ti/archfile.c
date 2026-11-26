@@ -21,13 +21,13 @@
  */
 #define ARCHIVE__FILE_LEN 36
 
-ti_archfile_t * ti_archfile_upsert(const char * path, const char * fn)
+ti_archfile_t *ti_archfile_upsert(const char *path, const char *fn)
 {
     /* Read the first and last change id from file name,
      * using format 16 hex digits + underscore + 16 hex digits */
     uint64_t first = strtoull(fn, NULL, 16);
     uint64_t last = strtoull(fn + 16 + 1, NULL, 16);
-    ti_archfile_t * archfile = ti_archfile_get(first, last);
+    ti_archfile_t *archfile = ti_archfile_get(first, last);
     if (archfile)
         return archfile;
 
@@ -48,13 +48,13 @@ ti_archfile_t * ti_archfile_upsert(const char * path, const char * fn)
     return archfile;
 }
 
-ti_archfile_t * ti_archfile_from_change_ids(
-        const char * path,
+ti_archfile_t *ti_archfile_from_change_ids(
+        const char *path,
         uint64_t first,
         uint64_t last)
 {
     char buf[ARCHIVE__FILE_LEN + 1];
-    ti_archfile_t * archfile = malloc(sizeof(ti_archfile_t));
+    ti_archfile_t *archfile = malloc(sizeof(ti_archfile_t));
     if (!archfile)
         return NULL;
 
@@ -73,7 +73,7 @@ ti_archfile_t * ti_archfile_from_change_ids(
     return archfile;
 }
 
-void ti_archfile_destroy(ti_archfile_t * archfile)
+void ti_archfile_destroy(ti_archfile_t *archfile)
 {
     if (!archfile)
         return;
@@ -81,16 +81,16 @@ void ti_archfile_destroy(ti_archfile_t * archfile)
     free(archfile);
 }
 
-ti_archfile_t * ti_archfile_get(uint64_t first, uint64_t last)
+ti_archfile_t *ti_archfile_get(uint64_t first, uint64_t last)
 {
-    vec_t * archfiles = ti.archive->archfiles;
+    vec_t *archfiles = ti.archive->archfiles;
     for (vec_each(archfiles, ti_archfile_t, archfile))
         if (archfile->first == first && archfile->last == last)
             return archfile;
     return NULL;
 }
 
-_Bool ti_archfile_is_valid_fn(const char * fn)
+_Bool ti_archfile_is_valid_fn(const char *fn)
 {
     size_t len = strlen(fn);
     if (len != ARCHIVE__FILE_LEN)

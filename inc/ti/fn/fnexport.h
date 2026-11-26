@@ -4,14 +4,14 @@
 typedef struct
 {
     _Bool * dump;
-    ex_t * e;
+    ex_t *e;
 } export__walk_t;
 
 
 static int do__export_option(
-        ti_raw_t * key,
-        ti_val_t * val,
-        export__walk_t * w)
+        ti_raw_t *key,
+        ti_val_t *val,
+        export__walk_t *w)
 {
     if (ti_raw_eq_strn(key, "dump", 4))
     {
@@ -33,7 +33,7 @@ static int do__export_option(
     return w->e->nr;
 }
 
-static int do__f_export(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_export(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     _Bool dump = false;
@@ -44,7 +44,7 @@ static int do__f_export(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs == 1)
     {
-        ti_thing_t * thing;
+        ti_thing_t *thing;
 
         if (ti_do_statement(query, nd->children, e) ||
             fn_arg_thing("export", DOC_EXPORT, 1, query->rval, e))

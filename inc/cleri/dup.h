@@ -17,7 +17,7 @@ typedef struct cleri_dup_s cleri_dup_t;
 extern "C" {
 #endif
 
-cleri_t * cleri_dup(uint32_t gid, cleri_t * cl_obj);
+cleri_t *cleri_dup(uint32_t gid, cleri_t *cl_obj);
 
 #ifdef __cplusplus
 }

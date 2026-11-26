@@ -24,7 +24,7 @@ int ti_build_setup(
         uint8_t from_node_zone,
         uint16_t from_node_syntax_ver,
         uint16_t from_node_port,
-        ti_stream_t * stream);
+        ti_stream_t *stream);
 
 struct ti_build_s
 {

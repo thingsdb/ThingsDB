@@ -17,8 +17,8 @@
 #include <libproc.h>
 #endif
 
-static lock_t LOCK_create(const char * lock_fn, pid_t pid);
-static int LOCK_get_process_name(char ** name, pid_t pid);
+static lock_t LOCK_create(const char *lock_fn, pid_t pid);
+static int LOCK_get_process_name(char **name, pid_t pid);
 
 /*
  * Returns LOCK_NEW if a new lock is created, LOCK_OVERWRITE if an existing
@@ -29,13 +29,13 @@ static int LOCK_get_process_name(char ** name, pid_t pid);
  *  LOCK_QUIT_IF_EXIST: do not check the lock file but simply consider the
  *                      path locked if a lock file exists in the path.
  */
-lock_t lock_lock(const char * path, int flags)
+lock_t lock_lock(const char *path, int flags)
 {
     pid_t pid = getpid();
     pid_t ppid = 0;
-    char * lock_fn;
-    char * proc_name = NULL;
-    char * pproc_name = NULL;
+    char *lock_fn;
+    char *proc_name = NULL;
+    char *pproc_name = NULL;
     char strpid[10] = {0};
     int is_locked;
     FILE * fp;
@@ -125,9 +125,9 @@ lock_t lock_lock(const char * path, int flags)
 /*
  * Returns LOCK_REMOVED if successful or something else in case of an error.
  */
-lock_t lock_unlock(const char * path)
+lock_t lock_unlock(const char *path)
 {
-    char * lock_fn;
+    char *lock_fn;
     lock_t lock_rc;
 
     if (asprintf(&lock_fn, "%s%s", path, ".lock") < 0)
@@ -144,7 +144,7 @@ lock_t lock_unlock(const char * path)
 /*
  * Returns a message by lock result code.
  */
-const char * lock_str(lock_t rc)
+const char *lock_str(lock_t rc)
 {
     switch (rc)
     {
@@ -176,7 +176,7 @@ const char * lock_str(lock_t rc)
  * Returns LOCK_NEW if a new lock is created, LOCK_OVERWRITE if an existing
  * lock file was overwritten or LOCK_WRITE_ERR in case of an error.
  */
-static lock_t LOCK_create(const char * lock_fn, pid_t pid)
+static lock_t LOCK_create(const char *lock_fn, pid_t pid)
 {
     lock_t rc_success = (!fx_file_exist(lock_fn)) ?
             LOCK_NEW : LOCK_OVERWRITE;
@@ -204,7 +204,7 @@ static lock_t LOCK_create(const char * lock_fn, pid_t pid)
  * be destroyed using free(). When -1 is returned 'name' is always NULL.
  */
 #ifdef __APPLE__
-static int LOCK_get_process_name(char ** name, pid_t pid)
+static int LOCK_get_process_name(char **name, pid_t pid)
 {
     struct proc_bsdinfo proc;
 
@@ -234,7 +234,7 @@ static int LOCK_get_process_name(char ** name, pid_t pid)
     return 0;
 }
 #else
-static int LOCK_get_process_name(char ** name, pid_t pid)
+static int LOCK_get_process_name(char **name, pid_t pid)
 {
     size_t n = 1024;
     *name = (char *) calloc(n, sizeof(char));

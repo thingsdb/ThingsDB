@@ -1,12 +1,12 @@
 #include <ti/fn/fn.h>
 
-static int do__f_set_module_conf(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_set_module_conf(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_module_t * module;
-    ti_task_t * task;
-    ti_raw_t * rname;
-    ti_pkg_t * pkg;
+    ti_module_t *module;
+    ti_task_t *task;
+    ti_raw_t *rname;
+    ti_pkg_t *pkg;
 
     if (fn_not_thingsdb_scope("set_module_conf", query, e) ||
         fn_nargs("set_module_conf", DOC_SET_MODULE_CONF, 2, nargs, e) ||

@@ -14,18 +14,18 @@ struct ti_nil_s
     uint32_t ref;
     uint8_t tp;
     long:24;
-    void * nil;
+    void *nil;
 };
 
 extern ti_nil_t nil__val;
 
-static inline ti_nil_t * ti_nil_get(void)
+static inline ti_nil_t *ti_nil_get(void)
 {
     ti_incref(&nil__val);
     return &nil__val;
 }
 
-static inline ti_nil_t * ti_nil_weak_get(void)
+static inline ti_nil_t *ti_nil_weak_get(void)
 {
     return &nil__val;
 }

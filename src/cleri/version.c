@@ -4,7 +4,7 @@
 
  #include <cleri/version.h>
 
-const char * cleri_version(void)
+const char *cleri_version(void)
 {
     return LIBCLERI_VERSION;
 }

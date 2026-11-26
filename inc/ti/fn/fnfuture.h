@@ -1,12 +1,12 @@
 #include <ti/fn/fn.h>
 
-static ti_varr_t * future__args(
-        ti_query_t * query,
-        cleri_node_t * child,
-        ex_t * e)
+static ti_varr_t *future__args(
+        ti_query_t *query,
+        cleri_node_t *child,
+        ex_t *e)
 {
-    ti_varr_t * varr;
-    ti_closure_t * closure = (ti_closure_t *) query->rval;
+    ti_varr_t *varr;
+    ti_closure_t *closure = (ti_closure_t *) query->rval;
     query->rval = NULL;
     if (ti_do_statement(query, child->next->next, e) ||
         fn_arg_array("future", DOC_FUTURE, 2, query->rval, e))
@@ -27,13 +27,13 @@ fail:
     return NULL;
 }
 
-static int do__f_future(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_future(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    cleri_node_t * child = nd->children;
-    ti_future_t * future;
-    ti_module_t * module;
-    ti_varr_t * varr = NULL;
+    cleri_node_t *child = nd->children;
+    ti_future_t *future;
+    ti_module_t *module;
+    ti_varr_t *varr = NULL;
     uint8_t deep = query->qbind.deep;
     size_t num_args = nargs;
     _Bool load = TI_MODULE_DEFAULT_LOAD;
@@ -56,9 +56,9 @@ static int do__f_future(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
     case TI_VAL_THING:
     {
-        ti_thing_t * thing = (ti_thing_t *) query->rval;
-        ti_name_t * module_name = (ti_name_t *) ti_val_borrow_module_name();
-        ti_val_t * module_val = ti_thing_val_weak_by_name(thing, module_name);
+        ti_thing_t *thing = (ti_thing_t *) query->rval;
+        ti_name_t *module_name = (ti_name_t *) ti_val_borrow_module_name();
+        ti_val_t *module_val = ti_thing_val_weak_by_name(thing, module_name);
 
         if (!module_val)
         {
@@ -169,7 +169,7 @@ static int do__f_future(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         }
         else for(vec_each(((ti_closure_t *) query->rval)->vars, ti_prop_t, prop))
         {
-            ti_prop_t * p = ti_query_var_get(query, prop->name);
+            ti_prop_t *p = ti_query_var_get(query, prop->name);
             if (!p)
             {
                 ex_set(e, EX_LOOKUP_ERROR,

@@ -1,13 +1,13 @@
 #include <ti/fn/fn.h>
 
-static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_splice(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     int32_t n, x, l;
-    cleri_node_t * child = nd->children;    /* first in argument list */
+    cleri_node_t *child = nd->children;    /* first in argument list */
     uint32_t current_n, new_n;
     int64_t i, c;
-    ti_varr_t * retv;
-    ti_varr_t * varr;
+    ti_varr_t *retv;
+    ti_varr_t *varr;
 
     if (!ti_val_is_list(query->rval))
         return fn_call_try("splice", query, nd, e);
@@ -84,7 +84,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (varr->parent && varr->parent->id && (c || n))
     {
-        ti_task_t * task = ti_task_get_task(query->change, varr->parent);
+        ti_task_t *task = ti_task_get_task(query->change, varr->parent);
         if (!task || ti_task_add_splice(
                 task,
                 ti_varr_key(varr),

@@ -20,7 +20,7 @@ typedef struct cleri_regex_s cleri_regex_t;
 extern "C" {
 #endif
 
-cleri_t * cleri_regex(uint32_t gid, const char * pattern);
+cleri_t *cleri_regex(uint32_t gid, const char *pattern);
 
 #ifdef __cplusplus
 }

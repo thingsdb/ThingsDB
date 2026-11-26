@@ -27,26 +27,26 @@
 #include <util/logger.h>
 
 /* path names */
-static const char * store__path          = "store/";
-static const char * store__prev_path     = "_prev/";
-static const char * store__tmp_path      = "__tmp/";
+static const char *store__path          = "store/";
+static const char *store__prev_path     = "_prev/";
+static const char *store__tmp_path      = "__tmp/";
 
 /* file names */
-static const char * store__access_node_fn       = "access_node.mp";
-static const char * store__access_thingsdb_fn   = "access_thingsdb.mp";
-static const char * store__collections_fn       = "collections.mp";
-static const char * store__commits_fn           = "commits.mp";
-static const char * store__id_stat_fn           = "idstat.mp";
-static const char * store__names_fn             = "names.mp";
-static const char * store__procedures_fn        = "procedures.mp";
-static const char * store__tasks_fn             = "tasks.mp";
-static const char * store__users_fn             = "users.mp";
-static const char * store__modules_fn           = "modules.mp";
+static const char *store__access_node_fn       = "access_node.mp";
+static const char *store__access_thingsdb_fn   = "access_thingsdb.mp";
+static const char *store__collections_fn       = "collections.mp";
+static const char *store__commits_fn           = "commits.mp";
+static const char *store__id_stat_fn           = "idstat.mp";
+static const char *store__names_fn             = "names.mp";
+static const char *store__procedures_fn        = "procedures.mp";
+static const char *store__tasks_fn             = "tasks.mp";
+static const char *store__users_fn             = "users.mp";
+static const char *store__modules_fn           = "modules.mp";
 
-static ti_store_t * store;
+static ti_store_t *store;
 static ti_store_t store_;
 
-static int store__thing_drop(ti_thing_t * thing, void * UNUSED(arg))
+static int store__thing_drop(ti_thing_t *thing, void *UNUSED(arg))
 {
     assert(thing->ref > 1);
     --thing->ref;
@@ -55,7 +55,7 @@ static int store__thing_drop(ti_thing_t * thing, void * UNUSED(arg))
 
 static void store__set_filename(_Bool use_tmp)
 {
-    const char * path = use_tmp ? store__tmp_path : store__path;
+    const char *path = use_tmp ? store__tmp_path : store__path;
     size_t n = strlen(path);
     memcpy(store->access_node_fn + store->fn_offset, path, n);
     memcpy(store->access_thingsdb_fn + store->fn_offset, path, n);
@@ -71,7 +71,7 @@ static void store__set_filename(_Bool use_tmp)
 
 static int store__collection_ids(void)
 {
-    vec_t * collections_vec = ti.collections->vec;
+    vec_t *collections_vec = ti.collections->vec;
 
     vec_destroy(store->collection_ids, free);
     store->collection_ids = vec_new(collections_vec->n);
@@ -80,7 +80,7 @@ static int store__collection_ids(void)
 
     for (vec_each(collections_vec, ti_collection_t, collection))
     {
-        uint64_t * id = malloc(sizeof(uint64_t));
+        uint64_t *id = malloc(sizeof(uint64_t));
         if (!id)
             return -1;
         *id = collection->id;
@@ -91,7 +91,7 @@ static int store__collection_ids(void)
 
 int ti_store_create(void)
 {
-    char * storage_path = ti.cfg->storage_path;
+    char *storage_path = ti.cfg->storage_path;
     assert(storage_path);
     store = &store_;
 
@@ -153,7 +153,7 @@ fail0:
 
 int ti_store_init(void)
 {
-    char * path = ti.store->store_path;
+    char *path = ti.store->store_path;
 
     if (!fx_is_dir(path) && mkdir(path, FX_DEFAULT_DIR_ACCESS))
     {
@@ -224,7 +224,7 @@ int ti_store_store(void)
 
     for (vec_each(ti.collections->vec, ti_collection_t, collection))
     {
-        ti_store_collection_t * store_collection = ti_store_collection_create(
+        ti_store_collection_t *store_collection = ti_store_collection_create(
                 store->tmp_path,
                 &collection->guid);
 
@@ -323,7 +323,7 @@ done:
 int ti_store_restore(void)
 {
     int rc;
-    imap_t * namesmap;
+    imap_t *namesmap;
 
     assert(store);
 
@@ -366,7 +366,7 @@ int ti_store_restore(void)
 
     for (vec_each(ti.collections->vec, ti_collection_t, collection))
     {
-        ti_store_collection_t * store_collection = ti_store_collection_create(
+        ti_store_collection_t *store_collection = ti_store_collection_create(
                 store->store_path,
                 &collection->guid);
 

@@ -1,6 +1,6 @@
 #include <ti/fn/fn.h>
 
-static int do__f_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_thing(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     int nargs = fn_get_nargs(nd);
 
@@ -10,7 +10,7 @@ static int do__f_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (nargs == 1)
     {
         int64_t id;
-        ti_thing_t * thing;
+        ti_thing_t *thing;
 
         if (ti_do_statement(query, nd->children, e) ||
             ti_val_is_thing(query->rval))

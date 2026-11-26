@@ -12,8 +12,8 @@
 typedef struct ti_web_request_s ti_web_request_t;
 
 int ti_web_init(void);
-void ti_web_close(ti_web_request_t * web_request);
-static inline _Bool ti_web_is_handle(uv_handle_t * handle);
+void ti_web_close(ti_web_request_t *web_request);
+static inline _Bool ti_web_is_handle(uv_handle_t *handle);
 
 struct ti_web_request_s
 {
@@ -22,10 +22,10 @@ struct ti_web_request_s
     uv_write_t req;
     uv_stream_t uvstream;
     http_parser parser;
-    uv_buf_t * response;
+    uv_buf_t *response;
 };
 
-static inline _Bool ti_web_is_handle(uv_handle_t * handle)
+static inline _Bool ti_web_is_handle(uv_handle_t *handle)
 {
     return
         handle->type == UV_TCP &&

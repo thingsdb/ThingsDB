@@ -9,18 +9,18 @@
 #include <stdarg.h>
 #include <util/rbuf.h>
 
-void rbuf_init(rbuf_t * buf)
+void rbuf_init(rbuf_t *buf)
 {
     buf->pos = 0;
     buf->cap = 0;
     buf->data = NULL;
 }
 
-int rbuf_append(rbuf_t * buf, const char * s, size_t n)
+int rbuf_append(rbuf_t *buf, const char *s, size_t n)
 {
     if (n > buf->pos)
     {
-        char * tmp;
+        char *tmp;
         size_t nsize = buf->cap ? buf->cap << 1 : 8192;
         size_t len = rbuf_len(buf);
         size_t rsize = len + n;
@@ -47,11 +47,11 @@ int rbuf_append(rbuf_t * buf, const char * s, size_t n)
     return 0;
 }
 
-int rbuf_write(rbuf_t * buf, const char c)
+int rbuf_write(rbuf_t *buf, const char c)
 {
     if (!buf->pos)
     {
-        char * tmp;
+        char *tmp;
         size_t nsize = buf->cap ? buf->cap << 1 : 8192;
         size_t len = rbuf_len(buf);
 

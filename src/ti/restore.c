@@ -18,11 +18,11 @@
 static uv_timer_t restore__timer;
 static _Bool restore__is_busy = false;
 static _Bool restore__tasks;
-static ti_user_t * restore__user;
+static ti_user_t *restore__user;
 
-char * ti_restore_task(const char * fn, size_t n)
+char *ti_restore_task(const char *fn, size_t n)
 {
-    char * data;
+    char *data;
     buf_t buf;
 
     buf_init(&buf);
@@ -52,9 +52,9 @@ char * ti_restore_task(const char * fn, size_t n)
     return data;
 }
 
-int ti_restore_chk(const char * fn, size_t n, ex_t * e)
+int ti_restore_chk(const char *fn, size_t n, ex_t *e)
 {
-    char * check_task;
+    char *check_task;
     char buffer[512];
     int rc;
     _Bool firstline = true;
@@ -124,7 +124,7 @@ int ti_restore_chk(const char * fn, size_t n, ex_t * e)
     return e->nr;
 }
 
-int ti_restore_unp(const char * restore_task, ex_t * e)
+int ti_restore_unp(const char *restore_task, ex_t *e)
 {
     char buffer[512];
     int rc;
@@ -158,7 +158,7 @@ int ti_restore_unp(const char * restore_task, ex_t * e)
 
 static void restore__cb(void)
 {
-    queue_t * queue;
+    queue_t *queue;
 
     uv_close((uv_handle_t *) &restore__timer, NULL);
 
@@ -194,9 +194,9 @@ static void restore__after_changes(void)
     uint64_t scope_id = 0;                      /* TI_SCOPE_THINGSDB */
     uint64_t thing_id = 0;                      /* parent root thing */
     uint64_t user_id = 1;                       /* overwrites the first user */
-    ti_cpkg_t * cpkg;
-    ti_pkg_t * pkg;
-    ti_change_t * change;
+    ti_cpkg_t *cpkg;
+    ti_pkg_t *pkg;
+    ti_change_t *change;
     size_t ntasks = (restore__user
         ? 4 + !!restore__user->encpass + restore__user->tokens->n
         : 1);
@@ -324,7 +324,7 @@ fail0:
     log_critical("failed to create (users) task");
 }
 
-static void restore__master_cb(uv_timer_t * UNUSED(timer))
+static void restore__master_cb(uv_timer_t *UNUSED(timer))
 {
     restore__cb();
 
@@ -340,7 +340,7 @@ static void restore__master_cb(uv_timer_t * UNUSED(timer))
     (void) ti_nodes_write_global_status();
 }
 
-static void restore__slave_cb(uv_timer_t * UNUSED(timer))
+static void restore__slave_cb(uv_timer_t *UNUSED(timer))
 {
     if (ti.futures_count)
     {
@@ -368,7 +368,7 @@ void ti_restore_finished(void)
     restore__is_busy = false;
 }
 
-int ti_restore_master(ti_user_t * user /* may be NULL */, _Bool restore_tasks)
+int ti_restore_master(ti_user_t *user /* may be NULL */, _Bool restore_tasks)
 {
     restore__is_busy = true;
     restore__tasks = restore_tasks;

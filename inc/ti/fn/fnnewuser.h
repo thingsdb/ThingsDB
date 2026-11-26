@@ -1,11 +1,11 @@
 #include <ti/fn/fn.h>
 
-static int do__f_new_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_new_user(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_user_t * nuser;
-    ti_raw_t * rname;
-    ti_task_t * task;
+    ti_user_t *nuser;
+    ti_raw_t *rname;
+    ti_task_t *task;
 
     if (fn_not_thingsdb_scope("new_user", query, e) ||
         ti_access_check_err(

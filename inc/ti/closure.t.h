@@ -48,9 +48,9 @@ struct ti_closure_s
                                    counter goes up.
                                    max defined by TI_CLOSURE_MAX_FUTURE_COUNT
                                  */
-    vec_t * vars;               /* ti_prop_t - arguments */
-    vec_t * stacked;            /* ti_val_t - stacked values */
-    cleri_node_t * node;
+    vec_t *vars;               /* ti_prop_t - arguments */
+    vec_t *stacked;            /* ti_val_t - stacked values */
+    cleri_node_t *node;
     uint32_t stack_pos[TI_CLOSURE_MAX_RECURSION_DEPTH];
 };
 

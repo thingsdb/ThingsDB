@@ -1,11 +1,11 @@
 #include <ti/fn/fn.h>
 
-static int do__f_del_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_del_node(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_node_t * node;
+    ti_node_t *node;
     uint32_t node_id;
-    ti_task_t * task;
+    ti_task_t *task;
 
     if (fn_not_thingsdb_scope("del_node", query, e) ||
         fn_nargs("del_node", DOC_DEL_NODE, 1, nargs, e) ||

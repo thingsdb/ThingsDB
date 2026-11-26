@@ -5,25 +5,25 @@
 #include <cleri/expecting.h>
 #include <stdlib.h>
 
-static void optional__free(cleri_t * cl_object);
+static void optional__free(cleri_t *cl_object);
 
-static cleri_node_t * optional__parse(
-        cleri_parse_t * pr,
-        cleri_node_t * parent,
-        cleri_t * cl_obj,
-        cleri_rule_store_t * rule);
+static cleri_node_t *optional__parse(
+        cleri_parse_t *pr,
+        cleri_node_t *parent,
+        cleri_t *cl_obj,
+        cleri_rule_store_t *rule);
 
 /*
  * Returns NULL and in case an error has occurred.
  */
-cleri_t * cleri_optional(uint32_t gid, cleri_t * cl_obj)
+cleri_t *cleri_optional(uint32_t gid, cleri_t *cl_obj)
 {
     if (cl_obj == NULL)
     {
         return NULL;
     }
 
-    cleri_t * cl_object = cleri_new(
+    cleri_t *cl_object = cleri_new(
             gid,
             CLERI_TP_OPTIONAL,
             &optional__free,
@@ -52,7 +52,7 @@ cleri_t * cleri_optional(uint32_t gid, cleri_t * cl_obj)
 /*
  * Destroy optional object.
  */
-static void optional__free(cleri_t * cl_object)
+static void optional__free(cleri_t *cl_object)
 {
     cleri_free(cl_object->via.optional->cl_obj);
     free(cl_object->via.optional);
@@ -61,14 +61,14 @@ static void optional__free(cleri_t * cl_object)
 /*
  * Returns a node or NULL. In case of an error pr->is_valid is set to -1.
  */
-static cleri_node_t * optional__parse(
-        cleri_parse_t * pr,
-        cleri_node_t * parent,
-        cleri_t * cl_obj,
-        cleri_rule_store_t * rule)
+static cleri_node_t *optional__parse(
+        cleri_parse_t *pr,
+        cleri_node_t *parent,
+        cleri_t *cl_obj,
+        cleri_rule_store_t *rule)
 {
-    cleri_node_t * node;
-    cleri_node_t * rnode;
+    cleri_node_t *node;
+    cleri_node_t *rnode;
 
     if ((pr->flags & CLERI_FLAG_EXCLUDE_OPTIONAL) && !cl_obj->gid)
     {

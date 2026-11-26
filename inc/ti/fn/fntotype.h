@@ -1,12 +1,12 @@
 #include <ti/fn/fn.h>
 
-static int do__f_to_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_to_type(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_task_t * task;
-    ti_thing_t * thing;
-    ti_raw_t * rname;
-    ti_type_t * type;
+    ti_task_t *task;
+    ti_thing_t *thing;
+    ti_raw_t *rname;
+    ti_type_t *type;
 
     if (!ti_val_is_object(query->rval))
         return fn_call_try("to_type", query, nd, e);

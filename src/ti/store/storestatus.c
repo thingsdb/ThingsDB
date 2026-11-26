@@ -6,7 +6,7 @@
 #include <util/fx.h>
 #include <util/mpack.h>
 
-int ti_store_status_store(const char * fn)
+int ti_store_status_store(const char *fn)
 {
     msgpack_packer pk;
     FILE * f = fopen(fn, "w");
@@ -40,13 +40,13 @@ done:
     return 0;
 }
 
-int ti_store_status_restore(const char * fn)
+int ti_store_status_restore(const char *fn)
 {
     int rc = -1;
     ssize_t n;
     mp_obj_t obj, mp_ccid, mp_next_thing_id;
     mp_unp_t up;
-    uchar * data = fx_read(fn, &n);
+    uchar *data = fx_read(fn, &n);
     if (!data)
         return -1;
 

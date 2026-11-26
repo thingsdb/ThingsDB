@@ -1,11 +1,11 @@
 #include <ti/fn/fn.h>
 
-static int do__f_ren(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_ren(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_task_t * task;
-    ti_thing_t * thing;
-    ti_raw_t * oname, * nname;
+    ti_task_t *task;
+    ti_thing_t *thing;
+    ti_raw_t *oname, *nname;
 
     if (!ti_val_is_object(query->rval))
         return fn_call_try("ren", query, nd, e);

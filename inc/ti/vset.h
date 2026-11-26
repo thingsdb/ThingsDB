@@ -16,19 +16,19 @@ typedef struct ti_vset_s ti_vset_t;
 #include <util/imap.h>
 #include <util/mpack.h>
 
-ti_vset_t * ti_vset_create(void);
-ti_vset_t * ti_vset_create_imap(imap_t * imap);
-void ti_vset_destroy(ti_vset_t * vset);
-int ti_vset_to_client_pk(ti_vset_t * vset, ti_vp_t * vp, int deep, int flags);
-int ti_vset_to_store_pk(ti_vset_t * vset, msgpack_packer * pk);
-int ti_vset_to_list(ti_vset_t ** vsetaddr);
-int ti_vset_to_tuple(ti_vset_t ** vsetaddr);
-ti_vset_t * ti_vset_cp(ti_vset_t * vset);
-int ti_vset_assign(ti_vset_t ** vsetaddr);
-int ti_vset_copy(ti_vset_t ** vsetaddr, uint8_t deep);
-int ti_vset_dup(ti_vset_t ** vsetaddr, uint8_t deep);
-int ti_vset_add_val(ti_vset_t * vset, ti_val_t * val, ex_t * e);
-void ti_vset_clear(ti_vset_t * vset);
+ti_vset_t *ti_vset_create(void);
+ti_vset_t *ti_vset_create_imap(imap_t *imap);
+void ti_vset_destroy(ti_vset_t *vset);
+int ti_vset_to_client_pk(ti_vset_t *vset, ti_vp_t *vp, int deep, int flags);
+int ti_vset_to_store_pk(ti_vset_t *vset, msgpack_packer *pk);
+int ti_vset_to_list(ti_vset_t **vsetaddr);
+int ti_vset_to_tuple(ti_vset_t **vsetaddr);
+ti_vset_t *ti_vset_cp(ti_vset_t *vset);
+int ti_vset_assign(ti_vset_t **vsetaddr);
+int ti_vset_copy(ti_vset_t **vsetaddr, uint8_t deep);
+int ti_vset_dup(ti_vset_t **vsetaddr, uint8_t deep);
+int ti_vset_add_val(ti_vset_t *vset, ti_val_t *val, ex_t *e);
+void ti_vset_clear(ti_vset_t *vset);
 
 /* Implements ti_parent_t */
 struct ti_vset_s
@@ -37,10 +37,10 @@ struct ti_vset_s
     uint8_t tp;
     uint8_t flags;
     int:16;
-    imap_t * imap;          /* key: thing_key() / value: *ti_things_t */
-    ti_thing_t * parent;    /* without reference,
+    imap_t *imap;          /* key: thing_key() / value: *ti_things_t */
+    ti_thing_t *parent;    /* without reference,
                                NULL when this is a variable */
-    void * key_;            /* ti_name_t, ti_raw_t or ti_field_t; all without
+    void *key_;            /* ti_name_t, ti_raw_t or ti_field_t; all without
                                reference */
 };
 
@@ -51,80 +51,80 @@ struct ti_vset_s
  * IMAP_ERR_EXIST (-2) and in case of an memory allocation error the return
  * value is IMAP_ERR_ALLOC (-1).
  */
-static inline int ti_vset_add(ti_vset_t * vset, ti_thing_t * thing)
+static inline int ti_vset_add(ti_vset_t *vset, ti_thing_t *thing)
 {
     return imap_add(vset->imap, ti_thing_key(thing), thing);
 }
 
-static inline _Bool ti_vset_has(ti_vset_t * vset, ti_thing_t * thing)
+static inline _Bool ti_vset_has(ti_vset_t *vset, ti_thing_t *thing)
 {
     return imap_get(vset->imap, ti_thing_key(thing)) != NULL;
 }
 
-static inline ti_thing_t * ti_vset_pop(ti_vset_t * vset, ti_thing_t * thing)
+static inline ti_thing_t *ti_vset_pop(ti_vset_t *vset, ti_thing_t *thing)
 {
     return imap_pop(vset->imap, ti_thing_key(thing));
 }
 
-static inline _Bool ti_vset_eq(ti_vset_t * va, ti_vset_t * vb)
+static inline _Bool ti_vset_eq(ti_vset_t *va, ti_vset_t *vb)
 {
     return imap_eq(va->imap, vb->imap);
 }
 
-static inline _Bool ti_vset_le(ti_vset_t * va, ti_vset_t * vb)
+static inline _Bool ti_vset_le(ti_vset_t *va, ti_vset_t *vb)
 {
     return imap_le(va->imap, vb->imap);
 }
 
-static inline _Bool ti_vset_lt(ti_vset_t * va, ti_vset_t * vb)
+static inline _Bool ti_vset_lt(ti_vset_t *va, ti_vset_t *vb)
 {
     return imap_lt(va->imap, vb->imap);
 }
 
-static inline _Bool ti_vset_ge(ti_vset_t * va, ti_vset_t * vb)
+static inline _Bool ti_vset_ge(ti_vset_t *va, ti_vset_t *vb)
 {
     return imap_le(vb->imap, va->imap);
 }
 
-static inline _Bool ti_vset_gt(ti_vset_t * va, ti_vset_t * vb)
+static inline _Bool ti_vset_gt(ti_vset_t *va, ti_vset_t *vb)
 {
     return imap_lt(vb->imap, va->imap);
 }
 
-static inline void * ti_vset_key(ti_vset_t * vset)
+static inline void *ti_vset_key(ti_vset_t *vset)
 {
     return ti_thing_is_object(vset->parent)
             ? vset->key_
             : ((ti_field_t *) vset->key_)->name;
 }
 
-static inline uint16_t ti_vset_unsafe_spec(ti_vset_t * vset)
+static inline uint16_t ti_vset_unsafe_spec(ti_vset_t *vset)
 {
     return ti_thing_is_object(vset->parent)
             ? TI_SPEC_ANY
             : ((ti_field_t *) vset->key_)->nested_spec;
 }
 
-static inline uint16_t ti_vset_spec(ti_vset_t * vset)
+static inline uint16_t ti_vset_spec(ti_vset_t *vset)
 {
     return !vset->parent || ti_thing_is_object(vset->parent)
             ? TI_SPEC_ANY
             : ((ti_field_t *) vset->key_)->nested_spec;
 }
 
-static inline _Bool ti_vset_has_relation(ti_vset_t * vset)
+static inline _Bool ti_vset_has_relation(ti_vset_t *vset)
 {
     return vset->parent &&
             ti_thing_is_instance(vset->parent) &&
             ((ti_field_t *) vset->key_)->condition.rel;
 }
 
-static inline _Bool ti_vset_is_stored(ti_vset_t * vset)
+static inline _Bool ti_vset_is_stored(ti_vset_t *vset)
 {
     return vset->parent && vset->parent->id;
 }
 
-static inline void * ti_vset_field(ti_vset_t * vset)
+static inline void *ti_vset_field(ti_vset_t *vset)
 {
     return vset->parent && ti_thing_is_instance(vset->parent)
         ? vset->key_

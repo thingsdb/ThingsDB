@@ -1,10 +1,10 @@
 #include <ti/fn/fn.h>
 
-static int do__f_type_all(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_type_all(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_type_t * type;
-    ti_vset_t * vset;
+    ti_type_t *type;
+    ti_vset_t *vset;
 
     if (fn_not_collection_scope("type_all", query, e) ||
         fn_nargs("type_all", DOC_TYPE_ALL, 1, nargs, e) ||
@@ -27,7 +27,7 @@ static int do__f_type_all(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
     else
     {
-        imap_t * imap = ti_type_collect_things(query, type);
+        imap_t *imap = ti_type_collect_things(query, type);
         if (!imap)
         {
             ex_set_mem(e);

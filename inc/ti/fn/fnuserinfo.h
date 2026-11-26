@@ -1,10 +1,10 @@
 #include <ti/fn/fn.h>
 
-static int do__f_user_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_user_info(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_user_t * user;
-    ti_raw_t * ruser;
+    ti_user_t *user;
+    ti_raw_t *ruser;
 
     if (fn_nargs_max("user_info", DOC_USER_INFO, 1, nargs, e))
         return e->nr;

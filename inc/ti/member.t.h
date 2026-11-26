@@ -19,9 +19,9 @@ struct ti_member_s
     uint8_t tp;
     int:8;
     uint16_t idx;           /* index in enum_->vec */
-    ti_enum_t * enum_;      /* parent enum */
-    ti_name_t * name;       /* with reference */
-    ti_val_t * val;         /* with reference */
+    ti_enum_t *enum_;      /* parent enum */
+    ti_name_t *name;       /* with reference */
+    ti_val_t *val;         /* with reference */
 };
 
 #endif  /* TI_MEMBER_T_H_ */

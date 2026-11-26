@@ -12,10 +12,10 @@ typedef struct ti_method_s ti_method_t;
 
 struct ti_method_s
 {
-    ti_name_t * name;               /* name of the method */
-    ti_raw_t * doc;                 /* documentation, may be NULL */
-    ti_raw_t * def;                 /* formatted definition, may be NULL */
-    ti_closure_t * closure;         /* closure */
+    ti_name_t *name;               /* name of the method */
+    ti_raw_t *doc;                 /* documentation, may be NULL */
+    ti_raw_t *def;                 /* formatted definition, may be NULL */
+    ti_closure_t *closure;         /* closure */
 };
 
 #endif  /* TI_METHOD_T_H_ */

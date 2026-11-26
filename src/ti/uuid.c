@@ -7,13 +7,13 @@
 #include <util/util.h>
 
 
-ti_uuid_t * ti_uuid_new(void)
+ti_uuid_t *ti_uuid_new(void)
 {
     /* Returns a v7 uuid type; we might want to support other versions in
      * future */
     struct timeval tv;
     uint64_t ms;
-    ti_uuid_t * uuid = malloc(sizeof(ti_uuid_t));
+    ti_uuid_t *uuid = malloc(sizeof(ti_uuid_t));
     if (!uuid)
         return NULL;
     uuid->ref = 1;
@@ -35,9 +35,9 @@ ti_uuid_t * ti_uuid_new(void)
     return uuid;
 }
 
-ti_uuid_t * ti_uuid_from_bytes(const void * bytes)
+ti_uuid_t *ti_uuid_from_bytes(const void *bytes)
 {
-    ti_uuid_t * uuid = malloc(sizeof(ti_uuid_t));
+    ti_uuid_t *uuid = malloc(sizeof(ti_uuid_t));
     if (!uuid)
         return NULL;
     uuid->ref = 1;
@@ -58,7 +58,7 @@ static const uint8_t UUID__HEX_LUT[256] = {
     ['f'+1 ... 255] = 0xFF
 };
 
-static inline bool uuid__parse_hex_pair(const char * p, uint8_t * out)
+static inline bool uuid__parse_hex_pair(const char *p, uint8_t *out)
 {
     uint8_t hi = UUID__HEX_LUT[(unsigned char) p[0]];
     uint8_t lo = UUID__HEX_LUT[(unsigned char) p[1]];
@@ -67,7 +67,7 @@ static inline bool uuid__parse_hex_pair(const char * p, uint8_t * out)
     return true;
 }
 
-ti_uuid_t * ti_uuid_from_str(const char * str, size_t n, ex_t * e)
+ti_uuid_t *ti_uuid_from_str(const char *str, size_t n, ex_t *e)
 {
     uuid_t uuid_;
 
@@ -119,7 +119,7 @@ ti_uuid_t * ti_uuid_from_str(const char * str, size_t n, ex_t * e)
         return NULL;
     }
 
-    ti_uuid_t * uuid = malloc(sizeof(ti_uuid_t));
+    ti_uuid_t *uuid = malloc(sizeof(ti_uuid_t));
     if (!uuid)
     {
         ex_set_mem(e);
@@ -134,7 +134,7 @@ ti_uuid_t * ti_uuid_from_str(const char * str, size_t n, ex_t * e)
 }
 
 /* requires `raw` to have at least length 36 (uuid_raw_t) */
-void ti_uuid_to_raw(uuid_t uuid, char * raw)
+void ti_uuid_to_raw(uuid_t uuid, char *raw)
 {
     static const char hex_table[] = "0123456789abcdef";
     int p = 0;
@@ -151,9 +151,9 @@ void ti_uuid_to_raw(uuid_t uuid, char * raw)
     }
 }
 
-ti_raw_t * ti_uuid_str(ti_uuid_t * uuid)
+ti_raw_t *ti_uuid_str(ti_uuid_t *uuid)
 {
-    ti_raw_t * raw = malloc(sizeof(ti_raw_t) + sizeof(uuid_raw_t));
+    ti_raw_t *raw = malloc(sizeof(ti_raw_t) + sizeof(uuid_raw_t));
     if (raw)
     {
         raw->ref = 1;

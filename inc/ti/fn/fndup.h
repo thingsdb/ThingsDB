@@ -1,10 +1,10 @@
 #include <ti/fn/fn.h>
 
-static int do__f_dup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_dup(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
-    const char * doc;
+    const char *doc;
     const int nargs = fn_get_nargs(nd);
-    ti_val_t * val;
+    ti_val_t *val;
     /* use deep value of 0 for arr, set and dict, 1 for thing, wrap, wano */
     uint8_t deep = !ti_val_has_parent(query->rval);
 

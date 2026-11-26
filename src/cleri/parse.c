@@ -8,20 +8,20 @@
 #include <ctype.h>
 #include <stdio.h>
 
-static inline uint32_t parse__whitespace(cleri_parse_t * pr, const char * str);
+static inline uint32_t parse__whitespace(cleri_parse_t *pr, const char *str);
 
 /*
  * Return a parse result. In case of a memory allocation error the return value
  * will be NULL.
  */
-cleri_parse_t * cleri_parse2(
-    cleri_grammar_t * grammar,
-    const char * str,
+cleri_parse_t *cleri_parse2(
+    cleri_grammar_t *grammar,
+    const char *str,
     int flags)
 {
-    cleri_node_t * nd;
-    cleri_parse_t * pr;
-    const char * end;
+    cleri_node_t *nd;
+    cleri_parse_t *pr;
+    const char *end;
 
     /* prepare parsing */
     pr = cleri__malloc(cleri_parse_t);
@@ -113,7 +113,7 @@ cleri_parse_t * cleri_parse2(
 /*
  * Destroy parser. (parsing NULL is allowed)
  */
-void cleri_parse_free(cleri_parse_t * pr)
+void cleri_parse_free(cleri_parse_t *pr)
 {
     cleri__node_free(pr->tree);
     free(pr->kwcache);
@@ -127,15 +127,15 @@ void cleri_parse_free(cleri_parse_t * pr)
 /*
  * Reset expect to start
  */
-void cleri_parse_expect_start(cleri_parse_t * pr)
+void cleri_parse_expect_start(cleri_parse_t *pr)
 {
     pr->expect = pr->expecting->required;
 }
 
-void cleri_parse_line_pos(cleri_parse_t * pr, size_t * line, size_t * pos)
+void cleri_parse_line_pos(cleri_parse_t *pr, size_t *line, size_t *pos)
 {
     size_t n = pr->pos;
-    const char * pt = pr->str;
+    const char *pt = pr->str;
     *pos = 0;
     *line = 1;
     while (n--)
@@ -190,16 +190,16 @@ void cleri_parse_line_pos(cleri_parse_t * pr, size_t * line, size_t * pos)
  * for the given regular expression.
  */
 int cleri_parse_strn(
-    char * s,
+    char *s,
     size_t n,
-    cleri_parse_t * pr,
-    cleri_translate_t * translate)
+    cleri_parse_t *pr,
+    cleri_translate_t *translate)
 {
     int rc, count = 0;
     size_t i, m, line, pos;
-    cleri_t * o;
-    const char * expect;
-    const char * template;
+    cleri_t *o;
+    const char *expect;
+    const char *template;
     if (pr == NULL)
     {
         return snprintf(s, n,
@@ -228,7 +228,7 @@ int cleri_parse_strn(
     if (isgraph(*expect))
     {
         size_t nc = cleri__kwcache_match(pr, expect);
-        const char * pt = expect;
+        const char *pt = expect;
         const unsigned int max_chars = 20;
 
         if (nc < 1)
@@ -318,11 +318,11 @@ int cleri_parse_strn(
  * (recursive function, called from each parse_object function)
  * Returns a node or NULL. (In case of error one should check pr->is_valid)
  */
-cleri_node_t * cleri__parse_walk(
-        cleri_parse_t * pr,
-        cleri_node_t * parent,
-        cleri_t * cl_obj,
-        cleri_rule_store_t * rule,
+cleri_node_t *cleri__parse_walk(
+        cleri_parse_t *pr,
+        cleri_node_t *parent,
+        cleri_t *cl_obj,
+        cleri_rule_store_t *rule,
         int mode)
 {
     /* set parent len to next none white space char */
@@ -341,7 +341,7 @@ cleri_node_t * cleri__parse_walk(
     return (*cl_obj->parse_object)(pr, parent, cl_obj, rule);
 }
 
-static inline uint32_t parse__whitespace(cleri_parse_t * pr, const char * str)
+static inline uint32_t parse__whitespace(cleri_parse_t *pr, const char *str)
 {
     uint32_t n = 0;
     for (n = 0; isspace(*str); ++str, ++n);

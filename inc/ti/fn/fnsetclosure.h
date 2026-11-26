@@ -1,11 +1,11 @@
 #include <ti/fn/fn.h>
 
-static int do__f_set_closure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_set_closure(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_task_t * task;
-    ti_vtask_t * vtask;
-    ti_closure_t * closure;
+    ti_task_t *task;
+    ti_vtask_t *vtask;
+    ti_closure_t *closure;
 
     if (!ti_val_is_task(query->rval))
         return fn_call_try("set_closure", query, nd, e);

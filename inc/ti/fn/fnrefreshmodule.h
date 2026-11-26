@@ -1,11 +1,11 @@
 #include <ti/fn/fn.h>
 
-static int do__f_refresh_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_refresh_module(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_module_t * module;
-    ti_task_t * task;
-    ti_raw_t * rname;
+    ti_module_t *module;
+    ti_task_t *task;
+    ti_raw_t *rname;
 
     if (fn_not_thingsdb_scope("refresh_module", query, e) ||
         fn_nargs("refresh_module", DOC_REFRESH_MODULE, 1, nargs, e) ||

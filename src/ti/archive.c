@@ -19,18 +19,18 @@
 
 #define ARCHIVE__THRESHOLD_FULL 0
 
-static const char * archive__path = "archive/";
+static const char *archive__path = "archive/";
 
-static ti_archive_t * archive;
+static ti_archive_t *archive;
 static ti_archive_t archive_;
 
-static int archive__load_file(ti_archfile_t * archfile)
+static int archive__load_file(ti_archfile_t *archfile)
 {
     size_t i;
     mp_unp_t up;
     mp_obj_t obj, mp_pkg;
     fx_mmap_t fmap;
-    ti_cpkg_t * cpkg;
+    ti_cpkg_t *cpkg;
 
     log_debug("loading archive file `%s`", archfile->fn);
 
@@ -83,8 +83,8 @@ static int archive__init_queue(void)
 {
     assert(ti.node);
     int rc = -1;
-    ti_cpkg_t * cpkg;
-    const uint64_t * ccid = &ti.node->ccid;
+    ti_cpkg_t *cpkg;
+    const uint64_t *ccid = &ti.node->ccid;
 
     if (ti.args->forget_nodes && (cpkg = queue_last(archive->queue)))
     {
@@ -127,9 +127,9 @@ static int archive__to_disk(void)
     int rc = -1;
     FILE * f;
     msgpack_packer pk;
-    ti_cpkg_t * cpkg;
-    ti_cpkg_t * last_cpkg = queue_last(archive->queue);
-    ti_archfile_t * archfile;
+    ti_cpkg_t *cpkg;
+    ti_cpkg_t *last_cpkg = queue_last(archive->queue);
+    ti_archfile_t *archfile;
     const uint64_t scid = ti.node->scid;
 
     while ((cpkg = queue_shift(archive->queue)) && cpkg->change_id <= scid)
@@ -255,7 +255,7 @@ static int archive__remove_files(void)
     return rc;
 }
 
-static char * archive__get_path(void)
+static char *archive__get_path(void)
 {
     if (!archive->path)
         archive->path = fx_path_join(ti.cfg->storage_path, archive__path);
@@ -294,7 +294,7 @@ void ti_archive_destroy(void)
 int ti_archive_rmdir(void)
 {
     int rc;
-    const char * archive_path = archive__get_path();
+    const char *archive_path = archive__get_path();
 
     if (!archive_path)
     {
@@ -321,7 +321,7 @@ int ti_archive_init(void)
 {
     assert(ti.node);
 
-    const char * archive_path = archive__get_path();
+    const char *archive_path = archive__get_path();
     if (!archive_path)
         return -1;
 
@@ -336,10 +336,10 @@ int ti_archive_init(void)
 
 int ti_archive_load(void)
 {
-    struct dirent ** file_list;
+    struct dirent **file_list;
     int n, total, rc = 0;
-    ti_archfile_t * archfile;
-    const uint64_t * ccid = &ti.node->ccid;
+    ti_archfile_t *archfile;
+    const uint64_t *ccid = &ti.node->ccid;
 
     log_debug("loading archive files from `%s`", archive->path);
 
@@ -386,7 +386,7 @@ int ti_archive_load(void)
 }
 
 /* increments `cpkg` reference by one if successful */
-int ti_archive_push(ti_cpkg_t * cpkg)
+int ti_archive_push(ti_cpkg_t *cpkg)
 {
     /* queue is either empty or the received change_id > any change id inside
      * the queue
@@ -414,7 +414,7 @@ int ti_archive_to_disk(void)
 {
     size_t n;
     uint64_t leid;
-    ti_cpkg_t * last_cpkg = queue_last(archive->queue);
+    ti_cpkg_t *last_cpkg = queue_last(archive->queue);
 
     if (!last_cpkg || (leid = last_cpkg->change_id) == ti.node->scid)
         goto done;       /* nothing to save to disk */
@@ -445,7 +445,7 @@ done:
  */
 uint64_t ti_archive_get_first_change_id(void)
 {
-    ti_cpkg_t * cpkg = queue_first(archive->queue);
+    ti_cpkg_t *cpkg = queue_first(archive->queue);
     uint64_t change_id = cpkg ? cpkg->change_id : UINT64_MAX;
     for (vec_each(archive->archfiles, ti_archfile_t, archfile))
         if (archfile->first < change_id)
@@ -453,9 +453,9 @@ uint64_t ti_archive_get_first_change_id(void)
     return change_id;
 }
 
-ti_cpkg_t * ti_archive_get_change(uint64_t change_id)
+ti_cpkg_t *ti_archive_get_change(uint64_t change_id)
 {
-    ti_cpkg_t * last_cpkg = queue_last(archive->queue);
+    ti_cpkg_t *last_cpkg = queue_last(archive->queue);
 
     if (!last_cpkg || last_cpkg->change_id < change_id)
         return NULL;

@@ -5,7 +5,7 @@
 #include <doc.h>
 
 
-int ti_deep_from_val(ti_val_t * val, uint8_t * deep, ex_t * e)
+int ti_deep_from_val(ti_val_t *val, uint8_t *deep, ex_t *e)
 {
     int64_t deepi;
 

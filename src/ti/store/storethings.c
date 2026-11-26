@@ -17,12 +17,12 @@
  * No suffix was added for the first version of this file.
  * Thus "things" and "data" are considered to be the first versions (v0).
  */
-const char * things_v0 = "things";
-const char * things_v1 = "things_v1";
+const char *things_v0 = "things";
+const char *things_v1 = "things_v1";
 
-const char * data_v0 = "data";
+const char *data_v0 = "data";
 
-static int store__things_cb(ti_thing_t * thing, msgpack_packer * pk)
+static int store__things_cb(ti_thing_t *thing, msgpack_packer *pk)
 {
     /*
      * Store both the `spec` and `type_id` in a single value. This way we can
@@ -45,7 +45,7 @@ static int store__things_cb(ti_thing_t * thing, msgpack_packer * pk)
     );
 }
 
-int ti_store_things_store(imap_t * things, const char * fn)
+int ti_store_things_store(imap_t *things, const char *fn)
 {
     msgpack_packer pk;
     FILE * f = fopen(fn, "w");
@@ -80,7 +80,7 @@ done:
     return 0;
 }
 
-static int store__walk_i(ti_item_t * item, msgpack_packer * pk)
+static int store__walk_i(ti_item_t *item, msgpack_packer *pk)
 {
     uintptr_t p = (uintptr_t) item->key;
 
@@ -90,7 +90,7 @@ static int store__walk_i(ti_item_t * item, msgpack_packer * pk)
         ti_val_to_store_pk(item->val, pk));
 }
 
-static int store__walk_data(ti_thing_t * thing, msgpack_packer * pk)
+static int store__walk_data(ti_thing_t *thing, msgpack_packer *pk)
 {
     if (msgpack_pack_uint64(pk, thing->id))
         return -1;
@@ -124,7 +124,7 @@ static int store__walk_data(ti_thing_t * thing, msgpack_packer * pk)
     return 0;
 }
 
-int ti_store_things_store_data(imap_t * things, const char * fn)
+int ti_store_things_store_data(imap_t *things, const char *fn)
 {
     msgpack_packer pk;
     FILE * f = fopen(fn, "w");
@@ -159,7 +159,7 @@ done:
     return 0;
 }
 
-int ti_store_things_restore(ti_collection_t * collection, const char * fn)
+int ti_store_things_restore(ti_collection_t *collection, const char *fn)
 {
     int rc = -1;
     size_t i;
@@ -167,8 +167,8 @@ int ti_store_things_restore(ti_collection_t * collection, const char * fn)
     ssize_t n;
     mp_obj_t obj, mp_ver, mp_thing_id, mp_type_id;
     mp_unp_t up;
-    ti_type_t * type;
-    uchar * data = fx_read(fn, &n);
+    ti_type_t *type;
+    uchar *data = fx_read(fn, &n);
     if (!data)
         return -1;
     int is_v0;
@@ -227,17 +227,17 @@ fail:
 }
 
 int ti_store_things_restore_data(
-        ti_collection_t * collection,
-        imap_t * names,
-        const char * fn)
+        ti_collection_t *collection,
+        imap_t *names,
+        const char *fn)
 {
     int rc = -1;
     ex_t e = {0};
     fx_mmap_t fmap;
-    ti_thing_t * thing;
-    ti_raw_t * key;
-    ti_type_t * type;
-    ti_val_t * val;
+    ti_thing_t *thing;
+    ti_raw_t *key;
+    ti_type_t *type;
+    ti_val_t *val;
     mp_obj_t obj, mp_ver, mp_thing_id, mp_key;
     mp_unp_t up;
     size_t i, ii;

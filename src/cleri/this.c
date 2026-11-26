@@ -9,11 +9,11 @@
 #include <stdlib.h>
 #include <assert.h>
 
-static cleri_node_t * cleri_parse_this(
-        cleri_parse_t * pr,
-        cleri_node_t * parent,
-        cleri_t * cl_obj,
-        cleri_rule_store_t * rule);
+static cleri_node_t *cleri_parse_this(
+        cleri_parse_t *pr,
+        cleri_node_t *parent,
+        cleri_t *cl_obj,
+        cleri_rule_store_t *rule);
 
 static int cleri_dummy = 0;
 
@@ -25,20 +25,20 @@ static cleri_t cleri_this = {
         .tp=CLERI_TP_THIS,
         .via={.dummy=(void *) &cleri_dummy}};
 
-cleri_t * CLERI_THIS = &cleri_this;
+cleri_t *CLERI_THIS = &cleri_this;
 
 /*
  * Returns a node or NULL. In case of an error pr->is_valid is set to -1.
  */
-static cleri_node_t * cleri_parse_this(
-        cleri_parse_t * pr,
-        cleri_node_t * parent,
-        cleri_t * cl_obj,
-        cleri_rule_store_t * rule)
+static cleri_node_t *cleri_parse_this(
+        cleri_parse_t *pr,
+        cleri_node_t *parent,
+        cleri_t *cl_obj,
+        cleri_rule_store_t *rule)
 {
-    cleri_node_t * node;
-    cleri_rule_tested_t * tested;
-    const char * str = parent->str + parent->len;
+    cleri_node_t *node;
+    cleri_rule_tested_t *tested;
+    const char *str = parent->str + parent->len;
 
     switch (cleri__rule_init(&tested, &rule->tested, str))
     {

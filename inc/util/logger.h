@@ -12,7 +12,7 @@
 
 #include <stddef.h>
 
-char * log_strerror(int errnum, char * buf, size_t n);
+char *log_strerror(int errnum, char *buf, size_t n);
 
 #define log_errno_file(__s, __err, __fn) \
 do { \
@@ -49,20 +49,20 @@ typedef struct logger_s logger_t;
 
 void logger_init(struct _LOGGER_IO_FILE * ostream, int log_level);
 void logger_set_level(int log_level);
-const char * logger_level_name(int log_level);
+const char *logger_level_name(int log_level);
 
-void log_with_level(int log_level, const char * fmt, ...)
+void log_with_level(int log_level, const char *fmt, ...)
     __attribute__((format(printf, 2, 3)));
-void log_line(int log_level, const char * line);
-void log__debug(const char * fmt, ...)
+void log_line(int log_level, const char *line);
+void log__debug(const char *fmt, ...)
     __attribute__((format(printf, 1, 2)));
-void log__info(const char * fmt, ...)
+void log__info(const char *fmt, ...)
     __attribute__((format(printf, 1, 2)));
-void log__warning(const char * fmt, ...)
+void log__warning(const char *fmt, ...)
     __attribute__((format(printf, 1, 2)));
-void log__error(const char * fmt, ...)
+void log__error(const char *fmt, ...)
     __attribute__((format(printf, 1, 2)));
-void log__critical(const char * fmt, ...)
+void log__critical(const char *fmt, ...)
     __attribute__((format(printf, 1, 2)));
 
 extern logger_t Logger;
@@ -109,7 +109,7 @@ struct logger_s
 {
     struct _LOGGER_IO_FILE * ostream;
     int level;
-    const char * level_name;
+    const char *level_name;
     int flags;
 };
 

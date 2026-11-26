@@ -1,12 +1,12 @@
 #include <ti/fn/fn.h>
 
-static int do__f_set_password(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_set_password(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    char * passstr = NULL;
-    ti_raw_t * uname;
-    ti_user_t * user;
-    ti_task_t * task;
+    char *passstr = NULL;
+    ti_raw_t *uname;
+    ti_user_t *user;
+    ti_task_t *task;
 
     if (fn_not_thingsdb_scope("set_password", query, e) ||
         fn_nargs("set_password", DOC_SET_PASSWORD, 2, nargs, e) ||

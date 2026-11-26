@@ -14,7 +14,7 @@ struct ti_token_s
     ti_token_key_t key;         /* contains the token key */
     uint64_t expire_ts;         /* 0 if not set (UNIX time in seconds) */
     uint64_t created_at;        /* UNIX time in seconds */
-    char * description;         /* may be empty */
+    char *description;         /* may be empty */
 };
 
 #endif /* TI_TOKEN_T_H_ */

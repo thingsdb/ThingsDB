@@ -30,16 +30,16 @@
 #include <util/logger.h>
 #include <util/mpack.h>
 
-static vec_t * thing__gc_swp;
-vec_t * ti_thing_gc_vec;
+static vec_t *thing__gc_swp;
+vec_t *ti_thing_gc_vec;
 
 
-ti_thing_t * ti_thing_o_create(
+ti_thing_t *ti_thing_o_create(
         uint64_t id,
         size_t init_sz,
-        ti_collection_t * collection)
+        ti_collection_t *collection)
 {
-    ti_thing_t * thing = malloc(sizeof(ti_thing_t));
+    ti_thing_t *thing = malloc(sizeof(ti_thing_t));
     if (!thing)
         return NULL;
 
@@ -61,9 +61,9 @@ ti_thing_t * ti_thing_o_create(
     return thing;
 }
 
-ti_thing_t * ti_thing_i_create(uint64_t id, ti_collection_t * collection)
+ti_thing_t *ti_thing_i_create(uint64_t id, ti_collection_t *collection)
 {
-    ti_thing_t * thing = malloc(sizeof(ti_thing_t));
+    ti_thing_t *thing = malloc(sizeof(ti_thing_t));
     if (!thing)
         return NULL;
 
@@ -85,12 +85,12 @@ ti_thing_t * ti_thing_i_create(uint64_t id, ti_collection_t * collection)
     return thing;
 }
 
-ti_thing_t * ti_thing_t_create(
+ti_thing_t *ti_thing_t_create(
         uint64_t id,
-        ti_type_t * type,
-        ti_collection_t * collection)
+        ti_type_t *type,
+        ti_collection_t *collection)
 {
-    ti_thing_t * thing = malloc(sizeof(ti_thing_t));
+    ti_thing_t *thing = malloc(sizeof(ti_thing_t));
     if (!thing)
         return NULL;
 
@@ -114,17 +114,17 @@ ti_thing_t * ti_thing_t_create(
 
 typedef struct
 {
-    ti_field_t * field;
-    ti_thing_t * thing;
+    ti_field_t *field;
+    ti_thing_t *thing;
 } thing__clear_rel_t;
 
-int thing__clear_rel_cb(ti_thing_t * other, thing__clear_rel_t * w)
+int thing__clear_rel_cb(ti_thing_t *other, thing__clear_rel_t *w)
 {
     w->field->condition.rel->del_cb(w->field, other, w->thing);
     return 0;
 }
 
-void ti_thing_cancel(ti_thing_t * thing)
+void ti_thing_cancel(ti_thing_t *thing)
 {
     if (ti_thing_is_instance(thing))
     {
@@ -139,8 +139,8 @@ void ti_thing_cancel(ti_thing_t * thing)
             if (field->spec == TI_SPEC_SET)
             {
                 /* bug #309, use vec_get instead of VEC_get */
-                ti_field_t * ofield = field->condition.rel->field;
-                ti_vset_t * vset = vec_get(thing->items.vec, field->idx);
+                ti_field_t *ofield = field->condition.rel->field;
+                ti_vset_t *vset = vec_get(thing->items.vec, field->idx);
                 if (!vset)
                     continue;
                 thing__clear_rel_t w = {
@@ -152,8 +152,8 @@ void ti_thing_cancel(ti_thing_t * thing)
             else if ((field->spec & TI_SPEC_MASK_NILLABLE) < TI_SPEC_ANY)
             {
                 /* bug #309, use vec_get instead of VEC_get */
-                ti_field_t * ofield = field->condition.rel->field;
-                ti_thing_t * other = vec_get(thing->items.vec, field->idx);
+                ti_field_t *ofield = field->condition.rel->field;
+                ti_thing_t *other = vec_get(thing->items.vec, field->idx);
 
                 if (!other || ti_val_is_nil((ti_val_t *) other))
                     continue;
@@ -166,7 +166,7 @@ void ti_thing_cancel(ti_thing_t * thing)
     ti_thing_destroy(thing);
 }
 
-void ti_thing_destroy(ti_thing_t * thing)
+void ti_thing_destroy(ti_thing_t *thing)
 {
     assert(thing);
     if (thing->id)
@@ -204,7 +204,7 @@ void ti_thing_destroy(ti_thing_t * thing)
     free(thing);
 }
 
-void ti_thing_clear(ti_thing_t * thing)
+void ti_thing_clear(ti_thing_t *thing)
 {
     if (ti_thing_is_object(thing))
     {
@@ -231,7 +231,7 @@ void ti_thing_clear(ti_thing_t * thing)
     }
 }
 
-void ti_thing_o_items_destroy(ti_thing_t * thing)
+void ti_thing_o_items_destroy(ti_thing_t *thing)
 {
     assert(ti_thing_is_object(thing));
 
@@ -249,9 +249,9 @@ void ti_thing_o_items_destroy(ti_thing_t * thing)
     }
 }
 
-int ti_thing_to_dict(ti_thing_t * thing)
+int ti_thing_to_dict(ti_thing_t *thing)
 {
-    smap_t * smap = smap_create();
+    smap_t *smap = smap_create();
     if (!smap)
         return -1;
 
@@ -271,11 +271,11 @@ fail0:
 
 typedef struct
 {
-    ti_raw_t ** incompatible;
-    vec_t * vec;
+    ti_raw_t **incompatible;
+    vec_t *vec;
 } thing__to_stric_t;
 
-static int thing__i_to_p_cb(ti_item_t * item, thing__to_stric_t * w)
+static int thing__i_to_p_cb(ti_item_t *item, thing__to_stric_t *w)
 {
     if (ti_raw_is_name(item->key))
     {
@@ -286,9 +286,9 @@ static int thing__i_to_p_cb(ti_item_t * item, thing__to_stric_t * w)
     return -1;
 }
 
-int ti_thing_i_to_p(ti_thing_t * thing, ti_raw_t ** incompatible)
+int ti_thing_i_to_p(ti_thing_t *thing, ti_raw_t **incompatible)
 {
-    vec_t * vec = vec_new(ti_thing_n(thing));
+    vec_t *vec = vec_new(ti_thing_n(thing));
     if (!vec)
     {
         *incompatible = NULL;
@@ -314,13 +314,13 @@ int ti_thing_i_to_p(ti_thing_t * thing, ti_raw_t ** incompatible)
 }
 
 int ti_thing_props_from_vup(
-        ti_thing_t * thing,
-        ti_vup_t * vup,
+        ti_thing_t *thing,
+        ti_vup_t *vup,
         size_t sz,
-        ex_t * e)
+        ex_t *e)
 {
-    ti_val_t * val;
-    ti_raw_t * key;
+    ti_val_t *val;
+    ti_raw_t *key;
     mp_obj_t mp_prop;
     while (sz--)
     {
@@ -364,9 +364,9 @@ int ti_thing_props_from_vup(
     return e->nr;
 }
 
-ti_thing_t * ti_thing_new_from_vup(ti_vup_t * vup, size_t sz, ex_t * e)
+ti_thing_t *ti_thing_new_from_vup(ti_vup_t *vup, size_t sz, ex_t *e)
 {
-    ti_thing_t * thing = ti_thing_o_create(0, sz, vup->collection);
+    ti_thing_t *thing = ti_thing_o_create(0, sz, vup->collection);
     if (!thing)
     {
         ex_set_mem(e);
@@ -386,12 +386,12 @@ ti_thing_t * ti_thing_new_from_vup(ti_vup_t * vup, size_t sz, ex_t * e)
  * Does not increment the `name` and `val` reference counters.
  * Use only when you are sure the property does not yet exist.
  */
-ti_prop_t * ti_thing_p_prop_add(
-        ti_thing_t * thing,
-        ti_name_t * name,
-        ti_val_t * val)
+ti_prop_t *ti_thing_p_prop_add(
+        ti_thing_t *thing,
+        ti_name_t *name,
+        ti_val_t *val)
 {
-    ti_prop_t * prop = ti_prop_create(name, val);
+    ti_prop_t *prop = ti_prop_create(name, val);
     if (!prop || vec_push(&thing->items.vec, prop))
     {
         free(prop);
@@ -405,12 +405,12 @@ ti_prop_t * ti_thing_p_prop_add(
  * Use only when you are sure the property does not yet exist.
  */
 int ti_thing_p_prop_add_assign(
-        ti_thing_t * thing,
-        ti_name_t * name,
-        ti_val_t * val,
-        ex_t * e)
+        ti_thing_t *thing,
+        ti_name_t *name,
+        ti_val_t *val,
+        ex_t *e)
 {
-    ti_prop_t * prop;
+    ti_prop_t *prop;
 
     switch ((ti_val_enum) val->tp)
     {
@@ -498,12 +498,12 @@ int ti_thing_p_prop_add_assign(
  * Does not increment the `key` and `val` reference counters.
  * Use only when you are sure the property does not yet exist.
  */
-ti_item_t * ti_thing_i_item_add(
-        ti_thing_t * thing,
-        ti_raw_t * key,
-        ti_val_t * val)
+ti_item_t *ti_thing_i_item_add(
+        ti_thing_t *thing,
+        ti_raw_t *key,
+        ti_val_t *val)
 {
-    ti_item_t * item = ti_item_create(key, val);
+    ti_item_t *item = ti_item_create(key, val);
     if (!item || smap_addn(
             thing->items.smap,
             (const char *) key->data,
@@ -521,12 +521,12 @@ ti_item_t * ti_thing_i_item_add(
  * Use only when you are sure the property does not yet exist.
  */
 int ti_thing_i_item_add_assign(
-        ti_thing_t * thing,
-        ti_raw_t * key,
-        ti_val_t * val,
-        ex_t * e)
+        ti_thing_t *thing,
+        ti_raw_t *key,
+        ti_val_t *val,
+        ex_t *e)
 {
-    ti_item_t * item;
+    ti_item_t *item;
 
     switch ((ti_val_enum) val->tp)
     {
@@ -617,12 +617,12 @@ int ti_thing_i_item_add_assign(
  * It takes a reference on `name` and `val` when successful
  */
 static int thing_p__prop_set_e(
-        ti_thing_t * thing,
-        ti_name_t * name,
-        ti_val_t * val,
-        ex_t * e)
+        ti_thing_t *thing,
+        ti_name_t *name,
+        ti_val_t *val,
+        ex_t *e)
 {
-    ti_prop_t * prop;
+    ti_prop_t *prop;
 
     for (vec_each(thing->items.vec, ti_prop_t, p))
     {
@@ -653,12 +653,12 @@ static int thing_p__prop_set_e(
  * It takes a reference on `name` and `val` when successful
  */
 static int thing_i__item_set_e(
-        ti_thing_t * thing,
-        ti_raw_t * key,
-        ti_val_t * val,
-        ex_t * e)
+        ti_thing_t *thing,
+        ti_raw_t *key,
+        ti_val_t *val,
+        ex_t *e)
 {
-    ti_item_t * item = smap_getn(
+    ti_item_t *item = smap_getn(
             thing->items.smap,
             (const char *)
             key->data, key->n);
@@ -687,12 +687,12 @@ static int thing_i__item_set_e(
 /*
  * Does not increment the `name` and `val` reference counters.
  */
-ti_prop_t * ti_thing_p_prop_set(
-        ti_thing_t * thing,
-        ti_name_t * name,
-        ti_val_t * val)
+ti_prop_t *ti_thing_p_prop_set(
+        ti_thing_t *thing,
+        ti_name_t *name,
+        ti_val_t *val)
 {
-    ti_prop_t * prop;
+    ti_prop_t *prop;
 
     for (vec_each(thing->items.vec, ti_prop_t, p))
     {
@@ -716,11 +716,11 @@ ti_prop_t * ti_thing_p_prop_set(
  * Does not increment the `name` and `val` reference counters.
  */
 ti_item_t* ti_thing_i_item_set(
-        ti_thing_t * thing,
-        ti_raw_t * key,
-        ti_val_t * val)
+        ti_thing_t *thing,
+        ti_raw_t *key,
+        ti_val_t *val)
 {
-    ti_item_t * item = smap_getn(
+    ti_item_t *item = smap_getn(
             thing->items.smap,
             (const char *)
             key->data, key->n);
@@ -749,11 +749,11 @@ ti_item_t* ti_thing_i_item_set(
  * Does not increment the `val` reference counters.
  */
 void ti_thing_t_prop_set(
-        ti_thing_t * thing,
-        ti_field_t * field,
-        ti_val_t * val)
+        ti_thing_t *thing,
+        ti_field_t *field,
+        ti_val_t *val)
 {
-    ti_val_t ** vaddr = (ti_val_t **) vec_get_addr(
+    ti_val_t **vaddr = (ti_val_t **) vec_get_addr(
             thing->items.vec,
             field->idx);
     ti_val_replace_drop(*vaddr, val);
@@ -761,14 +761,14 @@ void ti_thing_t_prop_set(
 }
 
 int ti_thing_i_set_val_from_strn(
-        ti_witem_t * witem,
-        ti_thing_t * thing,
-        const char * str,
+        ti_witem_t *witem,
+        ti_thing_t *thing,
+        const char *str,
         size_t n,
-        ti_val_t ** val,
-        ex_t * e)
+        ti_val_t **val,
+        ex_t *e)
 {
-    ti_raw_t * key = ti_str_create(str, n);
+    ti_raw_t *key = ti_str_create(str, n);
     if (!key)
         return ex_set_mem(e), e->nr;
 
@@ -790,12 +790,12 @@ int ti_thing_i_set_val_from_strn(
 }
 
 int ti_thing_o_set_val_from_strn(
-        ti_witem_t * witem,
-        ti_thing_t * thing,
-        const char * str,
+        ti_witem_t *witem,
+        ti_thing_t *thing,
+        const char *str,
         size_t n,
-        ti_val_t ** val,
-        ex_t * e)
+        ti_val_t **val,
+        ex_t *e)
 {
     if (ti_name_is_valid_strn(str, n))
         /* Create a name when the key is a valid name, this is required since
@@ -836,14 +836,14 @@ int ti_thing_o_set_val_from_strn(
  * it should not be used within a task.
  */
 int ti_thing_o_set_val_from_valid_strn(
-        ti_wprop_t * wprop,
-        ti_thing_t * thing,
-        const char * str,
+        ti_wprop_t *wprop,
+        ti_thing_t *thing,
+        const char *str,
         size_t n,
-        ti_val_t ** val,
-        ex_t * e)
+        ti_val_t **val,
+        ex_t *e)
 {
-    ti_name_t * name;
+    ti_name_t *name;
 
     if (!ti_val_is_spec(*val, thing->via.spec))
     {
@@ -885,15 +885,15 @@ int ti_thing_o_set_val_from_valid_strn(
  * If successful, the reference counter of `val` will be increased
  */
 int ti_thing_t_set_val_from_strn(
-        ti_wprop_t * wprop,
-        ti_thing_t * thing,
-        const char * str,
+        ti_wprop_t *wprop,
+        ti_thing_t *thing,
+        const char *str,
         size_t n,
-        ti_val_t ** val,
-        ex_t * e)
+        ti_val_t **val,
+        ex_t *e)
 {
-    ti_val_t ** vaddr;
-    ti_field_t * field = ti_field_by_strn_e(thing->via.type, str, n, e);
+    ti_val_t **vaddr;
+    ti_field_t *field = ti_field_by_strn_e(thing->via.type, str, n, e);
     if (!field)
         return e->nr;
 
@@ -914,17 +914,17 @@ int ti_thing_t_set_val_from_strn(
 }
 
 /* Deletes a property */
-void ti_thing_o_del(ti_thing_t * thing, const char * str, size_t n)
+void ti_thing_o_del(ti_thing_t *thing, const char *str, size_t n)
 {
     if (ti_thing_is_dict(thing))
     {
-        ti_item_t * item = smap_popn(thing->items.smap, str, n);
+        ti_item_t *item = smap_popn(thing->items.smap, str, n);
         ti_item_unassign_destroy(item);
     }
     else
     {
         uint32_t idx = 0;
-        ti_name_t * name = ti_names_weak_get_strn(str, n);
+        ti_name_t *name = ti_names_weak_get_strn(str, n);
         if (!name)
             return;
 
@@ -941,11 +941,11 @@ void ti_thing_o_del(ti_thing_t * thing, const char * str, size_t n)
 }
 
 /* Returns the removed property or NULL in case of an error */
-ti_item_t * ti_thing_o_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
+ti_item_t *ti_thing_o_del_e(ti_thing_t *thing, ti_raw_t *rname, ex_t *e)
 {
     if (ti_thing_is_dict(thing))
     {
-        ti_item_t * item = smap_popn(
+        ti_item_t *item = smap_popn(
                 thing->items.smap,
                 (const char *) rname->data,
                 rname->n);
@@ -967,7 +967,7 @@ ti_item_t * ti_thing_o_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
     else
     {
         uint32_t i = 0;
-        ti_name_t * name = ti_names_weak_from_raw(rname);
+        ti_name_t *name = ti_names_weak_from_raw(rname);
 
         if (name)
         {
@@ -987,15 +987,15 @@ not_found:
 }
 
 int ti_thing_o_ren(
-        ti_thing_t * thing,
-        const char * ostr,
+        ti_thing_t *thing,
+        const char *ostr,
         size_t on,
-        const char * nstr,
+        const char *nstr,
         size_t nn,
-        ex_t * e)
+        ex_t *e)
 {
-    ti_val_t * val = NULL;
-    ti_raw_t * nkey;
+    ti_val_t *val = NULL;
+    ti_raw_t *nkey;
 
     if (!strx_is_utf8n(nstr, nn))
     {
@@ -1029,7 +1029,7 @@ int ti_thing_o_ren(
 
     if (ti_thing_is_dict(thing))
     {
-        ti_item_t * item = smap_popn(thing->items.smap, ostr, on);
+        ti_item_t *item = smap_popn(thing->items.smap, ostr, on);
         if (!item)
             goto not_found;
         val = item->val;
@@ -1038,7 +1038,7 @@ int ti_thing_o_ren(
     else
     {
         uint32_t idx = 0;
-        ti_name_t * name = ti_names_weak_get_strn(ostr, on);
+        ti_name_t *name = ti_names_weak_get_strn(ostr, on);
         if (!name)
             goto not_found;
 
@@ -1084,9 +1084,9 @@ fail0:
     return e->nr;
 }
 
-int ti_thing_id_to_client_pk(ti_thing_t * thing, msgpack_packer * pk)
+int ti_thing_id_to_client_pk(ti_thing_t *thing, msgpack_packer *pk)
 {
-    register const ti_name_t * name = ti_thing_is_instance(thing)
+    register const ti_name_t *name = ti_thing_is_instance(thing)
             ? thing->via.type->idname
             : NULL;
     return -(
@@ -1098,9 +1098,9 @@ int ti_thing_id_to_client_pk(ti_thing_t * thing, msgpack_packer * pk)
 }
 
 static _Bool thing_p__get_by_name(
-        ti_wprop_t * wprop,
-        ti_thing_t * thing,
-        ti_name_t * name)
+        ti_wprop_t *wprop,
+        ti_thing_t *thing,
+        ti_name_t *name)
 {
     for (vec_each(thing->items.vec, ti_prop_t, prop))
     {
@@ -1115,12 +1115,12 @@ static _Bool thing_p__get_by_name(
 }
 
 static _Bool thing_t__get_by_name(
-        ti_wprop_t * wprop,
-        ti_thing_t * thing,
-        ti_name_t * name)
+        ti_wprop_t *wprop,
+        ti_thing_t *thing,
+        ti_name_t *name)
 {
-    ti_field_t * field;
-    ti_method_t * method;
+    ti_field_t *field;
+    ti_method_t *method;
 
     if ((field = ti_field_by_name(thing->via.type, name)))
     {
@@ -1140,11 +1140,11 @@ static _Bool thing_t__get_by_name(
 }
 
 static _Bool thing_i__get_by_key(
-        ti_witem_t * witem,
-        ti_thing_t * thing,
-        ti_raw_t * key)
+        ti_witem_t *witem,
+        ti_thing_t *thing,
+        ti_raw_t *key)
 {
-    ti_item_t * item = smap_getn(
+    ti_item_t *item = smap_getn(
             thing->items.smap,
             (const char *) key->data,
             key->n);
@@ -1156,9 +1156,9 @@ static _Bool thing_i__get_by_key(
     return true;
 }
 
-_Bool ti_thing_get_by_raw(ti_witem_t * witem, ti_thing_t * thing, ti_raw_t * r)
+_Bool ti_thing_get_by_raw(ti_witem_t *witem, ti_thing_t *thing, ti_raw_t *r)
 {
-    ti_name_t * name;
+    ti_name_t *name;
 
     if (ti_thing_is_dict(thing))
         return thing_i__get_by_key(witem, thing, r);
@@ -1172,12 +1172,12 @@ _Bool ti_thing_get_by_raw(ti_witem_t * witem, ti_thing_t * thing, ti_raw_t * r)
 }
 
 int ti_thing_get_by_raw_e(
-        ti_witem_t * witem,
-        ti_thing_t * thing,
-        ti_raw_t * r,
-        ex_t * e)
+        ti_witem_t *witem,
+        ti_thing_t *thing,
+        ti_raw_t *r,
+        ex_t *e)
 {
-    ti_name_t * name;
+    ti_name_t *name;
 
     if (ti_thing_is_dict(thing))
     {
@@ -1201,17 +1201,17 @@ int ti_thing_get_by_raw_e(
     return e->nr;
 }
 
-static inline int thing__gen_id_i_cb(ti_item_t * item, void * UNUSED(arg))
+static inline int thing__gen_id_i_cb(ti_item_t *item, void *UNUSED(arg))
 {
     return ti_val_gen_ids(item->val);
 }
 
-static inline int thing__has_id_i_cb(ti_item_t * item, void * UNUSED(arg))
+static inline int thing__has_id_i_cb(ti_item_t *item, void *UNUSED(arg))
 {
     return ti_val_has_ids(item->val);
 }
 
-int ti_thing_gen_id(ti_thing_t * thing)
+int ti_thing_gen_id(ti_thing_t *thing)
 {
     assert(!thing->id);
 
@@ -1246,7 +1246,7 @@ int ti_thing_gen_id(ti_thing_t * thing)
     return 0;
 }
 
-_Bool ti_thing_has_id(ti_thing_t * thing)
+_Bool ti_thing_has_id(ti_thing_t *thing)
 {
     if (thing->id)
         return true;
@@ -1286,12 +1286,12 @@ ret_true:
     return true;
 }
 
-void ti_thing_t_to_object(ti_thing_t * thing)
+void ti_thing_t_to_object(ti_thing_t *thing)
 {
     assert(!ti_thing_is_object(thing));
-    ti_name_t * name;
-    ti_val_t ** val;
-    ti_prop_t * prop;
+    ti_name_t *name;
+    ti_val_t **val;
+    ti_prop_t *prop;
     for (thing_t_each_addr(thing, name, val))
     {
         prop = ti_prop_create(name, *val);
@@ -1314,10 +1314,10 @@ typedef struct
 {
     int deep;
     int flags;
-    ti_vp_t * vp;
+    ti_vp_t *vp;
 } thing__pk_cb_t;
 
-static inline int thing__client_pk_cb(ti_item_t * item, thing__pk_cb_t * w)
+static inline int thing__client_pk_cb(ti_item_t *item, thing__pk_cb_t *w)
 {
     return -(
         mp_pack_strn(&w->vp->pk, item->key->data, item->key->n) ||
@@ -1326,8 +1326,8 @@ static inline int thing__client_pk_cb(ti_item_t * item, thing__pk_cb_t * w)
 }
 
 int ti_thing__to_client_pk(
-        ti_thing_t * thing,
-        ti_vp_t * vp,
+        ti_thing_t *thing,
+        ti_vp_t *vp,
         int deep,
         int flags)
 {
@@ -1379,8 +1379,8 @@ int ti_thing__to_client_pk(
     }
     else
     {
-        ti_name_t * name = thing->via.type->idname;
-        ti_val_t * val;
+        ti_name_t *name = thing->via.type->idname;
+        ti_val_t *val;
 
         with_id = with_id && !(thing->via.type->flags & TI_TYPE_FLAG_HIDE_ID);
 
@@ -1408,7 +1408,7 @@ fail:
     return -1;
 }
 
-static inline int thing__store_pk_cb(ti_item_t * item, msgpack_packer * pk)
+static inline int thing__store_pk_cb(ti_item_t *item, msgpack_packer *pk)
 {
     return -(
         mp_pack_strn(pk, item->key->data, item->key->n) ||
@@ -1416,7 +1416,7 @@ static inline int thing__store_pk_cb(ti_item_t * item, msgpack_packer * pk)
     );
 }
 
-int ti_thing_o_to_pk(ti_thing_t * thing, msgpack_packer * pk)
+int ti_thing_o_to_pk(ti_thing_t *thing, msgpack_packer *pk)
 {
     assert(ti_thing_is_object(thing));
     assert(thing->id);   /* no need to check, options < 0 must have id */
@@ -1443,7 +1443,7 @@ int ti_thing_o_to_pk(ti_thing_t * thing, msgpack_packer * pk)
     return 0;
 }
 
-int ti_thing_t_to_pk(ti_thing_t * thing, msgpack_packer * pk)
+int ti_thing_t_to_pk(ti_thing_t *thing, msgpack_packer *pk)
 {
     assert(!ti_thing_is_object(thing));
     assert(thing->id);   /* no need to check, options < 0 must have id */
@@ -1463,16 +1463,16 @@ int ti_thing_t_to_pk(ti_thing_t * thing, msgpack_packer * pk)
     return 0;
 }
 
-ti_val_t * ti_thing_val_by_strn(ti_thing_t * thing, const char * str, size_t n)
+ti_val_t *ti_thing_val_by_strn(ti_thing_t *thing, const char *str, size_t n)
 {
     if (ti_thing_is_dict(thing))
     {
-        ti_item_t * item = smap_getn(thing->items.smap, str, n);
+        ti_item_t *item = smap_getn(thing->items.smap, str, n);
         return item ? item->val : NULL;
     }
     else
     {
-        ti_name_t * name = ti_names_weak_get_strn(str, n);
+        ti_name_t *name = ti_names_weak_get_strn(str, n);
         if (!name)
             return NULL;
 
@@ -1482,7 +1482,7 @@ ti_val_t * ti_thing_val_by_strn(ti_thing_t * thing, const char * str, size_t n)
     }
 }
 
-static inline _Bool thing__val_equals(ti_val_t * a, ti_val_t * b, uint8_t deep)
+static inline _Bool thing__val_equals(ti_val_t *a, ti_val_t *b, uint8_t deep)
 {
     return ti_val_is_thing(a)
             ? ti_thing_equals((ti_thing_t *) a, b, deep)
@@ -1492,23 +1492,23 @@ static inline _Bool thing__val_equals(ti_val_t * a, ti_val_t * b, uint8_t deep)
 typedef struct
 {
     uint8_t deep;
-    ti_thing_t * other;
+    ti_thing_t *other;
 } thing__equals_t;
 
-static int thing__equals_i_i_cb(ti_item_t * item, thing__equals_t * w)
+static int thing__equals_i_i_cb(ti_item_t *item, thing__equals_t *w)
 {
-    ti_item_t * i = smap_getn(
+    ti_item_t *i = smap_getn(
             w->other->items.smap,
             (const char *) item->key->data,
             item->key->n);
     return !i || !thing__val_equals(item->val, i->val, w->deep);
 }
 
-static int thing__equals_i_p_cb(ti_item_t * item, thing__equals_t * w)
+static int thing__equals_i_p_cb(ti_item_t *item, thing__equals_t *w)
 {
     if (ti_raw_is_name(item->key))
     {
-        ti_val_t * b = ti_thing_p_val_weak_get(
+        ti_val_t *b = ti_thing_p_val_weak_get(
                 w->other,
                 (ti_name_t *) item->key);
         return !b || !thing__val_equals(item->val, b, w->deep);
@@ -1516,11 +1516,11 @@ static int thing__equals_i_p_cb(ti_item_t * item, thing__equals_t * w)
     return 1;
 }
 
-static int thing__equals_i_t_cb(ti_item_t * item, thing__equals_t * w)
+static int thing__equals_i_t_cb(ti_item_t *item, thing__equals_t *w)
 {
     if (ti_raw_is_name(item->key))
     {
-        ti_val_t * b = ti_thing_t_val_weak_get(
+        ti_val_t *b = ti_thing_t_val_weak_get(
                 w->other,
                 (ti_name_t *) item->key);
         return !b || !thing__val_equals(item->val, b, w->deep);
@@ -1528,9 +1528,9 @@ static int thing__equals_i_t_cb(ti_item_t * item, thing__equals_t * w)
     return 1;
 }
 
-_Bool ti_thing_equals(ti_thing_t * thing, ti_val_t * otherv, uint8_t deep)
+_Bool ti_thing_equals(ti_thing_t *thing, ti_val_t *otherv, uint8_t deep)
 {
-    ti_thing_t * other = (ti_thing_t *) otherv;
+    ti_thing_t *other = (ti_thing_t *) otherv;
     if (!ti_val_is_thing(otherv))
         return false;
     if (thing == other || !deep)
@@ -1557,7 +1557,7 @@ _Bool ti_thing_equals(ti_thing_t * thing, ti_val_t * otherv, uint8_t deep)
         }
         for (vec_each(thing->items.vec, ti_prop_t, prop))
         {
-            ti_val_t * b = ti_thing_val_weak_by_name(other, prop->name);
+            ti_val_t *b = ti_thing_val_weak_by_name(other, prop->name);
             if (!b || !thing__val_equals(prop->val, b, deep))
                 return false;
         }
@@ -1567,18 +1567,18 @@ _Bool ti_thing_equals(ti_thing_t * thing, ti_val_t * otherv, uint8_t deep)
         size_t idx = 0;
         for (vec_each(thing->items.vec, ti_val_t, a), ++idx)
         {
-            ti_val_t * b = VEC_get(other->items.vec, idx);
+            ti_val_t *b = VEC_get(other->items.vec, idx);
             if (!thing__val_equals(a, b, deep))
                 return false;
         }
     }
     else
     {
-        ti_name_t * name;
-        ti_val_t * a;
+        ti_name_t *name;
+        ti_val_t *a;
         for (thing_t_each(thing, name, a))
         {
-            ti_val_t * b = ti_thing_val_weak_by_name(other, name);
+            ti_val_t *b = ti_thing_val_weak_by_name(other, name);
             if (!b || !thing__val_equals(a, b, deep))
                 return false;
         }
@@ -1586,7 +1586,7 @@ _Bool ti_thing_equals(ti_thing_t * thing, ti_val_t * otherv, uint8_t deep)
     return true;
 }
 
-static inline void thing__deep_set(ti_thing_t * thing, ti_thing_t * other)
+static inline void thing__deep_set(ti_thing_t *thing, ti_thing_t *other)
 {
     /* During the recursive copying, we don't need the collection on the thing
      * as we just want the newly created thing. Therefore we can temporary
@@ -1598,26 +1598,26 @@ static inline void thing__deep_set(ti_thing_t * thing, ti_thing_t * other)
     thing->flags |= TI_THING_FLAG_DEEP;
 }
 
-static inline void thing__deep_unset(ti_thing_t * thing, ti_collection_t * collection)
+static inline void thing__deep_unset(ti_thing_t *thing, ti_collection_t *collection)
 {
     thing->collection = collection;
     thing->flags &= ~TI_THING_FLAG_DEEP;
 }
 
-static inline int thing__deep_use(ti_thing_t ** taddr)
+static inline int thing__deep_use(ti_thing_t **taddr)
 {
-    ti_thing_t * thing = *taddr;
+    ti_thing_t *thing = *taddr;
     *taddr = (ti_thing_t *) (*taddr)->collection;
     ti_incref(*taddr);
     ti_val_unsafe_gc_drop((ti_val_t *) thing);
     return 0;
 }
 
-static int thing__copy_p(ti_thing_t ** taddr, uint8_t deep)
+static int thing__copy_p(ti_thing_t **taddr, uint8_t deep)
 {
-    ti_thing_t * thing = *taddr;
-    ti_collection_t * collection = thing->collection;
-    ti_thing_t * other = ti_thing_o_create(
+    ti_thing_t *thing = *taddr;
+    ti_collection_t *collection = thing->collection;
+    ti_thing_t *other = ti_thing_o_create(
             0,
             ti_thing_n(thing),
             thing->collection);
@@ -1628,7 +1628,7 @@ static int thing__copy_p(ti_thing_t ** taddr, uint8_t deep)
     thing__deep_set(thing, other);
     for (vec_each(thing->items.vec, ti_prop_t, prop))
     {
-        ti_prop_t * p = ti_prop_dup(prop);
+        ti_prop_t *p = ti_prop_dup(prop);
 
         if (!p || ti_val_copy(&p->val, other, p->name, deep))
         {
@@ -1650,11 +1650,11 @@ fail:
     return -1;
 }
 
-static int thing__dup_p(ti_thing_t ** taddr, uint8_t deep)
+static int thing__dup_p(ti_thing_t **taddr, uint8_t deep)
 {
-    ti_thing_t * thing = *taddr;
-    ti_collection_t * collection = thing->collection;
-    ti_thing_t * other = ti_thing_o_create(
+    ti_thing_t *thing = *taddr;
+    ti_collection_t *collection = thing->collection;
+    ti_thing_t *other = ti_thing_o_create(
             0,
             ti_thing_n(thing),
             thing->collection);
@@ -1667,7 +1667,7 @@ static int thing__dup_p(ti_thing_t ** taddr, uint8_t deep)
 
     for (vec_each(thing->items.vec, ti_prop_t, prop))
     {
-        ti_prop_t * p = ti_prop_dup(prop);
+        ti_prop_t *p = ti_prop_dup(prop);
 
         if (!p || ti_val_dup(&p->val, other, p->name, deep))
         {
@@ -1691,13 +1691,13 @@ fail:
 
 typedef struct
 {
-    ti_thing_t * other;
+    ti_thing_t *other;
     uint8_t deep;
 } thing__wcd_t;
 
-static int thing__copy_cb(ti_item_t * item, thing__wcd_t * w)
+static int thing__copy_cb(ti_item_t *item, thing__wcd_t *w)
 {
-    ti_item_t * i = ti_item_dup(item);
+    ti_item_t *i = ti_item_dup(item);
     if (!i ||
         ti_val_copy(&i->val, w->other, i->key, w->deep) ||
         smap_addn(
@@ -1713,9 +1713,9 @@ static int thing__copy_cb(ti_item_t * item, thing__wcd_t * w)
     return 0;
 }
 
-static int thing__dup_cb(ti_item_t * item, thing__wcd_t * w)
+static int thing__dup_cb(ti_item_t *item, thing__wcd_t *w)
 {
-    ti_item_t * i = ti_item_dup(item);
+    ti_item_t *i = ti_item_dup(item);
     if (!i ||
         ti_val_dup(&i->val, w->other, i->key, w->deep) ||
         smap_addn(
@@ -1731,11 +1731,11 @@ static int thing__dup_cb(ti_item_t * item, thing__wcd_t * w)
     return 0;
 }
 
-static int thing__copy_i(ti_thing_t ** taddr, uint8_t deep)
+static int thing__copy_i(ti_thing_t **taddr, uint8_t deep)
 {
-    ti_thing_t * thing = *taddr;
-    ti_collection_t * collection = thing->collection;
-    ti_thing_t * other = ti_thing_i_create(0, thing->collection);
+    ti_thing_t *thing = *taddr;
+    ti_collection_t *collection = thing->collection;
+    ti_thing_t *other = ti_thing_i_create(0, thing->collection);
     thing__wcd_t w = {
             .other = other,
             .deep = deep,
@@ -1760,11 +1760,11 @@ fail:
     return -1;
 }
 
-static int thing__dup_i(ti_thing_t ** taddr, uint8_t deep)
+static int thing__dup_i(ti_thing_t **taddr, uint8_t deep)
 {
-    ti_thing_t * thing = *taddr;
-    ti_collection_t * collection = thing->collection;
-    ti_thing_t * other = ti_thing_i_create(0, thing->collection);
+    ti_thing_t *thing = *taddr;
+    ti_collection_t *collection = thing->collection;
+    ti_thing_t *other = ti_thing_i_create(0, thing->collection);
     thing__wcd_t w = {
             .other = other,
             .deep = deep,
@@ -1790,13 +1790,13 @@ fail:
     return -1;
 }
 
-static int thing__copy_t(ti_thing_t ** taddr, uint8_t deep)
+static int thing__copy_t(ti_thing_t **taddr, uint8_t deep)
 {
-    ti_name_t * name;
-    ti_val_t * val;
-    ti_thing_t * thing = *taddr;
-    ti_collection_t * collection = thing->collection;
-    ti_thing_t * other = ti_thing_o_create(
+    ti_name_t *name;
+    ti_val_t *val;
+    ti_thing_t *thing = *taddr;
+    ti_collection_t *collection = thing->collection;
+    ti_thing_t *other = ti_thing_o_create(
             0,
             ti_thing_n(thing),
             thing->collection);
@@ -1809,7 +1809,7 @@ static int thing__copy_t(ti_thing_t ** taddr, uint8_t deep)
 
     for(thing_t_each(thing, name, val))
     {
-        ti_prop_t * p = ti_prop_create(name, val);
+        ti_prop_t *p = ti_prop_create(name, val);
         if (!p)
             goto fail;
 
@@ -1835,13 +1835,13 @@ fail:
     return -1;
 }
 
-static int thing__dup_t(ti_thing_t ** taddr, uint8_t deep)
+static int thing__dup_t(ti_thing_t **taddr, uint8_t deep)
 {
-    ti_val_t * val;
-    ti_thing_t * thing = *taddr;
-    ti_collection_t * collection = thing->collection;
-    ti_type_t * type = thing->via.type;
-    ti_thing_t * other = ti_thing_t_create(0, type, thing->collection);
+    ti_val_t *val;
+    ti_thing_t *thing = *taddr;
+    ti_collection_t *collection = thing->collection;
+    ti_type_t *type = thing->via.type;
+    ti_thing_t *other = ti_thing_t_create(0, type, thing->collection);
     if (!other)
         return -1;
 
@@ -1869,7 +1869,7 @@ fail:
     return -1;
 }
 
-int ti_thing_copy(ti_thing_t ** thing, uint8_t deep)
+int ti_thing_copy(ti_thing_t **thing, uint8_t deep)
 {
     assert(deep);
     deep--;
@@ -1882,7 +1882,7 @@ int ti_thing_copy(ti_thing_t ** thing, uint8_t deep)
             : thing__copy_t(thing, deep);
 }
 
-int ti_thing_dup(ti_thing_t ** thing, uint8_t deep)
+int ti_thing_dup(ti_thing_t **thing, uint8_t deep)
 {
     assert(deep);
     deep--;
@@ -1948,7 +1948,7 @@ void ti_thing_clean_gc(void)
 
     while (ti_thing_gc_vec->n)
     {
-        vec_t * tmp = ti_thing_gc_vec;
+        vec_t *tmp = ti_thing_gc_vec;
         ti_thing_gc_vec = thing__gc_swp;
         thing__gc_swp = tmp;
 
@@ -1966,11 +1966,11 @@ void ti_thing_clean_gc(void)
 }
 
 static int thing__assign_set_o(
-        ti_thing_t * thing,
-        ti_raw_t * key,
-        ti_val_t * val,
-        ti_task_t * task,
-        ex_t * e)
+        ti_thing_t *thing,
+        ti_raw_t *key,
+        ti_val_t *val,
+        ti_task_t *task,
+        ex_t *e)
 {
     assert(ti_val_is_spec(val, thing->via.spec));
     /* must increase the reference here, even if the value is no longer
@@ -2001,13 +2001,13 @@ failed:
 
 typedef struct
 {
-    ti_thing_t * thing;
-    ti_thing_t * tsrc;
-    ti_task_t * task;
-    ex_t * e;
+    ti_thing_t *thing;
+    ti_thing_t *tsrc;
+    ti_task_t *task;
+    ex_t *e;
 } thing__assign_walk_i_t;
 
-static int thing__assign_walk_i(ti_item_t * item, thing__assign_walk_i_t * w)
+static int thing__assign_walk_i(ti_item_t *item, thing__assign_walk_i_t *w)
 {
     return thing__assign_set_o(
             w->thing,
@@ -2017,16 +2017,16 @@ static int thing__assign_walk_i(ti_item_t * item, thing__assign_walk_i_t * w)
             w->e);
 }
 
-static int thing__assign_restr_i(ti_item_t * item, thing__assign_walk_i_t * w)
+static int thing__assign_restr_i(ti_item_t *item, thing__assign_walk_i_t *w)
 {
     return !ti_val_is_spec(item->val, w->thing->via.spec);
 }
 
 int ti_thing_assign(
-        ti_thing_t * thing,
-        ti_thing_t * tsrc,
-        ti_task_t * task,
-        ex_t * e)
+        ti_thing_t *thing,
+        ti_thing_t *tsrc,
+        ti_task_t *task,
+        ex_t *e)
 {
     if (ti_thing_is_object(thing))
     {
@@ -2072,8 +2072,8 @@ int ti_thing_assign(
         }
         else
         {
-            ti_name_t * name;
-            ti_val_t * val;
+            ti_name_t *name;
+            ti_val_t *val;
 
             if (thing->via.spec != TI_SPEC_ANY)
                 for(thing_t_each(tsrc, name, val))
@@ -2092,14 +2092,14 @@ int ti_thing_assign(
     }
     else
     {
-        vec_t * vec = NULL;
-        ti_type_t * type = thing->via.type;
+        vec_t *vec = NULL;
+        ti_type_t *type = thing->via.type;
 
         if (ti_thing_is_object(tsrc))
         {
             if (ti_thing_is_dict(tsrc))
             {
-                ti_raw_t * incompatible;
+                ti_raw_t *incompatible;
                 if (ti_thing_i_to_p(tsrc, &incompatible))
                 {
                     if (incompatible)
@@ -2122,8 +2122,8 @@ int ti_thing_assign(
 
             for(vec_each(tsrc->items.vec, ti_prop_t, p))
             {
-                ti_val_t * val = p->val;
-                ti_field_t * field = ti_field_by_name(type, p->name);
+                ti_val_t *val = p->val;
+                ti_field_t *field = ti_field_by_name(type, p->name);
                 if (!field)
                 {
                     ex_set(e, EX_LOOKUP_ERROR,
@@ -2159,8 +2159,8 @@ int ti_thing_assign(
 
             for(vec_each_rev(tsrc->items.vec, ti_prop_t, p))
             {
-                ti_field_t * field = ti_field_by_name(type, p->name);
-                ti_val_t * val = VEC_pop(vec);
+                ti_field_t *field = ti_field_by_name(type, p->name);
+                ti_val_t *val = VEC_pop(vec);
                 ti_thing_t_prop_set(thing, field, val);
                 if (task && ti_task_add_set(
                         task,
@@ -2171,7 +2171,7 @@ int ti_thing_assign(
         }
         else
         {
-            ti_type_t * f_type = tsrc->via.type;
+            ti_type_t *f_type = tsrc->via.type;
             vec = NULL;
             if (f_type != type)
             {
@@ -2186,7 +2186,7 @@ int ti_thing_assign(
 
             for (vec_each(type->fields, ti_field_t, field))
             {
-                ti_val_t * val = VEC_get(tsrc->items.vec, field->idx);
+                ti_val_t *val = VEC_get(tsrc->items.vec, field->idx);
 
                 /* must increase the reference here, even if the value is no
                  * longer required after this function, it might break the
@@ -2219,16 +2219,16 @@ mismatch:
 
 typedef struct
 {
-    void * data;
+    void *data;
     ti_thing_item_cb cb;
 } thing__walk_i_t;
 
-static int thing__walk_i(ti_item_t * item, thing__walk_i_t * w)
+static int thing__walk_i(ti_item_t *item, thing__walk_i_t *w)
 {
     return w->cb(item->key, item->val, w->data);
 }
 
-int ti_thing_walk(ti_thing_t * thing, ti_thing_item_cb cb, void * data)
+int ti_thing_walk(ti_thing_t *thing, ti_thing_item_cb cb, void *data)
 {
     int rc;
     if (ti_thing_is_object(thing))
@@ -2251,8 +2251,8 @@ int ti_thing_walk(ti_thing_t * thing, ti_thing_item_cb cb, void * data)
     }
     else
     {
-        ti_name_t * name;
-        ti_val_t * val;
+        ti_name_t *name;
+        ti_val_t *val;
         for (thing_t_each(thing, name, val))
             if ((rc = cb((ti_raw_t *) name, val, data)))
                 return rc;

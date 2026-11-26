@@ -216,7 +216,7 @@ class LangDef(Grammar):
 
 
 grammar2 = r"""
-    cleri_grammar_t * grammar = cleri_grammar2(
+    cleri_grammar_t *grammar = cleri_grammar2(
             START,
             "^[A-Za-z_][0-9A-Za-z_]{0,254}(?![0-9A-Za-z_])",
             "("

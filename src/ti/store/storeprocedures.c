@@ -12,7 +12,7 @@
 #include <util/fx.h>
 #include <util/mpack.h>
 
-static int procedure__store_cb(ti_procedure_t * procedure, msgpack_packer * pk)
+static int procedure__store_cb(ti_procedure_t *procedure, msgpack_packer *pk)
 {
     return -(
         msgpack_pack_array(pk, 3) ||
@@ -22,7 +22,7 @@ static int procedure__store_cb(ti_procedure_t * procedure, msgpack_packer * pk)
     );
 }
 
-int ti_store_procedures_store(smap_t * procedures, const char * fn)
+int ti_store_procedures_store(smap_t *procedures, const char *fn)
 {
     msgpack_packer pk;
     FILE * f = fopen(fn, "w");
@@ -58,17 +58,17 @@ done:
 }
 
 int ti_store_procedures_restore(
-        smap_t * procedures,
-        const char * fn,
-        ti_collection_t * collection)  /* collection may be NULL */
+        smap_t *procedures,
+        const char *fn,
+        ti_collection_t *collection)  /* collection may be NULL */
 {
     int rc = -1;
     fx_mmap_t fmap;
     size_t i;
     mp_obj_t obj, mp_ver, mp_name, mp_created;
     mp_unp_t up;
-    ti_closure_t * closure;
-    ti_procedure_t * procedure;
+    ti_closure_t *closure;
+    ti_procedure_t *procedure;
     ti_vup_t vup = {
             .isclient = false,
             .collection = collection,

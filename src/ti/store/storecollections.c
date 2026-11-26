@@ -12,10 +12,10 @@
 #include <util/mpack.h>
 #include <util/vec.h>
 
-int ti_store_collections_store(const char * fn)
+int ti_store_collections_store(const char *fn)
 {
     msgpack_packer pk;
-    vec_t * vec = ti.collections->vec;
+    vec_t *vec = ti.collections->vec;
     FILE * f = fopen(fn, "w");
     if (!f)
     {
@@ -59,7 +59,7 @@ done:
     return 0;
 }
 
-int ti_store_collections_restore(const char * fn)
+int ti_store_collections_restore(const char *fn)
 {
     int rc = -1;
     size_t i;
@@ -67,9 +67,9 @@ int ti_store_collections_restore(const char * fn)
     mp_obj_t obj, mp_guid, mp_name, mp_created, mp_deep, mp_tz, mp_id;
     mp_unp_t up;
     guid_t guid;
-    ti_collection_t * collection;
-    ti_tz_t * tz;
-    uchar * data = fx_read(fn, &n);
+    ti_collection_t *collection;
+    ti_tz_t *tz;
+    uchar *data = fx_read(fn, &n);
     if (!data)
         return -1;
 

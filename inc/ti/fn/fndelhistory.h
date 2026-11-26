@@ -1,12 +1,12 @@
 #include <ti/fn/fn.h>
 
-static int do__f_del_history(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_del_history(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     ti_commits_options_t options = {0};
     ti_commits_history_t history = {0};
-    vec_t * deleted;
-    ti_task_t * task;
+    vec_t *deleted;
+    ti_task_t *task;
 
     if (fn_not_thingsdb_scope("del_history", query, e) ||
         fn_nargs("del_history", DOC_DEL_HISTORY, 1, nargs, e) ||

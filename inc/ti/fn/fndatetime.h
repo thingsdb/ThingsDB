@@ -2,14 +2,14 @@
 
 
 static int fn__datetime(
-        const char * fname,
-        const char * doc,
-        ti_query_t * query,
-        cleri_node_t * nd,
-        ex_t * e)
+        const char *fname,
+        const char *doc,
+        ti_query_t *query,
+        cleri_node_t *nd,
+        ex_t *e)
 {
     struct tm tm;
-    cleri_node_t * child = nd->children;
+    cleri_node_t *child = nd->children;
     int64_t i;
 
     assert(fn_get_nargs(nd) >= 3);
@@ -255,7 +255,7 @@ done:
 
     if (query->rval)
     {
-        ti_datetime_t * dt;
+        ti_datetime_t *dt;
 
         if (child && child->next)
         {
@@ -274,7 +274,7 @@ done:
     }
     else
     {
-        ti_tz_t * tz = fn_default_tz(query);
+        ti_tz_t *tz = fn_default_tz(query);
         query->rval = (ti_val_t *) ti_datetime_from_tm_tz(&tm, tz, e);
     }
 
@@ -282,14 +282,14 @@ done:
 }
 
 static int do__datetime(
-        const char * fname,
-        const char * doc,
-        ti_query_t * query,
-        cleri_node_t * nd,
-        ex_t * e)
+        const char *fname,
+        const char *doc,
+        ti_query_t *query,
+        cleri_node_t *nd,
+        ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_tz_t * tz = fn_default_tz(query);
+    ti_tz_t *tz = fn_default_tz(query);
 
     if (fn_nargs_max(fname, doc, 7, nargs, e))
         return e->nr;
@@ -346,7 +346,7 @@ static int do__datetime(
         case TI_VAL_NAME:
         case TI_VAL_STR:
         {
-            ti_datetime_t * dt = ti_datetime_from_str(
+            ti_datetime_t *dt = ti_datetime_from_str(
                     (ti_raw_t *) query->rval,
                     tz,
                     e);
@@ -366,7 +366,7 @@ static int do__datetime(
         return e->nr;
     case 2:
     {
-        ti_raw_t * str, * fmt;
+        ti_raw_t *str, *fmt;
         /*
          * Accept datetime(string, format);
          */
@@ -414,7 +414,7 @@ fail0:
     }
 }
 
-static int do__f_datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_datetime(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     if (do__datetime("datetime", DOC_DATETIME, query, nd, e))
         return e->nr;
@@ -427,7 +427,7 @@ static int do__f_datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
     else if (ti_val_is_timeval(query->rval))
     {
-        ti_datetime_t * dt = ti_datetime_copy((ti_datetime_t *) query->rval);
+        ti_datetime_t *dt = ti_datetime_copy((ti_datetime_t *) query->rval);
         ti_val_unsafe_drop(query->rval);
         query->rval = (ti_val_t *) dt;
         if (!dt)
@@ -438,7 +438,7 @@ static int do__f_datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
-static int do__f_timeval(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_timeval(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     if (do__datetime("timeval", DOC_TIMEVAL, query, nd, e))
         return e->nr;
@@ -451,7 +451,7 @@ static int do__f_timeval(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
     else if (ti_val_is_datetime_strict(query->rval))
     {
-        ti_datetime_t * dt = ti_datetime_copy((ti_datetime_t *) query->rval);
+        ti_datetime_t *dt = ti_datetime_copy((ti_datetime_t *) query->rval);
         ti_val_unsafe_drop(query->rval);
         query->rval = (ti_val_t *) dt;
         if (!dt)

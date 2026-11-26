@@ -41,7 +41,7 @@ typedef union ti_thing_via ti_thing_via_t;
 #include <ti/spec.t.h>
 #include <util/vec.h>
 
-extern vec_t * ti_thing_gc_vec;
+extern vec_t *ti_thing_gc_vec;
 
 enum
 {
@@ -61,7 +61,7 @@ enum
 
 union ti_thing_via_items
 {
-    vec_t * vec;                /* contains:
+    vec_t *vec;                /* contains:
                                  *  - ti_prop_t :
                                  *          When thing is an object with
                                  *          only valid name properties.
@@ -69,7 +69,7 @@ union ti_thing_via_items
                                  *          When thing is an instance of
                                  *               a type.
                                  */
-    smap_t * smap;              /* contains ti_item_t :
+    smap_t *smap;              /* contains ti_item_t :
                                  *          In an item the `key` value is of
                                  *          type ti_raw_t, but valid names
                                  *          must still be of type ti_name_t
@@ -81,7 +81,7 @@ union ti_thing_via_items
 
 union ti_thing_via
 {
-    ti_type_t * type;
+    ti_type_t *type;
     ti_spec_enum_t spec;
 };
 
@@ -93,7 +93,7 @@ struct ti_thing_s
     uint16_t type_id;
 
     uint64_t id;
-    ti_collection_t * collection;   /* thing belongs to this collection;
+    ti_collection_t *collection;   /* thing belongs to this collection;
                                      * only `null` when in thingsdb or node
                                      * scope, but never in a collection scope
                                      */

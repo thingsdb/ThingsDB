@@ -13,7 +13,7 @@ typedef struct ti_row_s ti_row_t;
 
 struct ti_row_s
 {
-    vec_t * columns;  /* ti_column_t */
+    vec_t *columns;  /* ti_column_t */
 };
 
 #endif  /* TI_ROW_T_H_ */

@@ -26,11 +26,11 @@
 #define GH__API_BLOB "https://api.github.com/repos/%s/%s/git/blobs/%.*s"
 #define GH__API_BLOB_REF GH__API_BLOB"?ref=%s"
 
-static const char * gh__str = "github.com";
+static const char *gh__str = "github.com";
 static const size_t gh__strn = 10;  /*  "github.com"         */
 static const size_t gh__minn = 14;  /*  "github.com/o/r"     */
 
-_Bool ti_mod_github_test(const char * s, size_t n)
+_Bool ti_mod_github_test(const char *s, size_t n)
 {
     if (n < gh__strn || n > GH__MAX_LEN)
         return false;
@@ -42,16 +42,16 @@ static inline int gh__ischar(int c)
     return isalnum(c) || c == '-' || c == '_' || c == '.';
 }
 
-static inline int gh__isblob(const char * fn)
+static inline int gh__isblob(const char *fn)
 {
     return (strncmp(fn, "bin/", 4) == 0 ||
             strncmp(fn, "blob/", 5) == 0 ||
             strncmp(fn, "blobs/", 6) == 0);
 }
 
-static char * gh__url(ti_mod_github_t * gh, const char * fn)
+static char *gh__url(ti_mod_github_t *gh, const char *fn)
 {
-    char * url;
+    char *url;
     if (gh->ref)
     {
         if (asprintf(&url, GH__API_REF, gh->owner, gh->repo, fn, gh->ref) < 0)
@@ -65,9 +65,9 @@ static char * gh__url(ti_mod_github_t * gh, const char * fn)
     return url;
 }
 
-static char * gh__blob_url(ti_mod_github_t * gh, const char * sha, int n)
+static char *gh__blob_url(ti_mod_github_t *gh, const char *sha, int n)
 {
-    char * url;
+    char *url;
     if (gh->ref)
     {
         if (asprintf(
@@ -117,26 +117,26 @@ typedef struct
     int level;              /* search at level 1 */
     int flags;
     int key;
-    const char * path;      /* this is what we are looking for */
+    const char *path;      /* this is what we are looking for */
     size_t path_n;
-    const char * sha;       /* this is what want */
+    const char *sha;       /* this is what want */
     size_t sha_n;
 } gh__ctx_t;
 
 
 static inline _Bool gh__equals(
-        const void * a, size_t an,
-        const void * b, size_t bn)
+        const void *a, size_t an,
+        const void *b, size_t bn)
 {
     return an == bn && memcmp(a, b, an) == 0;
 }
 
 static int gh__json_string(
-        void * data,
-        const unsigned char * s,
+        void *data,
+        const unsigned char *s,
         size_t n)
 {
-    gh__ctx_t * ctx = data;
+    gh__ctx_t *ctx = data;
     switch (ctx->key)
     {
     case GH__KEY_OTHER:
@@ -156,9 +156,9 @@ static int gh__json_string(
     return 1;
 }
 
-static int gh__json_start_map(void * data)
+static int gh__json_start_map(void *data)
 {
-    gh__ctx_t * ctx = data;
+    gh__ctx_t *ctx = data;
     ++ctx->level;
 
     if (ctx->level == 1 && (~ctx->flags & GH__FLAG_DONE))
@@ -168,11 +168,11 @@ static int gh__json_start_map(void * data)
 }
 
 static int gh__json_map_key(
-        void * data,
-        const unsigned char * s,
+        void *data,
+        const unsigned char *s,
         size_t n)
 {
-    gh__ctx_t * ctx = data;
+    gh__ctx_t *ctx = data;
 
     if (ctx->level == 1)
     {
@@ -194,9 +194,9 @@ static int gh__json_map_key(
     return 1;
 }
 
-static int gh__json_end_map(void * data)
+static int gh__json_end_map(void *data)
 {
-    gh__ctx_t * ctx = data;
+    gh__ctx_t *ctx = data;
     --ctx->level;
 
     if (ctx->level == 0 && (ctx->flags & GH__FLAG_FOUND))
@@ -220,13 +220,13 @@ static yajl_callbacks gh__callbacks = {
     NULL
 };
 
-static char * gh__blob_url_from_json(
-        ti_mod_github_t * gh,
-        const char * path,
-        const void * data,
+static char *gh__blob_url_from_json(
+        ti_mod_github_t *gh,
+        const char *path,
+        const void *data,
         size_t n)
 {
-    char * url;
+    char *url;
     yajl_handle hand;
     gh__ctx_t ctx = {
             .flags = 0,
@@ -260,13 +260,13 @@ static char * gh__blob_url_from_json(
 }
 
 int ti_mod_github_init(
-        ti_mod_github_t * gh,
-        const char * s,
+        ti_mod_github_t *gh,
+        const char *s,
         size_t n,
-        ex_t * e)
+        ex_t *e)
 {
     int ok = 1;
-    const char * owner,
+    const char *owner,
          * repo,
          * token = NULL,
          * ref = NULL;
@@ -384,9 +384,9 @@ invalid:
     return e->nr;
 }
 
-ti_mod_github_t * ti_mod_github_create(const char * s, size_t n, ex_t * e)
+ti_mod_github_t *ti_mod_github_create(const char *s, size_t n, ex_t *e)
 {
-    ti_mod_github_t * gh = calloc(1, sizeof(ti_mod_github_t));
+    ti_mod_github_t *gh = calloc(1, sizeof(ti_mod_github_t));
     if (!gh)
     {
         ex_set_mem(e);
@@ -404,33 +404,33 @@ ti_mod_github_t * ti_mod_github_create(const char * s, size_t n, ex_t * e)
 typedef size_t (*gh__write_cb) (void *, size_t, size_t, void *);
 
 static size_t gh__write_mem(
-        void * contents,
+        void *contents,
         size_t size,
         size_t nmemb,
-        void * userp)
+        void *userp)
 {
     size_t realsize = size * nmemb;
-    buf_t * buf = userp;
+    buf_t *buf = userp;
 
     /* return 0 when a write error has occurred */
     return buf_append(buf, contents, realsize) == 0 ? realsize : 0;
 }
 
 static size_t gh__write_file(
-        void * contents,
+        void *contents,
         size_t size,
         size_t nmemb,
-        void * userp)
+        void *userp)
 {
     return fwrite(contents, size, nmemb, userp);
 }
 
 static CURLcode gh__download_url(
-        const char * url,
-        const char * token,
-        void * data,
+        const char *url,
+        const char *token,
+        void *data,
         gh__write_cb write_cb,
-        const char * option)  /* option = raw/json */
+        const char *option)  /* option = raw/json */
 {
     CURLcode curle_code = CURLE_FAILED_INIT;
     CURL * curl = curl_easy_init();
@@ -473,13 +473,13 @@ cleanup:
     return curle_code;
 }
 
-static char * gh__get_blob_url(ti_mod_github_t * gh, const char * fn)
+static char *gh__get_blob_url(ti_mod_github_t *gh, const char *fn)
 {
     assert(gh__isblob(fn));
 
     buf_t buf;
     CURLcode rc = CURLE_OK;
-    char * url;
+    char *url;
 
     buf_init(&buf);
 
@@ -506,18 +506,18 @@ static char * gh__get_blob_url(ti_mod_github_t * gh, const char * fn)
 }
 
 static CURLcode gh__download_file(
-        ti_module_t * module,
-        const char * fn,
+        ti_module_t *module,
+        const char *fn,
         mode_t mode)
 {
-    ti_mod_github_t * gh = module->source.github;
+    ti_mod_github_t *gh = module->source.github;
     CURLcode curle_code;
     FILE * fp;
     size_t n,
            path_n = strlen(module->path);
     int ok;
-    const char * pt;
-    char * dest, * url = NULL;
+    const char *pt;
+    char *dest, *url = NULL;
 
     if (!fx_is_dir(module->path) && mkdir(module->path, FX_DEFAULT_DIR_ACCESS))
     {
@@ -586,11 +586,11 @@ cleanup:
     return curle_code;
 }
 
-void ti_mod_github_download(uv_work_t * work)
+void ti_mod_github_download(uv_work_t *work)
 {
-    ti_mod_work_t * data = work->data;
-    ti_mod_manifest_t * manifest = &data->manifest;
-    ti_module_t * module = data->module;
+    ti_mod_work_t *data = work->data;
+    ti_mod_manifest_t *manifest = &data->manifest;
+    ti_module_t *module = data->module;
     CURLcode curle_code;
     mode_t mode = manifest->is_py ? S_IRUSR|S_IWUSR : S_IRWXU;
     const char rtxt[] = "requirements.txt";
@@ -647,11 +647,11 @@ void ti_mod_github_download(uv_work_t * work)
     }
 }
 
-void ti_mod_github_manifest(uv_work_t * work)
+void ti_mod_github_manifest(uv_work_t *work)
 {
-    ti_mod_work_t * data = work->data;
-    ti_module_t * module = data->module;
-    ti_mod_github_t * gh = module->source.github;
+    ti_mod_work_t *data = work->data;
+    ti_module_t *module = data->module;
+    ti_mod_github_t *gh = module->source.github;
     CURLcode curle_code;
 
     curle_code = gh__download_url(
@@ -669,7 +669,7 @@ void ti_mod_github_manifest(uv_work_t * work)
     }
 }
 
-void ti_mod_github_destroy(ti_mod_github_t * gh)
+void ti_mod_github_destroy(ti_mod_github_t *gh)
 {
     if (!gh)
         return;

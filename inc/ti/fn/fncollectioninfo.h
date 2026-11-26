@@ -1,10 +1,10 @@
 #include <ti/fn/fn.h>
 
-static int do__f_collection_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_collection_info(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_collection_t * collection;
-    ti_user_t * user = query->user;
+    ti_collection_t *collection;
+    ti_user_t *user = query->user;
 
     if (fn_not_thingsdb_scope("collection_info", query, e) ||
         fn_nargs("collection_info", DOC_COLLECTION_INFO, 1, nargs, e) ||

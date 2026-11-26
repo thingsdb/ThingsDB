@@ -2,12 +2,12 @@
 
 typedef struct
 {
-    ex_t * e;
-    ti_closure_t * closure;
-    ti_query_t * query;
+    ex_t *e;
+    ti_closure_t *closure;
+    ti_query_t *query;
 } every__walk_t;
 
-static int every__walk_set(ti_thing_t * t, every__walk_t * w)
+static int every__walk_set(ti_thing_t *t, every__walk_t *w)
 {
     _Bool every;
     if (ti_closure_vars_vset(w->closure, t) ||
@@ -25,14 +25,14 @@ static int every__walk_set(ti_thing_t * t, every__walk_t * w)
 }
 
 
-static int do__f_every(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_every(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
-    const char * doc;
+    const char *doc;
     const int nargs = fn_get_nargs(nd);
     _Bool every = true;
     int lock_was_set;
-    ti_val_t * iterval;
-    ti_closure_t * closure;
+    ti_val_t *iterval;
+    ti_closure_t *closure;
 
     doc = doc_every(query->rval);
     if (!doc)
@@ -61,7 +61,7 @@ static int do__f_every(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case TI_VAL_ARR:
     {
         int64_t idx  = 0;
-        vec_t * vec = VARR(iterval);
+        vec_t *vec = VARR(iterval);
 
         for (vec_each(vec, ti_val_t, v), ++idx)
         {

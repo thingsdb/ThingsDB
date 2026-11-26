@@ -56,7 +56,7 @@
 #define TI_VERSION_SYNTAX_STR VERSION__SYNTAX_STR(TI_VERSION_SYNTAX)
 /* end auto generated */
 
-int ti_version_cmp(const char * version_a, const char * version_b);
+int ti_version_cmp(const char *version_a, const char *version_b);
 void ti_version_print(void);
 
 

@@ -97,9 +97,9 @@ static ti_vint_t vint__cache[256] = {
  * Values of i in the range -128-127 do not have to be checked. Other input
  * will be allocated and thus needs to be checked for NULL.
  */
-ti_vint_t * ti_vint_create(int64_t i)
+ti_vint_t *ti_vint_create(int64_t i)
 {
-    ti_vint_t * vint;
+    ti_vint_t *vint;
     if (-(1<<7) <= i && i < 1<<7)
     {
         /* Integer values in the range -128-127 are allocated on the stack */

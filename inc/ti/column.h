@@ -22,9 +22,9 @@ typedef enum
 
 typedef union
 {
-    ti_name_t * idname;
-    ti_field_t * field;
-    ti_method_t * method;
+    ti_name_t *idname;
+    ti_field_t *field;
+    ti_method_t *method;
 } ti_column_via_t;
 
 struct ti_column_s
@@ -33,9 +33,9 @@ struct ti_column_s
     ti_column_via_t via;
 };
 
-ti_column_t * ti_column_idname(ti_name_t * idname);
-ti_column_t * ti_column_field(ti_field_t * field);
-ti_column_t * ti_column_method(ti_method_t * method);
-ti_name_t * ti_column_name(ti_column_t * column);
+ti_column_t *ti_column_idname(ti_name_t *idname);
+ti_column_t *ti_column_field(ti_field_t *field);
+ti_column_t *ti_column_method(ti_method_t *method);
+ti_name_t *ti_column_name(ti_column_t *column);
 
 #endif  /* TI_COLUMN_H_ */

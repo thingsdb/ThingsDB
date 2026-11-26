@@ -13,23 +13,23 @@ typedef struct ti_wrap_s ti_wrap_t;
 #include <util/mpack.h>
 #include <ex.h>
 
-ti_wrap_t * ti_wrap_create(ti_thing_t * thing, uint16_t type_id);
-void ti_wrap_destroy(ti_wrap_t * wrap);
+ti_wrap_t *ti_wrap_create(ti_thing_t *thing, uint16_t type_id);
+void ti_wrap_destroy(ti_wrap_t *wrap);
 int ti__wrap_field_thing(
-        ti_thing_t * thing,
-        ti_vp_t * vp,
+        ti_thing_t *thing,
+        ti_vp_t *vp,
         uint16_t spec,
         int deep,
         int flags);
 int ti_wrap_field_thing_type(
-        ti_thing_t * thing,
-        ti_vp_t * vp,
-        ti_type_t * t_type,
+        ti_thing_t *thing,
+        ti_vp_t *vp,
+        ti_type_t *t_type,
         int deep,
         int flags);
-int ti_wrap_cp(ti_query_t * query, uint8_t deep, ex_t * e);
-int ti_wrap_copy(ti_wrap_t ** wrap, uint8_t deep);
-int ti_wrap_dup(ti_wrap_t ** wrap, uint8_t deep);
+int ti_wrap_cp(ti_query_t *query, uint8_t deep, ex_t *e);
+int ti_wrap_copy(ti_wrap_t **wrap, uint8_t deep);
+int ti_wrap_dup(ti_wrap_t **wrap, uint8_t deep);
 
 struct ti_wrap_s
 {
@@ -37,7 +37,7 @@ struct ti_wrap_s
     uint8_t tp;
     int:8;
     uint16_t type_id;
-    ti_thing_t * thing;     /* with reference */
+    ti_thing_t *thing;     /* with reference */
 };
 
 

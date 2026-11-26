@@ -18,7 +18,7 @@
 #include <ti/vint.h>
 #include <util/vec.h>
 
-static ti_collections_t * collections;
+static ti_collections_t *collections;
 static ti_collections_t collections_;
 
 int ti_collections_create(void)
@@ -86,7 +86,7 @@ int ti_collections_gc(void)
 }
 
 /* futures are not counted; this has to be done outside this function */
-int ti_collections_check_empty(ex_t * e)
+int ti_collections_check_empty(ex_t *e)
 {
     for (vec_each(collections->vec, ti_collection_t, collection))
         if (ti_collection_check_empty(collection, e))
@@ -108,7 +108,7 @@ _Bool ti_collections_del_collection(const uint64_t collection_id)
     return false;
 }
 
-int ti_collections_add_for_collect(ti_collection_t * collection)
+int ti_collections_add_for_collect(ti_collection_t *collection)
 {
     return vec_push(&collections->dropped, collection);
 }
@@ -116,7 +116,7 @@ int ti_collections_add_for_collect(ti_collection_t * collection)
 int ti_collections_gc_collect_dropped(void)
 {
     int rc = 0;
-    ti_collection_t * collection;
+    ti_collection_t *collection;
     while ((collection = vec_pop(collections->dropped)))
     {
         /* stop exiting futures */
@@ -144,17 +144,17 @@ int ti_collections_gc_collect_dropped(void)
     return rc;
 }
 
-ti_collection_t * ti_collections_create_collection(
+ti_collection_t *ti_collections_create_collection(
         uint64_t collection_id,
         uint64_t next_free_id,
-        const char * name,
+        const char *name,
         size_t name_n,
         uint64_t created_at,
-        ti_user_t * user,
-        ex_t * e)
+        ti_user_t *user,
+        ex_t *e)
 {
     guid_t guid;
-    ti_collection_t * collection = NULL;
+    ti_collection_t *collection = NULL;
 
     if (!ti_name_is_valid_strn(name, name_n))
     {
@@ -228,7 +228,7 @@ fail0:
 }
 
 /* returns a weak reference */
-ti_collection_t * ti_collections_get_by_strn(const char * str, size_t n)
+ti_collection_t *ti_collections_get_by_strn(const char *str, size_t n)
 {
     for (vec_each(collections->vec, ti_collection_t, collection))
         if (ti_raw_eq_strn(collection->name, str, n))
@@ -237,7 +237,7 @@ ti_collection_t * ti_collections_get_by_strn(const char * str, size_t n)
 }
 
 /* returns a weak reference */
-ti_collection_t * ti_collections_get_by_id(const uint64_t id)
+ti_collection_t *ti_collections_get_by_id(const uint64_t id)
 {
     for (vec_each(collections->vec, ti_collection_t, collection))
         if (id == collection->id)
@@ -249,9 +249,9 @@ ti_collection_t * ti_collections_get_by_id(const uint64_t id)
  * Returns a weak reference collection based on a ti_val_t.
  * If the collection is not found, then `e` will contain the reason why.
  */
-ti_collection_t * ti_collections_get_by_val(ti_val_t * val, ex_t * e)
+ti_collection_t *ti_collections_get_by_val(ti_val_t *val, ex_t *e)
 {
-    ti_collection_t * collection = NULL;
+    ti_collection_t *collection = NULL;
     switch (val->tp)
     {
     case TI_VAL_NAME:
@@ -293,16 +293,16 @@ ti_collection_t * ti_collections_get_by_val(ti_val_t * val, ex_t * e)
  * is given, only collection info where the user has at least `QUERY` or `RUN`
  * permissions are returned.
  */
-ti_varr_t * ti_collections_info(ti_user_t * user)
+ti_varr_t *ti_collections_info(ti_user_t *user)
 {
-    vec_t * vec = collections->vec;
-    ti_varr_t * varr = ti_varr_create(vec->n);
+    vec_t *vec = collections->vec;
+    ti_varr_t *varr = ti_varr_create(vec->n);
     if (!varr)
         return NULL;
 
     for (vec_each(vec, ti_collection_t, collection))
     {
-        ti_val_t * mpinfo;
+        ti_val_t *mpinfo;
 
         if (user && !ti_access_check_or(
                 collection->access,

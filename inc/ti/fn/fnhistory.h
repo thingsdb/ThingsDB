@@ -1,11 +1,11 @@
 #include <ti/fn/fn.h>
 
-static int do__f_history(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_history(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     ti_commits_options_t options = {0};
     ti_commits_history_t history = {0};
-    vec_t * filtered;
+    vec_t *filtered;
     _Bool detail;
     uint32_t i = 0;
 
@@ -28,7 +28,7 @@ static int do__f_history(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     for (vec_each_addr(filtered, void, commit), i++)
     {
-        ti_val_t * v = ti_commit_as_mpval(*commit, detail);
+        ti_val_t *v = ti_commit_as_mpval(*commit, detail);
         if (!v)
             goto fail;
         *commit = v;

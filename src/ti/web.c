@@ -68,28 +68,28 @@ static uv_buf_t web__uv_ready_buf;
 static uv_tcp_t web__uv_server;
 static http_parser_settings web__settings;
 
-static void web__close_cb(uv_handle_t * handle)
+static void web__close_cb(uv_handle_t *handle)
 {
-    ti_web_request_t * web_request = handle->data;
+    ti_web_request_t *web_request = handle->data;
     free(web_request);
 }
 
 static void web__alloc_cb(
-        uv_handle_t * UNUSED(handle),
+        uv_handle_t *UNUSED(handle),
         size_t UNUSED(sugsz),
-        uv_buf_t * buf)
+        uv_buf_t *buf)
 {
     buf->base = malloc(HTTP_MAX_HEADER_SIZE);
     buf->len = buf->base ? HTTP_MAX_HEADER_SIZE-1 : 0;
 }
 
 static void web__data_cb(
-        uv_stream_t * uvstream,
+        uv_stream_t *uvstream,
         ssize_t n,
-        const uv_buf_t * buf)
+        const uv_buf_t *buf)
 {
     size_t parsed;
-    ti_web_request_t * web_request = uvstream->data;
+    ti_web_request_t *web_request = uvstream->data;
 
     if (web_request->is_closed)
         goto done;
@@ -133,9 +133,9 @@ done:
      free(buf->base);
 }
 
-static uv_buf_t * web__get_status_response(void)
+static uv_buf_t *web__get_status_response(void)
 {
-    ti_node_t * this_node = ti.node;
+    ti_node_t *this_node = ti.node;
 
     if (this_node) switch ((ti_node_status_t) this_node->status)
     {
@@ -156,9 +156,9 @@ static uv_buf_t * web__get_status_response(void)
     return &web__uv_nok_buf;
 }
 
-static uv_buf_t * web__get_ready_response(void)
+static uv_buf_t *web__get_ready_response(void)
 {
-    ti_node_t * this_node = ti.node;
+    ti_node_t *this_node = ti.node;
 
     if (!this_node)
         return &web__uv_nok_buf;
@@ -193,9 +193,9 @@ static uv_buf_t * web__get_ready_response(void)
     return &web__uv_nok_buf;
 }
 
-static int web__url_cb(http_parser * parser, const char * at, size_t length)
+static int web__url_cb(http_parser * parser, const char *at, size_t length)
 {
-    ti_web_request_t * web_request = parser->data;
+    ti_web_request_t *web_request = parser->data;
 
     web_request->response
 
@@ -218,7 +218,7 @@ static int web__url_cb(http_parser * parser, const char * at, size_t length)
     return 0;
 }
 
-static void web__write_cb(uv_write_t * req, int status)
+static void web__write_cb(uv_write_t *req, int status)
 {
     if (status)
         log_error(
@@ -230,7 +230,7 @@ static void web__write_cb(uv_write_t * req, int status)
 
 static int web__message_complete_cb(http_parser * parser)
 {
-    ti_web_request_t * web_request = parser->data;
+    ti_web_request_t *web_request = parser->data;
 
     (void) uv_write(
             &web_request->req,
@@ -244,10 +244,10 @@ static int web__message_complete_cb(http_parser * parser)
     return 0;
 }
 
-static void web__connection_cb(uv_stream_t * server, int status)
+static void web__connection_cb(uv_stream_t *server, int status)
 {
     int rc;
-    ti_web_request_t * web_request;
+    ti_web_request_t *web_request;
 
     if (status < 0)
     {
@@ -340,7 +340,7 @@ int ti_web_init(void)
     return 0;
 }
 
-void ti_web_close(ti_web_request_t * web_request)
+void ti_web_close(ti_web_request_t *web_request)
 {
     if (!web_request || web_request->is_closed)
         return;

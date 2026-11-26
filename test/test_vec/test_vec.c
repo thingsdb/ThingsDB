@@ -3,7 +3,7 @@
 
 
 static const unsigned int num_entries = 8;
-static char * entries[] = {
+static char *entries[] = {
     "Zero",
     "First entry",
     "Second entry",
@@ -15,7 +15,7 @@ static char * entries[] = {
 };
 
 
-static void push_entries(vec_t ** v)
+static void push_entries(vec_t **v)
 {
     for (size_t i = 0; i < num_entries; i++)
     {
@@ -28,7 +28,7 @@ int main()
 {
     test_start("vec");
 
-    vec_t * v = vec_new(0);
+    vec_t *v = vec_new(0);
 
     _assert (v);
 
@@ -65,7 +65,7 @@ int main()
 
     /* test dup */
     {
-        vec_t * cp;
+        vec_t *cp;
         _assert ((cp = vec_dup(v)) != NULL);
         _assert (cp->n == num_entries);
         _assert (cp->sz == num_entries);
@@ -99,7 +99,7 @@ int main()
     /* test vec_each loop */
     {
         push_entries(&v); /* restore some points */
-        char ** e = entries;
+        char **e = entries;
         size_t n = 0;
         for (vec_each(v, char, s), n++, e++)
         {
@@ -111,7 +111,7 @@ int main()
     /* test vec_remove loop */
     {
         vec_remove(v, 4);
-        char ** e = entries;
+        char **e = entries;
         size_t n = 0;
 
         _assert (v->n == num_entries - 1);

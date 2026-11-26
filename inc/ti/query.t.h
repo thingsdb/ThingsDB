@@ -5,7 +5,7 @@
 #define TI_QUERY_T_H_
 
 typedef struct ti_query_s ti_query_t;
-typedef int (*ti_query_vars_walk_cb)(void * data, void * arg);
+typedef int (*ti_query_vars_walk_cb)(void *data, void *arg);
 
 #include <cleri/cleri.h>
 #include <ti/api.t.h>
@@ -61,16 +61,16 @@ typedef void (*ti_query_run_cb) (ti_query_t *);
 
 typedef union
 {
-    ti_stream_t * stream;               /* with reference */
-    ti_api_request_t * api_request;     /* with ownership of the api_request */
+    ti_stream_t *stream;               /* with reference */
+    ti_api_request_t *api_request;     /* with ownership of the api_request */
 } ti_query_via_t;
 
 typedef union
 {
-    cleri_parse_t * parseres;   /* parse result */
-    ti_closure_t * closure;     /* when called as procedure */
-    ti_future_t * future;       /* when called as future->then */
-    ti_vtask_t * vtask;         /* when called as task */
+    cleri_parse_t *parseres;   /* parse result */
+    ti_closure_t *closure;     /* when called as procedure */
+    ti_future_t *future;       /* when called as future->then */
+    ti_vtask_t *vtask;         /* when called as task */
 } ti_query_with_t;
 
 struct ti_query_s
@@ -80,20 +80,20 @@ struct ti_query_s
     uint8_t with_tp;            /* one of ti_query_with_enum */
     uint8_t flags;
     ti_qbind_t qbind;               /* query binding */
-    ti_val_t * rval;                /* return value of a statement */
-    ti_collection_t * collection;   /* with reference, NULL when the scope is
+    ti_val_t *rval;                /* return value of a statement */
+    ti_collection_t *collection;   /* with reference, NULL when the scope is
                                      * @node or @thingsdb
                                      */
     ti_query_with_t with;
     ti_query_via_t via;         /* with reference */
-    ti_user_t * user;           /* with reference, required in case stream
+    ti_user_t *user;           /* with reference, required in case stream
                                    is a node stream */
-    vec_t * vars;               /* ti_prop_t - variable */
-    ti_change_t * change;       /* with reference, only when a change is
+    vec_t *vars;               /* ti_prop_t - variable */
+    ti_change_t *change;       /* with reference, only when a change is
                                    required otherwise NULL
                                 */
-    ti_commit_t * commit;             /* NULL if no migration change */
-    vec_t * immutable_cache;    /* ti_val_t, Only for immutable and collection
+    ti_commit_t *commit;             /* NULL if no migration change */
+    vec_t *immutable_cache;    /* ti_val_t, Only for immutable and collection
                                    independent variable and temporary used for
                                    procedures to populate the closure arguments
                                 */

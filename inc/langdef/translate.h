@@ -6,6 +6,6 @@
 
 #include <cleri/cleri.h>
 
-const char * langdef_translate(cleri_t * elem);
+const char *langdef_translate(cleri_t *elem);
 
 #endif  /* LANGDEF_TRANSLATE_H_ */

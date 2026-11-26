@@ -18,7 +18,7 @@ struct ti_cpkg_s
 {
     uint32_t ref;
     uint32_t flags;     /* required for alignment with ti_rpkg_t */
-    ti_pkg_t * pkg;     /* must align with ti_rpkg_t             */
+    ti_pkg_t *pkg;     /* must align with ti_rpkg_t             */
     uint64_t change_id;
 };
 

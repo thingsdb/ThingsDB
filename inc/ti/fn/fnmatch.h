@@ -2,14 +2,14 @@
 
 
 static int do__f_match_all(
-        ti_query_t * query,
-        ti_regex_t * regex,
-        ti_raw_t * vstr,
-        ex_t * e)
+        ti_query_t *query,
+        ti_regex_t *regex,
+        ti_raw_t *vstr,
+        ex_t *e)
 {
     int rc;
     size_t pos = 0;
-    ti_varr_t * arr = ti_varr_create(0);
+    ti_varr_t *arr = ti_varr_create(0);
     if (!arr)
     {
         ex_set_mem(e);
@@ -24,7 +24,7 @@ static int do__f_match_all(
             regex->match_data,
             NULL)) >= 0)
     {
-        ti_raw_t * substr;
+        ti_raw_t *substr;
         PCRE2_SIZE * ovector = pcre2_get_ovector_pointer(regex->match_data);
         PCRE2_SPTR pt = vstr->data + ovector[0];
         PCRE2_SIZE n =  ovector[1] - ovector[0];
@@ -48,12 +48,12 @@ fail0:
     return e->nr;
 }
 
-static int do__f_match(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_match(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_regex_t * regex;
-    ti_raw_t * vstr;
-    ti_varr_t * arr;
+    ti_regex_t *regex;
+    ti_raw_t *vstr;
+    ti_varr_t *arr;
     int rc, i;
     PCRE2_SIZE * ovector;
 
@@ -112,7 +112,7 @@ static int do__f_match(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     for (i = 0; i < rc; i++)
     {
-        ti_raw_t * substr;
+        ti_raw_t *substr;
         PCRE2_SPTR pt = vstr->data + ovector[2*i];
         PCRE2_SIZE n =  ovector[2*i+1] - ovector[2*i];
 

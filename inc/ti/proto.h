@@ -6,6 +6,6 @@
 
 #include <ti/proto.t.h>
 
-const char * ti_proto_str(ti_proto_enum_t tp);
+const char *ti_proto_str(ti_proto_enum_t tp);
 
 #endif /* TI_PROTO_H_ */

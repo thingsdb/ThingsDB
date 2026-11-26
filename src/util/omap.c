@@ -5,12 +5,12 @@
 #include <stdlib.h>
 #include <util/omap.h>
 
-static void * omap__rm(omap_t * omap, omap__t ** omap_);
-static omap__t * omap__new(uint64_t id, void * data, omap__t * next);
+static void *omap__rm(omap_t *omap, omap__t **omap_);
+static omap__t *omap__new(uint64_t id, void *data, omap__t *next);
 
-omap_t * omap_create(void)
+omap_t *omap_create(void)
 {
-    omap_t * omap = malloc(sizeof(omap_t));
+    omap_t *omap = malloc(sizeof(omap_t));
     if (!omap)
         return NULL;
 
@@ -20,13 +20,13 @@ omap_t * omap_create(void)
     return omap;
 }
 
-void omap_destroy(omap_t * omap, omap_destroy_cb cb)
+void omap_destroy(omap_t *omap, omap_destroy_cb cb)
 {
     if (!omap)
         return;
-    omap__t * cur = (omap__t *) omap;
+    omap__t *cur = (omap__t *) omap;
 
-    for (omap__t * tmp; (tmp = cur->next_); cur = tmp)
+    for (omap__t *tmp; (tmp = cur->next_); cur = tmp)
     {
         if (cb)
             (*cb)(tmp->data_);
@@ -35,9 +35,9 @@ void omap_destroy(omap_t * omap, omap_destroy_cb cb)
     free(cur);
 }
 
-void omap_clear(omap_t * omap, omap_destroy_cb cb)
+void omap_clear(omap_t *omap, omap_destroy_cb cb)
 {
-    omap__t * cur = omap->next_;
+    omap__t *cur = omap->next_;
 
     /* first reset everything to zero to prevent recursive usage */
     omap->next_ = NULL;
@@ -45,7 +45,7 @@ void omap_clear(omap_t * omap, omap_destroy_cb cb)
 
     while(cur)
     {
-        omap__t * next = cur->next_;
+        omap__t *next = cur->next_;
         if (cb)
             (*cb)(cur->data_);
         free(cur);
@@ -58,11 +58,11 @@ void omap_clear(omap_t * omap, omap_destroy_cb cb)
  * will NOT be overwritten. On success the return value is OMAP_SUCCESS and
  * if a memory error has occurred the return value is OMAP_ERR_ALLOC.
  */
-int omap_add(omap_t * omap, uint64_t id, void * data)
+int omap_add(omap_t *omap, uint64_t id, void *data)
 {
     assert(omap);
     assert(data);
-    omap__t * cur, * tmp;
+    omap__t *cur, *tmp;
 
     for (   cur = (omap__t *) omap;
             cur->next_ && cur->next_->id_ < id;
@@ -86,11 +86,11 @@ int omap_add(omap_t * omap, uint64_t id, void * data)
  * will be overwritten. On success the return value is equal to void*data and
  * if a memory error has occurred the return value is NULL.
  */
-void * omap_set(omap_t * omap, uint64_t id, void * data)
+void *omap_set(omap_t *omap, uint64_t id, void *data)
 {
     assert(omap);
     assert(data);
-    omap__t * cur, * tmp;
+    omap__t *cur, *tmp;
 
     for (   cur = (omap__t *) omap;
             cur->next_ && cur->next_->id_ < id;
@@ -98,7 +98,7 @@ void * omap_set(omap_t * omap, uint64_t id, void * data)
 
     if (cur->next_ && cur->next_->id_ == id)
     {
-        void * prev = cur->next_->data_;
+        void *prev = cur->next_->data_;
         cur->next_->data_ = data;
         return prev;
     }
@@ -113,27 +113,27 @@ void * omap_set(omap_t * omap, uint64_t id, void * data)
     return data;
 }
 
-void * omap_get(omap_t * omap, uint64_t id)
+void *omap_get(omap_t *omap, uint64_t id)
 {
-    omap__t * cur = (omap__t *) omap;
+    omap__t *cur = (omap__t *) omap;
     while ((cur = cur->next_) && cur->id_ < id);
 
     return cur && cur->id_ == id ? cur->data_ : NULL;
 }
 
-void * omap_rm(omap_t * omap, uint64_t id)
+void *omap_rm(omap_t *omap, uint64_t id)
 {
-    omap__t * cur, * prev = (omap__t *) omap;
+    omap__t *cur, *prev = (omap__t *) omap;
     while ((cur = prev->next_) && cur->id_ < id)
         prev = cur;
 
     return cur && cur->id_ == id ? omap__rm(omap, &prev->next_) : NULL;
 }
 
-static void * omap__rm(omap_t * omap, omap__t ** omap_)
+static void *omap__rm(omap_t *omap, omap__t **omap_)
 {
-    omap__t * cur = *omap_;
-    void * data = cur->data_;
+    omap__t *cur = *omap_;
+    void *data = cur->data_;
     *omap_ = cur->next_;
 
     free(cur);
@@ -142,9 +142,9 @@ static void * omap__rm(omap_t * omap, omap__t ** omap_)
     return data;
 }
 
-static omap__t * omap__new(uint64_t id, void * data, omap__t * next)
+static omap__t *omap__new(uint64_t id, void *data, omap__t *next)
 {
-    omap__t * omap = malloc(sizeof(omap__t));
+    omap__t *omap = malloc(sizeof(omap__t));
     if (!omap)
         return NULL;
 

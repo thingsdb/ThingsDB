@@ -9,9 +9,9 @@
 #include <util/smap.h>
 #include <util/mpack.h>
 
-static inline int names__write_cb(ti_name_t * name, msgpack_packer * pk);
+static inline int names__write_cb(ti_name_t *name, msgpack_packer *pk);
 
-int ti_store_names_store(const char * fn)
+int ti_store_names_store(const char *fn)
 {
     msgpack_packer pk;
     FILE * f = fopen(fn, "w");
@@ -42,15 +42,15 @@ done:
     return 0;
 }
 
-imap_t * ti_store_names_restore(const char * fn)
+imap_t *ti_store_names_restore(const char *fn)
 {
     size_t i;
     ssize_t n;
     mp_obj_t obj, mp_uintptr, mp_name;
     mp_unp_t up;
-    ti_name_t * name;
-    imap_t * namesmap = imap_create();
-    uchar * data = fx_read(fn, &n);
+    ti_name_t *name;
+    imap_t *namesmap = imap_create();
+    uchar *data = fx_read(fn, &n);
     if (!data || !namesmap)
         goto fail;
 
@@ -82,7 +82,7 @@ done:
     return namesmap;
 }
 
-static inline int names__write_cb(ti_name_t * name, msgpack_packer * pk)
+static inline int names__write_cb(ti_name_t *name, msgpack_packer *pk)
 {
     uintptr_t p = (uintptr_t) name;
     return name->str[0] == '$' ? 0 : (

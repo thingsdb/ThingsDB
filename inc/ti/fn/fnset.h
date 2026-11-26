@@ -1,6 +1,6 @@
 #include <ti/fn/fn.h>
 
-static int do__f_set_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_set_new(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
 
@@ -14,8 +14,8 @@ static int do__f_set_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs)
     {
-        cleri_node_t * child = nd->children;
-        ti_vset_t * vset = ti_vset_create();
+        cleri_node_t *child = nd->children;
+        ti_vset_t *vset = ti_vset_create();
 
         if (!vset)
         {
@@ -49,12 +49,12 @@ static int do__f_set_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
-static int do__f_set_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_set_thing(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     ti_witem_t witem;
-    ti_thing_t * thing;
-    ti_raw_t * rname;
+    ti_thing_t *thing;
+    ti_raw_t *rname;
 
     if (fn_nargs("set", DOC_THING_SET, 2, nargs, e) ||
         ti_query_test_thing_operation(query, e) ||
@@ -84,7 +84,7 @@ static int do__f_set_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (thing->id)
     {
-        ti_task_t * task = ti_task_get_task(query->change, thing);
+        ti_task_t *task = ti_task_get_task(query->change, thing);
         if (!task || ti_task_add_set(task, witem.key, *witem.val))
         {
             ex_set_mem(e);
@@ -100,11 +100,11 @@ fail0:
     return e->nr;
 }
 
-static int do__f_set_dict(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_set_dict(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_dict_t * dict;
-    ti_val_t * key;
+    ti_dict_t *dict;
+    ti_val_t *key;
 
     if (fn_nargs("set", DOC_DICT_SET, 2, nargs, e) ||
         ti_query_test_dict_operation(query, e) ||
@@ -126,7 +126,7 @@ static int do__f_set_dict(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (dict->parent && dict->parent->id)
     {
-        ti_task_t * task = ti_task_get_task(query->change, dict->parent);
+        ti_task_t *task = ti_task_get_task(query->change, dict->parent);
         if (!task || ti_task_add_dict_set(task,
                                           ti_dict_key(dict),
                                           key,
@@ -145,7 +145,7 @@ fail0:
     return e->nr;
 }
 
-static inline int do__f_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static inline int do__f_set(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     return !query->rval
             ? do__f_set_new(query, nd, e)

@@ -4,13 +4,13 @@ typedef struct
 {
     _Bool * take_access;
     _Bool * restore_tasks;
-    ex_t * e;
+    ex_t *e;
 } restore__walk_t;
 
 static int do__restore_option(
-        ti_raw_t * key,
-        ti_val_t * val,
-        restore__walk_t * w)
+        ti_raw_t *key,
+        ti_val_t *val,
+        restore__walk_t *w)
 {
     if (ti_raw_eq_strn(key, "take_access", 11))
     {
@@ -47,17 +47,17 @@ static int do__restore_option(
     return w->e->nr;
 }
 
-static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_restore(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    char * restore_task;
+    char *restore_task;
     _Bool take_access = false;
     _Bool restore_tasks = false;
     uint32_t n;
     uint64_t ccid, scid;
-    ti_task_t * task;
-    ti_raw_t * rname;
-    ti_node_t * node;
+    ti_task_t *task;
+    ti_raw_t *rname;
+    ti_node_t *node;
 
     if (fn_not_thingsdb_scope("restore", query, e) ||
         ti_access_check_err(
@@ -73,7 +73,7 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs == 2)
     {
-        ti_thing_t * thing;
+        ti_thing_t *thing;
 
         if (ti_do_statement(query, nd->children->next->next, e) ||
             fn_arg_thing("restore", DOC_RESTORE, 2, query->rval, e))

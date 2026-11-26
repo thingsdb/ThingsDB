@@ -10,7 +10,7 @@
 #include <ti/wano.t.h>
 #include <ti/wrap.h>
 
-static inline ti_raw_t * ti_wano_str(ti_wano_t * wano)
+static inline ti_raw_t *ti_wano_str(ti_wano_t *wano)
 {
     return wano->thing->id
         ? ti_str_from_fmt(TI_VAL_WANO_S":%"PRIu64, wano->thing->id)
@@ -18,8 +18,8 @@ static inline ti_raw_t * ti_wano_str(ti_wano_t * wano)
 }
 
 static inline int ti_wano_to_client_pk(
-        ti_wano_t * wano,
-        ti_vp_t * vp,
+        ti_wano_t *wano,
+        ti_vp_t *vp,
         int deep,
         int flags)
 {
@@ -30,7 +30,7 @@ static inline int ti_wano_to_client_pk(
         : ti_thing_id_to_client_pk(wano->thing, &vp->pk);
 }
 
-static inline int ti_wano_to_store_pk(ti_wano_t * wano, msgpack_packer * pk)
+static inline int ti_wano_to_store_pk(ti_wano_t *wano, msgpack_packer *pk)
 {
     return -(
             msgpack_pack_map(pk, 1) ||

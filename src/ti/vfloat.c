@@ -12,9 +12,9 @@ static ti_vfloat_t vfloat__0 = {
         .float_ = 0.0,
 };
 
-ti_vfloat_t * ti_vfloat_create(double d)
+ti_vfloat_t *ti_vfloat_create(double d)
 {
-    ti_vfloat_t * vfloat;
+    ti_vfloat_t *vfloat;
     if (!d)
     {
         vfloat = &vfloat__0;

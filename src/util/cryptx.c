@@ -46,17 +46,17 @@ static const unsigned int END = CRYPTX_SZ - 1;
  *  }
  *
  * Parameters:
- *  const char * password: must be a terminated string
- *  const char * salt: must be a string with at least a length OWCRYPT_SALT_SZ.
- *  char * encrypted: must be able to hold at least CRYPTX_SZ chars and will
+ *  const char *password: must be a terminated string
+ *  const char *salt: must be a string with at least a length OWCRYPT_SALT_SZ.
+ *  char *encrypted: must be able to hold at least CRYPTX_SZ chars and will
  *                    be a null terminated string. (CRYPTX_SZ - 1 is the actual
  *                    length)
  */
-void cryptx(const char * password, const char * salt, char * encrypted)
+void cryptx(const char *password, const char *salt, char *encrypted)
 {
     unsigned int i, j, c;
     unsigned long int k, t;
-    unsigned const char * p, * w;
+    unsigned const char *p, *w;
 
     memset(encrypted, 0, CRYPTX_SZ);
 
@@ -93,7 +93,7 @@ void cryptx(const char * password, const char * salt, char * encrypted)
 /*
  * Generate a random salt.
  */
-void cryptx_gen_salt(char * salt)
+void cryptx_gen_salt(char *salt)
 {
     int i;
     for (i = 0; i < CRYPTX_SALT_SZ - 2; i++)

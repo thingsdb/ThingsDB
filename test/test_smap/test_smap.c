@@ -2,7 +2,7 @@
 #include <util/smap.h>
 
 static const unsigned int num_entries = 15;
-static char * entries[] = {
+static char *entries[] = {
     "Zero",
     "First entry",
     "Second entry",
@@ -21,10 +21,10 @@ static char * entries[] = {
 };
 
 static int test_item_cb(
-        const char * key,
+        const char *key,
         size_t n,
-        void * data,
-        void * arg)
+        void *data,
+        void *arg)
 {
     /* test if n is at least > 0 */
     _assert (n > 0);
@@ -36,25 +36,25 @@ static int test_item_cb(
     _assert (strncmp(key, data, n) == 0);
 
     /* increment counter */
-    unsigned int * i = (unsigned int *) arg;
+    unsigned int *i = (unsigned int *) arg;
     (*i)++;
 
     return 0;
 }
 
 static int test_item_stop_cb(
-        const char * key __attribute__((unused)),
+        const char *key __attribute__((unused)),
         size_t n __attribute__((unused)),
-        void * data,
-        void * arg)
+        void *data,
+        void *arg)
 {
-    int * i = (int *) arg;
+    int *i = (int *) arg;
     return (data == entries[*i]) ? *i : 0;
 }
 
 static int test_val_cb(
-        void * data,
-        void * arg)
+        void *data,
+        void *arg)
 {
     unsigned int n;
     for (n = 0; n < num_entries; n++)
@@ -63,17 +63,17 @@ static int test_val_cb(
     }
 
     /* increment counter */
-    unsigned int * i = (unsigned int *) arg;
+    unsigned int *i = (unsigned int *) arg;
     (*i) += n;
 
     return 0;
 }
 
 static int test_val_stop_cb(
-        void * data,
-        void * arg)
+        void *data,
+        void *arg)
 {
-    int * i = (int *) arg;
+    int *i = (int *) arg;
     return (data == entries[*i]) ? *i : 0;
 }
 
@@ -81,7 +81,7 @@ int main()
 {
     test_start("smap");
 
-    smap_t * smap = smap_create();
+    smap_t *smap = smap_create();
 
     _assert (smap);
 

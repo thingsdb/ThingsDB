@@ -1,9 +1,9 @@
 #include <ti/fn/fn.h>
 
-static int do__f_move(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_move(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_datetime_t * dt;
+    ti_datetime_t *dt;
     datetime_unit_e unit;
     int64_t num;
 

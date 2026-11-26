@@ -13,9 +13,9 @@
 #include <ti/val.h>
 #include <ti/val.inline.h>
 
-ti_enums_t * ti_enums_create(ti_collection_t * collection)
+ti_enums_t *ti_enums_create(ti_collection_t *collection)
 {
-    ti_enums_t * enums = malloc(sizeof(ti_enums_t));
+    ti_enums_t *enums = malloc(sizeof(ti_enums_t));
     if (!enums)
         return NULL;
 
@@ -32,7 +32,7 @@ ti_enums_t * ti_enums_create(ti_collection_t * collection)
     return enums;
 }
 
-void ti_enums_destroy(ti_enums_t * enums)
+void ti_enums_destroy(ti_enums_t *enums)
 {
     if (!enums)
         return;
@@ -42,7 +42,7 @@ void ti_enums_destroy(ti_enums_t * enums)
     free(enums);
 }
 
-int ti_enums_add(ti_enums_t * enums, ti_enum_t * enum_)
+int ti_enums_add(ti_enums_t *enums, ti_enum_t *enum_)
 {
     if (imap_add(enums->imap, enum_->enum_id, enum_))
         return -1;
@@ -56,9 +56,9 @@ int ti_enums_add(ti_enums_t * enums, ti_enum_t * enum_)
     return 0;
 }
 
-int ti_enums_rename(ti_enums_t * enums, ti_enum_t * enum_, ti_raw_t * nname)
+int ti_enums_rename(ti_enums_t *enums, ti_enum_t *enum_, ti_raw_t *nname)
 {
-    char * name = strndup((const char *) nname->data, nname->n);
+    char *name = strndup((const char *) nname->data, nname->n);
     if (!name || smap_add(enums->smap, name, enum_))
         return -1;
 
@@ -83,7 +83,7 @@ int ti_enums_rename(ti_enums_t * enums, ti_enum_t * enum_, ti_raw_t * nname)
     return 0;
 }
 
-static int enums__del(ti_thing_t * thing, uint16_t * spec)
+static int enums__del(ti_thing_t *thing, uint16_t *spec)
 {
     if (ti_thing_is_object(thing) &&
             (thing->via.spec & TI_SPEC_MASK_NILLABLE) == *spec)
@@ -91,10 +91,10 @@ static int enums__del(ti_thing_t * thing, uint16_t * spec)
     return 0;
 }
 
-void ti_enums_del(ti_enums_t * enums, ti_enum_t * enum_, vec_t * vars)
+void ti_enums_del(ti_enums_t *enums, ti_enum_t *enum_, vec_t *vars)
 {
     uint16_t spec = enum_->enum_id | TI_ENUM_ID_FLAG;
-    ti_collection_t * collection = enums->collection;
+    ti_collection_t *collection = enums->collection;
 
     if (vars)
         ti_query_vars_walk(vars, collection, (imap_cb) enums__del, &spec);
@@ -106,7 +106,7 @@ void ti_enums_del(ti_enums_t * enums, ti_enum_t * enum_, vec_t * vars)
     (void) smap_pop(enums->smap, enum_->name);
 }
 
-uint16_t ti_enums_get_new_id(ti_enums_t * enums, ex_t * e)
+uint16_t ti_enums_get_new_id(ti_enums_t *enums, ex_t *e)
 {
     uint16_t enum_id = imap_unused_id(enums->imap, TI_ENUM_ID_MASK);
     if (enum_id == TI_ENUM_ID_MASK)
@@ -116,18 +116,18 @@ uint16_t ti_enums_get_new_id(ti_enums_t * enums, ex_t * e)
     return enum_id;
 }
 
-static int enums__pack_enum(ti_enum_t * enum_, ti_varr_t * varr)
+static int enums__pack_enum(ti_enum_t *enum_, ti_varr_t *varr)
 {
-    ti_val_t * mpinfo = ti_enum_as_mpval(enum_);
+    ti_val_t *mpinfo = ti_enum_as_mpval(enum_);
     if (!mpinfo)
         return -1;
     VEC_push(varr->vec, mpinfo);
     return 0;
 }
 
-ti_varr_t * ti_enums_info(ti_enums_t * enums)
+ti_varr_t *ti_enums_info(ti_enums_t *enums)
 {
-    ti_varr_t * varr = ti_varr_create(enums->imap->n);
+    ti_varr_t *varr = ti_varr_create(enums->imap->n);
     if (!varr)
         return NULL;
 
@@ -140,7 +140,7 @@ ti_varr_t * ti_enums_info(ti_enums_t * enums)
     return varr;
 }
 
-int ti_enums_to_pk(ti_enums_t * enums, ti_vp_t * vp)
+int ti_enums_to_pk(ti_enums_t *enums, ti_vp_t *vp)
 {
     return (
         msgpack_pack_array(&vp->pk, enums->imap->n) ||

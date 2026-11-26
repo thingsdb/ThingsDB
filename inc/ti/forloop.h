@@ -10,34 +10,34 @@
 #include <ti/query.h>
 
 int ti_forloop_no_iter(
-        ti_query_t * query,
-        cleri_node_t * vars_nd,
-        cleri_node_t * code_nd,
-        ex_t * e);
+        ti_query_t *query,
+        cleri_node_t *vars_nd,
+        cleri_node_t *code_nd,
+        ex_t *e);
 
 int ti_forloop_arr(
-        ti_query_t * query,
-        cleri_node_t * vars_nd,
-        cleri_node_t * code_nd,
-        ex_t * e);
+        ti_query_t *query,
+        cleri_node_t *vars_nd,
+        cleri_node_t *code_nd,
+        ex_t *e);
 
 int ti_forloop_set(
-        ti_query_t * query,
-        cleri_node_t * vars_nd,
-        cleri_node_t * code_nd,
-        ex_t * e);
+        ti_query_t *query,
+        cleri_node_t *vars_nd,
+        cleri_node_t *code_nd,
+        ex_t *e);
 
 int ti_forloop_dict(
-        ti_query_t * query,
-        cleri_node_t * vars_nd,
-        cleri_node_t * code_nd,
-        ex_t * e);
+        ti_query_t *query,
+        cleri_node_t *vars_nd,
+        cleri_node_t *code_nd,
+        ex_t *e);
 
 int ti_forloop_thing(
-        ti_query_t * query,
-        cleri_node_t * vars_nd,
-        cleri_node_t * code_nd,
-        ex_t * e);
+        ti_query_t *query,
+        cleri_node_t *vars_nd,
+        cleri_node_t *code_nd,
+        ex_t *e);
 
 typedef int (*ti_forloop_t) (
         ti_query_t *,
@@ -75,10 +75,10 @@ static const ti_forloop_t ti_forloop_callbacks[26] = {
 };
 
 static inline int ti_forloop_call(
-        ti_query_t * query,
-        cleri_node_t * vars_nd,
-        cleri_node_t * code_nd,
-        ex_t * e)
+        ti_query_t *query,
+        cleri_node_t *vars_nd,
+        cleri_node_t *code_nd,
+        ex_t *e)
 {
     return ti_forloop_callbacks[query->rval->tp](query, vars_nd, code_nd, e);
 }

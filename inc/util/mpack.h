@@ -30,20 +30,20 @@ typedef enum
 
 typedef struct
 {
-    const unsigned char * data;
+    const unsigned char *data;
     uint32_t n;
 } mp_bin_t;
 
 /* use only when UTF8 is guaranteed */
 typedef struct
 {
-    const char * data;
+    const char *data;
     uint32_t n;
 } mp_str_t;
 
 typedef struct
 {
-    const unsigned char * data;
+    const unsigned char *data;
     uint32_t n;
     int8_t tp;  /* must be last for alignment of the above */
     long:24;
@@ -81,8 +81,8 @@ typedef enum
 
 typedef struct
 {
-    const char * pt;
-    const char * end;
+    const char *pt;
+    const char *end;
 } mp_unp_t;
 
 typedef struct
@@ -91,7 +91,7 @@ typedef struct
     mp_via_t via;
 } mp_obj_t;
 
-static inline const char * __attribute__((unused))mp_type_str(mp_enum_t tp)
+static inline const char *__attribute__((unused))mp_type_str(mp_enum_t tp)
 {
     switch (tp)
     {
@@ -133,11 +133,11 @@ static inline int mp_sbuffer_alloc_init(
     return alloc != size && buffer->data == NULL;
 }
 
-static int __attribute__((unused))__attribute__((format(printf, 2, 3)))mp_pack_fmt(msgpack_packer * x, const char * fmt, ...)
+static int __attribute__((unused))__attribute__((format(printf, 2, 3)))mp_pack_fmt(msgpack_packer *x, const char *fmt, ...)
 {
     int rc, n;
     va_list args1, args2;
-    char * body;
+    char *body;
     char buffer[255];
 
     va_start(args1, fmt);
@@ -166,22 +166,22 @@ static int __attribute__((unused))__attribute__((format(printf, 2, 3)))mp_pack_f
     return rc;
 }
 
-static int __attribute__((unused))mp_pack_bool(msgpack_packer * x, _Bool b)
+static int __attribute__((unused))mp_pack_bool(msgpack_packer *x, _Bool b)
 {
     return b ? msgpack_pack_true(x) : msgpack_pack_false(x);
 }
 
-static int __attribute__((unused))mp_pack_bin(msgpack_packer * x, const void * b, size_t n)
+static int __attribute__((unused))mp_pack_bin(msgpack_packer *x, const void *b, size_t n)
 {
     return msgpack_pack_bin(x, n) || (n && msgpack_pack_bin_body(x, b, n));
 }
 
-static int __attribute__((unused))mp_pack_strn(msgpack_packer * x, const void * s, size_t n)
+static int __attribute__((unused))mp_pack_strn(msgpack_packer *x, const void *s, size_t n)
 {
     return msgpack_pack_str(x, n) || (n && msgpack_pack_str_body(x, s, n));
 }
 
-static int __attribute__((unused))mp_pack_ext(msgpack_packer * x, mpack_ext_t ext, const void * s, size_t n)
+static int __attribute__((unused))mp_pack_ext(msgpack_packer *x, mpack_ext_t ext, const void *s, size_t n)
 {
     return msgpack_pack_ext(x, n, ext) || (n && msgpack_pack_ext_body(x, s, n));
 }
@@ -200,7 +200,7 @@ static int __attribute__((unused))mp_pack_ext(msgpack_packer * x, mpack_ext_t ex
 #define mp_pack_append(pk__, s__, n__) \
     (*(pk__)->callback)((pk__)->data, (const char*)s__, n__)
 
-static inline void mp_unp_init(mp_unp_t * up, const void * data, size_t n)
+static inline void mp_unp_init(mp_unp_t *up, const void *data, size_t n)
 {
     up->pt = data;
     up->end = up->pt + n;
@@ -279,7 +279,7 @@ do { \
     ++up__->pt; \
 } while(0)
 
-static mp_enum_t __attribute__((unused))mp_next(mp_unp_t * up, mp_obj_t * o)
+static mp_enum_t __attribute__((unused))mp_next(mp_unp_t *up, mp_obj_t *o)
 {
     unsigned char token;
 
@@ -506,7 +506,7 @@ static mp_enum_t __attribute__((unused))mp_next(mp_unp_t * up, mp_obj_t * o)
     return (o->tp = MP_ERR);
 }
 
-static mp_enum_t __attribute__((unused))mp_skip(mp_unp_t * up)
+static mp_enum_t __attribute__((unused))mp_skip(mp_unp_t *up)
 {
     if (up->pt >= up->end)
         return MP_END;
@@ -676,9 +676,9 @@ static mp_enum_t __attribute__((unused))mp_skip(mp_unp_t * up)
     return MP_ERR;
 }
 
-static _Bool __attribute__((unused))mp_skip_nil(mp_unp_t * up)
+static _Bool __attribute__((unused))mp_skip_nil(mp_unp_t *up)
 {
-    const char * keep = up->pt;
+    const char *keep = up->pt;
     mp_enum_t tp = mp_skip(up);
     if (tp == MP_NIL)
         return true;
@@ -686,7 +686,7 @@ static _Bool __attribute__((unused))mp_skip_nil(mp_unp_t * up)
     return false;
 }
 
-static void __attribute__((unused))mp_print_up(FILE * out, mp_unp_t * up)
+static void __attribute__((unused))mp_print_up(FILE * out, mp_unp_t *up)
 {
     mp_obj_t obj;
     switch (mp_next(up, &obj))
@@ -716,7 +716,7 @@ static void __attribute__((unused))mp_print_up(FILE * out, mp_unp_t * up)
         return;
     case MP_STR:
         putc('"', out);
-        for (const char * c = obj.via.str.data,
+        for (const char *c = obj.via.str.data,
                         * e = obj.via.str.data + obj.via.str.n;
              c < e;
              ++c)
@@ -774,21 +774,21 @@ static void __attribute__((unused))mp_print_up(FILE * out, mp_unp_t * up)
     }
 }
 
-static void __attribute__((unused))mp_print(FILE * out, const void * data, size_t n)
+static void __attribute__((unused))mp_print(FILE * out, const void *data, size_t n)
 {
     mp_unp_t up;
     mp_unp_init(&up, data, n);
     mp_print_up(out, &up);
 }
 
-static _Bool __attribute__((unused))mp_is_valid(const void * data, size_t n)
+static _Bool __attribute__((unused))mp_is_valid(const void *data, size_t n)
 {
     mp_unp_t up;
     mp_unp_init(&up, data, n);
     return mp_skip(&up) > MP_END && mp_skip(&up) == MP_END;
 }
 
-static inline int mp_cast_u64(mp_obj_t * o)
+static inline int mp_cast_u64(mp_obj_t *o)
 {
     if (o->tp == MP_U64)
         return 0;
@@ -800,7 +800,7 @@ static inline int mp_cast_u64(mp_obj_t * o)
     return -1;
 }
 
-static inline int mp_cast_i64(mp_obj_t * o)
+static inline int mp_cast_i64(mp_obj_t *o)
 {
     if (o->tp == MP_I64)
         return 0;
@@ -814,7 +814,7 @@ static inline int mp_cast_i64(mp_obj_t * o)
     return -1;
 }
 
-static inline void * mp_strdup(mp_obj_t * o)
+static inline void *mp_strdup(mp_obj_t *o)
 {
     assert(o->tp == MP_STR || o->tp == MP_BIN);
     return strndup(o->via.str.data, o->via.str.n);

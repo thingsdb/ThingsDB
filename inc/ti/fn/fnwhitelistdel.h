@@ -1,12 +1,12 @@
 #include <ti/fn/fn.h>
 
-static int do__f_whitelist_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_whitelist_del(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    cleri_node_t * child = nd->children;
-    ti_user_t * user;
-    ti_task_t * task;
-    ti_raw_t * raw;
+    cleri_node_t *child = nd->children;
+    ti_user_t *user;
+    ti_task_t *task;
+    ti_raw_t *raw;
     int wid;
 
     if (fn_not_thingsdb_scope("whitelist_del", query, e) ||

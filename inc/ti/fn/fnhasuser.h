@@ -1,10 +1,10 @@
 #include <ti/fn/fn.h>
 
-static int do__f_has_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_has_user(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     _Bool has_user;
-    ti_raw_t * uname;
+    ti_raw_t *uname;
 
     if (fn_not_thingsdb_scope("has_user", query, e) ||
         ti_access_check_err(

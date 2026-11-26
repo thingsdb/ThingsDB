@@ -11,11 +11,11 @@
  *
  * The returned value is malloced and should be freed.
  */
-char * ti_pipe_name(const char * prefix, uv_pipe_t * client)
+char *ti_pipe_name(const char *prefix, uv_pipe_t *client)
 {
     size_t n = strlen(prefix);
     size_t len = FX_PATH_MAX - 1;
-    char * buffer = malloc(FX_PATH_MAX + n);
+    char *buffer = malloc(FX_PATH_MAX + n);
 
     if (buffer == NULL || uv_pipe_getsockname(client, buffer + n, &len))
     {

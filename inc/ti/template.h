@@ -10,9 +10,9 @@ typedef struct ti_template_s ti_template_t;
 #include <ex.h>
 #include <cleri/cleri.h>
 
-int ti_template_build(cleri_node_t * node);
-int ti_template_compile(ti_template_t * tmplate, ti_query_t * query, ex_t * e);
-void ti_template_destroy(ti_template_t * tmplate);
+int ti_template_build(cleri_node_t *node);
+int ti_template_compile(ti_template_t *tmplate, ti_query_t *query, ex_t *e);
+void ti_template_destroy(ti_template_t *tmplate);
 
 struct ti_template_s
 {
@@ -20,7 +20,7 @@ struct ti_template_s
     uint8_t tp;
     int:8;
     int:16;
-    cleri_node_t * node;
+    cleri_node_t *node;
 };
 
 

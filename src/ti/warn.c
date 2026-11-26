@@ -12,16 +12,16 @@
  * Warn Code should be a code > 0.
  */
 int ti_warn(
-        ti_stream_t * stream,
+        ti_stream_t *stream,
         uint16_t pid,
         ti_proto_enum_t proto,
         ti_warn_enum_t warn_code,
-        const void * data,
+        const void *data,
         size_t n)
 {
     msgpack_packer pk;
     msgpack_sbuffer buffer;
-    ti_pkg_t * pkg;
+    ti_pkg_t *pkg;
 
     if (mp_sbuffer_alloc_init(&buffer, n+40, sizeof(ti_pkg_t)))
         return -1;

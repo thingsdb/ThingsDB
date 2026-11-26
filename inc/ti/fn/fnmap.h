@@ -2,13 +2,13 @@
 
 typedef struct
 {
-    ex_t * e;
-    ti_closure_t * closure;
-    ti_query_t * query;
-    ti_varr_t * varr;
+    ex_t *e;
+    ti_closure_t *closure;
+    ti_query_t *query;
+    ti_varr_t *varr;
 } map__walk_t;
 
-static int map__walk_set(ti_thing_t * t, map__walk_t * w)
+static int map__walk_set(ti_thing_t *t, map__walk_t *w)
 {
     if (ti_closure_vars_vset(w->closure, t) ||
         ti_closure_do_statement(w->closure, w->query, w->e) ||
@@ -18,7 +18,7 @@ static int map__walk_set(ti_thing_t * t, map__walk_t * w)
     return 0;
 }
 
-static int map__walk_i(ti_item_t * item, map__walk_t * w)
+static int map__walk_i(ti_item_t *item, map__walk_t *w)
 {
     ti_closure_vars_item(w->closure, item);
     if (ti_closure_do_statement(w->closure, w->query, w->e) ||
@@ -28,7 +28,7 @@ static int map__walk_i(ti_item_t * item, map__walk_t * w)
     return 0;
 }
 
-static int map__walk_dict_items(ti_val_t * k, ti_val_t * v, map__walk_t * w)
+static int map__walk_dict_items(ti_val_t *k, ti_val_t *v, map__walk_t *w)
 {
     ti_closure_vars_dict(w->closure, k, v);
     if (ti_closure_do_statement(w->closure, w->query, w->e) ||
@@ -38,7 +38,7 @@ static int map__walk_dict_items(ti_val_t * k, ti_val_t * v, map__walk_t * w)
     return 0;
 }
 
-static int map__walk_dict_values(ti_val_t * v, map__walk_t * w)
+static int map__walk_dict_values(ti_val_t *v, map__walk_t *w)
 {
     ti_closure_vars_dict(w->closure, (ti_val_t *) ti_nil_weak_get(), v);
     if (ti_closure_do_statement(w->closure, w->query, w->e) ||
@@ -48,14 +48,14 @@ static int map__walk_dict_values(ti_val_t * v, map__walk_t * w)
     return 0;
 }
 
-static int do__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_map(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
-    const char * doc;
+    const char *doc;
     const int nargs = fn_get_nargs(nd);
     size_t n;
-    ti_varr_t * retvarr;
-    ti_closure_t * closure;
-    ti_val_t * iterval;
+    ti_varr_t *retvarr;
+    ti_closure_t *closure;
+    ti_val_t *iterval;
     int lock_was_set;
 
     doc = doc_map(query->rval);
@@ -90,7 +90,7 @@ static int do__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
     case TI_VAL_THING:
     {
-        ti_thing_t * thing = (ti_thing_t *) iterval;
+        ti_thing_t *thing = (ti_thing_t *) iterval;
 
         if (ti_thing_is_object(thing))
         {
@@ -123,8 +123,8 @@ static int do__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         }
         else
         {
-            ti_name_t * name;
-            ti_val_t * val;
+            ti_name_t *name;
+            ti_val_t *val;
             for (thing_t_each(thing, name, val))
             {
                 ti_closure_vars_nameval(closure, (ti_val_t *) name, val);

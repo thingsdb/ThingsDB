@@ -1,11 +1,11 @@
 #include <ti/fn/fn.h>
 
-static int do__f_equals(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_equals(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     _Bool equals;
-    ti_thing_t * thing;
-    ti_val_t * other;
+    ti_thing_t *thing;
+    ti_val_t *other;
     uint8_t deep = 1;
 
     if (!ti_val_is_thing(query->rval))

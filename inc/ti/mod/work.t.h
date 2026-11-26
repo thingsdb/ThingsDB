@@ -14,7 +14,7 @@ typedef struct ti_mod_work_s ti_mod_work_t;
 
 struct ti_mod_work_s
 {
-    ti_module_t * module;
+    ti_module_t *module;
     buf_t buf;
     ti_mod_manifest_t manifest;
     void (*download_cb) (uv_work_t *);

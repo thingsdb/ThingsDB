@@ -1,8 +1,8 @@
 #include <ti/fn/fn.h>
 
-static int map_id__walk_set(ti_thing_t * thing, ti_varr_t * varr)
+static int map_id__walk_set(ti_thing_t *thing, ti_varr_t *varr)
 {
-    ti_val_t * val = thing->id
+    ti_val_t *val = thing->id
             ? (ti_val_t *) ti_vint_create((int64_t) thing->id)
             : (ti_val_t *) ti_nil_get();
     if (!val)
@@ -12,12 +12,12 @@ static int map_id__walk_set(ti_thing_t * thing, ti_varr_t * varr)
     return 0;
 }
 
-static int do__f_map_id(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_map_id(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
-    const char * doc;
+    const char *doc;
     const int nargs = fn_get_nargs(nd);
     size_t n;
-    ti_varr_t * varr;
+    ti_varr_t *varr;
 
     doc = doc_map_id(query->rval);
     if (!doc)
@@ -39,27 +39,27 @@ static int do__f_map_id(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             uint64_t id;
             if (ti_val_is_thing(val))
             {
-                ti_thing_t * thing = (ti_thing_t *) val;
+                ti_thing_t *thing = (ti_thing_t *) val;
                 id = thing->id;
             }
             else if (ti_val_is_wrap(val))
             {
-                ti_wrap_t * wtype = (ti_wrap_t *) val;
+                ti_wrap_t *wtype = (ti_wrap_t *) val;
                 id = wtype->thing->id;
             }
             else if (ti_val_is_wano(val))
             {
-                ti_wano_t * wtype = (ti_wano_t *) val;
+                ti_wano_t *wtype = (ti_wano_t *) val;
                 id = wtype->thing->id;
             }
             else if (ti_val_is_room(val))
             {
-                ti_room_t * room = (ti_room_t *) val;
+                ti_room_t *room = (ti_room_t *) val;
                 id = room->id;
             }
             else if (ti_val_is_task(val))
             {
-                ti_vtask_t * vtask = (ti_vtask_t *) val;
+                ti_vtask_t *vtask = (ti_vtask_t *) val;
                 id = vtask->id;
             }
             else

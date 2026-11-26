@@ -1,12 +1,12 @@
 #include <ti/fn/fn.h>
 
 
-static int do__f_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_assign(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    cleri_node_t * name_nd;
-    ti_task_t * task = NULL;
-    ti_thing_t * thing, * tsrc;
+    cleri_node_t *name_nd;
+    ti_task_t *task = NULL;
+    ti_thing_t *thing, *tsrc;
 
     if (!ti_val_is_thing(query->rval))
         return fn_call_try("assign", query, nd, e);

@@ -22,13 +22,13 @@ enum
     SYNC__STAT_STOPPED,
 };
 
-static ti_sync_t * sync_;
+static ti_sync_t *sync_;
 static ti_sync_t sync__;
 
-static void sync__find_away_node_cb(uv_timer_t * UNUSED(repeat));
-static void sync__destroy(uv_handle_t * UNUSED(handle));
-static _Bool sync__set_node(ti_node_t * node);
-static void sync__on_res_sync(ti_req_t * req, ex_enum status);
+static void sync__find_away_node_cb(uv_timer_t *UNUSED(repeat));
+static void sync__destroy(uv_handle_t *UNUSED(handle));
+static _Bool sync__set_node(ti_node_t *node);
+static void sync__on_res_sync(ti_req_t *req, ex_enum status);
 static void sync__finish(void);
 
 int ti_sync_create(void)
@@ -98,7 +98,7 @@ void ti_sync_stop(void)
     }
 }
 
-static void sync__destroy(uv_handle_t * UNUSED(handle))
+static void sync__destroy(uv_handle_t *UNUSED(handle))
 {
     if (sync_)
     {
@@ -108,12 +108,12 @@ static void sync__destroy(uv_handle_t * UNUSED(handle))
     sync_ = ti.sync = NULL;
 }
 
-static void sync__find_away_node_cb(uv_timer_t * UNUSED(repeat))
+static void sync__find_away_node_cb(uv_timer_t *UNUSED(repeat))
 {
     msgpack_packer pk;
     msgpack_sbuffer buffer;
-    ti_node_t * node;
-    ti_pkg_t * pkg;
+    ti_node_t *node;
+    ti_pkg_t *pkg;
 
     node = ti_nodes_get_away_or_soon();
     if (!sync__set_node(node) && node)
@@ -171,7 +171,7 @@ static void sync__find_away_node_cb(uv_timer_t * UNUSED(repeat))
     }
 }
 
-static _Bool sync__set_node(ti_node_t * node)
+static _Bool sync__set_node(ti_node_t *node)
 {
     if (node == sync_->node)
         return false;
@@ -180,7 +180,7 @@ static _Bool sync__set_node(ti_node_t * node)
     return true;
 }
 
-static void sync__on_res_sync(ti_req_t * req, ex_enum status)
+static void sync__on_res_sync(ti_req_t *req, ex_enum status)
 {
     if (status == 0 && req->pkg_res->tp != TI_PROTO_NODE_RES_SYNC)
     {

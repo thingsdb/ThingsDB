@@ -1,12 +1,12 @@
 #include <ti/fn/fn.h>
 
-static int do__f_set_default_deep(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_set_default_deep(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_task_t * task;
+    ti_task_t *task;
     uint8_t deep;
     uint64_t scope_id;
-    vec_t ** access_;
+    vec_t **access_;
 
     if (fn_not_thingsdb_scope("set_default_deep", query, e) ||
         fn_nargs("set_default_deep", DOC_SET_DEFAULT_DEEP, 2, nargs, e) ||
@@ -17,7 +17,7 @@ static int do__f_set_default_deep(ti_query_t * query, cleri_node_t * nd, ex_t * 
     if (e->nr)
     {
         ex_t ex = {0};
-        ti_collection_t * collection = \
+        ti_collection_t *collection = \
                 ti_collections_get_by_val(query->rval, &ex);
         if (ex.nr)
             return e->nr;

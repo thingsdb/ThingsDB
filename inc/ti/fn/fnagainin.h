@@ -1,12 +1,12 @@
 #include <ti/fn/fn.h>
 
-static int do__f_again_in(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_again_in(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     time_t run_at, now = util_now_tsec();
-    ti_tz_t * tz = fn_default_tz(query);
-    ti_vtask_t * vtask;
-    ti_datetime_t * dt;
+    ti_tz_t *tz = fn_default_tz(query);
+    ti_vtask_t *vtask;
+    ti_datetime_t *dt;
     datetime_unit_e unit;
     int64_t num;
 

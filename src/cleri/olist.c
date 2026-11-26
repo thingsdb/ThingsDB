@@ -7,9 +7,9 @@
 /*
  * Returns NULL in case an error has occurred.
  */
-cleri_olist_t * cleri__olist_new(void)
+cleri_olist_t *cleri__olist_new(void)
 {
-    cleri_olist_t * olist = cleri__malloc(cleri_olist_t);
+    cleri_olist_t *olist = cleri__malloc(cleri_olist_t);
     if (olist != NULL)
     {
         olist->cl_obj = NULL;
@@ -23,7 +23,7 @@ cleri_olist_t * cleri__olist_new(void)
  * The list remains unchanged in case of an error and the object reference
  * counter will be incremented when successful.
  */
-int cleri__olist_append(cleri_olist_t * olist, cleri_t * cl_object)
+int cleri__olist_append(cleri_olist_t *olist, cleri_t *cl_object)
 {
     if (cl_object == NULL)
     {
@@ -61,7 +61,7 @@ int cleri__olist_append(cleri_olist_t * olist, cleri_t * cl_object)
  * Exactly the same as cleri__olist_append, except the reference counter
  * will not be incremented.
  */
-int cleri__olist_append_nref(cleri_olist_t * olist, cleri_t * cl_object)
+int cleri__olist_append_nref(cleri_olist_t *olist, cleri_t *cl_object)
 {
     if (cl_object == NULL)
     {
@@ -97,9 +97,9 @@ int cleri__olist_append_nref(cleri_olist_t * olist, cleri_t * cl_object)
  * Destroy the olist and decrement the reference counter for each object in
  * the list. (NULL is allowed as olist and does nothing)
  */
-void cleri__olist_free(cleri_olist_t * olist)
+void cleri__olist_free(cleri_olist_t *olist)
 {
-    cleri_olist_t * next;
+    cleri_olist_t *next;
     while (olist != NULL)
     {
         next = olist->next;
@@ -114,9 +114,9 @@ void cleri__olist_free(cleri_olist_t * olist)
  * Empty the object list but do not free the list. This will not decrement
  * the reference counters for object in the list.
  */
-void cleri__olist_empty(cleri_olist_t * olist)
+void cleri__olist_empty(cleri_olist_t *olist)
 {
-    cleri_olist_t * current;
+    cleri_olist_t *current;
 
     if (olist == NULL)
     {
@@ -143,9 +143,9 @@ void cleri__olist_empty(cleri_olist_t * olist)
  * Cancel building olist. Used to recover from an error while creating
  * a new element.
  */
-void cleri__olist_cancel(cleri_olist_t * olist)
+void cleri__olist_cancel(cleri_olist_t *olist)
 {
-    cleri_olist_t * current = olist->next;
+    cleri_olist_t *current = olist->next;
 
     /* cleanup all the rest */
     while (current != NULL)
@@ -156,16 +156,16 @@ void cleri__olist_cancel(cleri_olist_t * olist)
     cleri__olist_empty(olist);
 }
 
-void cleri__olist_unique(cleri_olist_t * olist)
+void cleri__olist_unique(cleri_olist_t *olist)
 {
     while (olist != NULL && olist->next != NULL)
     {
-        cleri_olist_t * test = olist;
+        cleri_olist_t *test = olist;
         while (test->next != NULL)
         {
             if (olist->cl_obj == test->next->cl_obj)
             {
-                cleri_olist_t * tmp = test->next->next;
+                cleri_olist_t *tmp = test->next->next;
                 free(test->next);
                 test->next = tmp;
                 continue;

@@ -15,14 +15,14 @@
  * Warning: this function could write to stderr in case the re_keywords could
  * not be compiled.
  */
-cleri_grammar_t * cleri_grammar2(
-        cleri_t * start,
-        const char * re_keywords,
-        const char * re_whitespace)
+cleri_grammar_t *cleri_grammar2(
+        cleri_t *start,
+        const char *re_keywords,
+        const char *re_whitespace)
 {
-    const char * re_kw = (re_keywords == NULL) ?
+    const char *re_kw = (re_keywords == NULL) ?
             CLERI_DEFAULT_RE_KEYWORDS : re_keywords;
-    const char * re_ws = (re_whitespace == NULL) ?
+    const char *re_ws = (re_whitespace == NULL) ?
             CLERI_DEFAULT_RE_WHITESPACE : re_whitespace;
 
     if (start == NULL)
@@ -30,7 +30,7 @@ cleri_grammar_t * cleri_grammar2(
         return NULL;
     }
 
-    cleri_grammar_t * grammar = cleri__malloc(cleri_grammar_t);
+    cleri_grammar_t *grammar = cleri__malloc(cleri_grammar_t);
     if (grammar == NULL)
     {
         return NULL;
@@ -112,12 +112,12 @@ fail0:
     return NULL;
 }
 
-cleri_grammar_t * cleri_grammar(cleri_t * start, const char * re_keywords)
+cleri_grammar_t *cleri_grammar(cleri_t *start, const char *re_keywords)
 {
     return cleri_grammar2(start, re_keywords, NULL);
 }
 
-void cleri_grammar_free(cleri_grammar_t * grammar)
+void cleri_grammar_free(cleri_grammar_t *grammar)
 {
     pcre2_match_data_free(grammar->md_keywords);
     pcre2_code_free(grammar->re_keywords);

@@ -33,7 +33,7 @@
 static void main__init_deploy(void)
 {
     size_t n;
-    char * node_name = ti.cfg->node_name;
+    char *node_name = ti.cfg->node_name;
 
     if (fx_file_exist(ti.fn))
         return;
@@ -49,7 +49,7 @@ static void main__init_deploy(void)
     }
     else
     {
-        char * secret = getenv("THINGSDB_NODE_SECRET");
+        char *secret = getenv("THINGSDB_NODE_SECRET");
         secret = secret ? secret : node_name;
 
         memset(ti.args->secret, 0, ARGPARSE_MAX_LEN_ARG);
@@ -57,7 +57,7 @@ static void main__init_deploy(void)
     }
 }
 
-int main(int argc, char * argv[])
+int main(int argc, char *argv[])
 {
     int seed, fd, rc = EXIT_SUCCESS;
 

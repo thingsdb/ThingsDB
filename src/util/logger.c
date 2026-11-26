@@ -27,10 +27,10 @@ logger_t Logger = {
 #define KCYN  "\x1B[36m"    /* debug */
 #define KWHT  "\x1B[37m"    /* -- not used -- */
 
-const char * LOGGER_LEVEL_NAMES[LOGGER_NUM_LEVELS] =
+const char *LOGGER_LEVEL_NAMES[LOGGER_NUM_LEVELS] =
     {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"};
 
-const char * LOGGER_COLOR_MAP[LOGGER_NUM_LEVELS] =
+const char *LOGGER_COLOR_MAP[LOGGER_NUM_LEVELS] =
     {KCYN, KGRN, KYEL, KRED, KMAG};
 
 #define LOGGER_LOG_STUFF(LEVEL)                                 \
@@ -94,17 +94,17 @@ void logger_set_level(int log_level)
 /*
  * Returns a log level name for a given log level.
  */
-const char * logger_level_name(int log_level)
+const char *logger_level_name(int log_level)
 {
     return LOGGER_LEVEL_NAMES[log_level];
 }
 
-void log_with_level(int log_level, const char * fmt, ...)
+void log_with_level(int log_level, const char *fmt, ...)
 {
     LOGGER_LOG_STUFF(log_level)
 }
 
-void log_line(int log_level, const char * line)
+void log_line(int log_level, const char *line)
 {
     time_t t = time(NULL);
     struct tm tm;
@@ -140,23 +140,23 @@ void log_line(int log_level, const char * line)
     fflush(Logger.ostream);
 }
 
-void log__debug(const char * fmt, ...)
+void log__debug(const char *fmt, ...)
     LOGGER_LOG_STUFF(LOGGER_DEBUG)
 
-void log__info(const char * fmt, ...)
+void log__info(const char *fmt, ...)
     LOGGER_LOG_STUFF(LOGGER_INFO)
 
-void log__warning(const char * fmt, ...)
+void log__warning(const char *fmt, ...)
     LOGGER_LOG_STUFF(LOGGER_WARNING)
 
-void log__error(const char * fmt, ...)
+void log__error(const char *fmt, ...)
     LOGGER_LOG_STUFF(LOGGER_ERROR)
 
-void log__critical(const char * fmt, ...)
+void log__critical(const char *fmt, ...)
     LOGGER_LOG_STUFF(LOGGER_CRITICAL)
 
 
-char * log_strerror(int errnum, char * buf, size_t n)
+char *log_strerror(int errnum, char *buf, size_t n)
 {
     memset(buf, 0, n);
     strerror_r(errnum, buf, n);

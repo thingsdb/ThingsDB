@@ -4,7 +4,7 @@
 #include <langdef/translate.h>
 #include <langdef/langdef.h>
 
-const char * langdef_translate(cleri_t * elem)
+const char *langdef_translate(cleri_t *elem)
 {
     switch (elem->gid)
     {

@@ -1,9 +1,9 @@
 #include <ti/fn/fn.h>
 
-static int do__f_base64_encode(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_base64_encode(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_raw_t * src;
+    ti_raw_t *src;
 
     if (fn_nargs("base64_encode", DOC_BASE64_ENCODE, 1, nargs, e) ||
         ti_do_statement(query, nd->children, e))

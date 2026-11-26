@@ -1,11 +1,11 @@
 #include <ti/fn/fn.h>
 
-static inline int modtype__is_locked_cb(ti_thing_t * thing, ti_type_t * type)
+static inline int modtype__is_locked_cb(ti_thing_t *thing, ti_type_t *type)
 {
     return thing->type_id == type->type_id && (thing->flags & TI_VFLAG_LOCK);
 }
 
-static inline int modtype__unlocked_cb(ti_thing_t * thing, void * UNUSED(arg))
+static inline int modtype__unlocked_cb(ti_thing_t *thing, void *UNUSED(arg))
 {
     thing->flags &= ~TI_VFLAG_LOCK;
     return 0;
@@ -13,13 +13,13 @@ static inline int modtype__unlocked_cb(ti_thing_t * thing, void * UNUSED(arg))
 
 typedef struct
 {
-    ti_field_t * field;
-    ti_val_t * dval;
-    ti_type_t * type;
-    ex_t * e;
+    ti_field_t *field;
+    ti_val_t *dval;
+    ti_type_t *type;
+    ex_t *e;
 } modtype__addv_t;
 
-static inline int modtype__addv_cb(ti_thing_t * thing, modtype__addv_t * w)
+static inline int modtype__addv_cb(ti_thing_t *thing, modtype__addv_t *w)
 {
     if (thing->type_id == w->type->type_id)
     {
@@ -37,7 +37,7 @@ static inline int modtype__addv_cb(ti_thing_t * thing, modtype__addv_t * w)
     return 0;
 }
 
-static inline int modtype__delv_cb(ti_thing_t * thing, ti_field_t * field)
+static inline int modtype__delv_cb(ti_thing_t *thing, ti_field_t *field)
 {
     if (thing->type_id == field->type->type_id)
         ti_val_unsafe_drop(vec_swap_remove(thing->items.vec, field->idx));
@@ -46,16 +46,16 @@ static inline int modtype__delv_cb(ti_thing_t * thing, ti_field_t * field)
 
 typedef struct
 {
-    ti_field_t * field;
-    ti_closure_t * closure;
-    ti_query_t * query;
-    ex_t * e;
+    ti_field_t *field;
+    ti_closure_t *closure;
+    ti_query_t *query;
+    ex_t *e;
 } modtype__add_t;
 
-static int modtype__add_cb(ti_thing_t * thing, modtype__add_t * w)
+static int modtype__add_cb(ti_thing_t *thing, modtype__add_t *w)
 {
-    ti_task_t * task;
-    ti_prop_t * prop;
+    ti_task_t *task;
+    ti_prop_t *prop;
     ex_t ex = {0};
 
     assert(thing->type_id == w->field->type->type_id);
@@ -109,18 +109,18 @@ static int modtype__add_cb(ti_thing_t * thing, modtype__add_t * w)
 
 typedef struct
 {
-    ti_field_t * field;
-    ti_field_t * true_field;
-    ti_closure_t * closure;
-    ti_query_t * query;
-    ti_val_t * dval;
-    ex_t * e;
+    ti_field_t *field;
+    ti_field_t *true_field;
+    ti_closure_t *closure;
+    ti_query_t *query;
+    ti_val_t *dval;
+    ex_t *e;
 } modtype__mod_t;
 
-static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
+static int modtype__mod_cb(ti_thing_t *thing, modtype__mod_t *w)
 {
-    ti_task_t * task;
-    ti_prop_t * prop;
+    ti_task_t *task;
+    ti_prop_t *prop;
     ex_t ex = {0};
 
     assert(thing->type_id == w->field->type->type_id);
@@ -137,7 +137,7 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
         ti_val_is_nil(w->query->rval) ||
         ti_field_make_assignable(w->field, &w->query->rval, thing, &ex))
     {
-        ti_val_t * val = VEC_get(thing->items.vec, w->field->idx);
+        ti_val_t *val = VEC_get(thing->items.vec, w->field->idx);
         if (w->e->nr == 0 && ex.nr)
         {
             ex_set(w->e, EX_OPERATION,
@@ -208,7 +208,7 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
 
     if (ti_spec_with_parent(w->field->spec))
     {
-        ti_parent_t * parent = VEC_get(thing->items.vec, w->field->idx);
+        ti_parent_t *parent = VEC_get(thing->items.vec, w->field->idx);
         parent->key_ = w->true_field;
     }
 
@@ -222,11 +222,11 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
     return 0;
 }
 
-static int modtype__mod_after_cb(ti_thing_t * thing, modtype__mod_t * w)
+static int modtype__mod_after_cb(ti_thing_t *thing, modtype__mod_t *w)
 {
-    ti_task_t * task;
+    ti_task_t *task;
     ex_t ex = {0};
-    ti_val_t * val = VEC_get(thing->items.vec, w->field->idx);
+    ti_val_t *val = VEC_get(thing->items.vec, w->field->idx);
 
     assert(thing->type_id == w->field->type->type_id);
 
@@ -270,16 +270,16 @@ static int modtype__mod_after_cb(ti_thing_t * thing, modtype__mod_t * w)
 
 typedef struct
 {
-    ti_closure_t * closure;
-    ti_query_t * query;
-    ex_t * e;
+    ti_closure_t *closure;
+    ti_query_t *query;
+    ex_t *e;
 } modtype__all_t;
 
-static int modtype__all_cb(ti_thing_t * thing, modtype__all_t * w)
+static int modtype__all_cb(ti_thing_t *thing, modtype__all_t *w)
 {
     if (w->closure->vars->n)
     {
-        ti_prop_t * prop = VEC_get(w->closure->vars, 0);
+        ti_prop_t *prop = VEC_get(w->closure->vars, 0);
         ti_incref(thing);
         ti_val_unsafe_drop(prop->val);
         prop->val = (ti_val_t *) thing;
@@ -294,20 +294,20 @@ static int modtype__all_cb(ti_thing_t * thing, modtype__all_t * w)
 }
 
 static void type__add(
-        ti_query_t * query,
-        ti_type_t * type,
-        ti_name_t * name,
-        cleri_node_t * nd,
-        ex_t * e)
+        ti_query_t *query,
+        ti_type_t *type,
+        ti_name_t *name,
+        cleri_node_t *nd,
+        ex_t *e)
 {
-    static const char * fnname = "mod_type` with task `add";
-    cleri_node_t * child;
-    ti_task_t * task;
-    ti_raw_t * spec_raw;
-    ti_val_t * dval;
-    ti_field_t * field = ti_field_by_name(type, name);
-    ti_method_t * method = field ? NULL : ti_type_get_method(type, name);
-    ti_closure_t * closure;
+    static const char *fnname = "mod_type` with task `add";
+    cleri_node_t *child;
+    ti_task_t *task;
+    ti_raw_t *spec_raw;
+    ti_val_t *dval;
+    ti_field_t *field = ti_field_by_name(type, name);
+    ti_method_t *method = field ? NULL : ti_type_get_method(type, name);
+    ti_closure_t *closure;
     const int nargs = fn_get_nargs(nd);
 
     if (fn_nargs_range(fnname, DOC_MOD_TYPE_ADD, 4, 5, nargs, e))
@@ -328,7 +328,7 @@ static void type__add(
 
     if (ti_val_is_closure(query->rval))
     {
-        ti_closure_t * closure = (ti_closure_t *) query->rval;
+        ti_closure_t *closure = (ti_closure_t *) query->rval;
 
         if (nargs == 5)
         {
@@ -552,7 +552,7 @@ static void type__add(
 
     if (closure)
     {
-        imap_t * imap;
+        imap_t *imap;
         modtype__add_t addjob = {
                 .field = field,
                 .closure = closure,
@@ -609,17 +609,17 @@ fail0:
 }
 
 static void type__del(
-        ti_query_t * query,
-        ti_type_t * type,
-        ti_name_t * name,
-        cleri_node_t * nd,
-        ex_t * e)
+        ti_query_t *query,
+        ti_type_t *type,
+        ti_name_t *name,
+        cleri_node_t *nd,
+        ex_t *e)
 {
-    static const char * fnname = "mod_type` with task `del";
+    static const char *fnname = "mod_type` with task `del";
     const int nargs = fn_get_nargs(nd);
-    ti_field_t * field = ti_field_by_name(type, name);
-    ti_method_t * method = field ? NULL : ti_type_get_method(type, name);
-    ti_task_t * task;
+    ti_field_t *field = ti_field_by_name(type, name);
+    ti_method_t *method = field ? NULL : ti_type_get_method(type, name);
+    ti_task_t *task;
 
     if (fn_nargs(fnname, DOC_MOD_TYPE_DEL, 3, nargs, e))
         return;
@@ -699,16 +699,16 @@ done:
 }
 
 static int type__mod_using_callback(
-        const char * fnname,
-        ti_query_t * query,
-        cleri_node_t * nd,
-        ti_field_t * field,
-        ti_raw_t * spec_raw,
-        ex_t * e)
+        const char *fnname,
+        ti_query_t *query,
+        cleri_node_t *nd,
+        ti_field_t *field,
+        ti_raw_t *spec_raw,
+        ex_t *e)
 {
-    ti_closure_t * closure;
-    imap_t * imap, * imap_after;
-    ti_task_t * task;
+    ti_closure_t *closure;
+    imap_t *imap, *imap_after;
+    ti_task_t *task;
 
     if (ti_do_statement(query, nd, e) ||
         fn_arg_closure(fnname, DOC_MOD_TYPE_MOD, 5, query->rval, e))
@@ -841,18 +841,18 @@ panic:
 }
 
 static void type__mod(
-        ti_query_t * query,
-        ti_type_t * type,
-        ti_name_t * name,
-        cleri_node_t * nd,
-        ex_t * e)
+        ti_query_t *query,
+        ti_type_t *type,
+        ti_name_t *name,
+        cleri_node_t *nd,
+        ex_t *e)
 {
-    static const char * fnname = "mod_type` with task `mod";
+    static const char *fnname = "mod_type` with task `mod";
     const int nargs = fn_get_nargs(nd);
-    ti_field_t * field = ti_field_by_name(type, name);
-    ti_method_t * method = field ? NULL : ti_type_get_method(type, name);
-    ti_raw_t * spec_raw = NULL;
-    cleri_node_t * child;
+    ti_field_t *field = ti_field_by_name(type, name);
+    ti_method_t *method = field ? NULL : ti_type_get_method(type, name);
+    ti_raw_t *spec_raw = NULL;
+    cleri_node_t *child;
 
     if (fn_nargs_range(fnname, DOC_MOD_TYPE_MOD, 4, 5, nargs, e))
         return;
@@ -889,8 +889,8 @@ static void type__mod(
 
     if (ti_val_is_closure(query->rval))
     {
-        ti_task_t * task;
-        ti_closure_t * closure = (ti_closure_t *) query->rval;
+        ti_task_t *task;
+        ti_closure_t *closure = (ti_closure_t *) query->rval;
 
         if (nargs == 5)
         {
@@ -958,7 +958,7 @@ static void type__mod(
     {
         if (nargs == 4)
         {
-            ti_task_t * task;
+            ti_task_t *task;
 
             if (ti_field_mod(field, spec_raw, e))
                 goto fail;
@@ -1011,20 +1011,20 @@ fail:
 }
 
 static void type__ren(
-        ti_query_t * query,
-        ti_type_t * type,
-        ti_name_t * name,
-        cleri_node_t * nd,
-        ex_t * e)
+        ti_query_t *query,
+        ti_type_t *type,
+        ti_name_t *name,
+        cleri_node_t *nd,
+        ex_t *e)
 {
-    static const char * fnname = "mod_type` with task `ren";
+    static const char *fnname = "mod_type` with task `ren";
     const int nargs = fn_get_nargs(nd);
-    ti_field_t * field = ti_field_by_name(type, name);
-    ti_method_t * method = field ? NULL : ti_type_get_method(type, name);
-    ti_task_t * task;
-    ti_name_t * oldname;
-    ti_name_t * newname;
-    ti_raw_t * rname;
+    ti_field_t *field = ti_field_by_name(type, name);
+    ti_method_t *method = field ? NULL : ti_type_get_method(type, name);
+    ti_task_t *task;
+    ti_name_t *oldname;
+    ti_name_t *newname;
+    ti_raw_t *rname;
 
     if (fn_nargs(fnname, DOC_MOD_TYPE_REN, 4, nargs, e))
         return;
@@ -1106,7 +1106,7 @@ done:
     ti_name_unsafe_drop(oldname);
 }
 
-static int modtype__has_lock(ti_query_t * query, ti_type_t * type, ex_t * e)
+static int modtype__has_lock(ti_query_t *query, ti_type_t *type, ex_t *e)
 {
     int rc = ti_query_vars_walk(
             query->vars,
@@ -1143,7 +1143,7 @@ memerror:
     return e->nr;
 }
 
-static ti_type_t * modtype__type_from_field(ti_field_t * field, ex_t * e)
+static ti_type_t *modtype__type_from_field(ti_field_t *field, ex_t *e)
 {
     uint16_t spec = field->spec;
 
@@ -1171,14 +1171,14 @@ static ti_type_t * modtype__type_from_field(ti_field_t * field, ex_t * e)
 }
 
 static void type__rel_add(
-        ti_query_t * query,
-        ti_field_t * field,
-        ti_name_t * name,
-        ex_t * e)
+        ti_query_t *query,
+        ti_field_t *field,
+        ti_name_t *name,
+        ex_t *e)
 {
-    ti_type_t * type, * otype;
-    ti_field_t * ofield;
-    ti_task_t * task;
+    ti_type_t *type, *otype;
+    ti_field_t *ofield;
+    ti_task_t *task;
 
     if (field->flags & TI_FIELD_FLAG_RO)
     {
@@ -1265,12 +1265,12 @@ fail0:
 }
 
 static void type__rel_del(
-        ti_query_t * query,
-        ti_field_t * field,
-        ex_t * e)
+        ti_query_t *query,
+        ti_field_t *field,
+        ex_t *e)
 {
-    ti_field_t * ofield;
-    ti_task_t * task;
+    ti_field_t *ofield;
+    ti_task_t *task;
 
     if (!ti_field_has_relation(field))
     {
@@ -1315,15 +1315,15 @@ fail0:
 }
 
 static void type__rel(
-        ti_query_t * query,
-        ti_type_t * type,
-        ti_name_t * name,
-        cleri_node_t * nd,
-        ex_t * e)
+        ti_query_t *query,
+        ti_type_t *type,
+        ti_name_t *name,
+        cleri_node_t *nd,
+        ex_t *e)
 {
-    static const char * fnname = "mod_type` with task `rel";
+    static const char *fnname = "mod_type` with task `rel";
     const int nargs = fn_get_nargs(nd);
-    ti_field_t * field = ti_field_by_name(type, name);
+    ti_field_t *field = ti_field_by_name(type, name);
 
     if (fn_nargs(fnname, DOC_MOD_TYPE_REL, 4, nargs, e))
         return;
@@ -1369,17 +1369,17 @@ static void type__rel(
 }
 
 static void type__all(
-        ti_query_t * query,
-        ti_type_t * type,
-        cleri_node_t * nd,
-        ex_t * e)
+        ti_query_t *query,
+        ti_type_t *type,
+        cleri_node_t *nd,
+        ex_t *e)
 {
-    static const char * fnname = "mod_type` with task `all";
+    static const char *fnname = "mod_type` with task `all";
     const int nargs = fn_get_nargs(nd);
 
-    ti_closure_t * closure;
-    ti_task_t * task;
-    imap_t * imap;
+    ti_closure_t *closure;
+    ti_task_t *task;
+    imap_t *imap;
 
     nd = nd->children->next->next->next->next;
 
@@ -1427,16 +1427,16 @@ fail0:
 }
 
 static void type__row(
-        ti_query_t * query,
-        ti_type_t * type,
-        cleri_node_t * nd,
-        ex_t * e)
+        ti_query_t *query,
+        ti_type_t *type,
+        cleri_node_t *nd,
+        ex_t *e)
 {
-    static const char * fnname = "mod_type` with task `row";
+    static const char *fnname = "mod_type` with task `row";
     const int nargs = fn_get_nargs(nd);
 
-    ti_varr_t * arr = NULL;
-    ti_task_t * task;
+    ti_varr_t *arr = NULL;
+    ti_task_t *task;
 
     nd = nd->children->next->next->next->next;
 
@@ -1447,7 +1447,7 @@ static void type__row(
 
     if (ti_val_is_array(query->rval))
     {
-        ti_name_t * name;
+        ti_name_t *name;
         arr = (ti_varr_t *) query->rval;
         query->rval = NULL;
 
@@ -1523,15 +1523,15 @@ fail0:
 }
 
 static void type__wpo(
-        ti_query_t * query,
-        ti_type_t * type,
-        cleri_node_t * nd,
-        ex_t * e)
+        ti_query_t *query,
+        ti_type_t *type,
+        cleri_node_t *nd,
+        ex_t *e)
 {
-    static const char * fnname = "mod_type` with task `wpo";
+    static const char *fnname = "mod_type` with task `wpo";
     const int nargs = fn_get_nargs(nd);
     _Bool wrap_only;
-    ti_task_t * task;
+    ti_task_t *task;
     ssize_t n;
 
     nd = nd->children->next->next->next->next;
@@ -1586,15 +1586,15 @@ static void type__wpo(
 }
 
 static void type__hid(
-        ti_query_t * query,
-        ti_type_t * type,
-        cleri_node_t * nd,
-        ex_t * e)
+        ti_query_t *query,
+        ti_type_t *type,
+        cleri_node_t *nd,
+        ex_t *e)
 {
-    static const char * fnname = "mod_type` with task `hid";
+    static const char *fnname = "mod_type` with task `hid";
     const int nargs = fn_get_nargs(nd);
     _Bool hide_id;
-    ti_task_t * task;
+    ti_task_t *task;
 
     nd = nd->children->next->next->next->next;
 
@@ -1628,15 +1628,15 @@ static void type__hid(
 }
 
 static void type__idx(
-        ti_query_t * query,
-        ti_type_t * type,
-        cleri_node_t * nd,
-        ex_t * e)
+        ti_query_t *query,
+        ti_type_t *type,
+        cleri_node_t *nd,
+        ex_t *e)
 {
-    static const char * fnname = "mod_type` with task `idx";
+    static const char *fnname = "mod_type` with task `idx";
     const int nargs = fn_get_nargs(nd);
     _Bool index;
-    ti_task_t * task;
+    ti_task_t *task;
 
     nd = nd->children->next->next->next->next;
 
@@ -1669,12 +1669,12 @@ static void type__idx(
         ex_set_mem(e);
 }
 
-static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_mod_type(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
-    ti_type_t * type;
-    ti_raw_t * rmod;
-    ti_name_t * name = NULL;
-    cleri_node_t * child = nd->children;
+    ti_type_t *type;
+    ti_raw_t *rmod;
+    ti_name_t *name = NULL;
+    cleri_node_t *child = nd->children;
     const int nargs = fn_get_nargs(nd);
 
     if (fn_not_collection_scope("mod_type", query, e) ||

@@ -21,9 +21,9 @@ struct ti_room_s
     int:8;
     int:16;
     uint64_t id;
-    ti_name_t * name;                /* Name is optional, might be NULL */
-    ti_collection_t * collection;    /* NULL in non-collection scope */
-    vec_t * listeners;
+    ti_name_t *name;                /* Name is optional, might be NULL */
+    ti_collection_t *collection;    /* NULL in non-collection scope */
+    vec_t *listeners;
 };
 
 #endif  /* TI_ROOM_T_H_ */

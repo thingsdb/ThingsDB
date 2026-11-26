@@ -12,20 +12,20 @@
 #include <util/mpack.h>
 #include <util/syncpart.h>
 
-static ti_pkg_t * syncarchive__pkg(ti_archfile_t * archfile, off_t offset);
-static void syncarchive__push_cb(ti_req_t * req, ex_enum status);
-static void syncarchive__done_cb(ti_req_t * req, ex_enum status);
-static int syncarchive__init(ti_stream_t * stream, ti_archfile_t * archfile);
+static ti_pkg_t *syncarchive__pkg(ti_archfile_t *archfile, off_t offset);
+static void syncarchive__push_cb(ti_req_t *req, ex_enum status);
+static void syncarchive__done_cb(ti_req_t *req, ex_enum status);
+static int syncarchive__init(ti_stream_t *stream, ti_archfile_t *archfile);
 
 /*
  * Returns 1 if no archive file is found for the given `change_id` and 0 if
  * one is found and a request is successfully made. In case of an error, -1
  * will be the return value.
  */
-int ti_syncarchive_init(ti_stream_t * stream, uint64_t change_id)
+int ti_syncarchive_init(ti_stream_t *stream, uint64_t change_id)
 {
-    vec_t * archfiles = ti.archive->archfiles;
-    ti_archfile_t * closest = NULL;
+    vec_t *archfiles = ti.archive->archfiles;
+    ti_archfile_t *closest = NULL;
     size_t closest_gap = SIZE_MAX;
 
     for (vec_each(archfiles, ti_archfile_t, archfile))
@@ -53,17 +53,17 @@ int ti_syncarchive_init(ti_stream_t * stream, uint64_t change_id)
     return closest ? syncarchive__init(stream, closest) : 1;
 }
 
-ti_pkg_t * ti_syncarchive_on_part(ti_pkg_t * pkg, ex_t * e)
+ti_pkg_t *ti_syncarchive_on_part(ti_pkg_t *pkg, ex_t *e)
 {
     int rc;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
     mp_unp_t up;
-    ti_pkg_t * resp;
+    ti_pkg_t *resp;
     mp_obj_t obj, mp_first, mp_last, mp_offset, mp_bin, mp_more;
     off_t offset;
     uint64_t first, last;
-    ti_archfile_t * archfile;
+    ti_archfile_t *archfile;
 
     mp_unp_init(&up, pkg->data, pkg->n);
 
@@ -86,7 +86,7 @@ ti_pkg_t * ti_syncarchive_on_part(ti_pkg_t * pkg, ex_t * e)
 
     if (!archfile)
     {
-        ti_archive_t * archive = ti.archive;
+        ti_archive_t *archive = ti.archive;
 
         if (offset)
         {
@@ -146,10 +146,10 @@ ti_pkg_t * ti_syncarchive_on_part(ti_pkg_t * pkg, ex_t * e)
 }
 
 
-static ti_pkg_t * syncarchive__pkg(ti_archfile_t * archfile, off_t offset)
+static ti_pkg_t *syncarchive__pkg(ti_archfile_t *archfile, off_t offset)
 {
     int more;
-    ti_pkg_t * pkg;
+    ti_pkg_t *pkg;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -178,11 +178,11 @@ failed:
     return NULL;
 }
 
-static void syncarchive__push_cb(ti_req_t * req, ex_enum status)
+static void syncarchive__push_cb(ti_req_t *req, ex_enum status)
 {
     mp_unp_t up;
-    ti_pkg_t * pkg = req->pkg_res;
-    ti_pkg_t * next_pkg;
+    ti_pkg_t *pkg = req->pkg_res;
+    ti_pkg_t *next_pkg;
     mp_obj_t obj, mp_first, mp_last, mp_offset;
     off_t offset;
     uint64_t first, last;
@@ -220,7 +220,7 @@ static void syncarchive__push_cb(ti_req_t * req, ex_enum status)
 
     if (offset)
     {
-        ti_archfile_t * archfile = ti_archfile_get(first, last);
+        ti_archfile_t *archfile = ti_archfile_get(first, last);
         if (!archfile)
         {
             log_error(
@@ -291,7 +291,7 @@ done:
     ti_req_destroy(req);
 }
 
-static void syncarchive__done_cb(ti_req_t * req, ex_enum status)
+static void syncarchive__done_cb(ti_req_t *req, ex_enum status)
 {
     int rc;
     uint64_t next_change_id = ti.node->scid + 1;
@@ -317,9 +317,9 @@ static void syncarchive__done_cb(ti_req_t * req, ex_enum status)
     ti_req_destroy(req);
 }
 
-static int syncarchive__init(ti_stream_t * stream, ti_archfile_t * archfile)
+static int syncarchive__init(ti_stream_t *stream, ti_archfile_t *archfile)
 {
-    ti_pkg_t * pkg = syncarchive__pkg(archfile, 0 /* offset */);
+    ti_pkg_t *pkg = syncarchive__pkg(archfile, 0 /* offset */);
     if (!pkg)
         return -1;
 

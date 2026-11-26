@@ -1,10 +1,10 @@
 #include <ti/fn/fn.h>
 
-static int do__f_one(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_one(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_vset_t * vset;
-    ti_val_t * value;
+    ti_vset_t *vset;
+    ti_val_t *value;
 
     if (!ti_val_is_set(query->rval))
         return fn_call_try("one", query, nd, e);

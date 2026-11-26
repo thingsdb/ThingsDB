@@ -11,9 +11,9 @@
 #include <util/mpack.h>
 #include <util/cryptx.h>
 
-ti_cpkg_t * ti_cpkg_create(ti_pkg_t * pkg, uint64_t change_id)
+ti_cpkg_t *ti_cpkg_create(ti_pkg_t *pkg, uint64_t change_id)
 {
-    ti_cpkg_t * cpkg = malloc(sizeof(ti_cpkg_t));
+    ti_cpkg_t *cpkg = malloc(sizeof(ti_cpkg_t));
     if (!cpkg)
         return NULL;
     cpkg->ref = 1;
@@ -23,7 +23,7 @@ ti_cpkg_t * ti_cpkg_create(ti_pkg_t * pkg, uint64_t change_id)
     return cpkg;
 }
 
-ti_cpkg_t * ti_cpkg_initial(void)
+ti_cpkg_t *ti_cpkg_initial(void)
 {
     msgpack_packer pk;
     msgpack_sbuffer buffer;
@@ -32,8 +32,8 @@ ti_cpkg_t * ti_cpkg_initial(void)
     const uint64_t thing_id = 0;               /* parent root thing */
     uint64_t user_id = ti_next_free_id();      /* id:1 */
     uint64_t stuff_id = ti_next_free_id();     /* id:2 !important: id > 1 */
-    ti_cpkg_t * cpkg;
-    ti_pkg_t * pkg;
+    ti_cpkg_t *cpkg;
+    ti_pkg_t *pkg;
     char salt[CRYPTX_SALT_SZ];
     char encrypted[CRYPTX_SZ];
 
@@ -143,9 +143,9 @@ ti_cpkg_t * ti_cpkg_initial(void)
     return cpkg;
 }
 
-ti_cpkg_t * ti_cpkg_from_pkg(ti_pkg_t * pkg)
+ti_cpkg_t *ti_cpkg_from_pkg(ti_pkg_t *pkg)
 {
-    ti_cpkg_t * cpkg;
+    ti_cpkg_t *cpkg;
     mp_unp_t up;
     mp_obj_t obj, mp_change_id;
 

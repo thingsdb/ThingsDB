@@ -3,13 +3,13 @@
 typedef struct
 {
     _Bool * import_tasks;
-    ex_t * e;
+    ex_t *e;
 } import__walk_t;
 
 static int do__import_option(
-        ti_raw_t * key,
-        ti_val_t * val,
-        import__walk_t * w)
+        ti_raw_t *key,
+        ti_val_t *val,
+        import__walk_t *w)
 {
     if (ti_raw_eq_strn(key, "import_tasks", 12))
     {
@@ -32,12 +32,12 @@ static int do__import_option(
     return w->e->nr;
 }
 
-static int do__f_import(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_import(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     _Bool import_tasks = false;
-    ti_task_t * task;
-    ti_raw_t * bytes;
+    ti_task_t *task;
+    ti_raw_t *bytes;
 
     if (fn_not_collection_scope("import", query, e) ||
         fn_nargs_range("import", DOC_IMPORT, 1, 2, nargs, e) ||
@@ -50,7 +50,7 @@ static int do__f_import(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs == 2)
     {
-        ti_thing_t * thing;
+        ti_thing_t *thing;
 
         if (ti_do_statement(query, nd->children->next->next, e) ||
             fn_arg_thing("import", DOC_IMPORT, 2, query->rval, e))

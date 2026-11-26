@@ -1,10 +1,10 @@
 #include <ti/fn/fn.h>
 
-static int do__f_wrap(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_wrap(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_thing_t * thing;
-    ti_type_t * type;
+    ti_thing_t *thing;
+    ti_type_t *type;
 
     if (!ti_val_is_thing(query->rval))
         return fn_call_try("wrap", query, nd, e);
@@ -23,7 +23,7 @@ static int do__f_wrap(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         if (ti_val_is_ano(query->rval))
         {
-            ti_ano_t * ano = (ti_ano_t *) query->rval;
+            ti_ano_t *ano = (ti_ano_t *) query->rval;
             query->rval = (ti_val_t *) ti_wano_create(thing, ano);
             ti_val_unsafe_drop((ti_val_t *) ano);
             goto done;

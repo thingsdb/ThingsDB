@@ -9,8 +9,8 @@
 
 typedef struct ti_vint_s ti_vint_t;
 
-ti_vint_t * ti_vint_create(int64_t i);
-static inline void ti_vint_free(ti_vint_t * vint);
+ti_vint_t *ti_vint_create(int64_t i);
+static inline void ti_vint_free(ti_vint_t *vint);
 _Bool ti_vint_no_ref(void);
 
 #define VINT(__x) ((ti_vint_t *) (__x))->int_
@@ -24,7 +24,7 @@ struct ti_vint_s
     int64_t int_;
 };
 
-static inline void ti_vint_free(ti_vint_t * vint)
+static inline void ti_vint_free(ti_vint_t *vint)
 {
     free(vint);
 }

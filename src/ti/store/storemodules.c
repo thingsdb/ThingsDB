@@ -13,7 +13,7 @@
 #include <util/mpack.h>
 #include <util/vec.h>
 
-static int store_modules__store_cb(ti_module_t * module, msgpack_packer * pk)
+static int store_modules__store_cb(ti_module_t *module, msgpack_packer *pk)
 {
     return (
         msgpack_pack_array(pk, 5) ||
@@ -32,7 +32,7 @@ static int store_modules__store_cb(ti_module_t * module, msgpack_packer * pk)
     );
 }
 
-int ti_store_modules_store(const char * fn)
+int ti_store_modules_store(const char *fn)
 {
     msgpack_packer pk;
     FILE * f = fopen(fn, "w");
@@ -66,17 +66,17 @@ done:
     return 0;
 }
 
-int ti_store_modules_restore(const char * fn)
+int ti_store_modules_restore(const char *fn)
 {
     int rc = -1;
     size_t i;
     ssize_t n;
     mp_obj_t obj, mp_name, mp_orig, mp_created, mp_pkg, mp_scope;
     mp_unp_t up;
-    ti_module_t * module;
-    ti_pkg_t * conf_pkg;
-    uint64_t * scope_id;
-    uchar * data;
+    ti_module_t *module;
+    ti_pkg_t *conf_pkg;
+    uint64_t *scope_id;
+    uchar *data;
     ex_t e = {0};
 
     if (!fx_file_exist(fn))

@@ -32,9 +32,9 @@ static const unsigned char base64__table[65] =
 static char raw__as_printable_buf[RAW__AS_PRINTABLE_BUF_SZ];
 
 
-ti_raw_t * ti_raw_create(uint8_t tp, const void * raw, size_t n)
+ti_raw_t *ti_raw_create(uint8_t tp, const void *raw, size_t n)
 {
-    ti_raw_t * r = malloc(sizeof(ti_raw_t) + n);
+    ti_raw_t *r = malloc(sizeof(ti_raw_t) + n);
     if (!r)
         return NULL;
     r->ref = 1;
@@ -48,13 +48,13 @@ ti_raw_t * ti_raw_create(uint8_t tp, const void * raw, size_t n)
 /*
  * decode
  */
-ti_raw_t * ti_bytes_from_base64(const void * data, size_t n)
+ti_raw_t *ti_bytes_from_base64(const void *data, size_t n)
 {
-    const unsigned char * p = data;
-    char * out;
+    const unsigned char *p = data;
+    char *out;
     int pad = n > 0 && (n % 4 || p[n - 1] == '=');
     size_t i, j, L = ((n + 3) / 4 - pad) * 4;
-    ti_raw_t * r = malloc(sizeof(ti_raw_t) + (L / 4 * 3) + (pad
+    ti_raw_t *r = malloc(sizeof(ti_raw_t) + (L / 4 * 3) + (pad
             ? (n > 1 && (n % 4 == 3 || p[n - 2] != '=')) + 1
             : 0));
     if (!r)
@@ -95,11 +95,11 @@ ti_raw_t * ti_bytes_from_base64(const void * data, size_t n)
 /*
  * encode
  */
-ti_raw_t * ti_str_base64_from_raw(ti_raw_t * src)
+ti_raw_t *ti_str_base64_from_raw(ti_raw_t *src)
 {
-    ti_raw_t * r;
-    unsigned char * pos;
-    const unsigned char * end, * in;
+    ti_raw_t *r;
+    unsigned char *pos;
+    const unsigned char *end, *in;
     size_t olen = 4 * ((src->n + 2) / 3); /* 3-byte blocks to 4-byte */
 
     if (olen < src->n || !(r = malloc(sizeof(ti_raw_t) + olen)))
@@ -141,13 +141,13 @@ ti_raw_t * ti_str_base64_from_raw(ti_raw_t * src)
     return r;
 }
 
-ti_raw_t * ti_str_from_ti_string(const char * src, size_t n)
+ti_raw_t *ti_str_from_ti_string(const char *src, size_t n)
 {
     assert(n >= 2);  /* at least "" or '' */
 
     size_t i = 0;
     size_t sz = n - 2;
-    ti_raw_t * r = malloc(sizeof(ti_raw_t) + sz);
+    ti_raw_t *r = malloc(sizeof(ti_raw_t) + sz);
     if (!r)
         return NULL;
 
@@ -173,7 +173,7 @@ ti_raw_t * ti_str_from_ti_string(const char * src, size_t n)
 
     if (r->n < sz)
     {
-        ti_raw_t * tmp = realloc(r, sizeof(ti_raw_t) + r->n);
+        ti_raw_t *tmp = realloc(r, sizeof(ti_raw_t) + r->n);
         if (tmp)
             r = tmp;
     }
@@ -181,9 +181,9 @@ ti_raw_t * ti_str_from_ti_string(const char * src, size_t n)
     return r;
 }
 
-ti_raw_t * ti_str_from_fmt(const char * fmt, ...)
+ti_raw_t *ti_str_from_fmt(const char *fmt, ...)
 {
-    ti_raw_t * r;
+    ti_raw_t *r;
     int sz;
     va_list args0, args1;
     va_start(args0, fmt);
@@ -210,15 +210,15 @@ done:
     return r;
 }
 
-ti_raw_t * ti_str_from_slice(
-        ti_raw_t * source,
+ti_raw_t *ti_str_from_slice(
+        ti_raw_t *source,
         ssize_t start,
         ssize_t stop,
         ssize_t step)
 {
-    ti_raw_t * raw;
-    uchar * dest;
-    uchar * from;
+    ti_raw_t *raw;
+    uchar *dest;
+    uchar *from;
     ssize_t n = stop - start;
 
     n = n / step + !!(n % step);
@@ -245,15 +245,15 @@ ti_raw_t * ti_str_from_slice(
     return raw;
 }
 
-ti_raw_t * ti_bytes_from_slice(
-        ti_raw_t * source,
+ti_raw_t *ti_bytes_from_slice(
+        ti_raw_t *source,
         ssize_t start,
         ssize_t stop,
         ssize_t step)
 {
-    ti_raw_t * raw;
-    uchar * dest;
-    uchar * from;
+    ti_raw_t *raw;
+    uchar *dest;
+    uchar *from;
     ssize_t n = stop - start;
 
     n = n / step + !!(n % step);
@@ -280,9 +280,9 @@ ti_raw_t * ti_bytes_from_slice(
     return raw;
 }
 
-ti_raw_t * ti_str_from_vec(vec_t * vec)
+ti_raw_t *ti_str_from_vec(vec_t *vec)
 {
-    void * buffer;
+    void *buffer;
     size_t n = sizeof(ti_raw_t);
 
     for (vec_each(vec, ti_val_t, val))
@@ -304,11 +304,11 @@ ti_raw_t * ti_str_from_vec(vec_t * vec)
     return (ti_raw_t *) buffer;
 }
 
-ti_raw_t * ti_str_trim(ti_raw_t * raw)
+ti_raw_t *ti_str_trim(ti_raw_t *raw)
 {
     uint32_t i = 0, n = raw->n;
-    char * start = (char *) raw->data;
-    char * end = (char *) (raw->data + n);
+    char *start = (char *) raw->data;
+    char *end = (char *) (raw->data + n);
 
     for (; i < n && isspace(*start); ++i, ++start);
     for (; n && isspace(*(--end)); --n);
@@ -318,7 +318,7 @@ ti_raw_t * ti_str_trim(ti_raw_t * raw)
 
     if ((n -= i) != raw->n)
     {
-        ti_raw_t * r = malloc(sizeof(ti_raw_t) + n);
+        ti_raw_t *r = malloc(sizeof(ti_raw_t) + n);
         if (!r)
             return NULL;
         r->ref = 1;
@@ -332,10 +332,10 @@ ti_raw_t * ti_str_trim(ti_raw_t * raw)
     return raw;
 }
 
-ti_raw_t * ti_str_trim_left(ti_raw_t * raw)
+ti_raw_t *ti_str_trim_left(ti_raw_t *raw)
 {
     uint32_t i = 0, n = raw->n;
-    char * start = (char *) raw->data;
+    char *start = (char *) raw->data;
 
     for (; i < n && isspace(*start); ++i, ++start);
 
@@ -344,7 +344,7 @@ ti_raw_t * ti_str_trim_left(ti_raw_t * raw)
 
     if ((n -= i) != raw->n)
     {
-        ti_raw_t * r = malloc(sizeof(ti_raw_t) + n);
+        ti_raw_t *r = malloc(sizeof(ti_raw_t) + n);
         if (!r)
             return NULL;
         r->ref = 1;
@@ -358,10 +358,10 @@ ti_raw_t * ti_str_trim_left(ti_raw_t * raw)
     return raw;
 }
 
-ti_raw_t * ti_str_trim_right(ti_raw_t * raw)
+ti_raw_t *ti_str_trim_right(ti_raw_t *raw)
 {
     uint32_t n = raw->n;
-    char * end = (char *) raw->data + n;
+    char *end = (char *) raw->data + n;
 
     for (; n && isspace(*(--end)); --n);
 
@@ -370,7 +370,7 @@ ti_raw_t * ti_str_trim_right(ti_raw_t * raw)
 
     if (n != raw->n)
     {
-        ti_raw_t * r = malloc(sizeof(ti_raw_t) + n);
+        ti_raw_t *r = malloc(sizeof(ti_raw_t) + n);
         if (!r)
             return NULL;
         r->ref = 1;
@@ -384,11 +384,11 @@ ti_raw_t * ti_str_trim_right(ti_raw_t * raw)
     return raw;
 }
 
-ti_raw_t * ti_str_upper(ti_raw_t * raw)
+ti_raw_t *ti_str_upper(ti_raw_t *raw)
 {
-    char * to, * from = (char *) raw->data;
+    char *to, *from = (char *) raw->data;
     uint32_t i = 0, n = raw->n;
-    ti_raw_t * r = malloc(sizeof(ti_raw_t) + n);
+    ti_raw_t *r = malloc(sizeof(ti_raw_t) + n);
     if (!r)
         return NULL;
 
@@ -403,11 +403,11 @@ ti_raw_t * ti_str_upper(ti_raw_t * raw)
     return r;
 }
 
-ti_raw_t * ti_str_lower(ti_raw_t * raw)
+ti_raw_t *ti_str_lower(ti_raw_t *raw)
 {
-    char * to, * from = (char *) raw->data;
+    char *to, *from = (char *) raw->data;
     uint32_t i = 0, n = raw->n;
-    ti_raw_t * r = malloc(sizeof(ti_raw_t) + n);
+    ti_raw_t *r = malloc(sizeof(ti_raw_t) + n);
     if (!r)
         return NULL;
 
@@ -422,9 +422,9 @@ ti_raw_t * ti_str_lower(ti_raw_t * raw)
     return r;
 }
 
-ti_raw_t * ti_str_dval_n(size_t n)
+ti_raw_t *ti_str_dval_n(size_t n)
 {
-    ti_raw_t * r = malloc(sizeof(ti_raw_t) + n);
+    ti_raw_t *r = malloc(sizeof(ti_raw_t) + n);
     if (!r)
         return NULL;
 
@@ -437,9 +437,9 @@ ti_raw_t * ti_str_dval_n(size_t n)
     return r;
 }
 
-char * ti_raw_to_str(const ti_raw_t * raw)
+char *ti_raw_to_str(const ti_raw_t *raw)
 {
-    char * str = malloc(raw->n + 1);
+    char *str = malloc(raw->n + 1);
     if (!str)
         return NULL;
     memcpy(str, raw->data, raw->n);
@@ -447,7 +447,7 @@ char * ti_raw_to_str(const ti_raw_t * raw)
     return str;
 }
 
-int ti_raw_cmp(const ti_raw_t * a, const ti_raw_t * b)
+int ti_raw_cmp(const ti_raw_t *a, const ti_raw_t *b)
 {
     int rc = memcmp(a->data, b->data, a->n < b->n ? a->n : b->n);
     return (rc || a->n == b->n) ? rc : (a->n > b->n
@@ -456,7 +456,7 @@ int ti_raw_cmp(const ti_raw_t * a, const ti_raw_t * b)
     );
 }
 
-int ti_raw_cmp_strn(const ti_raw_t * a, const char * s, size_t n)
+int ti_raw_cmp_strn(const ti_raw_t *a, const char *s, size_t n)
 {
     int rc = memcmp(a->data, s, a->n < n ? a->n : n);
     return (rc || a->n == n) ? rc : (a->n > n
@@ -465,7 +465,7 @@ int ti_raw_cmp_strn(const ti_raw_t * a, const char * s, size_t n)
     );
 }
 
-void ti_raw_set_e(ex_t * e, const ti_raw_t * r, ex_enum code)
+void ti_raw_set_e(ex_t *e, const ti_raw_t *r, ex_enum code)
 {
     assert(r->n < EX_MAX_SZ);
     e->n = r->n;
@@ -474,10 +474,10 @@ void ti_raw_set_e(ex_t * e, const ti_raw_t * r, ex_enum code)
     e->msg[e->n] = '\0';
 }
 
-ti_raw_t * ti_raw_cat(const ti_raw_t * a, const ti_raw_t * b)
+ti_raw_t *ti_raw_cat(const ti_raw_t *a, const ti_raw_t *b)
 {
     size_t n = a->n + b->n;
-    ti_raw_t * r = malloc(sizeof(ti_raw_t) + n);
+    ti_raw_t *r = malloc(sizeof(ti_raw_t) + n);
     if (!r)
         return NULL;
 
@@ -491,10 +491,10 @@ ti_raw_t * ti_raw_cat(const ti_raw_t * a, const ti_raw_t * b)
     return r;
 }
 
-ti_raw_t * ti_raw_cat_strn(const ti_raw_t * a, const char * s, size_t n)
+ti_raw_t *ti_raw_cat_strn(const ti_raw_t *a, const char *s, size_t n)
 {
     size_t nn = a->n + n;
-    ti_raw_t * r = malloc(sizeof(ti_raw_t) + nn);
+    ti_raw_t *r = malloc(sizeof(ti_raw_t) + nn);
     if (!r)
         return NULL;
 
@@ -506,10 +506,10 @@ ti_raw_t * ti_raw_cat_strn(const ti_raw_t * a, const char * s, size_t n)
     return r;
 }
 
-ti_raw_t * ti_raw_icat_strn(const ti_raw_t * b, const char * s, size_t n)
+ti_raw_t *ti_raw_icat_strn(const ti_raw_t *b, const char *s, size_t n)
 {
     size_t nn = n + b->n;
-    ti_raw_t * r = malloc(sizeof(ti_raw_t) + nn);
+    ti_raw_t *r = malloc(sizeof(ti_raw_t) + nn);
     if (!r)
         return NULL;
 
@@ -521,14 +521,14 @@ ti_raw_t * ti_raw_icat_strn(const ti_raw_t * b, const char * s, size_t n)
     return r;
 }
 
-ti_raw_t * ti_raw_cat_strn_strn(
-        const char * as,
+ti_raw_t *ti_raw_cat_strn_strn(
+        const char *as,
         size_t an,
-        const char * bs,
+        const char *bs,
         size_t bn)
 {
     size_t nn = an + bn;
-    ti_raw_t * r = malloc(sizeof(ti_raw_t) + nn);
+    ti_raw_t *r = malloc(sizeof(ti_raw_t) + nn);
     if (!r)
         return NULL;
 
@@ -540,13 +540,13 @@ ti_raw_t * ti_raw_cat_strn_strn(
     return r;
 }
 
-_Bool ti_raw_contains(ti_raw_t * a, ti_raw_t * b)
+_Bool ti_raw_contains(ti_raw_t *a, ti_raw_t *b)
 {
     /* memmem requires _GNU_SOURCE */
     return !!memmem(a->data, a->n, b->data, b->n);
 }
 
-int ti_raw_check_valid_name(ti_raw_t * raw, const char * s, ex_t * e)
+int ti_raw_check_valid_name(ti_raw_t *raw, const char *s, ex_t *e)
 {
     if (!ti_name_is_valid_strn((const char *) raw->data, raw->n))
         ex_set(e, EX_VALUE_ERROR,
@@ -555,7 +555,7 @@ int ti_raw_check_valid_name(ti_raw_t * raw, const char * s, ex_t * e)
     return e->nr;
 }
 
-int ti_raw_err_not_found(ti_raw_t * raw, const char * s, ex_t * e)
+int ti_raw_err_not_found(ti_raw_t *raw, const char *s, ex_t *e)
 {
     if (!ti_raw_check_valid_name(raw, s, e))
         ex_set(e, EX_LOOKUP_ERROR,
@@ -564,7 +564,7 @@ int ti_raw_err_not_found(ti_raw_t * raw, const char * s, ex_t * e)
     return e->nr;
 }
 
-int ti_raw_printable_not_found(ti_raw_t * raw, const char * s, ex_t * e)
+int ti_raw_printable_not_found(ti_raw_t *raw, const char *s, ex_t *e)
 {
     /* The length of 99 is just arbitrary for which we decided its fine to
      * include the name in the error message.
@@ -578,11 +578,11 @@ int ti_raw_printable_not_found(ti_raw_t * raw, const char * s, ex_t * e)
     return e->nr;
 }
 
-const char * ti_raw_as_printable_str(ti_raw_t * raw)
+const char *ti_raw_as_printable_str(ti_raw_t *raw)
 {
     const size_t m = RAW__AS_PRINTABLE_BUF_SZ-4;
     size_t n = raw->n <= m ? raw->n : m;
-    char * pt = raw__as_printable_buf;
+    char *pt = raw__as_printable_buf;
 
     if (!strx_is_printablen((const char *) raw->data, n))
     {

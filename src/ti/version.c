@@ -6,13 +6,13 @@
 #include <ti/version.h>
 #include <limits.h>
 
-int ti_version_cmp(const char * version_a, const char * version_b)
+int ti_version_cmp(const char *version_a, const char *version_b)
 {
     long int a, b;
     int i = 3;
 
-    char * str_a = (char *) version_a;
-    char * str_b = (char *) version_b;
+    char *str_a = (char *) version_a;
+    char *str_b = (char *) version_b;
 
     while (i--)
     {

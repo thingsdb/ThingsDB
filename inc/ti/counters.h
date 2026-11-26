@@ -18,8 +18,8 @@ void ti_counters_destroy(void);
 void ti_counters_reset(void);
 double ti_counters_upd_commit_change(struct timespec * start);
 double ti_counters_upd_success_query(struct timespec * start);
-int ti_counters_to_pk(msgpack_packer * pk);
-ti_val_t * ti_counters_as_mpval(void);
+int ti_counters_to_pk(msgpack_packer *pk);
+ti_val_t *ti_counters_as_mpval(void);
 
 struct ti_counters_s
 {

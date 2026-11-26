@@ -32,39 +32,39 @@ typedef struct cleri_node_s cleri_node_t;
 typedef struct cleri_expecting_s cleri_expecting_t;
 typedef struct cleri_rule_store_s cleri_rule_store_t;
 typedef struct cleri_parse_s cleri_parse_t;
-typedef const char * (cleri_translate_t)(cleri_t *);
+typedef const char *(cleri_translate_t)(cleri_t *);
 
 /* public functions */
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-static inline cleri_parse_t * cleri_parse(
-    cleri_grammar_t * grammar,
-    const char * str);
-cleri_parse_t * cleri_parse2(
-    cleri_grammar_t * grammar,
-    const char * str,
+static inline cleri_parse_t *cleri_parse(
+    cleri_grammar_t *grammar,
+    const char *str);
+cleri_parse_t *cleri_parse2(
+    cleri_grammar_t *grammar,
+    const char *str,
     int flags);
-void cleri_parse_free(cleri_parse_t * pr);
-void cleri_parse_expect_start(cleri_parse_t * pr);
-void cleri_parse_line_pos(cleri_parse_t * pr, size_t * line, size_t * pos);
+void cleri_parse_free(cleri_parse_t *pr);
+void cleri_parse_expect_start(cleri_parse_t *pr);
+void cleri_parse_line_pos(cleri_parse_t *pr, size_t *line, size_t *pos);
 int cleri_parse_strn(
-    char * s,
+    char *s,
     size_t n,
-    cleri_parse_t * pr,
-    cleri_translate_t * translate);
+    cleri_parse_t *pr,
+    cleri_translate_t *translate);
 
 #ifdef __cplusplus
 }
 #endif
 
 /* private functions */
-cleri_node_t * cleri__parse_walk(
-        cleri_parse_t * pr,
-        cleri_node_t * parent,
-        cleri_t * cl_obj,
-        cleri_rule_store_t * rule,
+cleri_node_t *cleri__parse_walk(
+        cleri_parse_t *pr,
+        cleri_node_t *parent,
+        cleri_t *cl_obj,
+        cleri_rule_store_t *rule,
         int mode);
 
 /* structs */
@@ -73,17 +73,17 @@ struct cleri_parse_s
     int is_valid;
     int flags;
     size_t pos;
-    const char * str;
-    cleri_node_t * tree;
-    const cleri_olist_t * expect;
-    cleri_expecting_t * expecting;
-    cleri_grammar_t * grammar;
-    uint8_t * kwcache;
+    const char *str;
+    cleri_node_t *tree;
+    const cleri_olist_t *expect;
+    cleri_expecting_t *expecting;
+    cleri_grammar_t *grammar;
+    uint8_t *kwcache;
 };
 
-static inline cleri_parse_t * cleri_parse(
-    cleri_grammar_t * grammar,
-    const char * str)
+static inline cleri_parse_t *cleri_parse(
+    cleri_grammar_t *grammar,
+    const char *str)
 {
     return cleri_parse2(grammar, str, 0);
 }

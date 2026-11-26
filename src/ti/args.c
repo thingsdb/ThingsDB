@@ -16,7 +16,7 @@
 #define DEFAULT_LOG_LEVEL "warning"
 #endif
 
-static ti_args_t * args;
+static ti_args_t *args;
 static ti_args_t args_;
 
 int ti_args_create(void)
@@ -51,7 +51,7 @@ void ti_args_destroy(void)
 int ti_args_parse(int argc, char *argv[])
 {
     int rc;
-    argparse_t * parser = argparse_create();
+    argparse_t *parser = argparse_create();
     if (!parser)
         return -1;
 

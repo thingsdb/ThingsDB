@@ -19,7 +19,7 @@
 #include <util/util.h>
 #include <uv.h>
 
-static ti_away_t * away = NULL;
+static ti_away_t *away = NULL;
 static uv_work_t away__uv_work;
 static uv_timer_t away__uv_trigger;
 static uv_timer_t away__uv_waiter;
@@ -72,7 +72,7 @@ static enum away__severity away__get_minor_severity_first(void)
             : AWAY__SEVERITY_NONE;
 }
 
-static const char * away__status_str(void)
+static const char *away__status_str(void)
 {
     switch ((enum away__status) away->status)
     {
@@ -100,8 +100,8 @@ static void away__destroy(void)
 
 static void away__update_sleep(void)
 {
-    vec_t * nodes_vec = ti.nodes->vec;
-    ti_node_t * this_node = ti.node;
+    vec_t *nodes_vec = ti.nodes->vec;
+    ti_node_t *this_node = ti.node;
     size_t idx = 0, my_idx = 0, c_idx = 0, n = nodes_vec->n;
 
     for (vec_each(nodes_vec, ti_node_t, node), ++idx)
@@ -130,14 +130,14 @@ static void away__update_sleep(void)
     away->sleep = 2500 + ((my_idx - c_idx) * 17000);
 }
 
-static void away__accept_close_cb(uv_handle_t * UNUSED(handle))
+static void away__accept_close_cb(uv_handle_t *UNUSED(handle))
 {
     assert(away->status == AWAY__STATUS_ACCEPTED_IDLE ||
             away->status == AWAY__STATUS_ACCEPTED_INIT);
     away->status -= 2;
 }
 
-static void away__accept_cb(uv_timer_t * waiter)
+static void away__accept_cb(uv_timer_t *waiter)
 {
     (void) uv_timer_stop(waiter);
     uv_close((uv_handle_t *) waiter, away__accept_close_cb);
@@ -168,7 +168,7 @@ static void away__accept_node_id(uint32_t node_id)
  * or anything what might be accessed from within a node scope. This because
  * the node scope will allow queries even when in away mode.
  */
-static void away__work(uv_work_t * UNUSED(work))
+static void away__work(uv_work_t *UNUSED(work))
 {
     uv_mutex_lock(ti.changes->lock);
 
@@ -264,13 +264,13 @@ static void away__done(void)
         ti_set_and_broadcast_node_status(TI_NODE_STAT_READY);
 }
 
-static void away__waiter_after_close_cb(uv_handle_t * UNUSED(handle))
+static void away__waiter_after_close_cb(uv_handle_t *UNUSED(handle))
 {
     away->status = AWAY__STATUS_IDLE;
     away__done();
 }
 
-static void away__waiter_after_cb(uv_timer_t * waiter)
+static void away__waiter_after_cb(uv_timer_t *waiter)
 {
     assert(away->status == AWAY__STATUS_SYNCING);
 
@@ -306,7 +306,7 @@ static void away__waiter_after_cb(uv_timer_t * waiter)
     uv_close((uv_handle_t *) waiter, away__waiter_after_close_cb);
 }
 
-static void away__work_finish(uv_work_t * UNUSED(work), int status)
+static void away__work_finish(uv_work_t *UNUSED(work), int status)
 {
     away->status = AWAY__STATUS_SYNCING;
     away->skip_count = AWAY__SKIP_COUNT;  /* reset skip counter */
@@ -340,7 +340,7 @@ fail1:
     away__done();
 }
 
-static void away__waiter_pre_close_cb(uv_handle_t * UNUSED(handle))
+static void away__waiter_pre_close_cb(uv_handle_t *UNUSED(handle))
 {
     away->status = AWAY__STATUS_WORKING;
 
@@ -361,7 +361,7 @@ static void away__waiter_pre_close_cb(uv_handle_t * UNUSED(handle))
     ti_set_and_broadcast_node_status(TI_NODE_STAT_AWAY);
 }
 
-static void away__waiter_pre_cb(uv_timer_t * waiter)
+static void away__waiter_pre_cb(uv_timer_t *waiter)
 {
     ssize_t changes_to_process = ti_changes_trigger_loop();
 
@@ -410,12 +410,12 @@ static void away__waiter_pre_cb(uv_timer_t * waiter)
 
 static void away__reset_sleep(void)
 {
-    vec_t * nodes_vec = ti.nodes->vec;
+    vec_t *nodes_vec = ti.nodes->vec;
     away->away_node_id = ((ti_node_t *) VEC_first(nodes_vec))->id;
     away__update_sleep();
 }
 
-static void away__on_req_away_id(void * UNUSED(data), _Bool accepted)
+static void away__on_req_away_id(void *UNUSED(data), _Bool accepted)
 {
     if (!accepted)
     {
@@ -451,9 +451,9 @@ fail0:
 
 static void away__req_away_id(void)
 {
-    vec_t * nodes_vec = ti.nodes->vec;
-    ti_quorum_t * quorum = NULL;
-    ti_pkg_t * pkg, * dup;
+    vec_t *nodes_vec = ti.nodes->vec;
+    ti_quorum_t *quorum = NULL;
+    ti_pkg_t *pkg, *dup;
 
     quorum = ti_quorum_new((ti_quorum_cb) away__on_req_away_id, NULL);
     if (!quorum)
@@ -497,10 +497,10 @@ failed:
     away->status = AWAY__STATUS_IDLE;
 }
 
-static void away__trigger_cb(uv_timer_t * UNUSED(repeat))
+static void away__trigger_cb(uv_timer_t *UNUSED(repeat))
 {
-    static const char * away__skip_msg = "not going in away mode (%s)";
-    ti_node_t * node;
+    static const char *away__skip_msg = "not going in away mode (%s)";
+    ti_node_t *node;
     enum away__severity sev;
 
     if (ti.nodes->vec->n == 1)
@@ -663,7 +663,7 @@ void ti_away_stop(void)
 
 _Bool ti_away_accept(uint32_t node_id)
 {
-    ti_node_t * node = NULL;
+    ti_node_t *node = NULL;
 
     switch ((enum away__status) away->status)
     {
@@ -727,10 +727,10 @@ _Bool ti_away_is_busy(void)
     );
 }
 
-int ti_away_syncer(ti_stream_t * stream, uint64_t first)
+int ti_away_syncer(ti_stream_t *stream, uint64_t first)
 {
-    ti_syncer_t * syncer;
-    ti_syncer_t ** empty_syncer = NULL;
+    ti_syncer_t *syncer;
+    ti_syncer_t **empty_syncer = NULL;
 
     for (vec_each_addr(away->syncers, ti_syncer_t, syncr))
     {
@@ -772,7 +772,7 @@ failed:
     return -1;
 }
 
-void ti_away_syncer_done(ti_stream_t * stream)
+void ti_away_syncer_done(ti_stream_t *stream)
 {
     size_t i = 0;
     for (vec_each(away->syncers, ti_syncer_t, syncer), ++i)

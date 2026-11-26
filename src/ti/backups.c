@@ -12,12 +12,12 @@
 #include <util/util.h>
 #include <util/vec.h>
 
-static const char * backups__fn             = "node_backups.mp";
+static const char *backups__fn             = "node_backups.mp";
 
-static ti_backups_t * backups;
+static ti_backups_t *backups;
 static ti_backups_t backups_;
 
-static int backups__gcd_rm(ti_raw_t * fn)
+static int backups__gcd_rm(ti_raw_t *fn)
 {
     int rc = -1;
     char buffer[512];
@@ -60,10 +60,10 @@ fail0:
     return rc;
 }
 
-static void backups__rm(uv_work_t * work)
+static void backups__rm(uv_work_t *work)
 {
-    ti_raw_t * gs_str = (ti_raw_t *) ti_val_borrow_gs_str();
-    vec_t * vec = work->data;
+    ti_raw_t *gs_str = (ti_raw_t *) ti_val_borrow_gs_str();
+    vec_t *vec = work->data;
 
     for (vec_each(vec, ti_raw_t, fn))
     {
@@ -74,9 +74,9 @@ static void backups__rm(uv_work_t * work)
     }
 }
 
-static void backups__rm_finish(uv_work_t * work, int status)
+static void backups__rm_finish(uv_work_t *work, int status)
 {
-    vec_t * vec = work->data;
+    vec_t *vec = work->data;
 
     if (status)
         log_error("%s", uv_strerror(status));
@@ -85,10 +85,10 @@ static void backups__rm_finish(uv_work_t * work, int status)
     free(work);
 }
 
-static void backups__delete_files(ti_backup_t * backup)
+static void backups__delete_files(ti_backup_t *backup)
 {
-    vec_t * vec;
-    uv_work_t * work;
+    vec_t *vec;
+    uv_work_t *work;
 
     if (!backup->files->n)
         return;
@@ -123,10 +123,10 @@ fail0:
     return;
 }
 
-static void backup__delete_file(ti_raw_t * fn)
+static void backup__delete_file(ti_raw_t *fn)
 {
-    vec_t * vec;
-    uv_work_t * work;
+    vec_t *vec;
+    uv_work_t *work;
 
     vec = vec_new(1);
     if (!vec)
@@ -197,7 +197,7 @@ void ti_backups_destroy(void)
  * is useful so the ge_pending function can be used and prevent returning the
  * same backup more than once.
  */
-static ti_backup_t * backups__get_pending(uint64_t ts, uint64_t at_least_id)
+static ti_backup_t *backups__get_pending(uint64_t ts, uint64_t at_least_id)
 {
     omap_iter_t iter = omap_iter(backups->omap);
     for (omap_each(iter, ti_backup_t, backup))
@@ -208,11 +208,11 @@ static ti_backup_t * backups__get_pending(uint64_t ts, uint64_t at_least_id)
     return NULL;
 }
 
-void ti_backups_upd_status(uint64_t backup_id, int rc, buf_t * buf)
+void ti_backups_upd_status(uint64_t backup_id, int rc, buf_t *buf)
 {
     uint64_t now = util_now_usec();
-    ti_backup_t * backup;
-    ti_raw_t * last_fn;
+    ti_backup_t *backup;
+    ti_raw_t *last_fn;
 
     if (rc)
         log_error("backup result: %.*s", (int) buf->len, buf->data);
@@ -241,7 +241,7 @@ void ti_backups_upd_status(uint64_t backup_id, int rc, buf_t * buf)
     {
         if (backup->files->n == backup->max_files)
         {
-            ti_raw_t * first_fn = queue_shift(backup->files);
+            ti_raw_t *first_fn = queue_shift(backup->files);
 
             assert(first_fn);  /* max_files > 0 so we always have some file */
 
@@ -275,7 +275,7 @@ done:
     uv_mutex_unlock(backups->lock);
 }
 
-static void backups__run(uint64_t backup_id, const char * backup_task)
+static void backups__run(uint64_t backup_id, const char *backup_task)
 {
     char buffer[512];
     int rc = -1;
@@ -329,7 +329,7 @@ static int backups__store(void)
     msgpack_packer pk;
     FILE * f = fopen(backups->fn, "w");
     static char empty[1] = "";
-    char * result_msg;
+    char *result_msg;
     if (!f)
     {
         log_errno_file("cannot open file", errno,  backups->fn);
@@ -420,10 +420,10 @@ int ti_backups_restore(void)
     mp_obj_t obj, arr, mp_ver, mp_id, mp_ts, mp_repeat, mp_template,
              mp_fn, mp_msg, mp_plan, mp_code, mp_created, mp_max_files;
     mp_unp_t up;
-    ti_backup_t * backup;
+    ti_backup_t *backup;
     uint64_t now = util_now_usec();
-    queue_t * files_queue;
-    ti_raw_t * raw_fn;
+    queue_t *files_queue;
+    ti_raw_t *raw_fn;
     _Bool set_changed = false;
 
     /* prevents a compiler warning */
@@ -565,8 +565,8 @@ int ti_backups_store(void)
 
 int ti_backups_backup(void)
 {
-    char * backup_task;
-    ti_backup_t * backup;
+    char *backup_task;
+    ti_backup_t *backup;
     uint64_t now = util_now_usec();
     uint64_t backup_id = 0;  /* At least backup Id...*/
 
@@ -654,10 +654,10 @@ _Bool ti_backups_require_away(void)
     return backups->changed || ti_backups_pending() > 0;
 }
 
-ti_varr_t * ti_backups_info(void)
+ti_varr_t *ti_backups_info(void)
 {
     omap_iter_t iter;
-    ti_varr_t * varr = ti_varr_create(backups->omap->n);
+    ti_varr_t *varr = ti_varr_create(backups->omap->n);
     if (!varr)
         return NULL;
 
@@ -666,7 +666,7 @@ ti_varr_t * ti_backups_info(void)
     iter = omap_iter(backups->omap);
     for (omap_each(iter, ti_backup_t, backup))
     {
-        ti_val_t * mpinfo = ti_backup_as_mpval(backup);
+        ti_val_t *mpinfo = ti_backup_as_mpval(backup);
         if (!mpinfo)
         {
             ti_val_unsafe_drop((ti_val_t *) varr);
@@ -697,9 +697,9 @@ _Bool ti_backups_ok(void)
     return backups_ok;
 }
 
-void ti_backups_del_backup(uint64_t backup_id, _Bool delete_files, ex_t * e)
+void ti_backups_del_backup(uint64_t backup_id, _Bool delete_files, ex_t *e)
 {
-    ti_backup_t * backup;
+    ti_backup_t *backup;
     uv_mutex_lock(backups->lock);
 
     backup = omap_rm(backups->omap, backup_id);
@@ -731,10 +731,10 @@ _Bool ti_backups_has_backup(uint64_t backup_id)
     return has_backup;
 }
 
-ti_val_t * ti_backups_backup_as_mpval(uint64_t backup_id, ex_t * e)
+ti_val_t *ti_backups_backup_as_mpval(uint64_t backup_id, ex_t *e)
 {
-    ti_val_t * mpinfo = NULL;
-    ti_backup_t * backup;
+    ti_val_t *mpinfo = NULL;
+    ti_backup_t *backup;
 
     uv_mutex_lock(backups->lock);
 
@@ -753,17 +753,17 @@ ti_val_t * ti_backups_backup_as_mpval(uint64_t backup_id, ex_t * e)
     return mpinfo;
 }
 
-ti_backup_t * ti_backups_new_backup(
+ti_backup_t *ti_backups_new_backup(
         uint64_t id,
-        const char * fn_template,
+        const char *fn_template,
         size_t fn_templare_n,
         uint64_t timestamp,
         uint64_t repeat,
         uint64_t max_files,
         uint64_t created_at,
-        queue_t * files)
+        queue_t *files)
 {
-    ti_backup_t * backup = ti_backup_create(
+    ti_backup_t *backup = ti_backup_create(
             id,
             fn_template,
             fn_templare_n,

@@ -1,10 +1,10 @@
 #include <ti/fn/fn.h>
 
-static int do__f_to_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_to_thing(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_task_t * task;
-    ti_thing_t * thing;
+    ti_task_t *task;
+    ti_thing_t *thing;
 
     if (!ti_val_is_instance(query->rval))
         return fn_call_try("to_thing", query, nd, e);

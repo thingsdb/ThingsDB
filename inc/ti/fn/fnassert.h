@@ -1,10 +1,10 @@
 #include <ti/fn/fn.h>
 
-static int do__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_assert(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_raw_t * msg;
-    cleri_node_t * assert_node;
+    ti_raw_t *msg;
+    cleri_node_t *assert_node;
 
     if (fn_nargs_range("assert", DOC_ASSERT, 1, 2, nargs, e))
         return e->nr;

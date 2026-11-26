@@ -1,11 +1,11 @@
 #include <ti/fn/fn.h>
 
-static int do__f_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_enum(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     int lock_was_set;
-    ti_enum_t * enum_;
-    ti_member_t * member;
+    ti_enum_t *enum_;
+    ti_member_t *member;
 
     if (fn_not_collection_scope("enum", query, e) ||
         fn_nargs_range("enum", DOC_ENUM, 1, 2, nargs, e) ||

@@ -1,10 +1,10 @@
 #include <ti/fn/fn.h>
 
-static int do__f_has_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_has_token(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     _Bool has_token;
-    ti_raw_t * rkey;
+    ti_raw_t *rkey;
 
     if (fn_not_thingsdb_scope("has_token", query, e) ||
         ti_access_check_err(

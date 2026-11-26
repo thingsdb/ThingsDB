@@ -11,9 +11,9 @@
 #include <tiinc.h>
 #include <util/logger.h>
 
-ti_vset_t * ti_vset_create(void)
+ti_vset_t *ti_vset_create(void)
 {
-    ti_vset_t * vset = malloc(sizeof(ti_vset_t));
+    ti_vset_t *vset = malloc(sizeof(ti_vset_t));
     if (!vset)
         return NULL;
 
@@ -32,9 +32,9 @@ ti_vset_t * ti_vset_create(void)
     return vset;
 }
 
-ti_vset_t * ti_vset_create_imap(imap_t * imap)
+ti_vset_t *ti_vset_create_imap(imap_t *imap)
 {
-    ti_vset_t * vset = malloc(sizeof(ti_vset_t));
+    ti_vset_t *vset = malloc(sizeof(ti_vset_t));
     if (!vset)
         return NULL;
 
@@ -46,7 +46,7 @@ ti_vset_t * ti_vset_create_imap(imap_t * imap)
     return vset;
 }
 
-void ti_vset_destroy(ti_vset_t * vset)
+void ti_vset_destroy(ti_vset_t *vset)
 {
     if (!vset)
         return;
@@ -56,17 +56,17 @@ void ti_vset_destroy(ti_vset_t * vset)
 
 typedef struct
 {
-    ti_vp_t * vp;
+    ti_vp_t *vp;
     int deep;
     int flags;
 } vset__walk_to_pk_t;
 
-static inline int vset__walk_to_client_pk(ti_thing_t * thing, vset__walk_to_pk_t * w)
+static inline int vset__walk_to_client_pk(ti_thing_t *thing, vset__walk_to_pk_t *w)
 {
     return ti_thing_to_client_pk(thing, w->vp, w->deep, w->flags);
 }
 
-int ti_vset_to_client_pk(ti_vset_t * vset, ti_vp_t * vp, int deep, int flags)
+int ti_vset_to_client_pk(ti_vset_t *vset, ti_vp_t *vp, int deep, int flags)
 {
     vset__walk_to_pk_t w = {
             .vp = vp,
@@ -79,7 +79,7 @@ int ti_vset_to_client_pk(ti_vset_t * vset, ti_vp_t * vp, int deep, int flags)
     );
 }
 
-int ti_vset_to_store_pk(ti_vset_t * vset, msgpack_packer * pk)
+int ti_vset_to_store_pk(ti_vset_t *vset, msgpack_packer *pk)
 {
     return -(
             msgpack_pack_map(pk, 1) ||
@@ -89,9 +89,9 @@ int ti_vset_to_store_pk(ti_vset_t * vset, msgpack_packer * pk)
     );
 }
 
-int ti_vset_to_list(ti_vset_t ** vsetaddr)
+int ti_vset_to_list(ti_vset_t **vsetaddr)
 {
-    ti_varr_t * list = malloc(sizeof(ti_varr_t));
+    ti_varr_t *list = malloc(sizeof(ti_varr_t));
     if (!list)
         goto failed;
 
@@ -114,9 +114,9 @@ failed:
     return -1;
 }
 
-int ti_vset_to_tuple(ti_vset_t ** vsetaddr)
+int ti_vset_to_tuple(ti_vset_t **vsetaddr)
 {
-    ti_tuple_t * tuple = malloc(sizeof(ti_tuple_t));
+    ti_tuple_t *tuple = malloc(sizeof(ti_tuple_t));
     if (!tuple)
         goto failed;
 
@@ -138,7 +138,7 @@ failed:
     return -1;
 }
 
-static int vset__walk_assign(ti_thing_t * t, ti_vset_t * vset)
+static int vset__walk_assign(ti_thing_t *t, ti_vset_t *vset)
 {
     if (ti_vset_add(vset, t))
     {
@@ -149,9 +149,9 @@ static int vset__walk_assign(ti_thing_t * t, ti_vset_t * vset)
     return 0;
 }
 
-ti_vset_t * ti_vset_cp(ti_vset_t * vset)
+ti_vset_t *ti_vset_cp(ti_vset_t *vset)
 {
-    ti_vset_t * nvset = ti_vset_create();
+    ti_vset_t *nvset = ti_vset_create();
     if (!nvset)
         return NULL;
 
@@ -160,9 +160,9 @@ ti_vset_t * ti_vset_cp(ti_vset_t * vset)
             : nvset;
 }
 
-int ti_vset_assign(ti_vset_t ** vsetaddr)
+int ti_vset_assign(ti_vset_t **vsetaddr)
 {
-    ti_vset_t * nvset, * ovset = *vsetaddr;
+    ti_vset_t *nvset, *ovset = *vsetaddr;
 
     if (ovset->ref == 1)
         return 0;  /* with only one reference we do not require a copy */
@@ -179,9 +179,9 @@ int ti_vset_assign(ti_vset_t ** vsetaddr)
     return 0;
 }
 
-static int vset__walk_copy(ti_thing_t * t, ti_vset_t * vset)
+static int vset__walk_copy(ti_thing_t *t, ti_vset_t *vset)
 {
-    ti_thing_t ** tarr = &t;
+    ti_thing_t **tarr = &t;
 
     ti_incref(t);
 
@@ -196,9 +196,9 @@ static int vset__walk_copy(ti_thing_t * t, ti_vset_t * vset)
     return 0;
 }
 
-static int vset__walk_dup(ti_thing_t * t, ti_vset_t * vset)
+static int vset__walk_dup(ti_thing_t *t, ti_vset_t *vset)
 {
-    ti_thing_t ** tarr = &t;
+    ti_thing_t **tarr = &t;
 
     ti_incref(t);
 
@@ -213,11 +213,11 @@ static int vset__walk_dup(ti_thing_t * t, ti_vset_t * vset)
     return 0;
 }
 
-int ti_vset_copy(ti_vset_t ** vsetaddr, uint8_t deep)
+int ti_vset_copy(ti_vset_t **vsetaddr, uint8_t deep)
 {
     assert(deep);
 
-    ti_vset_t * nvset, * ovset = *vsetaddr;
+    ti_vset_t *nvset, *ovset = *vsetaddr;
 
     if (!(nvset = ti_vset_create()))
         return -1;
@@ -237,11 +237,11 @@ int ti_vset_copy(ti_vset_t ** vsetaddr, uint8_t deep)
     return 0;
 }
 
-int ti_vset_dup(ti_vset_t ** vsetaddr, uint8_t deep)
+int ti_vset_dup(ti_vset_t **vsetaddr, uint8_t deep)
 {
     assert(deep);
 
-    ti_vset_t * nvset, * ovset = *vsetaddr;
+    ti_vset_t *nvset, *ovset = *vsetaddr;
 
     if (!(nvset = ti_vset_create()))
         return -1;
@@ -267,7 +267,7 @@ int ti_vset_dup(ti_vset_t ** vsetaddr, uint8_t deep)
  * The return value is <0 in case of an error and `e` will contain the reason,
  * If 0, then the `thing` was already in the set, and 1 if it was added.
  */
-int ti_vset_add_val(ti_vset_t * vset, ti_val_t * val, ex_t * e)
+int ti_vset_add_val(ti_vset_t *vset, ti_val_t *val, ex_t *e)
 {
     uint16_t spec = ti_vset_spec(vset);
 
@@ -281,8 +281,8 @@ int ti_vset_add_val(ti_vset_t * vset, ti_val_t * val, ex_t * e)
 
     if (spec != TI_SPEC_ANY)
     {
-        ti_thing_t * thing = (ti_thing_t *) val;
-        ti_field_t * field = vset->key_;
+        ti_thing_t *thing = (ti_thing_t *) val;
+        ti_field_t *field = vset->key_;
 
         if (spec != thing->type_id)
         {
@@ -296,7 +296,7 @@ int ti_vset_add_val(ti_vset_t * vset, ti_val_t * val, ex_t * e)
 
         if (field->condition.rel)
         {
-            ti_field_t * ofield = field->condition.rel->field;
+            ti_field_t *ofield = field->condition.rel->field;
 
             if (!vset->parent->id)
             {
@@ -313,7 +313,7 @@ int ti_vset_add_val(ti_vset_t * vset, ti_val_t * val, ex_t * e)
             }
             else
             {
-                ti_thing_t * othing = VEC_get(thing->items.vec, ofield->idx);
+                ti_thing_t *othing = VEC_get(thing->items.vec, ofield->idx);
                 if (othing->tp == TI_VAL_THING)
                     field->condition.rel->del_cb(field, othing, thing);
 
@@ -338,11 +338,11 @@ int ti_vset_add_val(ti_vset_t * vset, ti_val_t * val, ex_t * e)
 
 typedef struct
 {
-    ti_field_t * ofield;
-    ti_thing_t * parent;
+    ti_field_t *ofield;
+    ti_thing_t *parent;
 } vset__clear_t;
 
-static int vset__clear_walk_cb(ti_thing_t * thing, vset__clear_t * w)
+static int vset__clear_walk_cb(ti_thing_t *thing, vset__clear_t *w)
 {
     w->ofield->condition.rel->del_cb(
             w->ofield,
@@ -351,11 +351,11 @@ static int vset__clear_walk_cb(ti_thing_t * thing, vset__clear_t * w)
     return 0;
 }
 
-void ti_vset_clear(ti_vset_t * vset)
+void ti_vset_clear(ti_vset_t *vset)
 {
     if (ti_vset_has_relation(vset))
     {
-        ti_field_t * field = vset->key_;
+        ti_field_t *field = vset->key_;
         vset__clear_t w = {
                 .ofield = field->condition.rel->field,
                 .parent = vset->parent,

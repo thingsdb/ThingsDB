@@ -11,18 +11,18 @@
 #include <util/vec.h>
 #include <util/logger.h>
 
-ti_change_t * ti_change_create(ti_change_tp_enum tp);
-ti_change_t * ti_change_cpkg(ti_cpkg_t * cpkg);
-ti_change_t * ti_change_initial(void);
-void ti_change_drop(ti_change_t * change);
+ti_change_t *ti_change_create(ti_change_tp_enum tp);
+ti_change_t *ti_change_cpkg(ti_cpkg_t *cpkg);
+ti_change_t *ti_change_initial(void);
+void ti_change_drop(ti_change_t *change);
 void ti_change_missing(uint64_t change_id);
-int ti_change_run(ti_change_t * change);
-void ti__change_log_(const char * prefix, ti_change_t * change, int log_level);
-const char * ti_change_status_str(ti_change_t * change);
+int ti_change_run(ti_change_t *change);
+void ti__change_log_(const char *prefix, ti_change_t *change, int log_level);
+const char *ti_change_status_str(ti_change_t *change);
 
 static inline void ti_change_log(
-        const char * prefix,
-        ti_change_t * change,
+        const char *prefix,
+        ti_change_t *change,
         int log_level)
 {
     if (Logger.level <= log_level)

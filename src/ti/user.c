@@ -14,18 +14,18 @@
 #include <util/strx.h>
 #include <util/util.h>
 
-const char * ti_user_def_name = "admin";
-const char * ti_user_def_pass = "pass";
+const char *ti_user_def_name = "admin";
+const char *ti_user_def_pass = "pass";
 const unsigned int ti_min_name = 1;
 const unsigned int ti_max_name = 128;  /* max name = 127 + \0 */
 const unsigned int ti_min_pass = 1;
 const unsigned int ti_max_pass = 128;  /* max pass = 127 + \0 */
 
 static int user__pack_access(
-        ti_user_t * user,
-        msgpack_packer * pk,
-        vec_t * access_,
-        const unsigned char * scope,
+        ti_user_t *user,
+        msgpack_packer *pk,
+        vec_t *access_,
+        const unsigned char *scope,
         size_t n)
 {
     for (vec_each(access_, ti_auth_t, auth))
@@ -44,7 +44,7 @@ static int user__pack_access(
     return 0;
 }
 
-static int user__pack_tokens(ti_user_t * user, msgpack_packer * pk)
+static int user__pack_tokens(ti_user_t *user, msgpack_packer *pk)
 {
     uint64_t now = util_now_usec();
     const size_t key_sz = sizeof(ti_token_key_t);
@@ -55,7 +55,7 @@ static int user__pack_tokens(ti_user_t * user, msgpack_packer * pk)
 
     for (vec_each(user->tokens, ti_token_t, token))
     {
-        const char * status, * isotimestr;
+        const char *status, *isotimestr;
 
         if (token->expire_ts)
         {
@@ -97,7 +97,7 @@ static int user__pack_tokens(ti_user_t * user, msgpack_packer * pk)
     return 0;
 }
 
-static int user__pack_whitelist(vec_t * whitelist, msgpack_packer * pk)
+static int user__pack_whitelist(vec_t *whitelist, msgpack_packer *pk)
 {
     if (msgpack_pack_array(pk, whitelist->n))
         return -1;
@@ -118,14 +118,14 @@ static int user__pack_whitelist(vec_t * whitelist, msgpack_packer * pk)
     return 0;
 }
 
-ti_user_t * ti_user_create(
+ti_user_t *ti_user_create(
         uint64_t id,
-        const char * name,
+        const char *name,
         size_t name_n,
-        const char * encrpass,
+        const char *encrpass,
         uint64_t created_at)
 {
-    ti_user_t * user = malloc(sizeof(ti_user_t));
+    ti_user_t *user = malloc(sizeof(ti_user_t));
     if (!user)
         return NULL;
 
@@ -147,7 +147,7 @@ ti_user_t * ti_user_create(
     return user;
 }
 
-void ti_user_drop(ti_user_t * user)
+void ti_user_drop(ti_user_t *user)
 {
     if (user && !--user->ref)
     {
@@ -164,9 +164,9 @@ void ti_user_drop(ti_user_t * user)
     }
 }
 
-void ti_user_del_expired(ti_user_t * user, uint64_t after_ts)
+void ti_user_del_expired(ti_user_t *user, uint64_t after_ts)
 {
-    ti_token_t * token;
+    ti_token_t *token;
     for (size_t n = 0, m = user->tokens->n; n < m; )
     {
         token = user->tokens->data[n];
@@ -180,7 +180,7 @@ void ti_user_del_expired(ti_user_t * user, uint64_t after_ts)
     }
 }
 
-_Bool ti_user_name_check(const char * name, size_t n, ex_t * e)
+_Bool ti_user_name_check(const char *name, size_t n, ex_t *e)
 {
     if (n < ti_min_name || n >= ti_max_name)
     {
@@ -206,7 +206,7 @@ _Bool ti_user_name_check(const char * name, size_t n, ex_t * e)
     return true;
 }
 
-_Bool ti_user_pass_check(const char * passstr, ex_t * e)
+_Bool ti_user_pass_check(const char *passstr, ex_t *e)
 {
     size_t n = strlen(passstr);
     if (n < ti_min_pass)
@@ -235,7 +235,7 @@ _Bool ti_user_pass_check(const char * passstr, ex_t * e)
 /*
  * Increments the `name` reference counter only if successful
  */
-int ti_user_rename(ti_user_t * user, ti_raw_t * name, ex_t * e)
+int ti_user_rename(ti_user_t *user, ti_raw_t *name, ex_t *e)
 {
     assert(e->nr == 0);
 
@@ -248,9 +248,9 @@ int ti_user_rename(ti_user_t * user, ti_raw_t * name, ex_t * e)
     return e->nr;
 }
 
-int ti_user_set_pass(ti_user_t * user, const char * pass)
+int ti_user_set_pass(ti_user_t *user, const char *pass)
 {
-    char * password;
+    char *password;
     char salt[CRYPTX_SALT_SZ];
     char encrypted[CRYPTX_SZ];
 
@@ -280,7 +280,7 @@ int ti_user_set_pass(ti_user_t * user, const char * pass)
     return 0;
 }
 
-static size_t user__count_access(ti_user_t * user)
+static size_t user__count_access(ti_user_t *user)
 {
     size_t n = 0;
     for (vec_each(ti.access_node, ti_auth_t, auth))
@@ -315,14 +315,14 @@ static size_t user__count_access(ti_user_t * user)
     return n;
 }
 
-static inline size_t user__count_whitelist(ti_user_t * user)
+static inline size_t user__count_whitelist(ti_user_t *user)
 {
     return \
         !!user->whitelists[TI_WHITELIST_ROOMS] + \
         !!user->whitelists[TI_WHITELIST_PROCEDURES];
 }
 
-int ti_user_info_to_pk(ti_user_t * user, msgpack_packer * pk)
+int ti_user_info_to_pk(ti_user_t *user, msgpack_packer *pk)
 {
     if (msgpack_pack_map(pk, 7) ||  /* four below + tokens */
 
@@ -380,9 +380,9 @@ int ti_user_info_to_pk(ti_user_t * user, msgpack_packer * pk)
     return 0;
 }
 
-ti_val_t * ti_user_as_mpval(ti_user_t * user)
+ti_val_t *ti_user_as_mpval(ti_user_t *user)
 {
-    ti_raw_t * raw;
+    ti_raw_t *raw;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -401,7 +401,7 @@ ti_val_t * ti_user_as_mpval(ti_user_t * user)
     return (ti_val_t *) raw;
 }
 
-ti_token_t * ti_user_pop_token_by_key(ti_user_t * user, ti_token_key_t * key)
+ti_token_t *ti_user_pop_token_by_key(ti_user_t *user, ti_token_key_t *key)
 {
     size_t idx = 0;
     for (vec_each(user->tokens, ti_token_t, token), ++idx)

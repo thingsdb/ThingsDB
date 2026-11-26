@@ -20,12 +20,12 @@ struct ti_mpkg_s
     unsigned char data[];
 };
 
-static inline ti_pkg_t * ti_mpkg_pkg(ti_mpkg_t * mpkg)
+static inline ti_pkg_t *ti_mpkg_pkg(ti_mpkg_t *mpkg)
 {
     return (ti_pkg_t *) (((char *) mpkg) + 4);
 }
 
-static inline void mpkg_init(ti_mpkg_t * mpkg, uint16_t id, uint8_t tp, size_t n)
+static inline void mpkg_init(ti_mpkg_t *mpkg, uint16_t id, uint8_t tp, size_t n)
 {
     mpkg->id = id;
     mpkg->n = n;

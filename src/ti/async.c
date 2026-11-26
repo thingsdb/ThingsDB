@@ -7,10 +7,10 @@
 #include <ti/query.h>
 #include <ti.h>
 
-static void async__uv_cb(uv_async_t * task)
+static void async__uv_cb(uv_async_t *task)
 {
     ex_t e = {0};
-    ti_future_t * future = task->data;
+    ti_future_t *future = task->data;
 
     /*
      * We never "use" the array directly, only the members in combination with
@@ -29,9 +29,9 @@ static void async__uv_cb(uv_async_t * task)
     uv_close((uv_handle_t *) task, (uv_close_cb) free);
 }
 
-static void async__cb(ti_future_t * future)
+static void async__cb(ti_future_t *future)
 {
-    uv_async_t * task = malloc(sizeof(uv_async_t));
+    uv_async_t *task = malloc(sizeof(uv_async_t));
     if (!task)
     {
         ex_t e;
@@ -63,7 +63,7 @@ void ti_async_init(void)
     async__module.name = (ti_name_t *) ti_val_borrow_async_name();
 }
 
-ti_module_t * ti_async_get_module(void)
+ti_module_t *ti_async_get_module(void)
 {
     return &async__module;
 }

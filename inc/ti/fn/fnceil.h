@@ -1,11 +1,11 @@
 #include <ti/fn/fn.h>
 
-static int do__f_ceil(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_ceil(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     double d;
     int64_t i;
-    ti_val_t * v;
+    ti_val_t *v;
 
     if (fn_nargs("ceil", DOC_MATH_CEIL, 1, nargs, e) ||
         ti_do_statement(query, nd->children, e) ||

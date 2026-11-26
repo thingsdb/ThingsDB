@@ -19,14 +19,14 @@
 #include <ti/watch.h>
 #include <util/logger.h>
 
-ti_thing_t * ti_things_create_thing_o(
+ti_thing_t *ti_things_create_thing_o(
         uint64_t id,
         uint16_t spec,
         size_t init_sz,
-        ti_collection_t * collection)
+        ti_collection_t *collection)
 {
     assert(id);
-    ti_thing_t * thing = ti_thing_o_create(id, init_sz, collection);
+    ti_thing_t *thing = ti_thing_o_create(id, init_sz, collection);
     if (!thing || ti_thing_to_map(thing))
     {
         ti_val_drop((ti_val_t *) thing);
@@ -36,13 +36,13 @@ ti_thing_t * ti_things_create_thing_o(
     return thing;
 }
 
-ti_thing_t * ti_things_create_thing_t(
+ti_thing_t *ti_things_create_thing_t(
         uint64_t id,
-        ti_type_t * type,
-        ti_collection_t * collection)
+        ti_type_t *type,
+        ti_collection_t *collection)
 {
     assert(id);
-    ti_thing_t * thing = ti_thing_t_create(id, type, collection);
+    ti_thing_t *thing = ti_thing_t_create(id, type, collection);
     if (!thing || ti_thing_to_map(thing))
     {
         ti_val_drop((ti_val_t *) thing);
@@ -52,13 +52,13 @@ ti_thing_t * ti_things_create_thing_t(
 }
 
 /* Returns a thing with a new reference or NULL in case of an error */
-ti_thing_t * ti_things_thing_o_from_vup__deprecated(
-        ti_vup_t * vup,
+ti_thing_t *ti_things_thing_o_from_vup__deprecated(
+        ti_vup_t *vup,
         uint64_t thing_id,
         size_t sz,
-        ex_t * e)
+        ex_t *e)
 {
-    ti_thing_t * thing;
+    ti_thing_t *thing;
     thing = ti_collection_find_thing(vup->collection, thing_id);
     if (thing)
     {
@@ -101,9 +101,9 @@ ti_thing_t * ti_things_thing_o_from_vup__deprecated(
 }
 
 /* Returns a thing with a new reference or NULL in case of an error */
-ti_thing_t * ti_things_thing_o_from_vup(ti_vup_t * vup, ex_t * e)
+ti_thing_t *ti_things_thing_o_from_vup(ti_vup_t *vup, ex_t *e)
 {
-    ti_thing_t * thing;
+    ti_thing_t *thing;
     mp_obj_t obj, mp_thing_id, mp_spec;
 
     if (mp_next(vup->up, &obj) != MP_ARR || obj.via.sz != 3 ||
@@ -149,10 +149,10 @@ ti_thing_t * ti_things_thing_o_from_vup(ti_vup_t * vup, ex_t * e)
 
 
 /* Returns a thing with a new reference or NULL in case of an error */
-ti_thing_t * ti_things_thing_t_from_vup(ti_vup_t * vup, ex_t * e)
+ti_thing_t *ti_things_thing_t_from_vup(ti_vup_t *vup, ex_t *e)
 {
-    ti_thing_t * thing;
-    ti_type_t * type;
+    ti_thing_t *thing;
+    ti_type_t *type;
     mp_obj_t obj, mp_thing_id, mp_type_id;
 
     if (mp_next(vup->up, &obj) != MP_ARR || obj.via.sz != 3 ||
@@ -219,7 +219,7 @@ ti_thing_t * ti_things_thing_t_from_vup(ti_vup_t * vup, ex_t * e)
 
     for (vec_each(type->fields, ti_field_t, field))
     {
-        ti_val_t * val = ti_val_from_vup_e(vup, e);
+        ti_val_t *val = ti_val_from_vup_e(vup, e);
 
         if (!val || ti_field_make_assignable(field, &val, thing, e))
         {

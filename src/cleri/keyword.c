@@ -6,13 +6,13 @@
 #include <cleri/keyword.h>
 #include <assert.h>
 
-static void keyword__free(cleri_t * cl_object);
+static void keyword__free(cleri_t *cl_object);
 
-static cleri_node_t * keyword__parse(
-        cleri_parse_t * pr,
-        cleri_node_t * parent,
-        cleri_t * cl_obj,
-        cleri_rule_store_t * rule);
+static cleri_node_t *keyword__parse(
+        cleri_parse_t *pr,
+        cleri_node_t *parent,
+        cleri_t *cl_obj,
+        cleri_rule_store_t *rule);
 
 /*
  * Keywords must match the `keyword` regular expression defined by the grammar,
@@ -20,12 +20,12 @@ static cleri_node_t * keyword__parse(
  *
  * Returns NULL in case an error has occurred.
  */
-cleri_t * cleri_keyword(uint32_t gid, const char * keyword, int ign_case)
+cleri_t *cleri_keyword(uint32_t gid, const char *keyword, int ign_case)
 {
     size_t n = strlen(keyword);
     assert (n > 0 && n < UINT8_MAX);
 
-    cleri_t * cl_object = cleri_new(
+    cleri_t *cl_object = cleri_new(
             gid,
             CLERI_TP_KEYWORD,
             &keyword__free,
@@ -54,7 +54,7 @@ cleri_t * cleri_keyword(uint32_t gid, const char * keyword, int ign_case)
 /*
  * Destroy keyword object.
  */
-static void keyword__free(cleri_t * cl_object)
+static void keyword__free(cleri_t *cl_object)
 {
     free(cl_object->via.keyword);
 }
@@ -62,15 +62,15 @@ static void keyword__free(cleri_t * cl_object)
 /*
  * Returns a node or NULL. In case or an error, pr->is_valid is set to -1.
  */
-static cleri_node_t * keyword__parse(
-        cleri_parse_t * pr,
-        cleri_node_t * parent,
-        cleri_t * cl_obj,
-        cleri_rule_store_t * rule __attribute__((unused)))
+static cleri_node_t *keyword__parse(
+        cleri_parse_t *pr,
+        cleri_node_t *parent,
+        cleri_t *cl_obj,
+        cleri_rule_store_t *rule __attribute__((unused)))
 {
     size_t kw_len = cl_obj->via.keyword->len;
-    cleri_node_t * node = NULL;
-    const char * str = parent->str + parent->len;
+    cleri_node_t *node = NULL;
+    const char *str = parent->str + parent->len;
 
     if ((strncmp(cl_obj->via.keyword->keyword, str, kw_len) == 0 || (
             cl_obj->via.keyword->ign_case &&

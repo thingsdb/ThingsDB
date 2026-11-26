@@ -29,7 +29,7 @@ struct ti_tuple_s
     uint8_t tp;
     uint8_t flags;
     int:16;
-    vec_t * vec;
+    vec_t *vec;
 };
 
 /* Implements ti_tuple_t and ti_parent_t */
@@ -39,10 +39,10 @@ struct ti_varr_s
     uint8_t tp;
     uint8_t flags;
     int:16;
-    vec_t * vec;
-    ti_thing_t * parent;    /* without reference,
+    vec_t *vec;
+    ti_thing_t *parent;    /* without reference,
                                NULL when this is a variable or tuple */
-    void * key_;            /* ti_name_t, ti_raw_t or ti_field_t; all without
+    void *key_;            /* ti_name_t, ti_raw_t or ti_field_t; all without
                                reference */
 };
 

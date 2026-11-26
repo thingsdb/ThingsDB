@@ -6,14 +6,14 @@
 #include <string.h>
 #include <util/util.h>
 
-ti_token_t * ti_token_create(
-        ti_token_key_t * key,
+ti_token_t *ti_token_create(
+        ti_token_key_t *key,
         uint64_t expire_ts,
         uint64_t created_at,
-        const char * description,
+        const char *description,
         size_t description_sz)
 {
-    ti_token_t * token = malloc(sizeof(ti_token_t));
+    ti_token_t *token = malloc(sizeof(ti_token_t));
     if (!token)
         return NULL;
 
@@ -34,7 +34,7 @@ ti_token_t * ti_token_create(
     return token;
 }
 
-void ti_token_destroy(ti_token_t * token)
+void ti_token_destroy(ti_token_t *token)
 {
     if (!token)
         return;

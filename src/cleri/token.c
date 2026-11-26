@@ -8,19 +8,19 @@
 #include <stdlib.h>
 #include <string.h>
 
-static void token__free(cleri_t * cl_object);
-static cleri_node_t * token__parse(
-        cleri_parse_t * pr,
-        cleri_node_t * parent,
-        cleri_t * cl_obj,
-        cleri_rule_store_t * rule);
+static void token__free(cleri_t *cl_object);
+static cleri_node_t *token__parse(
+        cleri_parse_t *pr,
+        cleri_node_t *parent,
+        cleri_t *cl_obj,
+        cleri_rule_store_t *rule);
 
 /*
  * Returns NULL in case an error has occurred.
  */
-cleri_t * cleri_token(uint32_t gid, const char * token)
+cleri_t *cleri_token(uint32_t gid, const char *token)
 {
-    cleri_t * cl_object = cleri_new(
+    cleri_t *cl_object = cleri_new(
             gid,
             CLERI_TP_TOKEN,
             &token__free,
@@ -49,7 +49,7 @@ cleri_t * cleri_token(uint32_t gid, const char * token)
 /*
  * Destroy token object.
  */
-static void token__free(cleri_t * cl_object)
+static void token__free(cleri_t *cl_object)
 {
     free(cl_object->via.token);
 }
@@ -57,14 +57,14 @@ static void token__free(cleri_t * cl_object)
 /*
  * Returns a node or NULL. In case of an error pr->is_valid is set to -1.
  */
-static cleri_node_t * token__parse(
-        cleri_parse_t * pr,
-        cleri_node_t * parent,
-        cleri_t * cl_obj,
-        cleri_rule_store_t * rule __attribute__((unused)))
+static cleri_node_t *token__parse(
+        cleri_parse_t *pr,
+        cleri_node_t *parent,
+        cleri_t *cl_obj,
+        cleri_rule_store_t *rule __attribute__((unused)))
 {
-    cleri_node_t * node = NULL;
-    const char * str = parent->str + parent->len;
+    cleri_node_t *node = NULL;
+    const char *str = parent->str + parent->len;
     if (strncmp(
             cl_obj->via.token->token,
             str,

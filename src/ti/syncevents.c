@@ -11,13 +11,13 @@
 #include <util/mpack.h>
 #include <util/syncpart.h>
 
-static void syncevents__push_cb(ti_req_t * req, ex_enum status);
-static void syncevents__done_cb(ti_req_t * req, ex_enum status);
+static void syncevents__push_cb(ti_req_t *req, ex_enum status);
+static void syncevents__done_cb(ti_req_t *req, ex_enum status);
 
 
-static int syncevents__send(ti_stream_t * stream, ti_cpkg_t * cpkg)
+static int syncevents__send(ti_stream_t *stream, ti_cpkg_t *cpkg)
 {
-    ti_pkg_t * pkg = ti_pkg_dup(cpkg->pkg);
+    ti_pkg_t *pkg = ti_pkg_dup(cpkg->pkg);
     if (!pkg)
         return -1;
 
@@ -50,9 +50,9 @@ static int syncevents__send(ti_stream_t * stream, ti_cpkg_t * cpkg)
  * changes list.
  * In case of an error, -1 will be the return value.
  */
-int ti_syncevents_init(ti_stream_t * stream, uint64_t change_id)
+int ti_syncevents_init(ti_stream_t *stream, uint64_t change_id)
 {
-    queue_t * events_queue = ti.archive->queue;
+    queue_t *events_queue = ti.archive->queue;
 
     for (queue_each(events_queue, ti_cpkg_t, cpkg))
         if (cpkg->change_id >= change_id)
@@ -61,13 +61,13 @@ int ti_syncevents_init(ti_stream_t * stream, uint64_t change_id)
     return 1;
 }
 
-ti_pkg_t * ti_syncevents_on_part(ti_pkg_t * pkg, ex_t * e)
+ti_pkg_t *ti_syncevents_on_part(ti_pkg_t *pkg, ex_t *e)
 {
     int rc;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
-    ti_pkg_t * resp;
-    ti_cpkg_t * cpkg = ti_cpkg_from_pkg(pkg);
+    ti_pkg_t *resp;
+    ti_cpkg_t *cpkg = ti_cpkg_from_pkg(pkg);
     uint64_t next_change_id;
 
     if (mp_sbuffer_alloc_init(&buffer, 32, sizeof(ti_pkg_t)) || !cpkg)
@@ -101,9 +101,9 @@ ti_pkg_t * ti_syncevents_on_part(ti_pkg_t * pkg, ex_t * e)
     return resp;
 }
 
-int ti_syncevents_done(ti_stream_t * stream)
+int ti_syncevents_done(ti_stream_t *stream)
 {
-    ti_pkg_t * pkg = ti_pkg_new(0, TI_PROTO_NODE_REQ_SYNCEDONE, NULL, 0);
+    ti_pkg_t *pkg = ti_pkg_new(0, TI_PROTO_NODE_REQ_SYNCEDONE, NULL, 0);
 
     if (!pkg)
         return -1;
@@ -124,10 +124,10 @@ int ti_syncevents_done(ti_stream_t * stream)
     return 0;
 }
 
-static void syncevents__push_cb(ti_req_t * req, ex_enum status)
+static void syncevents__push_cb(ti_req_t *req, ex_enum status)
 {
     mp_unp_t up;
-    ti_pkg_t * pkg = req->pkg_res;
+    ti_pkg_t *pkg = req->pkg_res;
     mp_obj_t mp_change_id;
     uint64_t next_change_id;
     int rc;
@@ -178,7 +178,7 @@ done:
     ti_req_destroy(req);
 }
 
-static void syncevents__done_cb(ti_req_t * req, ex_enum status)
+static void syncevents__done_cb(ti_req_t *req, ex_enum status)
 {
     log_info("finished synchronizing `%s`", ti_stream_name(req->stream));
 

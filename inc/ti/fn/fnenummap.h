@@ -1,10 +1,10 @@
 #include <ti/fn/fn.h>
 
-static int do__f_enum_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_enum_map(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_enum_t * enum_;
-    ti_thing_t * thing;
+    ti_enum_t *enum_;
+    ti_thing_t *thing;
 
     if (fn_not_collection_scope("enum_map", query, e) ||
         fn_nargs("enum_map", DOC_ENUM_MAP, 1, nargs, e) ||

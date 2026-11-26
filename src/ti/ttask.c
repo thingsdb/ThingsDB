@@ -32,7 +32,7 @@
  * Returns 0 on success
  * - for example: id
  */
-static int ttask__clear_users(mp_unp_t * up)
+static int ttask__clear_users(mp_unp_t *up)
 {
     if (mp_skip(up) != MP_BOOL)
     {
@@ -48,10 +48,10 @@ static int ttask__clear_users(mp_unp_t * up)
     return 0;
 }
 
-static int ttask__take_access(mp_unp_t * up)
+static int ttask__take_access(mp_unp_t *up)
 {
     mp_obj_t mp_id;
-    ti_user_t * user;
+    ti_user_t *user;
 
     if (mp_next(up, &mp_id) != MP_U64)
     {
@@ -95,7 +95,7 @@ static int ttask__take_access(mp_unp_t * up)
  * Returns 0 on success
  * - for example: id
  */
-static int ttask__del_collection(mp_unp_t * up)
+static int ttask__del_collection(mp_unp_t *up)
 {
     mp_obj_t mp_id;
 
@@ -120,7 +120,7 @@ static int ttask__del_collection(mp_unp_t * up)
  * Returns 0 on success
  * - for example: after_is
  */
-static int ttask__del_expired(mp_unp_t * up)
+static int ttask__del_expired(mp_unp_t *up)
 {
     mp_obj_t mp_after_ts;
 
@@ -138,10 +138,10 @@ static int ttask__del_expired(mp_unp_t * up)
  * Returns 0 on success
  * - for example: 'name'
  */
-static int ttask__del_procedure(mp_unp_t * up)
+static int ttask__del_procedure(mp_unp_t *up)
 {
     mp_obj_t mp_name;
-    ti_procedure_t * procedure;
+    ti_procedure_t *procedure;
 
     if (mp_next(up, &mp_name) != MP_STR)
     {
@@ -172,10 +172,10 @@ static int ttask__del_procedure(mp_unp_t * up)
  * Returns 0 on success
  * - for example: 'key'
  */
-static int ttask__del_token(mp_unp_t * up)
+static int ttask__del_token(mp_unp_t *up)
 {
     mp_obj_t mp_key;
-    ti_token_t * token;
+    ti_token_t *token;
 
     if (mp_next(up, &mp_key) != MP_STR ||
         mp_key.via.str.n != sizeof(ti_token_key_t))
@@ -204,9 +204,9 @@ static int ttask__del_token(mp_unp_t * up)
  * Returns 0 on success
  * - for example: id
  */
-static int ttask__del_user(mp_unp_t * up)
+static int ttask__del_user(mp_unp_t *up)
 {
-    ti_user_t * user;
+    ti_user_t *user;
     mp_obj_t mp_id;
 
     if (mp_next(up, &mp_id) != MP_U64)
@@ -230,10 +230,10 @@ static int ttask__del_user(mp_unp_t * up)
  * Returns 0 on success
  * - for example: {'scope':id, 'user':name, 'mask': integer}
  */
-static int ttask__grant(mp_unp_t * up)
+static int ttask__grant(mp_unp_t *up)
 {
-    ti_user_t * user;
-    ti_collection_t * collection = NULL;
+    ti_user_t *user;
+    ti_collection_t *collection = NULL;
     mp_obj_t obj, mp_scope, mp_user, mp_mask;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
@@ -281,12 +281,12 @@ static int ttask__grant(mp_unp_t * up)
     return 0;
 }
 
-static int ttask__new_collection(mp_unp_t * up)
+static int ttask__new_collection(mp_unp_t *up)
 {
     ex_t e = {0};
     mp_obj_t obj, mp_name, mp_user, mp_root, mp_nfid, mp_created;
-    ti_user_t * user;
-    ti_collection_t * collection;
+    ti_user_t *user;
+    ti_collection_t *collection;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 5 ||
         mp_skip(up) != MP_STR ||
@@ -362,12 +362,12 @@ static int ttask__new_collection(mp_unp_t * up)
  *          'conf_pkg': configuration_package or nil,
  *          'scope_id': scope_id or nil}
  */
-static int ttask__new_module(mp_unp_t * up)
+static int ttask__new_module(mp_unp_t *up)
 {
     mp_obj_t obj, mp_name, mp_file, mp_created, mp_pkg, mp_scope;
-    ti_module_t * module;
-    uint64_t * scope_id = NULL;
-    ti_pkg_t * conf_pkg = NULL;
+    ti_module_t *module;
+    uint64_t *scope_id = NULL;
+    ti_pkg_t *conf_pkg = NULL;
     ex_t e = {0};
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 5 ||
@@ -439,7 +439,7 @@ failed:
  *      'secret': encrypted
  *   }
  */
-static int ttask__new_node(ti_change_t * change, mp_unp_t * up)
+static int ttask__new_node(ti_change_t *change, mp_unp_t *up)
 {
     mp_obj_t obj, mp_id, mp_port, mp_addr, mp_secret;
     char addr[INET6_ADDRSTRLEN];
@@ -497,12 +497,12 @@ static int ttask__new_node(ti_change_t * change, mp_unp_t * up)
  * Returns 0 on success
  * - for example: {...}
  */
-static int ttask__new_procedure(mp_unp_t * up)
+static int ttask__new_procedure(mp_unp_t *up)
 {
     int rc;
     mp_obj_t obj, mp_name, mp_created;
-    ti_procedure_t * procedure;
-    ti_closure_t * closure;
+    ti_procedure_t *procedure;
+    ti_closure_t *closure;
     ti_vup_t vup = {
             .isclient = false,
             .collection = NULL,
@@ -560,11 +560,11 @@ failed:
  * Returns 0 on success
  * - for example: '{name: closure}'
  */
-static int ttask__mod_procedure(mp_unp_t * up)
+static int ttask__mod_procedure(mp_unp_t *up)
 {
     mp_obj_t obj, mp_name, mp_created;
-    ti_procedure_t * procedure;
-    ti_closure_t * closure;
+    ti_procedure_t *procedure;
+    ti_closure_t *closure;
     ti_vup_t vup = {
             .isclient = false,
             .collection = NULL,
@@ -609,13 +609,13 @@ static int ttask__mod_procedure(mp_unp_t * up)
     return 0;
 }
 
-static int ttask__whitelist_add(mp_unp_t * up)
+static int ttask__whitelist_add(mp_unp_t *up)
 {
     int rc;
     ex_t e = {0};
     mp_obj_t obj, mp_user, mp_wid;
-    ti_user_t * user;
-    ti_val_t * val = NULL;
+    ti_user_t *user;
+    ti_val_t *val = NULL;
     ti_vup_t vup = {
             .isclient = false,
             .collection = NULL,
@@ -657,13 +657,13 @@ static int ttask__whitelist_add(mp_unp_t * up)
     return 0;
 }
 
-static int ttask__whitelist_del(mp_unp_t * up)
+static int ttask__whitelist_del(mp_unp_t *up)
 {
     int rc;
     ex_t e = {0};
     mp_obj_t obj, mp_user, mp_wid;
-    ti_user_t * user;
-    ti_val_t * val = NULL;
+    ti_user_t *user;
+    ti_val_t *val = NULL;
     ti_vup_t vup = {
             .isclient = false,
             .collection = NULL,
@@ -705,9 +705,9 @@ static int ttask__whitelist_del(mp_unp_t * up)
     return 0;
 }
 
-static int ttask__set_history(mp_unp_t * up)
+static int ttask__set_history(mp_unp_t *up)
 {
-    vec_t ** commits;
+    vec_t **commits;
     mp_obj_t obj, mp_scope, mp_state;
 
     if (mp_next(up, &obj) != MP_ARR || obj.via.sz != 2 ||
@@ -720,7 +720,7 @@ static int ttask__set_history(mp_unp_t * up)
 
     if (mp_scope.via.u64 > 1)
     {
-        ti_collection_t * collection = \
+        ti_collection_t *collection = \
                 ti_collections_get_by_id(mp_scope.via.u64);
 
         if (!collection)
@@ -746,9 +746,9 @@ static int ttask__set_history(mp_unp_t * up)
     return 0;
 }
 
-static int ttask__del_history(mp_unp_t * up)
+static int ttask__del_history(mp_unp_t *up)
 {
-    vec_t ** commits;
+    vec_t **commits;
     mp_obj_t obj, mp_scope, mp_id;
 
     if (mp_next(up, &obj) != MP_ARR || obj.via.sz != 2 ||
@@ -761,7 +761,7 @@ static int ttask__del_history(mp_unp_t * up)
 
     if (mp_scope.via.u64 > 1)
     {
-        ti_collection_t * collection = \
+        ti_collection_t *collection = \
                 ti_collections_get_by_id(mp_scope.via.u64);
 
         if (!collection)
@@ -810,10 +810,10 @@ static int ttask__del_history(mp_unp_t * up)
     return 0;
 }
 
-static int ttask__commit(mp_unp_t * up)
+static int ttask__commit(mp_unp_t *up)
 {
-    vec_t ** commits = &ti.commits;
-    ti_commit_t * commit = ti_commit_from_up(up);
+    vec_t **commits = &ti.commits;
+    ti_commit_t *commit = ti_commit_from_up(up);
     if (!commit)
     {
         log_critical(
@@ -841,11 +841,11 @@ fail:
  * Returns 0 on success
  * - for example: {'id': id, 'key': value}, 'expire_ts': ts, 'description':..}
  */
-static int ttask__new_token(mp_unp_t * up)
+static int ttask__new_token(mp_unp_t *up)
 {
     mp_obj_t obj, mp_user, mp_key, mp_expire, mp_desc, mp_created;
-    ti_user_t * user;
-    ti_token_t * token;
+    ti_user_t *user;
+    ti_token_t *token;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 5 ||
         mp_skip(up) != MP_STR ||
@@ -898,7 +898,7 @@ static int ttask__new_token(mp_unp_t * up)
  * Returns 0 on success
  * - for example: {'id': id, 'username':value}
  */
-static int ttask__new_user(mp_unp_t * up)
+static int ttask__new_user(mp_unp_t *up)
 {
     ex_t e = {0};
     mp_obj_t obj, mp_id, mp_name, mp_created;
@@ -934,9 +934,9 @@ static int ttask__new_user(mp_unp_t * up)
  * Returns 0 on success
  * - for example: id
  */
-static int ttask__del_node(ti_change_t * change, mp_unp_t * up)
+static int ttask__del_node(ti_change_t *change, mp_unp_t *up)
 {
-    ti_node_t * this_node = ti.node;
+    ti_node_t *this_node = ti.node;
     mp_obj_t mp_node;
 
     if (mp_next(up, &mp_node) != MP_U64)
@@ -965,9 +965,9 @@ static int ttask__del_node(ti_change_t * change, mp_unp_t * up)
  * Returns 0 on success
  * - for example: module_name
  */
-static int ttask__del_module(ti_change_t * change, mp_unp_t * up)
+static int ttask__del_module(ti_change_t *change, mp_unp_t *up)
 {
-    ti_module_t * module;
+    ti_module_t *module;
     mp_obj_t mp_name;
 
     if (mp_next(up, &mp_name) != MP_STR)
@@ -993,9 +993,9 @@ static int ttask__del_module(ti_change_t * change, mp_unp_t * up)
  * Returns 0 on success
  * - for example: {"name": module_name, "data": content}
  */
-static int ttask__deploy_module(mp_unp_t * up)
+static int ttask__deploy_module(mp_unp_t *up)
 {
-    ti_module_t * module;
+    ti_module_t *module;
     mp_obj_t obj, mp_name, mp_data;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
@@ -1028,9 +1028,9 @@ static int ttask__deploy_module(mp_unp_t * up)
  * Returns 0 on success
  * - for example: {"name": module_name, "scope_id": nil/id}
  */
-static int ttask__set_module_scope(mp_unp_t * up)
+static int ttask__set_module_scope(mp_unp_t *up)
 {
-    ti_module_t * module;
+    ti_module_t *module;
     mp_obj_t obj, mp_name, mp_scope;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
@@ -1073,13 +1073,13 @@ static int ttask__set_module_scope(mp_unp_t * up)
  * Returns 0 on success
  * - for example: '{id: 123, run_at: ...}'
  */
-static int ttask__vtask_new(mp_unp_t * up)
+static int ttask__vtask_new(mp_unp_t *up)
 {
     mp_obj_t obj, mp_id, mp_run_at, mp_user_id;
-    ti_vtask_t * vtask = NULL;
-    ti_varr_t * varr = NULL;
-    ti_closure_t * closure;
-    ti_user_t * user;
+    ti_vtask_t *vtask = NULL;
+    ti_varr_t *varr = NULL;
+    ti_closure_t *closure;
+    ti_user_t *user;
     ti_vup_t vup = {
             .isclient = false,
             .collection = NULL,
@@ -1139,7 +1139,7 @@ fail0:
  * Returns 0 on success
  * - for example: '{id: 123}'
  */
-static int ttask__vtask_del(mp_unp_t * up)
+static int ttask__vtask_del(mp_unp_t *up)
 {
     mp_obj_t obj, mp_id;
 
@@ -1160,10 +1160,10 @@ static int ttask__vtask_del(mp_unp_t * up)
  * Returns 0 on success
  * - for example: '{id: 123}'
  */
-static int ttask__vtask_cancel(mp_unp_t * up)
+static int ttask__vtask_cancel(mp_unp_t *up)
 {
     mp_obj_t obj, mp_id;
-    ti_vtask_t * vtask;
+    ti_vtask_t *vtask;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 1 ||
         mp_skip(up) != MP_STR ||
@@ -1180,11 +1180,11 @@ static int ttask__vtask_cancel(mp_unp_t * up)
     return 0;
 }
 
-static int ttask__vtask_finish(mp_unp_t * up)
+static int ttask__vtask_finish(mp_unp_t *up)
 {
     mp_obj_t obj, mp_id, mp_run_at;
-    ti_val_t * val;
-    ti_vtask_t * vtask;
+    ti_val_t *val;
+    ti_vtask_t *vtask;
     ti_vup_t vup = {
             .isclient = false,
             .collection = NULL,
@@ -1233,11 +1233,11 @@ fail0:
     return -1;
 }
 
-static int ttask__vtask_set_args(mp_unp_t * up)
+static int ttask__vtask_set_args(mp_unp_t *up)
 {
     mp_obj_t obj, mp_id;
-    ti_varr_t * varr;
-    ti_vtask_t * vtask;
+    ti_varr_t *varr;
+    ti_vtask_t *vtask;
     ti_vup_t vup = {
             .isclient = false,
             .collection = NULL,
@@ -1261,7 +1261,7 @@ static int ttask__vtask_set_args(mp_unp_t * up)
     vtask = ti_vtask_by_id(ti.tasks->vtasks, mp_id.via.u64);
     if (vtask)
     {
-        vec_t * tmp = vtask->args;
+        vec_t *tmp = vtask->args;
         vtask->args = varr->vec;
         varr->vec = tmp;
     }
@@ -1276,11 +1276,11 @@ fail0:
     return -1;
 }
 
-static int ttask__vtask_set_owner(mp_unp_t * up)
+static int ttask__vtask_set_owner(mp_unp_t *up)
 {
     mp_obj_t obj, mp_id, mp_user_id;
-    ti_user_t * user;
-    ti_vtask_t * vtask;
+    ti_user_t *user;
+    ti_vtask_t *vtask;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
         mp_skip(up) != MP_STR ||
@@ -1305,11 +1305,11 @@ static int ttask__vtask_set_owner(mp_unp_t * up)
     return 0;
 }
 
-static int ttask__vtask_set_closure(mp_unp_t * up)
+static int ttask__vtask_set_closure(mp_unp_t *up)
 {
     mp_obj_t obj, mp_id;
-    ti_closure_t * closure;
-    ti_vtask_t * vtask;
+    ti_closure_t *closure;
+    ti_vtask_t *vtask;
     ti_vup_t vup = {
             .isclient = false,
             .collection = NULL,
@@ -1348,7 +1348,7 @@ fail0:
 }
 
 /* TODO (COMPAT): Obsolete task */
-static int ttask__del_timer(mp_unp_t * up)
+static int ttask__del_timer(mp_unp_t *up)
 {
     log_warning("task `del_timer` is obsolete");
     mp_skip(up);
@@ -1356,7 +1356,7 @@ static int ttask__del_timer(mp_unp_t * up)
 }
 
 /* TODO (COMPAT): Obsolete task */
-static int ttask__new_timer(mp_unp_t * up)
+static int ttask__new_timer(mp_unp_t *up)
 {
     log_warning("task `new_timer` is obsolete");
     mp_skip(up);
@@ -1364,7 +1364,7 @@ static int ttask__new_timer(mp_unp_t * up)
 }
 
 /* TODO (COMPAT): Obsolete task */
-static int ttask__set_timer_args(mp_unp_t * up)
+static int ttask__set_timer_args(mp_unp_t *up)
 {
     log_warning("task `set_timer_args` is obsolete");
     mp_skip(up);
@@ -1375,9 +1375,9 @@ static int ttask__set_timer_args(mp_unp_t * up)
  * Returns 0 on success
  * - for example: {"name": module_name, "conf_pkg": nil/bin}
  */
-static int ttask__set_module_conf(mp_unp_t * up)
+static int ttask__set_module_conf(mp_unp_t *up)
 {
-    ti_module_t * module;
+    ti_module_t *module;
     mp_obj_t obj, mp_name, mp_pkg;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
@@ -1421,12 +1421,12 @@ static int ttask__set_module_conf(mp_unp_t * up)
  * Returns 0 on success
  * - for example: {'id':id, 'name':name}
  */
-static int ttask__rename_collection(mp_unp_t * up)
+static int ttask__rename_collection(mp_unp_t *up)
 {
     ex_t e = {0};
-    ti_collection_t * collection;
+    ti_collection_t *collection;
     mp_obj_t obj, mp_id, mp_name;
-    ti_raw_t * rname;
+    ti_raw_t *rname;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
         mp_skip(up) != MP_STR ||
@@ -1464,10 +1464,10 @@ static int ttask__rename_collection(mp_unp_t * up)
  * Returns 0 on success
  * - for example: {'id':id, 'name':name}
  */
-static int ttask__set_time_zone(mp_unp_t * up)
+static int ttask__set_time_zone(mp_unp_t *up)
 {
     mp_obj_t obj, mp_id, mp_tz;
-    ti_tz_t * tz;
+    ti_tz_t *tz;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
         mp_skip(up) != MP_STR ||
@@ -1489,7 +1489,7 @@ static int ttask__set_time_zone(mp_unp_t * up)
  * Returns 0 on success
  * - for example: {'id':id, 'deep':1}
  */
-static int ttask__set_default_deep(mp_unp_t * up)
+static int ttask__set_default_deep(mp_unp_t *up)
 {
     mp_obj_t obj, mp_id, mp_deep;
 
@@ -1511,7 +1511,7 @@ static int ttask__set_default_deep(mp_unp_t * up)
  * Returns 0 on success
  * - for example: true
  */
-static int ttask__restore_finished(mp_unp_t * up)
+static int ttask__restore_finished(mp_unp_t *up)
 {
     mp_obj_t clear_tasks;
     if (mp_next(up, &clear_tasks) != MP_BOOL)
@@ -1532,9 +1532,9 @@ static int ttask__restore_finished(mp_unp_t * up)
  * Returns 0 on success
  * - for example: {'old':name, 'name':name}
  */
-static int ttask__rename_module(mp_unp_t * up)
+static int ttask__rename_module(mp_unp_t *up)
 {
-    ti_module_t * module;
+    ti_module_t *module;
     mp_obj_t obj, mp_old, mp_name;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
@@ -1564,9 +1564,9 @@ static int ttask__rename_module(mp_unp_t * up)
  * Returns 0 on success
  * - for example: {'old':name, 'name':name}
  */
-static int ttask__rename_procedure(mp_unp_t * up)
+static int ttask__rename_procedure(mp_unp_t *up)
 {
-    ti_procedure_t * procedure;
+    ti_procedure_t *procedure;
     mp_obj_t obj, mp_old, mp_name;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
@@ -1603,12 +1603,12 @@ static int ttask__rename_procedure(mp_unp_t * up)
  * Returns 0 on success
  * - for example: {'id':id, 'name':name}
  */
-static int ttask__rename_user(mp_unp_t * up)
+static int ttask__rename_user(mp_unp_t *up)
 {
     ex_t e = {0};
-    ti_user_t * user;
+    ti_user_t *user;
     mp_obj_t obj, mp_id, mp_name;
-    ti_raw_t * rname;
+    ti_raw_t *rname;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
         mp_skip(up) != MP_STR ||
@@ -1645,7 +1645,7 @@ static int ttask__rename_user(mp_unp_t * up)
  * Returns 0 on success
  * - for example: true
  */
-static int ttask__restore(mp_unp_t * up)
+static int ttask__restore(mp_unp_t *up)
 {
     mp_obj_t obj;
 
@@ -1675,10 +1675,10 @@ static int ttask__restore(mp_unp_t * up)
  * Returns 0 on success
  * - for example: {'scope':id, 'user':name, 'mask': integer}
  */
-static int ttask__revoke(mp_unp_t * up)
+static int ttask__revoke(mp_unp_t *up)
 {
-    ti_user_t * user;
-    ti_collection_t * collection = NULL;
+    ti_user_t *user;
+    ti_collection_t *collection = NULL;
     mp_obj_t obj, mp_scope, mp_user, mp_mask;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
@@ -1726,11 +1726,11 @@ static int ttask__revoke(mp_unp_t * up)
  * Returns 0 on success
  * - for example: {'id':user_id, 'password': encpass/null}
  */
-static int ttask__set_password(mp_unp_t * up)
+static int ttask__set_password(mp_unp_t *up)
 {
-    ti_user_t * user;
+    ti_user_t *user;
     mp_obj_t obj, mp_user, mp_pass;
-    char * encrypted = NULL;
+    char *encrypted = NULL;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
         mp_skip(up) != MP_STR ||
@@ -1768,7 +1768,7 @@ static int ttask__set_password(mp_unp_t * up)
     return 0;
 }
 
-int ti_ttask_run(ti_change_t * change, mp_unp_t * up)
+int ti_ttask_run(ti_change_t *change, mp_unp_t *up)
 {
     mp_obj_t obj, mp_task;
     if (mp_next(up, &obj) != MP_ARR || obj.via.sz != 2 ||

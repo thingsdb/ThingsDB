@@ -9,9 +9,9 @@
 #include <ti.h>
 #include <util/logger.h>
 
-ti_name_t * ti_name_create(const char * str, size_t n)
+ti_name_t *ti_name_create(const char *str, size_t n)
 {
-    ti_name_t * name = malloc(sizeof(ti_name_t) + n + 1);
+    ti_name_t *name = malloc(sizeof(ti_name_t) + n + 1);
     if (!name)
         return NULL;
 
@@ -24,13 +24,13 @@ ti_name_t * ti_name_create(const char * str, size_t n)
 }
 
 /* call `ti_name_drop(..)`, not this function */
-void ti_name_destroy(ti_name_t * name)
+void ti_name_destroy(ti_name_t *name)
 {
     (void) smap_pop(ti.names, name->str);
     free(name);
 }
 
-_Bool ti_name_is_valid_strn(const char * str, size_t n)
+_Bool ti_name_is_valid_strn(const char *str, size_t n)
 {
     if (!n || n > TI_NAME_MAX || (!isalpha(*str) && *str != '_'))
         return false;

@@ -10,7 +10,7 @@
 #include <ti/val.t.h>
 #include <ex.h>
 
-static inline ti_val_t * ti_dict_get_weak(ti_dict_t * dict, ti_val_t * key)
+static inline ti_val_t *ti_dict_get_weak(ti_dict_t *dict, ti_val_t *key)
 {
     switch(key->tp)
     {
@@ -29,31 +29,31 @@ static inline ti_val_t * ti_dict_get_weak(ti_dict_t * dict, ti_val_t * key)
     return NULL;
 }
 
-static inline _Bool ti_dict_has(ti_dict_t * dict, ti_val_t * key)
+static inline _Bool ti_dict_has(ti_dict_t *dict, ti_val_t *key)
 {
     return ti_dict_get_weak(dict, key) != NULL;
 }
 
-static inline _Bool ti_dict_is_stored(ti_dict_t * dict)
+static inline _Bool ti_dict_is_stored(ti_dict_t *dict)
 {
     return dict->parent && dict->parent->id;
 }
 
-static inline void * ti_dict_key(ti_dict_t * dict)
+static inline void *ti_dict_key(ti_dict_t *dict)
 {
     return ti_thing_is_object(dict->parent)
             ? dict->key_
             : ((ti_field_t *) dict->key_)->name;
 }
 
-static inline int ti_dict_set_uuid(ti_dict_t * dict,
+static inline int ti_dict_set_uuid(ti_dict_t *dict,
                                    uuid_t key,
-                                   ti_val_t * val)
+                                   ti_val_t *val)
 {
     if (!dict->umap_ && !(dict->umap_ = umap_create()))
         return -1;
     int new = 0;
-    ti_val_t * ret = umap_set(dict->umap_, key, val, &new);
+    ti_val_t *ret = umap_set(dict->umap_, key, val, &new);
     if (!ret)
         return -1;
     if (ret != val)
@@ -63,14 +63,14 @@ static inline int ti_dict_set_uuid(ti_dict_t * dict,
     return 0;
 }
 
-static inline int ti_dict_set_int(ti_dict_t * dict,
+static inline int ti_dict_set_int(ti_dict_t *dict,
                                   int64_t key,
-                                  ti_val_t * val)
+                                  ti_val_t *val)
 {
     if (!dict->imap_ && !(dict->imap_ = imap_create()))
         return -1;
     int new = 0;
-    ti_val_t * ret = imap_set(dict->imap_, key, val, &new);
+    ti_val_t *ret = imap_set(dict->imap_, key, val, &new);
     if (!ret)
         return -1;
     if (ret != val)
@@ -80,15 +80,15 @@ static inline int ti_dict_set_int(ti_dict_t * dict,
     return 0;
 }
 
-static inline int ti_dict_set_strn(ti_dict_t * dict,
-                                   const char * key,
+static inline int ti_dict_set_strn(ti_dict_t *dict,
+                                   const char *key,
                                    size_t n,
-                                   ti_val_t * val)
+                                   ti_val_t *val)
 {
     if (!dict->smap_ && !(dict->smap_ = smap_create()))
         return -1;
     int new = 0;
-    ti_val_t * ret = smap_setn(dict->smap_, key, n, val, &new);
+    ti_val_t *ret = smap_setn(dict->smap_, key, n, val, &new);
     if (!ret)
         return -1;
     if (ret != val)
@@ -101,9 +101,9 @@ static inline int ti_dict_set_strn(ti_dict_t * dict,
 /*
  * Increases the reference counter of `val` on newly written key/pair.
  */
-static inline int ti_dict_setr(ti_dict_t * dict,
-                               ti_dict_key_t * key,
-                               ti_val_t * val)
+static inline int ti_dict_setr(ti_dict_t *dict,
+                               ti_dict_key_t *key,
+                               ti_val_t *val)
 {
     switch(key->tp)
     {
@@ -118,22 +118,22 @@ static inline int ti_dict_setr(ti_dict_t * dict,
     return -1;
 }
 
-static inline uint16_t ti_dict_key_spec(ti_dict_t * dict)
+static inline uint16_t ti_dict_key_spec(ti_dict_t *dict)
 {
     return ((!dict->parent) || ti_thing_is_object(dict->parent))
             ? TI_SPEC_ANY
             : ((ti_field_t *) dict->key_)->condition.key->spec;
 }
 
-static inline uint16_t ti_dict_val_spec(ti_dict_t * dict)
+static inline uint16_t ti_dict_val_spec(ti_dict_t *dict)
 {
     return ((!dict->parent) || ti_thing_is_object(dict->parent))
             ? TI_SPEC_ANY
             : ((ti_field_t *) dict->key_)->nested_spec;
 }
 
-static inline int ti_dict_key_to_client_pk(ti_dict_key_t * key,
-                                           msgpack_packer * pk)
+static inline int ti_dict_key_to_client_pk(ti_dict_key_t *key,
+                                           msgpack_packer *pk)
 {
     switch(key->tp)
     {
@@ -148,7 +148,7 @@ static inline int ti_dict_key_to_client_pk(ti_dict_key_t * key,
     return -1;
 }
 
-static inline size_t ti_dict_n(ti_dict_t * dict)
+static inline size_t ti_dict_n(ti_dict_t *dict)
 {
     size_t n = 0;
     if (dict->umap_)
@@ -160,7 +160,7 @@ static inline size_t ti_dict_n(ti_dict_t * dict)
     return n;
 }
 
-static inline void ti_dict_set_key_err(ti_val_t * key, ex_t * e)
+static inline void ti_dict_set_key_err(ti_val_t *key, ex_t *e)
 {
     switch (key->tp)
     {
@@ -180,7 +180,7 @@ static inline void ti_dict_set_key_err(ti_val_t * key, ex_t * e)
     case TI_VAL_STR:
     case TI_VAL_NAME:
     {
-        ti_str_t * str = (ti_str_t *) key;
+        ti_str_t *str = (ti_str_t *) key;
         if (strx_is_utf8n(str->str, str->n))
         {
             ex_set(e, EX_LOOKUP_ERROR,

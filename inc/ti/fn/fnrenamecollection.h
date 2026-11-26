@@ -1,10 +1,10 @@
 #include <ti/fn/fn.h>
 
-static int do__f_rename_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_rename_collection(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_task_t * task;
-    ti_collection_t * collection;
+    ti_task_t *task;
+    ti_collection_t *collection;
 
     if (fn_not_thingsdb_scope("rename_collection", query, e) ||
         fn_nargs("rename_collection", DOC_RENAME_COLLECTION, 2, nargs, e) ||

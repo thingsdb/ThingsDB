@@ -22,13 +22,13 @@ struct ti_dict_s
     uint8_t tp;
     uint8_t flags;
     int:16;
-    umap_t * umap_;
-    ti_thing_t * parent;    /* without reference,
+    umap_t *umap_;
+    ti_thing_t *parent;    /* without reference,
                                NULL when this is a variable */
-    void * key_;            /* ti_name_t, ti_raw_t or ti_field_t; all without
+    void *key_;            /* ti_name_t, ti_raw_t or ti_field_t; all without
                                reference */
-    imap_t * imap_;
-    smap_t * smap_;
+    imap_t *imap_;
+    smap_t *smap_;
 };
 
 #endif  /* TI_DICT_T_H_ */

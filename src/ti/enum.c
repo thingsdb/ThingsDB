@@ -17,14 +17,14 @@
 #include <util/vec.h>
 #include <util/logger.h>
 
-ti_enum_t * ti_enum_create(
+ti_enum_t *ti_enum_create(
         uint16_t enum_id,
-        const char * name,
+        const char *name,
         size_t name_n,
         uint64_t created_at,
         uint64_t modified_at)
 {
-    ti_enum_t * enum_ = malloc(sizeof(ti_enum_t));
+    ti_enum_t *enum_ = malloc(sizeof(ti_enum_t));
     if (!enum_)
         return NULL;
 
@@ -49,7 +49,7 @@ ti_enum_t * ti_enum_create(
     return enum_;
 }
 
-void ti_enum_destroy(ti_enum_t * enum_)
+void ti_enum_destroy(ti_enum_t *enum_)
 {
     if (!enum_)
         return;
@@ -66,7 +66,7 @@ void ti_enum_destroy(ti_enum_t * enum_)
 /*
  * TODO (COMPAT) For compatibility with ThingsDB < v1.7.0
  */
-int ti_enum_create_placeholders(ti_enum_t * enum_, size_t n, ex_t * e)
+int ti_enum_create_placeholders(ti_enum_t *enum_, size_t n, ex_t *e)
 {
     if (ti_enum_prealloc(enum_, n, e))
         return e->nr;
@@ -79,7 +79,7 @@ int ti_enum_create_placeholders(ti_enum_t * enum_, size_t n, ex_t * e)
     return e->nr;
 }
 
-int ti_enum_prealloc(ti_enum_t * enum_, size_t sz, ex_t * e)
+int ti_enum_prealloc(ti_enum_t *enum_, size_t sz, ex_t *e)
 {
     if (!sz)
         ex_set(e, EX_VALUE_ERROR, "cannot create an empty enum type");
@@ -89,7 +89,7 @@ int ti_enum_prealloc(ti_enum_t * enum_, size_t sz, ex_t * e)
     return e->nr;
 }
 
-int ti_enum_prealloc_methods(ti_enum_t * enum_, size_t sz, ex_t * e)
+int ti_enum_prealloc_methods(ti_enum_t *enum_, size_t sz, ex_t *e)
 {
     if (vec_make(&enum_->methods, sz))
         ex_set_mem(e);
@@ -97,7 +97,7 @@ int ti_enum_prealloc_methods(ti_enum_t * enum_, size_t sz, ex_t * e)
     return e->nr;
 }
 
-int ti_enum_set_enum_tp(ti_enum_t * enum_, ti_val_t * val, ex_t * e)
+int ti_enum_set_enum_tp(ti_enum_t *enum_, ti_val_t *val, ex_t *e)
 {
     switch((ti_val_enum) val->tp)
     {
@@ -118,7 +118,7 @@ int ti_enum_set_enum_tp(ti_enum_t * enum_, ti_val_t * val, ex_t * e)
     return e->nr;
 }
 
-_Bool ti_enum_check_tp(ti_enum_t * enum_, ti_val_t * val)
+_Bool ti_enum_check_tp(ti_enum_t *enum_, ti_val_t *val)
 {
     switch((ti_enum_enum) enum_->enum_tp)
     {
@@ -136,7 +136,7 @@ _Bool ti_enum_check_tp(ti_enum_t * enum_, ti_val_t * val)
     return false;
 }
 
-static int enum__check_val(ti_enum_t * enum_, ti_val_t * val, ex_t * e)
+static int enum__check_val(ti_enum_t *enum_, ti_val_t *val, ex_t *e)
 {
     if (ti_enum_check_tp(enum_, val))
         return 0;
@@ -150,9 +150,9 @@ static int enum__check_val(ti_enum_t * enum_, ti_val_t * val, ex_t * e)
     return e->nr;
 }
 
-int ti_enum_check_val(ti_enum_t * enum_, ti_val_t * val, ex_t * e)
+int ti_enum_check_val(ti_enum_t *enum_, ti_val_t *val, ex_t *e)
 {
-    ti_member_t * member = ti_enum_member_by_val(enum_, val);
+    ti_member_t *member = ti_enum_member_by_val(enum_, val);
 
     if (member)
     {
@@ -166,7 +166,7 @@ int ti_enum_check_val(ti_enum_t * enum_, ti_val_t * val, ex_t * e)
     return enum__check_val(enum_, val, e);
 }
 
-int ti_enum_members_check(ti_enum_t * enum_, ex_t * e)
+int ti_enum_members_check(ti_enum_t *enum_, ex_t *e)
 {
     size_t i;
     size_t n = 0;
@@ -189,7 +189,7 @@ int ti_enum_members_check(ti_enum_t * enum_, ex_t * e)
 
         for (i = n+1; i < m; i++)
         {
-            ti_member_t * other = enum_->members->data[i];
+            ti_member_t *other = enum_->members->data[i];
             if (other->name == member->name)
             {
                 ex_set(e, EX_BAD_DATA, "member names must be unique");
@@ -203,7 +203,7 @@ int ti_enum_members_check(ti_enum_t * enum_, ex_t * e)
 /*
  * this does not increment with a reference
  */
-int ti_enum_add_member(ti_enum_t * enum_, ti_member_t * member, ex_t * e)
+int ti_enum_add_member(ti_enum_t *enum_, ti_member_t *member, ex_t *e)
 {
     uint32_t n = enum_->members->n;
 
@@ -227,9 +227,9 @@ int ti_enum_add_member(ti_enum_t * enum_, ti_member_t * member, ex_t * e)
     return e->nr;
 }
 
-void ti_enum_del_member(ti_enum_t * enum_, ti_member_t * member)
+void ti_enum_del_member(ti_enum_t *enum_, ti_member_t *member)
 {
-    ti_member_t * swap;
+    ti_member_t *swap;
 
     (void) vec_swap_remove(enum_->members, member->idx);
 
@@ -241,12 +241,12 @@ void ti_enum_del_member(ti_enum_t * enum_, ti_member_t * member)
 }
 
 int ti_enum_add_method(
-        ti_enum_t * enum_,
-        ti_name_t * name,
-        ti_closure_t * closure,
-        ex_t * e)
+        ti_enum_t *enum_,
+        ti_name_t *name,
+        ti_closure_t *closure,
+        ex_t *e)
 {
-    ti_method_t * method;
+    ti_method_t *method;
 
     if (ti_enum_member_by_strn(enum_, name->str, name->n) ||
         ti_enum_get_method(enum_, name))
@@ -274,7 +274,7 @@ int ti_enum_add_method(
     return e->nr;
 }
 
-void ti_enum_remove_method(ti_enum_t * enum_, ti_name_t * name)
+void ti_enum_remove_method(ti_enum_t *enum_, ti_name_t *name)
 {
     size_t idx = 0;
     for (vec_each(enum_->methods, ti_method_t, m), ++idx)
@@ -289,11 +289,11 @@ void ti_enum_remove_method(ti_enum_t * enum_, ti_name_t * name)
 
 typedef struct
 {
-    ti_enum_t * enum_;
-    ex_t * e;
+    ti_enum_t *enum_;
+    ex_t *e;
 } enum__init_t;
 
-static int enum__init_cb(ti_item_t * item, enum__init_t * w)
+static int enum__init_cb(ti_item_t *item, enum__init_t *w)
 {
     if (!ti_raw_is_name(item->key))
         ex_set(w->e, EX_VALUE_ERROR,
@@ -313,7 +313,7 @@ static int enum__init_cb(ti_item_t * item, enum__init_t * w)
     return w->e->nr;
 }
 
-static int enum__init_thing_o(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e)
+static int enum__init_thing_o(ti_enum_t *enum_, ti_thing_t *thing, ex_t *e)
 {
     if (ti_thing_is_dict(thing))
     {
@@ -340,10 +340,10 @@ static int enum__init_thing_o(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e)
     return 0;
 }
 
-static int enum__init_thing_t(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e)
+static int enum__init_thing_t(ti_enum_t *enum_, ti_thing_t *thing, ex_t *e)
 {
-    ti_name_t * name;
-    ti_val_t * val;
+    ti_name_t *name;
+    ti_val_t *val;
     for (thing_t_each(thing, name, val))
     {
         if (ti_val_is_closure(val))
@@ -361,7 +361,7 @@ static int enum__init_thing_t(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e)
     return e->nr;
 }
 
-int ti_enum_init_from_thing(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e)
+int ti_enum_init_from_thing(ti_enum_t *enum_, ti_thing_t *thing, ex_t *e)
 {
     if (ti_enum_prealloc(enum_, ti_thing_n(thing), e))
         return e->nr;
@@ -371,12 +371,12 @@ int ti_enum_init_from_thing(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e)
         : enum__init_thing_t(enum_, thing, e);
 }
 
-int ti_enum_set_members_from_vup(ti_enum_t * enum_, ti_vup_t * vup, ex_t * e)
+int ti_enum_set_members_from_vup(ti_enum_t *enum_, ti_vup_t *vup, ex_t *e)
 {
-    ti_name_t * name;
-    ti_val_t * val = NULL;
+    ti_name_t *name;
+    ti_val_t *val = NULL;
     mp_obj_t obj, mp_name;
-    ti_member_t * member;
+    ti_member_t *member;
 
     if (mp_next(vup->up, &obj) != MP_ARR)
     {
@@ -493,10 +493,10 @@ failed:
 }
 
 
-int ti_enum_init_members_from_vup(ti_enum_t * enum_, ti_vup_t * vup, ex_t * e)
+int ti_enum_init_members_from_vup(ti_enum_t *enum_, ti_vup_t *vup, ex_t *e)
 {
-    ti_name_t * name;
-    ti_val_t * val;
+    ti_name_t *name;
+    ti_val_t *val;
     mp_obj_t obj, mp_name;
     size_t i;
 
@@ -562,10 +562,10 @@ failed:
     return e->nr;
 }
 
-int ti_enum_init_methods_from_vup(ti_enum_t * enum_, ti_vup_t * vup, ex_t * e)
+int ti_enum_init_methods_from_vup(ti_enum_t *enum_, ti_vup_t *vup, ex_t *e)
 {
-    ti_name_t * name;
-    ti_val_t * val;
+    ti_name_t *name;
+    ti_val_t *val;
     mp_obj_t obj, mp_name;
     size_t i;
 
@@ -642,8 +642,8 @@ failed:
 
 /* adds a map with key/value pairs */
 int ti_enum_members_to_client_pk(
-        ti_enum_t * enum_,
-        ti_vp_t * vp,
+        ti_enum_t *enum_,
+        ti_vp_t *vp,
         int deep,
         int flags)
 {
@@ -661,7 +661,7 @@ int ti_enum_members_to_client_pk(
     return 0;
 }
 
-int ti_enum_members_to_store_pk(ti_enum_t * enum_, msgpack_packer * pk)
+int ti_enum_members_to_store_pk(ti_enum_t *enum_, msgpack_packer *pk)
 {
     if (msgpack_pack_array(pk, enum_->members->n))
         return -1;
@@ -677,7 +677,7 @@ int ti_enum_members_to_store_pk(ti_enum_t * enum_, msgpack_packer * pk)
     return 0;
 }
 
-int ti_enum_methods_to_store_pk(ti_enum_t * enum_, msgpack_packer * pk)
+int ti_enum_methods_to_store_pk(ti_enum_t *enum_, msgpack_packer *pk)
 {
     if (msgpack_pack_array(pk, enum_->methods->n))
         return -1;
@@ -693,7 +693,7 @@ int ti_enum_methods_to_store_pk(ti_enum_t * enum_, msgpack_packer * pk)
     return 0;
 }
 
-ti_member_t * ti_enum_member_by_val(ti_enum_t * enum_, ti_val_t * val)
+ti_member_t *ti_enum_member_by_val(ti_enum_t *enum_, ti_val_t *val)
 {
     for(vec_each(enum_->members, ti_member_t, member))
         if (ti_opr_eq(VMEMBER(member), val))
@@ -701,10 +701,10 @@ ti_member_t * ti_enum_member_by_val(ti_enum_t * enum_, ti_val_t * val)
     return NULL;
 }
 
-ti_member_t * ti_enum_member_by_val_e(
-        ti_enum_t * enum_,
-        ti_val_t * val,
-        ex_t * e)
+ti_member_t *ti_enum_member_by_val_e(
+        ti_enum_t *enum_,
+        ti_val_t *val,
+        ex_t *e)
 {
     for(vec_each(enum_->members, ti_member_t, member))
         if (ti_enum_check_tp(enum_, val) && ti_opr_eq(VMEMBER(member), val))
@@ -796,9 +796,9 @@ ti_member_t * ti_enum_member_by_val_e(
 }
 
 
-ti_val_t * ti_enum_as_mpval(ti_enum_t * enum_)
+ti_val_t *ti_enum_as_mpval(ti_enum_t *enum_)
 {
-    ti_raw_t * raw;
+    ti_raw_t *raw;
     ti_vp_t vp = {
         .query=NULL,
         .size_limit=ti.cfg->result_size_limit,
@@ -820,15 +820,15 @@ ti_val_t * ti_enum_as_mpval(ti_enum_t * enum_)
     return (ti_val_t *) raw;
 }
 
-static int enum__methods_info_to_pk(ti_enum_t * enum_, msgpack_packer * pk)
+static int enum__methods_info_to_pk(ti_enum_t *enum_, msgpack_packer *pk)
 {
     if (msgpack_pack_map(pk, enum_->methods->n))
         return -1;
 
     for (vec_each(enum_->methods, ti_method_t, method))
     {
-        ti_raw_t * doc = ti_method_doc(method);
-        ti_raw_t * def = ti_method_def(method);
+        ti_raw_t *doc = ti_method_doc(method);
+        ti_raw_t *def = ti_method_def(method);
 
         if (!def ||
             mp_pack_strn(pk, method->name->str, method->name->n) ||
@@ -855,9 +855,9 @@ static int enum__methods_info_to_pk(ti_enum_t * enum_, msgpack_packer * pk)
     return 0;
 }
 
-int ti_enum_to_pk(ti_enum_t * enum_, ti_vp_t * vp)
+int ti_enum_to_pk(ti_enum_t *enum_, ti_vp_t *vp)
 {
-    ti_member_t * def = VEC_first(enum_->members);
+    ti_member_t *def = VEC_first(enum_->members);
     return (
         msgpack_pack_map(&vp->pk, 7) ||
         mp_pack_str(&vp->pk, "enum_id") ||

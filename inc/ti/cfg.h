@@ -10,7 +10,7 @@ typedef struct ti_cfg_s ti_cfg_t;
 
 int ti_cfg_create(void);
 void ti_cfg_destroy(void);
-int ti_cfg_parse(const char * cfg_file);
+int ti_cfg_parse(const char *cfg_file);
 int ti_cfg_ensure_storage_path(void);
 
 struct ti_cfg_s
@@ -44,16 +44,16 @@ struct ti_cfg_s
     int ip_support;                    /* AF_UNSPEC / AF_INET / AF_INET6 */
     _Bool wait_for_modules;            /* wait for modules to load before
                                           listening to nodes and clients */
-    char * node_name;
-    char * bind_client_addr;
-    char * bind_node_addr;
-    char * pipe_client_name;
-    char * storage_path;                /* with trailing `/` */
-    char * gcloud_key_file;
-    char * modules_path;                /* path to find modules */
-    char * python_interpreter;          /* python interpreter */
-    char * ws_cert_file;                /* path to certificate file */
-    char * ws_key_file;                 /* path to private key file */
+    char *node_name;
+    char *bind_client_addr;
+    char *bind_node_addr;
+    char *pipe_client_name;
+    char *storage_path;                /* with trailing `/` */
+    char *gcloud_key_file;
+    char *modules_path;                /* path to find modules */
+    char *python_interpreter;          /* python interpreter */
+    char *ws_cert_file;                /* path to certificate file */
+    char *ws_key_file;                 /* path to private key file */
     double query_duration_warn;
     double query_duration_error;
 };

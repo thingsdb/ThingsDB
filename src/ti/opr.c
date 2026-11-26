@@ -19,7 +19,7 @@
 #include <ti/datetime.h>
 
 
-int ti_opr_a_to_b(ti_val_t * a, cleri_node_t * nd, ti_val_t ** b, ex_t * e)
+int ti_opr_a_to_b(ti_val_t *a, cleri_node_t *nd, ti_val_t **b, ex_t *e)
 {
     switch (*nd->str)
     {
@@ -44,7 +44,7 @@ int ti_opr_a_to_b(ti_val_t * a, cleri_node_t * nd, ti_val_t ** b, ex_t * e)
     return e->nr;
 }
 
-_Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
+_Bool ti__opr_eq_(ti_val_t *a, ti_val_t *b)
 {
     ti_opr_perm_t perm = TI_OPR_PERM(a, b);
     switch (perm)
@@ -127,7 +127,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
  * Return `< 0` when `a < b`, `> 0` when `a > b` and 0 when equal.
  * If two types cannot be compared, `e` will be set.
  */
-int ti_opr_compare(ti_val_t * a, ti_val_t * b, ex_t * e)
+int ti_opr_compare(ti_val_t *a, ti_val_t *b, ex_t *e)
 {
     ti_opr_perm_t perm = TI_OPR_PERM(a, b);
     switch (perm)

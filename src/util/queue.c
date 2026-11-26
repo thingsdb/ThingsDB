@@ -116,7 +116,7 @@ void *queue_replace(queue_t *queue, size_t idx, void *data)
  * This function may resize the queue so it has space for at least n new
  * objects.
  */
-int queue_reserve(queue_t ** qaddr, size_t n)
+int queue_reserve(queue_t **qaddr, size_t n)
 {
     queue_t *queue = *qaddr;
     size_t nn = queue->n + n;
@@ -150,7 +150,7 @@ int queue_reserve(queue_t ** qaddr, size_t n)
     return 0;
 }
 
-int queue_push(queue_t ** qaddr, void *data)
+int queue_push(queue_t **qaddr, void *data)
 {
     queue_t *queue = *qaddr;
     if (queue->n == queue->sz)
@@ -164,7 +164,7 @@ int queue_push(queue_t ** qaddr, void *data)
     return 0;
 }
 
-int queue_unshift(queue_t ** qaddr, void *data)
+int queue_unshift(queue_t **qaddr, void *data)
 {
     queue_t *queue = *qaddr;
     if (queue->n == queue->sz)
@@ -178,7 +178,7 @@ int queue_unshift(queue_t ** qaddr, void *data)
     return 0;
 }
 
-int queue_insert(queue_t ** qaddr, size_t idx, void *data)
+int queue_insert(queue_t **qaddr, size_t idx, void *data)
 {
     queue_t *queue = *qaddr;
 
@@ -224,7 +224,7 @@ int queue_insert(queue_t ** qaddr, size_t idx, void *data)
     return 0;
 }
 
-int queue_extend(queue_t ** qaddr, void *data[], size_t n)
+int queue_extend(queue_t **qaddr, void *data[], size_t n)
 {
     queue_t *q;
     size_t m, next;
@@ -252,7 +252,7 @@ int queue_extend(queue_t ** qaddr, void *data[], size_t n)
 /*
  * Shrinks a queue to an exact fit.
  */
-int queue_shrink(queue_t ** qaddr)
+int queue_shrink(queue_t **qaddr)
 {
     queue_t *queue = *qaddr;
     size_t n;

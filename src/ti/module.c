@@ -1579,7 +1579,7 @@ int ti_module_read_args(
     return 0;
 }
 
-int ti_module_set_defaults(ti_thing_t ** thing, vec_t *defaults)
+int ti_module_set_defaults(ti_thing_t **thing, vec_t *defaults)
 {
     if (!defaults || !defaults->n)
         return 0;

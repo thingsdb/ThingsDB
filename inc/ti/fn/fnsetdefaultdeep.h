@@ -6,7 +6,7 @@ static int do__f_set_default_deep(ti_query_t *query, cleri_node_t *nd, ex_t *e)
     ti_task_t *task;
     uint8_t deep;
     uint64_t scope_id;
-    vec_t ** access_;
+    vec_t **access_;
 
     if (fn_not_thingsdb_scope("set_default_deep", query, e) ||
         fn_nargs("set_default_deep", DOC_SET_DEFAULT_DEEP, 2, nargs, e) ||

@@ -1,3 +1,7 @@
+# v1.13.0-alpha0
+
+* Standardized C pointer formatting across the codebase, pr #484.
+
 # v1.12.0
 
 * Avoid re-allocating/packing for `mpdata`; write as `mpkg` directly, pr #480.

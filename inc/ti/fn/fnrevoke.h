@@ -8,7 +8,7 @@ static int do__f_revoke(ti_query_t *query, cleri_node_t *nd, ex_t *e)
     ti_raw_t *uname;
     ti_task_t *task;
     uint64_t mask, scope_id;
-    vec_t ** access_;
+    vec_t **access_;
 
     if (fn_not_thingsdb_scope("revoke", query, e) ||
         fn_nargs("revoke", DOC_REVOKE, 3, nargs, e) ||

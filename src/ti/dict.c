@@ -368,7 +368,7 @@ static vec_t *dict__as_vec(ti_dict_t *dict)
     return vec;
 }
 
-int ti_dict_to_list(ti_dict_t ** dictaddr)
+int ti_dict_to_list(ti_dict_t **dictaddr)
 {
     ti_dict_t *dict = (ti_dict_t *) (*dictaddr);
     ti_varr_t *list = malloc(sizeof(ti_varr_t));
@@ -394,7 +394,7 @@ failed:
     return -1;
 }
 
-int ti_dict_to_tuple(ti_dict_t ** dictaddr)
+int ti_dict_to_tuple(ti_dict_t **dictaddr)
 {
     ti_dict_t *dict = (ti_dict_t *) (*dictaddr);
     ti_tuple_t *tuple = malloc(sizeof(ti_tuple_t));
@@ -461,7 +461,7 @@ ti_val_t *ti_dict_del(ti_dict_t *dict, ti_val_t *key)
     return NULL;
 }
 
-int ti_dict_assign(ti_dict_t ** dictaddr)
+int ti_dict_assign(ti_dict_t **dictaddr)
 {
     ti_dict_t *ndict, *odict = *dictaddr;
 
@@ -491,7 +491,7 @@ typedef struct
 static int dict__copy_cb(ti_dict_key_t *key, ti_val_t *val, dict__copy_t *w)
 {
     int rc;
-    ti_val_t ** vaddr = &val;
+    ti_val_t **vaddr = &val;
     ti_incref(val);
     rc = (ti_val_copy_nested(vaddr, w->deep) ||
           ti_dict_setr(w->dict, key, *vaddr));
@@ -505,7 +505,7 @@ static int dict__copy_cb(ti_dict_key_t *key, ti_val_t *val, dict__copy_t *w)
     return 0;
 }
 
-int ti_dict_copy(ti_dict_t ** dictaddr, uint8_t deep)
+int ti_dict_copy(ti_dict_t **dictaddr, uint8_t deep)
 {
     assert(deep);
     ti_dict_t *ndict, *odict = *dictaddr;
@@ -533,7 +533,7 @@ int ti_dict_copy(ti_dict_t ** dictaddr, uint8_t deep)
 static int dict__dup_cb(ti_dict_key_t *key, ti_val_t *val, dict__copy_t *w)
 {
     int rc;
-    ti_val_t ** vaddr = &val;
+    ti_val_t **vaddr = &val;
     ti_incref(val);
     rc = (ti_val_dup_nested(vaddr, w->deep) ||
           ti_dict_setr(w->dict, key, *vaddr));
@@ -547,7 +547,7 @@ static int dict__dup_cb(ti_dict_key_t *key, ti_val_t *val, dict__copy_t *w)
     return 0;
 }
 
-int ti_dict_dup(ti_dict_t ** dictaddr, uint8_t deep)
+int ti_dict_dup(ti_dict_t **dictaddr, uint8_t deep)
 {
     assert(deep);
 
@@ -577,7 +577,7 @@ int ti_dict_dup(ti_dict_t ** dictaddr, uint8_t deep)
  * Increases the reference counter of `val` on newly written key/pair.
  * New value is created for type list, set and dict as they cannot be nested.
  */
-int ti_dict_set(ti_dict_t *dict, ti_val_t *key, ti_val_t ** val, ex_t *e)
+int ti_dict_set(ti_dict_t *dict, ti_val_t *key, ti_val_t **val, ex_t *e)
 {
     switch (ti_dict_key_spec(dict))
     {

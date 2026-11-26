@@ -56,7 +56,7 @@ done:
     return 0;
 }
 
-int ti_store_commits_restore(vec_t ** commits, const char *fn)
+int ti_store_commits_restore(vec_t **commits, const char *fn)
 {
     int rc = -1;
     fx_mmap_t fmap;

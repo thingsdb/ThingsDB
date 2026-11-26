@@ -48,7 +48,7 @@ done:
     return 0;
 }
 
-int ti_store_access_restore(vec_t ** access, const char *fn)
+int ti_store_access_restore(vec_t **access, const char *fn)
 {
     int rc = -1;
     size_t i;

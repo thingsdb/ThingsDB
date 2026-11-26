@@ -79,7 +79,7 @@ struct ti_module_s
     char *file;            /* file (full path) to start */
     char *fn;              /* just the file name (using a pointer to file) */
     char *conf_error;      /* node configuration error */
-    char ** args;           /* process arguments (main file etc.) */
+    char **args;           /* process arguments (main file etc.) */
     ti_pkg_t *conf_pkg;    /* configuration package */
     uint64_t started_at;    /* module started at this time-stamp */
     uint64_t created_at;    /* module started at this time-stamp */

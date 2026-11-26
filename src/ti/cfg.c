@@ -157,7 +157,7 @@ static int cfg__str(
         cfgparser_t *parser,
         const char *cfg_file,
         const char *option_name,
-        char ** str)
+        char **str)
 {
     cfgparser_option_t *option;
     cfgparser_return_t rc;

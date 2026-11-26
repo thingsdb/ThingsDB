@@ -110,7 +110,7 @@ void strx_split_join(char *pt, char split_chr, char join_chr)
     *dest = '\0';
 }
 
-void strx_trim(char ** str, char chr)
+void strx_trim(char **str, char chr)
 {
     /*
      * trim: when chr is 0 we will trim whitespace,

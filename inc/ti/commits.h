@@ -33,12 +33,12 @@ typedef struct
 
 typedef struct
 {
-    vec_t ** commits;
-    vec_t ** access;
+    vec_t **commits;
+    vec_t **access;
     uint64_t scope_id;
 } ti_commits_history_t;
 
-void ti_commits_destroy(vec_t ** commits);
+void ti_commits_destroy(vec_t **commits);
 int ti_commits_options(
     ti_commits_options_t *options,
     ti_thing_t *thing,
@@ -48,9 +48,9 @@ int ti_commits_history(
     ti_commits_history_t *history,
     ti_commits_options_t *options,
     ex_t *e);
-vec_t ** ti_commits_from_scope(ti_raw_t *scope, ex_t *e);
-int ti_commits_set_history(vec_t ** commits, _Bool state);
+vec_t **ti_commits_from_scope(ti_raw_t *scope, ex_t *e);
+int ti_commits_set_history(vec_t **commits, _Bool state);
 vec_t *ti_commits_find(vec_t *commits, ti_commits_options_t *options);
-vec_t *ti_commits_del(vec_t ** commits, ti_commits_options_t *options);
+vec_t *ti_commits_del(vec_t **commits, ti_commits_options_t *options);
 
 #endif /* TI_COMMITS_H_ */

@@ -24,12 +24,12 @@ static void print_error(
         const char *bname);
 static int process_arg(
         argparse_t *parser,
-        argparse_args_t ** arg,
+        argparse_args_t **arg,
         int *argn,
         int argc,
         char *argv[]);
 static uint16_t get_argument(
-        argparse_args_t ** target,
+        argparse_args_t **target,
         argparse_t *parser,
         char *argument);
 static _Bool match_choice(char *choices, char *choice);
@@ -363,7 +363,7 @@ static void print_help(argparse_t *parser, const char *bname)
 }
 
 static uint16_t get_argument(
-        argparse_args_t ** target,
+        argparse_args_t **target,
         argparse_t *parser,
         char *argument)
 {
@@ -394,7 +394,7 @@ static uint16_t get_argument(
 
 static int process_arg(
         argparse_t *parser,
-        argparse_args_t ** arg,
+        argparse_args_t **arg,
         int *argn,
         int argc,
         char *argv[])

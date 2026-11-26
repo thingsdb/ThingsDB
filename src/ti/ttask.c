@@ -707,7 +707,7 @@ static int ttask__whitelist_del(mp_unp_t *up)
 
 static int ttask__set_history(mp_unp_t *up)
 {
-    vec_t ** commits;
+    vec_t **commits;
     mp_obj_t obj, mp_scope, mp_state;
 
     if (mp_next(up, &obj) != MP_ARR || obj.via.sz != 2 ||
@@ -748,7 +748,7 @@ static int ttask__set_history(mp_unp_t *up)
 
 static int ttask__del_history(mp_unp_t *up)
 {
-    vec_t ** commits;
+    vec_t **commits;
     mp_obj_t obj, mp_scope, mp_id;
 
     if (mp_next(up, &obj) != MP_ARR || obj.via.sz != 2 ||
@@ -812,7 +812,7 @@ static int ttask__del_history(mp_unp_t *up)
 
 static int ttask__commit(mp_unp_t *up)
 {
-    vec_t ** commits = &ti.commits;
+    vec_t **commits = &ti.commits;
     ti_commit_t *commit = ti_commit_from_up(up);
     if (!commit)
     {

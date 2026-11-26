@@ -89,7 +89,7 @@ int ti_vset_to_store_pk(ti_vset_t *vset, msgpack_packer *pk)
     );
 }
 
-int ti_vset_to_list(ti_vset_t ** vsetaddr)
+int ti_vset_to_list(ti_vset_t **vsetaddr)
 {
     ti_varr_t *list = malloc(sizeof(ti_varr_t));
     if (!list)
@@ -114,7 +114,7 @@ failed:
     return -1;
 }
 
-int ti_vset_to_tuple(ti_vset_t ** vsetaddr)
+int ti_vset_to_tuple(ti_vset_t **vsetaddr)
 {
     ti_tuple_t *tuple = malloc(sizeof(ti_tuple_t));
     if (!tuple)
@@ -160,7 +160,7 @@ ti_vset_t *ti_vset_cp(ti_vset_t *vset)
             : nvset;
 }
 
-int ti_vset_assign(ti_vset_t ** vsetaddr)
+int ti_vset_assign(ti_vset_t **vsetaddr)
 {
     ti_vset_t *nvset, *ovset = *vsetaddr;
 
@@ -181,7 +181,7 @@ int ti_vset_assign(ti_vset_t ** vsetaddr)
 
 static int vset__walk_copy(ti_thing_t *t, ti_vset_t *vset)
 {
-    ti_thing_t ** tarr = &t;
+    ti_thing_t **tarr = &t;
 
     ti_incref(t);
 
@@ -198,7 +198,7 @@ static int vset__walk_copy(ti_thing_t *t, ti_vset_t *vset)
 
 static int vset__walk_dup(ti_thing_t *t, ti_vset_t *vset)
 {
-    ti_thing_t ** tarr = &t;
+    ti_thing_t **tarr = &t;
 
     ti_incref(t);
 
@@ -213,7 +213,7 @@ static int vset__walk_dup(ti_thing_t *t, ti_vset_t *vset)
     return 0;
 }
 
-int ti_vset_copy(ti_vset_t ** vsetaddr, uint8_t deep)
+int ti_vset_copy(ti_vset_t **vsetaddr, uint8_t deep)
 {
     assert(deep);
 
@@ -237,7 +237,7 @@ int ti_vset_copy(ti_vset_t ** vsetaddr, uint8_t deep)
     return 0;
 }
 
-int ti_vset_dup(ti_vset_t ** vsetaddr, uint8_t deep)
+int ti_vset_dup(ti_vset_t **vsetaddr, uint8_t deep)
 {
     assert(deep);
 

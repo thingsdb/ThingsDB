@@ -39,7 +39,7 @@ static inline smap_t *ti_query_procedures(ti_query_t *query)
             : ti.procedures;
 }
 
-static inline vec_t ** ti_query_tasks(ti_query_t *query)
+static inline vec_t **ti_query_tasks(ti_query_t *query)
 {
     return query->collection
             ? &query->collection->vtasks
@@ -73,7 +73,7 @@ static inline uint64_t ti_query_scope_id(ti_query_t *query)
             : TI_SCOPE_NODE;
 }
 
-static inline vec_t ** ti_query_commits(ti_query_t *query)
+static inline vec_t **ti_query_commits(ti_query_t *query)
 {
     return query->collection
         ? &query->collection->commits

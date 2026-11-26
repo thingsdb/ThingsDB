@@ -50,7 +50,7 @@ int ti_module_read_args(
         _Bool * load,
         uint8_t *deep,
         ex_t *e);
-int ti_module_set_defaults(ti_thing_t ** thing, vec_t *defaults);
+int ti_module_set_defaults(ti_thing_t **thing, vec_t *defaults);
 int ti_module_call(
         ti_module_t *module,
         ti_query_t *query,

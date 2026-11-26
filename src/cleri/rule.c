@@ -57,7 +57,7 @@ cleri_t *cleri__rule(uint32_t gid, cleri_t *cl_obj)
  *  - CLERI_RULE_ERROR: an error occurred
  */
 cleri_rule_test_t cleri__rule_init(
-        cleri_rule_tested_t ** target,
+        cleri_rule_tested_t **target,
         cleri_rule_tested_t *tested,
         const char *str)
 {

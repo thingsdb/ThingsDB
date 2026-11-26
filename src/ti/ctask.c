@@ -3602,7 +3602,7 @@ int ctask__arr_remove(ti_thing_t *thing, mp_unp_t *up)
  */
 static int ctask__commit(ti_thing_t *thing, mp_unp_t *up)
 {
-    vec_t ** commits = &thing->collection->commits;
+    vec_t **commits = &thing->collection->commits;
     ti_commit_t *commit = ti_commit_from_up(up);
     if (!commit)
     {

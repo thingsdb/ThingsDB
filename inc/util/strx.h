@@ -16,7 +16,7 @@ void strx_replace_char(char *sptr, char orig, char repl);
 int strx_replace_str(char *str, char *o, char *r, size_t n);
 void strx_split_join(char *pt, char split_chr, char join_chr);
 
-void strx_trim(char ** str, char chr);
+void strx_trim(char **str, char chr);
 _Bool strx_is_empty(const char *str);
 _Bool strx_is_int(const char *str);
 _Bool strx_is_float(const char *str);

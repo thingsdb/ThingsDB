@@ -31,11 +31,11 @@ static void *smap__setn(
         int *new);
 static void *smap__pop(
         smap_node_t *parent,
-        smap_node_t ** nd,
+        smap_node_t **nd,
         const char *key);
 static void *smap__popn(
         smap_node_t *parent,
-        smap_node_t ** nd,
+        smap_node_t **nd,
         const char *key,
         size_t n);
 static void smap__dec_node(smap_node_t *node);
@@ -130,7 +130,7 @@ __attribute__((no_sanitize("bounds")))
 int smap_add(smap_t *smap, const char *key, void *data)
 {
     int rc;
-    smap_node_t ** nd;
+    smap_node_t **nd;
     uint8_t k = (uint8_t) *key;
 
     if (!*key)
@@ -173,7 +173,7 @@ __attribute__((no_sanitize("bounds")))
 int smap_addn(smap_t *smap, const char *key, size_t n, void *data)
 {
     int rc;
-    smap_node_t ** nd;
+    smap_node_t **nd;
     uint8_t k;
 
     if (!n)
@@ -220,7 +220,7 @@ void *smap_setn(smap_t *smap, const char *key, size_t n, void *data, int *new)
 {
     assert(!*new);
     void *ret;
-    smap_node_t ** nd;
+    smap_node_t **nd;
     uint8_t k;
 
     if (!n)
@@ -275,7 +275,7 @@ void *smap_setn(smap_t *smap, const char *key, size_t n, void *data, int *new)
  */
 void *smap_get(smap_t *smap, const char *key)
 {
-    void ** data = smap_getaddr(smap, key);
+    void **data = smap_getaddr(smap, key);
     return data ? *data : NULL;
 }
 
@@ -283,7 +283,7 @@ void *smap_get(smap_t *smap, const char *key)
  * Returns the address of an item or NULL if the key does not exist.
  */
 __attribute__((no_sanitize("bounds")))
-void ** smap_getaddr(smap_t *smap, const char *key)
+void **smap_getaddr(smap_t *smap, const char *key)
 {
     smap_node_t *nd;
     uint8_t k = (uint8_t) *key;
@@ -375,7 +375,7 @@ void *smap_getn(smap_t *smap, const char *key, size_t n)
 __attribute__((no_sanitize("bounds")))
 void *smap_pop(smap_t *smap, const char *key)
 {
-    smap_node_t ** nd;
+    smap_node_t **nd;
     void *data;
     uint8_t k = (uint8_t) *key;
     uint8_t pos = k >> SMAP_BSH;
@@ -418,7 +418,7 @@ void *smap_pop(smap_t *smap, const char *key)
 __attribute__((no_sanitize("bounds")))
 void *smap_popn(smap_t *smap, const char *key, size_t n)
 {
-    smap_node_t ** nd;
+    smap_node_t **nd;
     void *data;
     uint8_t k, pos;
 
@@ -705,7 +705,7 @@ static int smap__add(smap_node_t *node, const char *key, void *data)
         if (smap__node_resize(node, k >> SMAP_BSH))
             return SMAP_ERR_ALLOC;
 
-        smap_node_t ** nd = &(*node->nodes)[k - (node->offset << SMAP_BSH)];
+        smap_node_t **nd = &(*node->nodes)[k - (node->offset << SMAP_BSH)];
         key++;
 
         if (*nd)
@@ -833,7 +833,7 @@ static int smap__addn(
         if (smap__node_resize(node, k >> SMAP_BSH))
             return SMAP_ERR_ALLOC;
 
-        smap_node_t ** nd = &(*node->nodes)[k - (node->offset << SMAP_BSH)];
+        smap_node_t **nd = &(*node->nodes)[k - (node->offset << SMAP_BSH)];
         key++;
         n--;
 
@@ -964,7 +964,7 @@ static void *smap__setn(
         if (smap__node_resize(node, k >> SMAP_BSH))
             return NULL;
 
-        smap_node_t ** nd = &(*node->nodes)[k - (node->offset << SMAP_BSH)];
+        smap_node_t **nd = &(*node->nodes)[k - (node->offset << SMAP_BSH)];
         key++;
         n--;
 
@@ -1074,7 +1074,7 @@ static void smap__dec_node(smap_node_t *node)
 __attribute__((no_sanitize("bounds")))
 static void *smap__pop(
         smap_node_t *parent,
-        smap_node_t ** nd,
+        smap_node_t **nd,
         const char *key)
 {
     smap_node_t *node = *nd;
@@ -1121,7 +1121,7 @@ static void *smap__pop(
         if (pos < node->offset || pos >= node->offset + node->sz)
             return NULL;
 
-        smap_node_t ** next = &(*node->nodes)[k - (node->offset << SMAP_BSH)];
+        smap_node_t **next = &(*node->nodes)[k - (node->offset << SMAP_BSH)];
 
         return (*next) ? smap__pop(node, next, key + 1) : NULL;
     }
@@ -1134,7 +1134,7 @@ static void *smap__pop(
 __attribute__((no_sanitize("bounds")))
 static void *smap__popn(
         smap_node_t *parent,
-        smap_node_t ** nd,
+        smap_node_t **nd,
         const char *key,
         size_t n)
 {
@@ -1183,7 +1183,7 @@ static void *smap__popn(
         if (pos < node->offset || pos >= node->offset + node->sz)
             return NULL;
 
-        smap_node_t ** next = &(*node->nodes)[k - (node->offset << SMAP_BSH)];
+        smap_node_t **next = &(*node->nodes)[k - (node->offset << SMAP_BSH)];
 
         return (*next) ? smap__popn(node, next, key + 1, n - 1) : NULL;
     }

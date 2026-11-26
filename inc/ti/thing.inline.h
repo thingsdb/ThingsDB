@@ -39,7 +39,7 @@ static inline int ti_thing_set_val_from_strn(
         ti_thing_t *thing,
         const char *str,
         size_t n,
-        ti_val_t ** val,
+        ti_val_t **val,
         ex_t *e)
 {
     return ti_thing_is_object(thing)
@@ -54,7 +54,7 @@ static inline int ti_thing_set_val_from_valid_strn(
         ti_thing_t *thing,
         const char *str,
         size_t n,
-        ti_val_t ** val,
+        ti_val_t **val,
         ex_t *e)
 {
     return ti_thing_is_object(thing)

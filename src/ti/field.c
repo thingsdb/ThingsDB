@@ -36,7 +36,7 @@
 #include <util/strx.h>
 
 static int field__auto_convert(
-        ti_val_t ** val,
+        ti_val_t **val,
         ti_collection_t *collection,
         uint16_t spec,
         uint16_t nested_spec,
@@ -1074,7 +1074,7 @@ typedef struct
 {
     ti_data_t *data;
     ti_name_t *name;
-    ti_val_t ** vaddr;
+    ti_val_t **vaddr;
     uint64_t val_idx;
     uint16_t type_id;
     ex_t e;
@@ -1110,7 +1110,7 @@ ti_field_t *ti_field_as_new(ti_field_t *field, ti_raw_t *spec_raw, ex_t *e)
 /*
  * Destroys `with_field` and sets this pointer to NULL
  */
-void ti_field_replace(ti_field_t *field, ti_field_t ** with_field)
+void ti_field_replace(ti_field_t *field, ti_field_t **with_field)
 {
     assert(field->idx == (*with_field)->idx);
     assert(field->type == (*with_field)->type);
@@ -1487,7 +1487,7 @@ done:
 
 static int field__vset_assign(
         ti_field_t *field,
-        ti_vset_t ** vset,
+        ti_vset_t **vset,
         ti_thing_t *parent,
         ex_t *e)
 {
@@ -1562,7 +1562,7 @@ done:
 
 static int field__varr_assign(
         ti_field_t *field,
-        ti_varr_t ** varr,
+        ti_varr_t **varr,
         ti_thing_t *parent,
         ex_t *e)
 {
@@ -1771,7 +1771,7 @@ static int field__dict_pair_cb(ti_dict_key_t *key,
 
 static int field__dict_assign(
         ti_field_t *field,
-        ti_dict_t ** dictaddr,
+        ti_dict_t **dictaddr,
         ti_thing_t *parent,
         ex_t *e)
 {
@@ -2046,7 +2046,7 @@ static _Bool field__maps_set_to_arr(ti_field_t *field)
     return ((field->nested_spec & TI_SPEC_MASK_NILLABLE) <= TI_SPEC_OBJECT);
 }
 
-static int field__auto_convert_int(ti_val_t ** val, ex_t *e)
+static int field__auto_convert_int(ti_val_t **val, ex_t *e)
 {
     if (ti_val_is_float(*val))
     {
@@ -2238,7 +2238,7 @@ static int field__walk_auto_convert(ti_item_t *item, field__auto_convert_t *w)
 }
 
 static int field__auto_convert_thing(
-        ti_val_t ** val,
+        ti_val_t **val,
         ti_collection_t *collection,
         uint16_t spec,
         uint16_t nested_spec,
@@ -2337,7 +2337,7 @@ static int field__auto_convert_thing(
 }
 
 static int field__auto_convert_arr(
-        ti_val_t ** val,
+        ti_val_t **val,
         ti_collection_t *collection,
         uint16_t nested_spec,
         ex_t *e)
@@ -2372,7 +2372,7 @@ static int field__auto_convert_arr(
     return 0;
 }
 
-static int field__auto_convert_float(ti_val_t ** val, ex_t *e)
+static int field__auto_convert_float(ti_val_t **val, ex_t *e)
 {
     if (ti_val_is_int(*val))
     {
@@ -2383,7 +2383,7 @@ static int field__auto_convert_float(ti_val_t ** val, ex_t *e)
     return e->nr;
 }
 
-static int field__auto_convert_regex(ti_val_t ** val, ex_t *e)
+static int field__auto_convert_regex(ti_val_t **val, ex_t *e)
 {
     if (ti_val_is_str(*val))
     {
@@ -2398,7 +2398,7 @@ static int field__auto_convert_regex(ti_val_t ** val, ex_t *e)
     return e->nr;
 }
 
-static int field__auto_convert_uuid(ti_val_t ** val, ex_t *e)
+static int field__auto_convert_uuid(ti_val_t **val, ex_t *e)
 {
     if (ti_val_is_str(*val))
         return val__str_to_uuid(val, e);
@@ -2407,7 +2407,7 @@ static int field__auto_convert_uuid(ti_val_t ** val, ex_t *e)
     return 0;
 }
 
-static int field__auto_convert_closure(ti_val_t ** val, ex_t *e)
+static int field__auto_convert_closure(ti_val_t **val, ex_t *e)
 {
     if (ti_val_is_str(*val))
     {
@@ -2430,7 +2430,7 @@ static int field__auto_convert_closure(ti_val_t ** val, ex_t *e)
     return e->nr;
 }
 
-static int field__auto_convert_error(ti_val_t ** val, ex_t *e)
+static int field__auto_convert_error(ti_val_t **val, ex_t *e)
 {
     if (ti_val_is_str(*val))
     {
@@ -2454,7 +2454,7 @@ static int field__auto_convert_error(ti_val_t ** val, ex_t *e)
 }
 
 static int field__auto_convert_set(
-        ti_val_t ** val,
+        ti_val_t **val,
         ti_collection_t *collection,
         uint16_t nested_spec,
         ex_t *e)
@@ -2495,7 +2495,7 @@ static int field__auto_convert_set(
 }
 
 static int field__auto_convert_datetime(
-            ti_val_t ** val,
+            ti_val_t **val,
             ti_collection_t *collection,
             ex_t *e)
 {
@@ -2515,7 +2515,7 @@ static int field__auto_convert_datetime(
 }
 
 static int field__auto_convert_timeval(
-            ti_val_t ** val,
+            ti_val_t **val,
             ti_collection_t *collection,
             ex_t *e)
 {
@@ -2562,7 +2562,7 @@ static int field__auto_convert_timeval(
 }
 
 static int field__auto_convert_enum(
-            ti_val_t ** val,
+            ti_val_t **val,
             ti_collection_t *collection,
             uint16_t spec,
             ex_t *e)
@@ -2589,7 +2589,7 @@ static int field__auto_convert_enum(
 }
 
 static int field__auto_convert(
-        ti_val_t ** val,
+        ti_val_t **val,
         ti_collection_t *collection,
         uint16_t spec,
         uint16_t nested_spec,
@@ -2670,7 +2670,7 @@ static int field__auto_convert(
 
 int ti_field_auto_convert(
         ti_field_t *field,
-        ti_val_t ** val,
+        ti_val_t **val,
         ti_thing_t *parent,
         ex_t *e)
 {
@@ -2698,7 +2698,7 @@ int ti_field_auto_convert(
  */
 int ti_field_make_assignable(
         ti_field_t *field,
-        ti_val_t ** val,
+        ti_val_t **val,
         ti_thing_t *parent,  /* may be NULL */
         ex_t *e)
 {
@@ -3683,7 +3683,7 @@ ti_field_t *ti_field_by_strn_e(
 typedef struct
 {
     ti_field_t *field;
-    ti_val_t ** vaddr;
+    ti_val_t **vaddr;
     uint16_t type_id;
     ex_t e;
 } field__add_t;
@@ -3709,7 +3709,7 @@ static int field__add(ti_thing_t *thing, field__add_t *w)
  *       function
  * error: can only fail in case of a memory allocation error
  */
-int ti_field_init_things(ti_field_t *field, ti_val_t ** vaddr)
+int ti_field_init_things(ti_field_t *field, ti_val_t **vaddr)
 {
     assert(field == vec_last(field->type->fields));
     int rc;

@@ -1013,7 +1013,7 @@ int ti_do_break(ti_query_t *UNUSED(q), cleri_node_t *UNUSED(nd), ex_t *e)
 
 int ti_do_closure(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
-    void ** data = &nd->children->data;
+    void **data = &nd->children->data;
 
     if (!*data)
     {

@@ -21,12 +21,12 @@ ti_vset_t *ti_vset_create_imap(imap_t *imap);
 void ti_vset_destroy(ti_vset_t *vset);
 int ti_vset_to_client_pk(ti_vset_t *vset, ti_vp_t *vp, int deep, int flags);
 int ti_vset_to_store_pk(ti_vset_t *vset, msgpack_packer *pk);
-int ti_vset_to_list(ti_vset_t ** vsetaddr);
-int ti_vset_to_tuple(ti_vset_t ** vsetaddr);
+int ti_vset_to_list(ti_vset_t **vsetaddr);
+int ti_vset_to_tuple(ti_vset_t **vsetaddr);
 ti_vset_t *ti_vset_cp(ti_vset_t *vset);
-int ti_vset_assign(ti_vset_t ** vsetaddr);
-int ti_vset_copy(ti_vset_t ** vsetaddr, uint8_t deep);
-int ti_vset_dup(ti_vset_t ** vsetaddr, uint8_t deep);
+int ti_vset_assign(ti_vset_t **vsetaddr);
+int ti_vset_copy(ti_vset_t **vsetaddr, uint8_t deep);
+int ti_vset_dup(ti_vset_t **vsetaddr, uint8_t deep);
 int ti_vset_add_val(ti_vset_t *vset, ti_val_t *val, ex_t *e);
 void ti_vset_clear(ti_vset_t *vset);
 

@@ -316,7 +316,7 @@ int ti_commits_history(
     return e->nr;
 }
 
-vec_t ** ti_commits_from_scope(ti_raw_t *scope, ex_t *e)
+vec_t **ti_commits_from_scope(ti_raw_t *scope, ex_t *e)
 {
     ti_scope_t scope_;
     if (ti_scope_init(&scope_, (const char *) scope->data, scope->n, e))
@@ -348,12 +348,12 @@ vec_t ** ti_commits_from_scope(ti_raw_t *scope, ex_t *e)
     return NULL;
 }
 
-void ti_commits_destroy(vec_t ** commits)
+void ti_commits_destroy(vec_t **commits)
 {
     vec_destroy(*commits, (vec_destroy_cb) ti_commit_destroy);
     *commits = NULL;
 }
-int ti_commits_set_history(vec_t ** commits, _Bool state)
+int ti_commits_set_history(vec_t **commits, _Bool state)
 {
     if (state)
     {
@@ -456,7 +456,7 @@ fail:
     return NULL;
 }
 
-vec_t *ti_commits_del(vec_t ** commits, ti_commits_options_t *options)
+vec_t *ti_commits_del(vec_t **commits, ti_commits_options_t *options)
 {
     uint32_t begin, end;
     vec_t *vec = vec_new(8);

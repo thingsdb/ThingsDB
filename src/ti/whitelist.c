@@ -53,7 +53,7 @@ static ti_val_t *whitelist__val(ti_val_t *val, ex_t *e)
 }
 
 /* Both the `whitelist` and `val` argument may be NULL */
-int ti_whitelist_add(vec_t ** whitelist, ti_val_t *val, ex_t *e)
+int ti_whitelist_add(vec_t **whitelist, ti_val_t *val, ex_t *e)
 {
     if (!val)
     {
@@ -107,7 +107,7 @@ fail:
 }
 
 /* Both the `whitelist` and `val` argument may be NULL */
-int ti_whitelist_del(vec_t ** whitelist, ti_val_t *val, ex_t *e)
+int ti_whitelist_del(vec_t **whitelist, ti_val_t *val, ex_t *e)
 {
     if (!val)
     {

@@ -104,7 +104,7 @@ static yajl_gen_status mp__to_json(yajl_gen g, mp_unp_t *up)
 static yajl_gen_status __attribute__((unused))mpjson_mp_to_json(
         const void *src,
         size_t src_n,
-        unsigned char ** dst,
+        unsigned char **dst,
         size_t *dst_n,
         size_t offset,
         int flags)
@@ -280,7 +280,7 @@ static yajl_callbacks mpjson__callbacks = {
 
 static void take_buffer(
         msgpack_sbuffer * buffer,
-        char ** dst,
+        char **dst,
         size_t *dst_n)
 {
     *dst = buffer->data;
@@ -291,7 +291,7 @@ static void take_buffer(
 static yajl_status __attribute__((unused))mpjson_json_to_mp(
         const void *src,
         size_t src_n,
-        char ** dst,
+        char **dst,
         size_t *dst_n)
 {
     yajl_handle hand;

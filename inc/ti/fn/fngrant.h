@@ -8,7 +8,7 @@ static int do__f_grant(ti_query_t *query, cleri_node_t *nd, ex_t *e)
     ti_task_t *task;
     ti_raw_t *ruser;
     uint64_t mask, scope_id;
-    vec_t ** access_;
+    vec_t **access_;
 
     if (fn_not_thingsdb_scope("grant", query, e) ||
         fn_nargs("grant", DOC_GRANT, 3, nargs, e) ||

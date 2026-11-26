@@ -75,7 +75,7 @@ static uv_tcp_t api__uv_server;
 static http_parser_settings api__settings;
 
 static inline _Bool api__starts_with(
-        const char ** str,
+        const char **str,
         size_t *strn,
         const char *with,
         size_t withn)
@@ -411,7 +411,7 @@ inline static int api__header(
     return len;
 }
 
-static inline int api__err_body(char ** ptr, ex_t *e)
+static inline int api__err_body(char **ptr, ex_t *e)
 {
     return asprintf(ptr, "%s (%d)\r\n", e->msg, e->nr);
 }
@@ -611,7 +611,7 @@ typedef int (*api__gen_data_cb)(
 static int api__gen_run_data(
         ti_api_request_t *ar,
         api__req_t *req,
-        unsigned char ** data,
+        unsigned char **data,
         size_t *size)
 {
     int with_args;
@@ -650,7 +650,7 @@ fail:
 static int api__gen_query_data(
         ti_api_request_t *ar,
         api__req_t *req,
-        unsigned char ** data,
+        unsigned char **data,
         size_t *size)
 {
     msgpack_packer pk;

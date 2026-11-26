@@ -271,7 +271,7 @@ fail0:
 
 typedef struct
 {
-    ti_raw_t ** incompatible;
+    ti_raw_t **incompatible;
     vec_t *vec;
 } thing__to_stric_t;
 
@@ -286,7 +286,7 @@ static int thing__i_to_p_cb(ti_item_t *item, thing__to_stric_t *w)
     return -1;
 }
 
-int ti_thing_i_to_p(ti_thing_t *thing, ti_raw_t ** incompatible)
+int ti_thing_i_to_p(ti_thing_t *thing, ti_raw_t **incompatible)
 {
     vec_t *vec = vec_new(ti_thing_n(thing));
     if (!vec)
@@ -753,7 +753,7 @@ void ti_thing_t_prop_set(
         ti_field_t *field,
         ti_val_t *val)
 {
-    ti_val_t ** vaddr = (ti_val_t **) vec_get_addr(
+    ti_val_t **vaddr = (ti_val_t **) vec_get_addr(
             thing->items.vec,
             field->idx);
     ti_val_replace_drop(*vaddr, val);
@@ -765,7 +765,7 @@ int ti_thing_i_set_val_from_strn(
         ti_thing_t *thing,
         const char *str,
         size_t n,
-        ti_val_t ** val,
+        ti_val_t **val,
         ex_t *e)
 {
     ti_raw_t *key = ti_str_create(str, n);
@@ -794,7 +794,7 @@ int ti_thing_o_set_val_from_strn(
         ti_thing_t *thing,
         const char *str,
         size_t n,
-        ti_val_t ** val,
+        ti_val_t **val,
         ex_t *e)
 {
     if (ti_name_is_valid_strn(str, n))
@@ -840,7 +840,7 @@ int ti_thing_o_set_val_from_valid_strn(
         ti_thing_t *thing,
         const char *str,
         size_t n,
-        ti_val_t ** val,
+        ti_val_t **val,
         ex_t *e)
 {
     ti_name_t *name;
@@ -889,10 +889,10 @@ int ti_thing_t_set_val_from_strn(
         ti_thing_t *thing,
         const char *str,
         size_t n,
-        ti_val_t ** val,
+        ti_val_t **val,
         ex_t *e)
 {
-    ti_val_t ** vaddr;
+    ti_val_t **vaddr;
     ti_field_t *field = ti_field_by_strn_e(thing->via.type, str, n, e);
     if (!field)
         return e->nr;
@@ -1290,7 +1290,7 @@ void ti_thing_t_to_object(ti_thing_t *thing)
 {
     assert(!ti_thing_is_object(thing));
     ti_name_t *name;
-    ti_val_t ** val;
+    ti_val_t **val;
     ti_prop_t *prop;
     for (thing_t_each_addr(thing, name, val))
     {
@@ -1604,7 +1604,7 @@ static inline void thing__deep_unset(ti_thing_t *thing, ti_collection_t *collect
     thing->flags &= ~TI_THING_FLAG_DEEP;
 }
 
-static inline int thing__deep_use(ti_thing_t ** taddr)
+static inline int thing__deep_use(ti_thing_t **taddr)
 {
     ti_thing_t *thing = *taddr;
     *taddr = (ti_thing_t *) (*taddr)->collection;
@@ -1613,7 +1613,7 @@ static inline int thing__deep_use(ti_thing_t ** taddr)
     return 0;
 }
 
-static int thing__copy_p(ti_thing_t ** taddr, uint8_t deep)
+static int thing__copy_p(ti_thing_t **taddr, uint8_t deep)
 {
     ti_thing_t *thing = *taddr;
     ti_collection_t *collection = thing->collection;
@@ -1650,7 +1650,7 @@ fail:
     return -1;
 }
 
-static int thing__dup_p(ti_thing_t ** taddr, uint8_t deep)
+static int thing__dup_p(ti_thing_t **taddr, uint8_t deep)
 {
     ti_thing_t *thing = *taddr;
     ti_collection_t *collection = thing->collection;
@@ -1731,7 +1731,7 @@ static int thing__dup_cb(ti_item_t *item, thing__wcd_t *w)
     return 0;
 }
 
-static int thing__copy_i(ti_thing_t ** taddr, uint8_t deep)
+static int thing__copy_i(ti_thing_t **taddr, uint8_t deep)
 {
     ti_thing_t *thing = *taddr;
     ti_collection_t *collection = thing->collection;
@@ -1760,7 +1760,7 @@ fail:
     return -1;
 }
 
-static int thing__dup_i(ti_thing_t ** taddr, uint8_t deep)
+static int thing__dup_i(ti_thing_t **taddr, uint8_t deep)
 {
     ti_thing_t *thing = *taddr;
     ti_collection_t *collection = thing->collection;
@@ -1790,7 +1790,7 @@ fail:
     return -1;
 }
 
-static int thing__copy_t(ti_thing_t ** taddr, uint8_t deep)
+static int thing__copy_t(ti_thing_t **taddr, uint8_t deep)
 {
     ti_name_t *name;
     ti_val_t *val;
@@ -1835,7 +1835,7 @@ fail:
     return -1;
 }
 
-static int thing__dup_t(ti_thing_t ** taddr, uint8_t deep)
+static int thing__dup_t(ti_thing_t **taddr, uint8_t deep)
 {
     ti_val_t *val;
     ti_thing_t *thing = *taddr;
@@ -1869,7 +1869,7 @@ fail:
     return -1;
 }
 
-int ti_thing_copy(ti_thing_t ** thing, uint8_t deep)
+int ti_thing_copy(ti_thing_t **thing, uint8_t deep)
 {
     assert(deep);
     deep--;
@@ -1882,7 +1882,7 @@ int ti_thing_copy(ti_thing_t ** thing, uint8_t deep)
             : thing__copy_t(thing, deep);
 }
 
-int ti_thing_dup(ti_thing_t ** thing, uint8_t deep)
+int ti_thing_dup(ti_thing_t **thing, uint8_t deep)
 {
     assert(deep);
     deep--;

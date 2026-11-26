@@ -146,7 +146,7 @@ vec_t *vec_copy(const vec_t *vec)
 /*
  * Returns 0 when successful.
  */
-int vec_push(vec_t ** vaddr, void *data)
+int vec_push(vec_t **vaddr, void *data)
 {
     vec_t *vec = *vaddr;
     if (vec->n == vec->sz)
@@ -183,7 +183,7 @@ int vec_push(vec_t ** vaddr, void *data)
  *
  * This function can only return -1 when re-allocation is required and fails.
  */
-int vec_insert(vec_t ** vaddr, void *data, uint32_t i)
+int vec_insert(vec_t **vaddr, void *data, uint32_t i)
 {
     vec_t *vec = *vaddr;
     assert(i <= vec->n);
@@ -220,7 +220,7 @@ int vec_insert(vec_t ** vaddr, void *data, uint32_t i)
 /*
  * Returns 0 when successful.
  */
-int vec_extend(vec_t ** vaddr, void *data[], uint32_t n)
+int vec_extend(vec_t **vaddr, void *data[], uint32_t n)
 {
     vec_t *vec = *vaddr;
     vec->n += n;
@@ -249,7 +249,7 @@ int vec_extend(vec_t ** vaddr, void *data[], uint32_t n)
  * More spots might be allocated and nothing happens if enough empty
  * spots are already available.
  */
-int vec_make(vec_t ** vaddr, uint32_t n)
+int vec_make(vec_t **vaddr, uint32_t n)
 {
     if (!*vaddr)
     {
@@ -265,7 +265,7 @@ int vec_make(vec_t ** vaddr, uint32_t n)
  * More spots might be allocated and nothing happens if enough empty
  * spots are already available.
  */
-int vec_reserve(vec_t ** vaddr, uint32_t n)
+int vec_reserve(vec_t **vaddr, uint32_t n)
 {
     vec_t *vec = *vaddr;
 
@@ -294,7 +294,7 @@ int vec_reserve(vec_t ** vaddr, uint32_t n)
  *
  * If the new size is smaller then `n` might decrease.
  */
-int vec_resize(vec_t ** vaddr, uint32_t sz)
+int vec_resize(vec_t **vaddr, uint32_t sz)
 {
     vec_t *vec = *vaddr;
     vec_t *v = realloc(vec, sizeof(vec_t) + sz * sizeof(void*));
@@ -316,7 +316,7 @@ int vec_resize(vec_t ** vaddr, uint32_t sz)
  *
  * Returns 0 when successful.
  */
-int vec_may_shrink(vec_t ** vaddr)
+int vec_may_shrink(vec_t **vaddr)
 {
     vec_t *vec = *vaddr;
     if (vec_space(vec) < 16)
@@ -336,7 +336,7 @@ int vec_may_shrink(vec_t ** vaddr)
  *
  * Returns 0 when successful.
  */
-int vec_shrink(vec_t ** vaddr)
+int vec_shrink(vec_t **vaddr)
 {
     vec_t *vec = *vaddr;
     if (vec->n == vec->sz)
@@ -353,7 +353,7 @@ int vec_shrink(vec_t ** vaddr)
 
 static void *vec__sort_arg;
 static vec_sort_r_cb vec__sort_cb;
-static inline int vec__compare_cb(const void ** a, const void ** b)
+static inline int vec__compare_cb(const void **a, const void **b)
 {
     return vec__sort_cb(*a, *b, vec__sort_arg);
 }

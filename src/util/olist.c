@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <util/olist.h>
 
-static void olist__rm(olist_t *olist, olist__t ** olist_);
+static void olist__rm(olist_t *olist, olist__t **olist_);
 static olist__t *olist__new(uint64_t id, olist__t *next);
 
 olist_t *olist_create(void)
@@ -75,7 +75,7 @@ void olist_rm(olist_t *olist, uint64_t id)
         olist__rm(olist, &prev->next_);
 }
 
-static void olist__rm(olist_t *olist, olist__t ** olist_)
+static void olist__rm(olist_t *olist, olist__t **olist_)
 {
     olist__t *cur = *olist_;
     *olist_ = cur->next_;

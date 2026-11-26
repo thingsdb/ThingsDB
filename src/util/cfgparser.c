@@ -343,7 +343,7 @@ const char *cfgparser_errmsg(cfgparser_return_t err)
  * 'section' is untouched.
  */
 cfgparser_return_t cfgparser_get_section(
-        cfgparser_section_t ** section,
+        cfgparser_section_t **section,
         cfgparser_t *cfgparser,
         const char *section_name)
 {
@@ -366,7 +366,7 @@ cfgparser_return_t cfgparser_get_section(
  * CFGPARSER_ERR_OPTION_NOT_FOUND is returned, 'option' is untouched.
  */
 cfgparser_return_t cfgparser_get_option(
-        cfgparser_option_t ** option,
+        cfgparser_option_t **option,
         cfgparser_t *cfgparser,
         const char *section_name,
         const char *option_name)

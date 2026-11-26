@@ -67,7 +67,7 @@ done:
 }
 
 int ti_store_tasks_restore(
-        vec_t ** vtasks,
+        vec_t **vtasks,
         const char *fn,
         ti_collection_t *collection)  /* collection may be NULL */
 {

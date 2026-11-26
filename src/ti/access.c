@@ -16,8 +16,8 @@
  */
 static void access__helper_str(
         const vec_t *access,
-        char ** scope,
-        char ** name,
+        char **scope,
+        char **name,
         size_t *name_sz)
 {
     if (access == ti.access_thingsdb)
@@ -52,7 +52,7 @@ static void access__helper_str(
     *name_sz = strlen("<unknown>");
 }
 
-int ti_access_grant(vec_t ** access, ti_user_t *user, uint64_t mask)
+int ti_access_grant(vec_t **access, ti_user_t *user, uint64_t mask)
 {
     ti_auth_t *auth;
     for (vec_each(*access, ti_auth_t, auth))

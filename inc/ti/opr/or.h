@@ -3,7 +3,7 @@
 
 #include <ti/opr/oprinc.h>
 
-static int opr__or(ti_val_t *a, ti_val_t ** b, ex_t *e, _Bool inplace)
+static int opr__or(ti_val_t *a, ti_val_t **b, ex_t *e, _Bool inplace)
 {
     int64_t int_ = 0;       /* set to 0 only to prevent warning */
     ti_opr_perm_t perm = TI_OPR_PERM(a, *b);

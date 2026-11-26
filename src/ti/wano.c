@@ -26,7 +26,7 @@ void ti_wano_destroy(ti_wano_t *wano)
     free(wano);
 }
 
-int ti_wano_copy(ti_wano_t ** wano, uint8_t deep)
+int ti_wano_copy(ti_wano_t **wano, uint8_t deep)
 {
     ti_thing_t *thing = (*wano)->thing;
     ti_wano_t *_wano = ti_wano_create(thing, (*wano)->ano);
@@ -43,7 +43,7 @@ int ti_wano_copy(ti_wano_t ** wano, uint8_t deep)
     return 0;
 }
 
-int ti_wano_dup(ti_wano_t ** wano, uint8_t deep)
+int ti_wano_dup(ti_wano_t **wano, uint8_t deep)
 {
     assert(deep);
     ti_wano_t *_wano = ti_wano_create((*wano)->thing, (*wano)->ano);

@@ -809,7 +809,7 @@ static void query__then(ti_query_t *query, ex_t *e)
 {
     ti_future_t *future = query->with.future;
     vec_t *access_;
-    vec_t ** vecaddr;
+    vec_t **vecaddr;
 
     ++ti.futures_count;
 

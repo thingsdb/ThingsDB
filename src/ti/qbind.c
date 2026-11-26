@@ -822,7 +822,7 @@ void ti_qbind_init(void)
  *       work because the function may visit a node multiple times since it
  *       may be called recursive. *
  */
-static _Bool qbind__swap(cleri_node_t ** parent, uint32_t parent_gid)
+static _Bool qbind__swap(cleri_node_t **parent, uint32_t parent_gid)
 {
     uint32_t gid = (*parent)->children->next->cl_obj->gid;
     cleri_node_t *childb = (*parent)->children->next->next;
@@ -831,7 +831,7 @@ static _Bool qbind__swap(cleri_node_t ** parent, uint32_t parent_gid)
         qbind__swap(&childb->children, gid))
     {
         /* Swap operations */
-        cleri_node_t ** syntax_childa;
+        cleri_node_t **syntax_childa;
         cleri_node_t *tmp = *parent;  /* operations */
         *parent = childb->children;  /* operations */
 
@@ -894,7 +894,7 @@ static inline ti_do_cb qbind__find_operation(cleri_node_t *nd)
  */
 static _Bool qbind__operations(
         ti_qbind_t *qbind,
-        cleri_node_t ** parent,
+        cleri_node_t **parent,
         uint32_t parent_gid)
 {
     uint32_t gid = (*parent)->children->next->cl_obj->gid;
@@ -919,7 +919,7 @@ static _Bool qbind__operations(
     else if (qbind__operations(qbind, &childb->children, gid))
     {
         /* Swap operations */
-        cleri_node_t ** syntax_childa;
+        cleri_node_t **syntax_childa;
         cleri_node_t *tmp = (*parent);  /* operations */
         *parent = childb->children;  /* operations */
 

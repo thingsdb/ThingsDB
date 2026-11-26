@@ -38,11 +38,11 @@
 #include <ti/wrap.inline.h>
 #include <util/strx.h>
 
-static inline int val__str_to_str(ti_val_t ** UNUSED(v), ex_t *UNUSED(e));
-static inline int val__str_to_uuid(ti_val_t ** UNUSED(v), ex_t *UNUSED(e));
-static inline int val__uuid_to_uuid(ti_val_t ** UNUSED(v), ex_t *UNUSED(e));
-static inline int val__no_to_str(ti_val_t ** val, ex_t *e);
-static inline int val__no_to_uuid(ti_val_t ** val, ex_t *e);
+static inline int val__str_to_str(ti_val_t **UNUSED(v), ex_t *UNUSED(e));
+static inline int val__str_to_uuid(ti_val_t **UNUSED(v), ex_t *UNUSED(e));
+static inline int val__uuid_to_uuid(ti_val_t **UNUSED(v), ex_t *UNUSED(e));
+static inline int val__no_to_str(ti_val_t **val, ex_t *e);
+static inline int val__no_to_uuid(ti_val_t **val, ex_t *e);
 
 static inline void val__no_attach(ti_val_t *UNUSED(val), ti_thing_t *UNUSED(thing), void *UNUSED(key))
 {
@@ -296,40 +296,40 @@ static inline int val__member_to_store_pk(ti_member_t *member, msgpack_packer *p
 static inline int val__varr_to_client_pk(ti_varr_t *varr, ti_vp_t *vp, int deep, int flags);
 static inline int val__varr_to_store_pk(ti_varr_t *varr, msgpack_packer *pk);
 
-static inline int val__to_nested(ti_val_t ** UNUSED(v), ti_parent_t *UNUSED(p), ex_t *UNUSED(e))
+static inline int val__to_nested(ti_val_t **UNUSED(v), ti_parent_t *UNUSED(p), ex_t *UNUSED(e))
 {
     return 0;
 }
 
-static inline int val__thing_to_nested(ti_val_t ** UNUSED(v),
+static inline int val__thing_to_nested(ti_val_t **UNUSED(v),
                                        ti_parent_t *p,
                                        ex_t *UNUSED(e))
 {
     return p->flags |= TI_VFLAG_MHT, 0;
 }
 
-static inline int val__wrap_to_nested(ti_val_t ** UNUSED(v),
+static inline int val__wrap_to_nested(ti_val_t **UNUSED(v),
                                       ti_parent_t *p,
                                       ex_t *UNUSED(e))
 {
     return p->flags |= TI_VFLAG_MHT, 0;
 }
 
-static inline int val__wano_to_nested(ti_val_t ** UNUSED(v),
+static inline int val__wano_to_nested(ti_val_t **UNUSED(v),
                                       ti_parent_t *p,
                                       ex_t *UNUSED(e))
 {
     return p->flags |= TI_VFLAG_MHT, 0;
 }
 
-static inline int val__room_to_nested(ti_val_t ** UNUSED(v),
+static inline int val__room_to_nested(ti_val_t **UNUSED(v),
                                       ti_parent_t *p,
                                       ex_t *UNUSED(e))
 {
     return p->flags |= TI_VFLAG_MHR, 0;
 }
 
-static inline int val__arr_to_nested(ti_val_t ** v, ti_parent_t *p, ex_t *e)
+static inline int val__arr_to_nested(ti_val_t **v, ti_parent_t *p, ex_t *e)
 {
     if (ti_varr_is_list((ti_varr_t *) *v) &&
         ti_varr_to_tuple((ti_varr_t **) v))
@@ -339,7 +339,7 @@ static inline int val__arr_to_nested(ti_val_t ** v, ti_parent_t *p, ex_t *e)
     return e->nr;
 }
 
-static inline int val__set_to_nested(ti_val_t ** v, ti_parent_t *p, ex_t *e)
+static inline int val__set_to_nested(ti_val_t **v, ti_parent_t *p, ex_t *e)
 {
     if (ti_vset_to_tuple((ti_vset_t **) v))
         ex_set_mem(e);
@@ -348,7 +348,7 @@ static inline int val__set_to_nested(ti_val_t ** v, ti_parent_t *p, ex_t *e)
     return e->nr;
 }
 
-static inline int val__dict_to_nested(ti_val_t ** v, ti_parent_t *p, ex_t *e)
+static inline int val__dict_to_nested(ti_val_t **v, ti_parent_t *p, ex_t *e)
 {
     if (ti_dict_to_tuple((ti_dict_t **) v))
         ex_set_mem(e);
@@ -357,16 +357,16 @@ static inline int val__dict_to_nested(ti_val_t ** v, ti_parent_t *p, ex_t *e)
     return e->nr;
 }
 
-static inline int val__member_to_nested(ti_val_t ** v,
+static inline int val__member_to_nested(ti_val_t **v,
                                         ti_parent_t *p,
                                         ex_t *e);
-static inline int val__future_to_nested(ti_val_t ** v,
+static inline int val__future_to_nested(ti_val_t **v,
                                         ti_parent_t *UNUSED(p),
                                         ex_t *UNUSED(e));
-static inline int val__module_to_nested(ti_val_t ** v,
+static inline int val__module_to_nested(ti_val_t **v,
                                         ti_parent_t *UNUSED(p),
                                         ex_t *UNUSED(e));
-static inline int val__closure_to_nested(ti_val_t ** v,
+static inline int val__closure_to_nested(ti_val_t **v,
                                          ti_parent_t *UNUSED(p),
                                          ex_t *e)
 {
@@ -766,7 +766,7 @@ static inline int ti_val_to_store_pk(ti_val_t *val, msgpack_packer *pk)
     return ti_val(val)->to_store_pk(val, pk);
 }
 
-static inline int ti_val_to_nested(ti_val_t ** val, ti_parent_t *p, ex_t *e)
+static inline int ti_val_to_nested(ti_val_t **val, ti_parent_t *p, ex_t *e)
 {
     return ti_val(*val)->to_nested(val, p, e);
 }
@@ -1344,7 +1344,7 @@ static inline _Bool ti_val_is_instance(ti_val_t *val)
  *      - lock/syntax/bad data errors in closure
  */
 static inline int ti_val_make_assignable(
-        ti_val_t ** val,
+        ti_val_t **val,
         ti_thing_t *parent,
         void *key,
         ex_t *e)
@@ -1410,17 +1410,17 @@ static inline int ti_val_make_assignable(
     return 0;
 }
 
-static inline int val__str_to_str(ti_val_t ** UNUSED(v), ex_t *UNUSED(e))
+static inline int val__str_to_str(ti_val_t **UNUSED(v), ex_t *UNUSED(e))
 {
     return 0;
 }
 
-static inline int val__uuid_to_uuid(ti_val_t ** UNUSED(v), ex_t *UNUSED(e))
+static inline int val__uuid_to_uuid(ti_val_t **UNUSED(v), ex_t *UNUSED(e))
 {
     return 0;
 }
 
-static inline int val__no_to_str(ti_val_t ** val, ex_t *e)
+static inline int val__no_to_str(ti_val_t **val, ex_t *e)
 {
     ex_set(e, EX_TYPE_ERROR,
             "cannot convert type `%s` to `"TI_VAL_STR_S"`",
@@ -1428,7 +1428,7 @@ static inline int val__no_to_str(ti_val_t ** val, ex_t *e)
     return e->nr;
 }
 
-static inline int val__no_to_uuid(ti_val_t ** val, ex_t *e)
+static inline int val__no_to_uuid(ti_val_t **val, ex_t *e)
 {
     ex_set(e, EX_TYPE_ERROR,
             "cannot convert type `%s` to `"TI_VAL_UUID_S"`",
@@ -1436,7 +1436,7 @@ static inline int val__no_to_uuid(ti_val_t ** val, ex_t *e)
     return e->nr;
 }
 
-static inline int val__str_to_uuid(ti_val_t ** val, ex_t *e)
+static inline int val__str_to_uuid(ti_val_t **val, ex_t *e)
 {
     ti_str_t *str = (ti_str_t *) *val;
     ti_uuid_t *uuid = ti_uuid_from_str(str->str, str->n, e);
@@ -1590,7 +1590,7 @@ static inline _Bool ti_val_is_spec(ti_val_t *val, uint16_t spec)
     return ti_val_is_thing(val) && ((ti_thing_t *) val)->type_id == spec;
 }
 
-static inline int ti_val_varr_prepare(ti_val_t ** v, ti_varr_t *to, ex_t *e)
+static inline int ti_val_varr_prepare(ti_val_t **v, ti_varr_t *to, ex_t *e)
 {
     return !ti_val_is_spec((ti_val_t *) *v, ti_varr_spec(to))
             ? ti_varr_nested_spec_err(to, *v, e)
@@ -1623,7 +1623,7 @@ static inline int ti_val_tlocked(
     return 0;
 }
 
-static inline int val__member_to_nested(ti_val_t ** v,
+static inline int val__member_to_nested(ti_val_t **v,
                                         ti_parent_t *p,
                                         ex_t *e)
 {
@@ -1632,7 +1632,7 @@ static inline int val__member_to_nested(ti_val_t ** v,
     return e->nr;
 }
 
-static inline int val__future_to_nested(ti_val_t ** UNUSED(v),
+static inline int val__future_to_nested(ti_val_t **UNUSED(v),
                                         ti_parent_t *UNUSED(p),
                                         ex_t *e)
 {
@@ -1642,7 +1642,7 @@ static inline int val__future_to_nested(ti_val_t ** UNUSED(v),
 
 
 
-static inline int val__module_to_nested(ti_val_t ** UNUSED(v),
+static inline int val__module_to_nested(ti_val_t **UNUSED(v),
                                         ti_parent_t *UNUSED(p),
                                         ex_t *e)
 {
@@ -1654,7 +1654,7 @@ static inline int val__module_to_nested(ti_val_t ** UNUSED(v),
  * does not increment `*v` reference counter but the value might change to
  * a (new) tuple pointer.
  */
-static inline int ti_val_varr_set(ti_varr_t *to, ti_val_t ** v, size_t idx, ex_t *e)
+static inline int ti_val_varr_set(ti_varr_t *to, ti_val_t **v, size_t idx, ex_t *e)
 {
     if (ti_val_varr_prepare(v, to, e))
         return e->nr;
@@ -1667,7 +1667,7 @@ static inline int ti_val_varr_set(ti_varr_t *to, ti_val_t ** v, size_t idx, ex_t
  * does not increment `*v` reference counter but the value might change to
  * a (new) tuple pointer.
  */
-static inline int ti_val_varr_append(ti_varr_t *to, ti_val_t ** v, ex_t *e)
+static inline int ti_val_varr_append(ti_varr_t *to, ti_val_t **v, ex_t *e)
 {
     if (vec_reserve(&to->vec, 1))
     {
@@ -1686,7 +1686,7 @@ static inline int ti_val_varr_append(ti_varr_t *to, ti_val_t ** v, ex_t *e)
  * of the value accordingly. As the pointer may have been changed you might
  * need to handle the new pointer.
  */
-static inline int ti_val_varr_fill(ti_varr_t *to, ti_val_t ** v, ex_t *e)
+static inline int ti_val_varr_fill(ti_varr_t *to, ti_val_t **v, ex_t *e)
 {
     uint32_t idx = 0;
     if (ti_val_varr_prepare(v, to, e))
@@ -1707,7 +1707,7 @@ static inline int ti_val_varr_fill(ti_varr_t *to, ti_val_t ** v, ex_t *e)
  */
 static inline int ti_val_varr_insert(
         ti_varr_t *to,
-        ti_val_t ** v,
+        ti_val_t **v,
         ex_t *e,
         uint32_t i)
 {

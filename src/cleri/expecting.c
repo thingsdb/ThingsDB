@@ -9,7 +9,7 @@
 static void expecting__empty(cleri_expecting_t *expecting);
 static int expecting__get_mode(cleri_exp_modes_t *modes, const char *str);
 static void expecting__shift_modes(
-        cleri_exp_modes_t ** modes,
+        cleri_exp_modes_t **modes,
         const char *str);
 static void expecting__modes_free(cleri_exp_modes_t *modes);
 
@@ -101,7 +101,7 @@ int cleri__expecting_set_mode(
         const char *str,
         int mode)
 {
-    cleri_exp_modes_t ** modes = &expecting->modes;
+    cleri_exp_modes_t **modes = &expecting->modes;
 
     if (expecting->required == NULL)
     {
@@ -176,7 +176,7 @@ void cleri__expecting_combine(cleri_expecting_t *expecting)
  * shift from modes
  */
 static void expecting__shift_modes(
-        cleri_exp_modes_t ** modes,
+        cleri_exp_modes_t **modes,
         const char *str)
 {
     cleri_exp_modes_t *next;

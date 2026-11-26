@@ -37,7 +37,7 @@ int main()
     /* test each */
     {
         size_t i = 0;
-        char ** entry = entries;
+        char **entry = entries;
         link_iter_t iter = link_iter(link);
         for (link_each(iter, char, val), i++, entry++)
         {

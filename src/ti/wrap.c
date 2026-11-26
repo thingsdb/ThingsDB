@@ -1023,7 +1023,7 @@ fail0:
     return e->nr;
 }
 
-int ti_wrap_copy(ti_wrap_t ** wrap, uint8_t deep)
+int ti_wrap_copy(ti_wrap_t **wrap, uint8_t deep)
 {
     ti_thing_t *thing = (*wrap)->thing;
     ti_wrap_t *_wrap = ti_wrap_create(thing, (*wrap)->type_id);
@@ -1040,7 +1040,7 @@ int ti_wrap_copy(ti_wrap_t ** wrap, uint8_t deep)
     return 0;
 }
 
-int ti_wrap_dup(ti_wrap_t ** wrap, uint8_t deep)
+int ti_wrap_dup(ti_wrap_t **wrap, uint8_t deep)
 {
     assert(deep);
     ti_wrap_t *_wrap = ti_wrap_create((*wrap)->thing, (*wrap)->type_id);

@@ -124,7 +124,7 @@ int main()
     /* test each */
     {
         size_t i = 0;
-        char ** entry = entries;
+        char **entry = entries;
         for (queue_each(q, char, s), i++, entry++)
         {
             _assert (s == *entry);

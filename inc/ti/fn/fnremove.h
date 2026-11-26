@@ -143,7 +143,7 @@ typedef struct
     ex_t *e;
     ti_closure_t *closure;
     ti_query_t *query;
-    vec_t ** removed;
+    vec_t **removed;
     int64_t limit;
 } remove__walk_set_t;
 
@@ -171,7 +171,7 @@ static int remove__walk(ti_thing_t *t, remove__walk_set_t *w)
 }
 
 static int do__f_remove_set_from_closure(
-        vec_t ** removed,
+        vec_t **removed,
         ti_vset_t *vset,
         ti_query_t *query,
         cleri_node_t *nd,
@@ -363,7 +363,7 @@ typedef struct
     ex_t *e;
     ti_closure_t *closure;
     ti_query_t *query;
-    vec_t ** removed;
+    vec_t **removed;
     ti_thing_t *thing;
     int64_t limit;
     size_t *alloc_sz;

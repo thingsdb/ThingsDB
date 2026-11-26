@@ -150,7 +150,7 @@ static int ncache__closure(
      * WSE flag at this point; however, I think its best to set the flag
      * anyway as some future logic might depend on the flag;
      */
-    void ** data = &nd->children->data;
+    void **data = &nd->children->data;
     intptr_t closure_wse = (intptr_t) nd->children->next->data;
 
     if (ncache__statement(

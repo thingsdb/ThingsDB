@@ -12,7 +12,7 @@
 #include <tiinc.h>
 #include <util/logger.h>
 
-int ti_varr_to_tuple(ti_varr_t ** varr)
+int ti_varr_to_tuple(ti_varr_t **varr)
 {
     ti_tuple_t *tuple = *((ti_tuple_t **) varr);
 
@@ -263,7 +263,7 @@ ti_varr_t *ti_varr_cp(ti_varr_t *varr)
     return list;
 }
 
-static int varr__tuple_to_tuple(ti_tuple_t ** vtuple)
+static int varr__tuple_to_tuple(ti_tuple_t **vtuple)
 {
     ti_tuple_t *tuple = malloc(sizeof(ti_varr_t));
     if (!tuple)
@@ -289,7 +289,7 @@ static int varr__tuple_to_tuple(ti_tuple_t ** vtuple)
     return 0;
 }
 
-int ti_varr_to_list(ti_varr_t ** varr)
+int ti_varr_to_list(ti_varr_t **varr)
 {
     ti_varr_t *list = *varr;
 
@@ -321,7 +321,7 @@ int ti_varr_to_list(ti_varr_t ** varr)
     return 0;
 }
 
-int ti_varr_copy(ti_varr_t ** varr, uint8_t deep)
+int ti_varr_copy(ti_varr_t **varr, uint8_t deep)
 {
     assert(deep);
     int rc = 0;
@@ -360,7 +360,7 @@ int ti_varr_copy(ti_varr_t ** varr, uint8_t deep)
     return 0;
 }
 
-int ti_tuple_copy(ti_tuple_t ** vtuple, uint8_t deep)
+int ti_tuple_copy(ti_tuple_t **vtuple, uint8_t deep)
 {
     if (varr__tuple_to_tuple(vtuple))
         return -1;
@@ -371,7 +371,7 @@ int ti_tuple_copy(ti_tuple_t ** vtuple, uint8_t deep)
 }
 
 
-int ti_tuple_dup(ti_tuple_t ** vtuple, uint8_t deep)
+int ti_tuple_dup(ti_tuple_t **vtuple, uint8_t deep)
 {
     if (varr__tuple_to_tuple(vtuple))
         return -1;
@@ -381,7 +381,7 @@ int ti_tuple_dup(ti_tuple_t ** vtuple, uint8_t deep)
     return 0;
 }
 
-int ti_varr_dup(ti_varr_t ** varr, uint8_t deep)
+int ti_varr_dup(ti_varr_t **varr, uint8_t deep)
 {
     assert(deep);
     int rc = 0;

@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <util/omap.h>
 
-static void *omap__rm(omap_t *omap, omap__t ** omap_);
+static void *omap__rm(omap_t *omap, omap__t **omap_);
 static omap__t *omap__new(uint64_t id, void *data, omap__t *next);
 
 omap_t *omap_create(void)
@@ -130,7 +130,7 @@ void *omap_rm(omap_t *omap, uint64_t id)
     return cur && cur->id_ == id ? omap__rm(omap, &prev->next_) : NULL;
 }
 
-static void *omap__rm(omap_t *omap, omap__t ** omap_)
+static void *omap__rm(omap_t *omap, omap__t **omap_)
 {
     omap__t *cur = *omap_;
     void *data = cur->data_;

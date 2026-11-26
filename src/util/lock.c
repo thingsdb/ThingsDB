@@ -18,7 +18,7 @@
 #endif
 
 static lock_t LOCK_create(const char *lock_fn, pid_t pid);
-static int LOCK_get_process_name(char ** name, pid_t pid);
+static int LOCK_get_process_name(char **name, pid_t pid);
 
 /*
  * Returns LOCK_NEW if a new lock is created, LOCK_OVERWRITE if an existing
@@ -204,7 +204,7 @@ static lock_t LOCK_create(const char *lock_fn, pid_t pid)
  * be destroyed using free(). When -1 is returned 'name' is always NULL.
  */
 #ifdef __APPLE__
-static int LOCK_get_process_name(char ** name, pid_t pid)
+static int LOCK_get_process_name(char **name, pid_t pid)
 {
     struct proc_bsdinfo proc;
 
@@ -234,7 +234,7 @@ static int LOCK_get_process_name(char ** name, pid_t pid)
     return 0;
 }
 #else
-static int LOCK_get_process_name(char ** name, pid_t pid)
+static int LOCK_get_process_name(char **name, pid_t pid)
 {
     size_t n = 1024;
     *name = (char *) calloc(n, sizeof(char));

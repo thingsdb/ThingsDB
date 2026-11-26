@@ -41,7 +41,7 @@ struct cleri_node_s
 
 static inline void cleri__node_add(cleri_node_t *parent, cleri_node_t *node)
 {
-    cleri_node_t ** nodeaddr = parent->data;
+    cleri_node_t **nodeaddr = parent->data;
     *nodeaddr = node;
     parent->data = &node->next;
 }

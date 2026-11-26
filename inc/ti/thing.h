@@ -41,7 +41,7 @@ void ti_thing_destroy(ti_thing_t *thing);
 void ti_thing_clear(ti_thing_t *thing);
 void ti_thing_o_items_destroy(ti_thing_t *thing);
 int ti_thing_to_dict(ti_thing_t *thing);
-int ti_thing_i_to_p(ti_thing_t *thing, ti_raw_t ** incompatible);
+int ti_thing_i_to_p(ti_thing_t *thing, ti_raw_t **incompatible);
 int ti_thing_props_from_vup(
         ti_thing_t *thing,
         ti_vup_t *vup,
@@ -103,35 +103,35 @@ int ti_thing_i_set_val_from_strn(
         ti_thing_t *thing,
         const char *str,
         size_t n,
-        ti_val_t ** val,
+        ti_val_t **val,
         ex_t *e);
 int ti_thing_o_set_val_from_strn(
         ti_witem_t *witem,
         ti_thing_t *thing,
         const char *str,
         size_t n,
-        ti_val_t ** val,
+        ti_val_t **val,
         ex_t *e);
 int ti_thing_o_set_val_from_valid_strn(
         ti_wprop_t *wprop,
         ti_thing_t *thing,
         const char *str,
         size_t n,
-        ti_val_t ** val,
+        ti_val_t **val,
         ex_t *e);
 int ti_thing_t_set_val_from_strn(
         ti_wprop_t *wprop,
         ti_thing_t *thing,
         const char *str,
         size_t n,
-        ti_val_t ** val,
+        ti_val_t **val,
         ex_t *e);
 int ti_thing_init_gc(void);
 void ti_thing_destroy_gc(void);
 void ti_thing_clean_gc(void);
 void ti_thing_resize_gc(void);
-int ti_thing_copy(ti_thing_t ** thing, uint8_t deep);
-int ti_thing_dup(ti_thing_t ** thing, uint8_t deep);
+int ti_thing_copy(ti_thing_t **thing, uint8_t deep);
+int ti_thing_dup(ti_thing_t **thing, uint8_t deep);
 void ti_thing_cancel(ti_thing_t *thing);
 int ti_thing_assign(
         ti_thing_t *thing,
@@ -215,7 +215,7 @@ static inline ti_prop_t *ti_thing_o_prop_weak_get(
 }
 
 #define thing_t_each(t__, name__, val__)                        \
-    void ** v__ = t__->items.vec->data,                         \
+    void **v__ = t__->items.vec->data,                         \
     ** e__ = v__ + t__->items.vec->n,                           \
     ** n__ = (t__)->via.type->fields->data;                     \
     v__ < e__ &&                                                \
@@ -224,7 +224,7 @@ static inline ti_prop_t *ti_thing_o_prop_weak_get(
     ++v__, ++n__
 
 #define thing_t_each_addr(t__, name__, val__)                   \
-    void ** v__ = t__->items.vec->data,                         \
+    void **v__ = t__->items.vec->data,                         \
     ** e__ = v__ + t__->items.vec->n,                           \
     ** n__ = (t__)->via.type->fields->data;                     \
     v__ < e__ &&                                                \

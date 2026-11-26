@@ -989,7 +989,7 @@ void ti_val_drop_common(void)
     ti_val_drop(val__tar_gz_str);
 }
 
-int ti_val_make_int(ti_val_t ** val, int64_t i)
+int ti_val_make_int(ti_val_t **val, int64_t i)
 {
     ti_val_t *v = (ti_val_t *) ti_vint_create(i);
     if (!v)
@@ -1000,7 +1000,7 @@ int ti_val_make_int(ti_val_t ** val, int64_t i)
     return 0;
 }
 
-int ti_val_make_float(ti_val_t ** val, double d)
+int ti_val_make_float(ti_val_t **val, double d)
 {
     ti_val_t *v = (ti_val_t *) ti_vfloat_create(d);
     if (!v)
@@ -1082,7 +1082,7 @@ ti_val_t *ti_val_wrapped_thing_str(void)
  * TI_SCOPE_NODE. If no valid scope is found, `e` will be set with an
  * appropriate error message.
  */
-vec_t ** ti_val_get_access(ti_val_t *val, ex_t *e, uint64_t *scope_id)
+vec_t **ti_val_get_access(ti_val_t *val, ex_t *e, uint64_t *scope_id)
 {
     ti_collection_t *collection;
     ti_raw_t *raw = (ti_raw_t *) val;
@@ -1127,7 +1127,7 @@ vec_t ** ti_val_get_access(ti_val_t *val, ex_t *e, uint64_t *scope_id)
     return NULL;
 }
 
-int ti_val_convert_to_bytes(ti_val_t ** val, ex_t *e)
+int ti_val_convert_to_bytes(ti_val_t **val, ex_t *e)
 {
     ti_val_t *v = NULL;
 
@@ -1206,7 +1206,7 @@ int ti_val_convert_to_bytes(ti_val_t ** val, ex_t *e)
     return 0;
 }
 
-int ti_val_convert_to_int(ti_val_t ** val, ex_t *e)
+int ti_val_convert_to_int(ti_val_t **val, ex_t *e)
 {
     int64_t i = 0;
     switch((ti_val_enum) (*val)->tp)
@@ -1306,7 +1306,7 @@ overflow:
     return e->nr;
 }
 
-int ti_val_convert_to_float(ti_val_t ** val, ex_t *e)
+int ti_val_convert_to_float(ti_val_t **val, ex_t *e)
 {
     double d = 0.0;
     switch((ti_val_enum) (*val)->tp)
@@ -1403,7 +1403,7 @@ int ti_val_convert_to_float(ti_val_t ** val, ex_t *e)
     return e->nr;
 }
 
-int ti_val_convert_to_array(ti_val_t ** val, ex_t *e)
+int ti_val_convert_to_array(ti_val_t **val, ex_t *e)
 {
     switch((ti_val_enum) (*val)->tp)
     {
@@ -1449,7 +1449,7 @@ int ti_val_convert_to_array(ti_val_t ** val, ex_t *e)
     return e->nr;
 }
 
-int ti_val_convert_to_set(ti_val_t ** val, ex_t *e)
+int ti_val_convert_to_set(ti_val_t **val, ex_t *e)
 {
     switch((ti_val_enum) (*val)->tp)
     {
@@ -1839,7 +1839,7 @@ ti_val_t *ti_val_strv(ti_val_t *val)
     return ti_val_empty_str();
 }
 
-int ti_val_copy(ti_val_t ** val, ti_thing_t *parent, void *key, uint8_t deep)
+int ti_val_copy(ti_val_t **val, ti_thing_t *parent, void *key, uint8_t deep)
 {
     if (!deep)
     {
@@ -1910,7 +1910,7 @@ int ti_val_copy(ti_val_t ** val, ti_thing_t *parent, void *key, uint8_t deep)
     return -1;
 }
 
-int ti_val_copy_nested(ti_val_t ** val, uint8_t deep)
+int ti_val_copy_nested(ti_val_t **val, uint8_t deep)
 {
     assert(deep);
     switch ((ti_val_enum) (*val)->tp)
@@ -1954,7 +1954,7 @@ int ti_val_copy_nested(ti_val_t ** val, uint8_t deep)
     return -1;
 }
 
-int ti_val_dup(ti_val_t ** val, ti_thing_t *parent, void *key, uint8_t deep)
+int ti_val_dup(ti_val_t **val, ti_thing_t *parent, void *key, uint8_t deep)
 {
     if (!deep)
     {
@@ -2025,7 +2025,7 @@ int ti_val_dup(ti_val_t ** val, ti_thing_t *parent, void *key, uint8_t deep)
     return -1;
 }
 
-int ti_val_dup_nested(ti_val_t ** val, uint8_t deep)
+int ti_val_dup_nested(ti_val_t **val, uint8_t deep)
 {
     assert(deep);
     switch ((ti_val_enum) (*val)->tp)
@@ -2072,14 +2072,14 @@ int ti_val_dup_nested(ti_val_t ** val, uint8_t deep)
 /*
  * `to_str` functions
  */
-int ti_val_nil_to_str(ti_val_t ** val, ex_t *UNUSED(e))
+int ti_val_nil_to_str(ti_val_t **val, ex_t *UNUSED(e))
 {
     ti_decref(*val);
     ti_incref(val__snil);
     *val = val__snil;
     return 0;
 }
-int ti_val_int_to_str(ti_val_t ** val, ex_t *e)
+int ti_val_int_to_str(ti_val_t **val, ex_t *e)
 {
     size_t n;
     const char *s = strx_from_int64(VINT(*val), &n);
@@ -2093,7 +2093,7 @@ int ti_val_int_to_str(ti_val_t ** val, ex_t *e)
     *val = v;
     return 0;
 }
-int ti_val_float_to_str(ti_val_t ** val, ex_t *e)
+int ti_val_float_to_str(ti_val_t **val, ex_t *e)
 {
     size_t n;
     const char *s = strx_from_double(VFLOAT(*val), &n);
@@ -2107,7 +2107,7 @@ int ti_val_float_to_str(ti_val_t ** val, ex_t *e)
     *val = v;
     return 0;
 }
-int ti_val_bool_to_str(ti_val_t ** val, ex_t *UNUSED(e))
+int ti_val_bool_to_str(ti_val_t **val, ex_t *UNUSED(e))
 {
     ti_val_t *v = VBOOL(*val) ? val__strue : val__sfalse;
     ti_decref(*val);
@@ -2115,7 +2115,7 @@ int ti_val_bool_to_str(ti_val_t ** val, ex_t *UNUSED(e))
     *val = v;
     return 0;
 }
-int ti_val_datetime_to_str(ti_val_t ** val, ex_t *e)
+int ti_val_datetime_to_str(ti_val_t **val, ex_t *e)
 {
     ti_val_t *v = (ti_val_t *) ti_datetime_to_str((ti_datetime_t *) *val, e);
     if (!v)
@@ -2124,7 +2124,7 @@ int ti_val_datetime_to_str(ti_val_t ** val, ex_t *e)
     *val = v;
     return 0;
 }
-int ti_val_bytes_to_str(ti_val_t ** val, ex_t *e)
+int ti_val_bytes_to_str(ti_val_t **val, ex_t *e)
 {
     ti_raw_t *r = (ti_raw_t *) (*val);
     if (!strx_is_utf8n((const char *) r->data, r->n))
@@ -2149,7 +2149,7 @@ int ti_val_bytes_to_str(ti_val_t ** val, ex_t *e)
     *val = (ti_val_t *) r;
     return 0;
 }
-int ti_val_bytes_to_uuid(ti_val_t ** val, ex_t *e)
+int ti_val_bytes_to_uuid(ti_val_t **val, ex_t *e)
 {
     ti_uuid_t *uuid;
     ti_raw_t *r = (ti_raw_t *) (*val);
@@ -2169,7 +2169,7 @@ int ti_val_bytes_to_uuid(ti_val_t ** val, ex_t *e)
     *val = (ti_val_t *) uuid;
     return 0;
 }
-int ti_val_regex_to_str(ti_val_t ** val, ex_t *UNUSED(e))
+int ti_val_regex_to_str(ti_val_t **val, ex_t *UNUSED(e))
 {
     ti_val_t *v = (ti_val_t *) (*(ti_regex_t **) val)->pattern;
     ti_val_unsafe_drop(*val);
@@ -2177,7 +2177,7 @@ int ti_val_regex_to_str(ti_val_t ** val, ex_t *UNUSED(e))
     *val = v;
     return 0;
 }
-int ti_val_thing_to_str(ti_val_t ** val, ex_t *e)
+int ti_val_thing_to_str(ti_val_t **val, ex_t *e)
 {
     ti_val_t *v = (ti_val_t *) ti_thing_str((ti_thing_t *) *val);
     if (!v)
@@ -2189,7 +2189,7 @@ int ti_val_thing_to_str(ti_val_t ** val, ex_t *e)
     *val = v;
     return 0;
 }
-int ti_val_wrap_to_str(ti_val_t ** val, ex_t *e)
+int ti_val_wrap_to_str(ti_val_t **val, ex_t *e)
 {
     ti_val_t *v = (ti_val_t *) ti_wrap_str((ti_wrap_t *) *val);
     if (!v)
@@ -2201,7 +2201,7 @@ int ti_val_wrap_to_str(ti_val_t ** val, ex_t *e)
     *val = v;
     return 0;
 }
-int ti_val_wano_to_str(ti_val_t ** val, ex_t *e)
+int ti_val_wano_to_str(ti_val_t **val, ex_t *e)
 {
     ti_val_t *v = (ti_val_t *) ti_wano_str((ti_wano_t *) *val);
     if (!v)
@@ -2213,7 +2213,7 @@ int ti_val_wano_to_str(ti_val_t ** val, ex_t *e)
     *val = v;
     return 0;
 }
-int ti_val_uuid_to_str(ti_val_t ** val, ex_t *e)
+int ti_val_uuid_to_str(ti_val_t **val, ex_t *e)
 {
     ti_val_t *v = (ti_val_t *) ti_uuid_str((ti_uuid_t *) *val);
     if (!v)
@@ -2225,7 +2225,7 @@ int ti_val_uuid_to_str(ti_val_t ** val, ex_t *e)
     *val = v;
     return 0;
 }
-int ti_val_room_to_str(ti_val_t ** val, ex_t *e)
+int ti_val_room_to_str(ti_val_t **val, ex_t *e)
 {
     ti_val_t *v = (ti_val_t *) ti_room_str((ti_room_t *) *val);
     if (!v)
@@ -2237,7 +2237,7 @@ int ti_val_room_to_str(ti_val_t ** val, ex_t *e)
     *val = v;
     return 0;
 }
-int ti_val_vtask_to_str(ti_val_t ** val, ex_t *e)
+int ti_val_vtask_to_str(ti_val_t **val, ex_t *e)
 {
     ti_val_t *v = (ti_val_t *) ti_vtask_str((ti_vtask_t *) *val);
     if (!v)
@@ -2249,7 +2249,7 @@ int ti_val_vtask_to_str(ti_val_t ** val, ex_t *e)
     *val = v;
     return 0;
 }
-int ti_val_error_to_str(ti_val_t ** val, ex_t *e)
+int ti_val_error_to_str(ti_val_t **val, ex_t *e)
 {
     ti_val_t *v = (ti_val_t *) ti_str_create(
             (*(ti_verror_t **) val)->msg,
@@ -2263,7 +2263,7 @@ int ti_val_error_to_str(ti_val_t ** val, ex_t *e)
     *val = v;
     return 0;
 }
-int ti_val_member_to_str(ti_val_t ** val, ex_t *e)
+int ti_val_member_to_str(ti_val_t **val, ex_t *e)
 {
     ti_val_t *v = VMEMBER(*val);
     ti_incref(v);
@@ -2276,7 +2276,7 @@ int ti_val_member_to_str(ti_val_t ** val, ex_t *e)
     *val = v;
     return 0;
 }
-int ti_val_closure_to_str(ti_val_t ** val, ex_t *e)
+int ti_val_closure_to_str(ti_val_t **val, ex_t *e)
 {
     ti_val_t *v = (ti_val_t *) ti_closure_def((ti_closure_t *) *val);
     if (!v)
@@ -2288,7 +2288,7 @@ int ti_val_closure_to_str(ti_val_t ** val, ex_t *e)
     *val = v;
     return 0;
 }
-int ti_val_ano_to_str(ti_val_t ** val, ex_t *UNUSED(e))
+int ti_val_ano_to_str(ti_val_t **val, ex_t *UNUSED(e))
 {
     ti_val_unsafe_drop(*val);
     *val = ti_val_anonymous_name();

@@ -730,7 +730,7 @@ _Bool ti_away_is_busy(void)
 int ti_away_syncer(ti_stream_t *stream, uint64_t first)
 {
     ti_syncer_t *syncer;
-    ti_syncer_t ** empty_syncer = NULL;
+    ti_syncer_t **empty_syncer = NULL;
 
     for (vec_each_addr(away->syncers, ti_syncer_t, syncr))
     {

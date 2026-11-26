@@ -19,7 +19,7 @@
 #include <ti/datetime.h>
 
 
-int ti_opr_a_to_b(ti_val_t *a, cleri_node_t *nd, ti_val_t ** b, ex_t *e)
+int ti_opr_a_to_b(ti_val_t *a, cleri_node_t *nd, ti_val_t **b, ex_t *e)
 {
     switch (*nd->str)
     {

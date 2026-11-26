@@ -16,7 +16,7 @@ static cleri_node_t *tokens__parse(
         cleri_t *cl_obj,
         cleri_rule_store_t *rule);
 static int tokens__list_add(
-        cleri_tlist_t ** tlist,
+        cleri_tlist_t **tlist,
         const char *token,
         size_t len);
 static void tokens__list_str(cleri_tlist_t *tlist, char *s);
@@ -168,7 +168,7 @@ static cleri_node_t *tokens__parse(
  * list remains ordered on length. (largest first)
  */
 static int tokens__list_add(
-        cleri_tlist_t ** tlist,
+        cleri_tlist_t **tlist,
         const char *token,
         size_t len)
 {

@@ -3,7 +3,7 @@
 static int do__f_tasks(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    vec_t ** tasks = ti_query_tasks(query);
+    vec_t **tasks = ti_query_tasks(query);
 
     if (fn_not_thingsdb_or_collection_scope("tasks", query, e) ||
         fn_nargs("tasks", DOC_TASKS, 0, nargs, e))

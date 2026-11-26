@@ -58,7 +58,7 @@ static str_t *template__str(const char *s, size_t n, size_t nn)
     return nstr;
 }
 
-static int template__child(cleri_node_t ** childaddr, const char *str, size_t n)
+static int template__child(cleri_node_t **childaddr, const char *str, size_t n)
 {
     cleri_node_t *inode = cleri__node_new(&regex_t, str, n);
     if (!inode)
@@ -73,7 +73,7 @@ static int template__child(cleri_node_t ** childaddr, const char *str, size_t n)
 int ti_template_build(cleri_node_t *node)
 {
     ti_template_t *tmplate = malloc(sizeof(ti_template_t));
-    cleri_node_t ** childaddr;
+    cleri_node_t **childaddr;
     size_t count, diff = 0;
     const char *node_end;
 

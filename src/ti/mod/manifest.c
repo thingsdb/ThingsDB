@@ -230,7 +230,7 @@ static ti_item_t *manifest__make_item(
         manifest__ctx_t *ctx,
         const char *str,
         size_t n,
-        vec_t ** defaults)
+        vec_t **defaults)
 {
     ti_item_t *item;
 

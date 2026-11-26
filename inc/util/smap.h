@@ -33,7 +33,7 @@ int smap_add(smap_t *smap, const char *key, void *data);
 int smap_addn(smap_t *smap, const char *key, size_t n, void *data);
 void *smap_setn(smap_t *smap, const char *key, size_t n, void *data, int *new);
 void *smap_get(smap_t *node, const char *key);
-void ** smap_getaddr(smap_t *smap, const char *key);
+void **smap_getaddr(smap_t *smap, const char *key);
 void *smap_getn(smap_t *smap, const char *key, size_t n);
 void *smap_pop(smap_t *smap, const char *key);
 void *smap_popn(smap_t *smap, const char *key, size_t n);

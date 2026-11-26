@@ -51,11 +51,11 @@ cfgparser_option_t *cfgparser_real_option(
         double def);
 const char *cfgparser_errmsg(cfgparser_return_t err);
 cfgparser_return_t cfgparser_get_section(
-        cfgparser_section_t ** section,
+        cfgparser_section_t **section,
         cfgparser_t *cfgparser,
         const char *section_name);
 cfgparser_return_t cfgparser_get_option(
-        cfgparser_option_t ** option,
+        cfgparser_option_t **option,
         cfgparser_t *cfgparser,
         const char *section_name,
         const char *option_name);

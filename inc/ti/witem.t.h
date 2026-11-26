@@ -12,7 +12,7 @@ typedef struct ti_witem_s ti_witem_t;
 struct ti_witem_s
 {
     ti_raw_t *key;     /* without reference */
-    ti_val_t ** val;    /* without reference */
+    ti_val_t **val;    /* without reference */
 };
 
 #endif /* TI_WITEM_T_H_ */

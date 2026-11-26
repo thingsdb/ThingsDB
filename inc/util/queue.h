@@ -25,12 +25,12 @@ queue_t *queue_dup(const queue_t *queue);
 void *queue_remove(queue_t *queue, size_t idx);
 void *queue_rmval(queue_t *queue, void *data);
 void *queue_replace(queue_t *queue, size_t idx, void *data);
-int queue_reserve(queue_t ** qaddr, size_t n);
-int queue_push(queue_t ** qaddr, void *data);
-int queue_unshift(queue_t ** qaddr, void *data);
-int queue_insert(queue_t ** qaddr, size_t idx, void *data);
-int queue_extend(queue_t ** qaddr, void *data[], size_t n);
-int queue_shrink(queue_t ** qaddr);
+int queue_reserve(queue_t **qaddr, size_t n);
+int queue_push(queue_t **qaddr, void *data);
+int queue_unshift(queue_t **qaddr, void *data);
+int queue_insert(queue_t **qaddr, size_t idx, void *data);
+int queue_extend(queue_t **qaddr, void *data[], size_t n);
+int queue_shrink(queue_t **qaddr);
 int queue_walk(queue_t *queue, queue_cb cb, void *arg);
 
 /* unsafe macro for queue_push();

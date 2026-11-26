@@ -155,7 +155,7 @@ static void tasks__cb(uv_timer_t *UNUSED(handle))
         log_info("initiated %d task%s", n, n == 1 ? "": "s");
 }
 
-int ti_tasks_append(vec_t ** vtasks, ti_vtask_t *vtask)
+int ti_tasks_append(vec_t **vtasks, ti_vtask_t *vtask)
 {
     uint32_t rel_id = ti.rel_id;
     uint32_t nodes_n = ti.nodes->vec->n;
@@ -172,7 +172,7 @@ int ti_tasks_append(vec_t ** vtasks, ti_vtask_t *vtask)
 /*
  * Only for dropped collections.
  */
-void ti_tasks_clear_dropped(vec_t ** vtasks)
+void ti_tasks_clear_dropped(vec_t **vtasks)
 {
     ti_vtask_t *vtask;
     while ((vtask = vec_pop(*vtasks)))

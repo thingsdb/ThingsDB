@@ -9,7 +9,7 @@
 
 int ti_store_tasks_store(vec_t *tasks, const char *fn);
 int ti_store_tasks_restore(
-        vec_t ** tasks,
+        vec_t **tasks,
         const char *fn,
         ti_collection_t *collection);
 

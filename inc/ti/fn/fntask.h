@@ -3,7 +3,7 @@
 static int do__f_task(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    vec_t ** tasks = ti_query_tasks(query);
+    vec_t **tasks = ti_query_tasks(query);
     cleri_node_t *child;
     ti_vtask_t *vtask;
 

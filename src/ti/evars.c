@@ -51,7 +51,7 @@ static void evars__abs_double(const char *evar, double * d)
     *d = fabs(strtod(doublestr, NULL));
 }
 
-static void evars__str(const char *evar, char ** straddr)
+static void evars__str(const char *evar, char **straddr)
 {
     char *str = getenv(evar);
     if (!str || !(str = strdup(str)))

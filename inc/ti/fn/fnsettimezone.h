@@ -8,7 +8,7 @@ static int do__f_set_time_zone(ti_query_t *query, cleri_node_t *nd, ex_t *e)
     ti_raw_t *str;
     ti_tz_t *tz;
     uint64_t scope_id;
-    vec_t ** access_;
+    vec_t **access_;
 
     if (fn_not_thingsdb_scope("set_time_zone", query, e) ||
         fn_nargs("set_time_zone", DOC_SET_TIME_ZONE, 2, nargs, e) ||

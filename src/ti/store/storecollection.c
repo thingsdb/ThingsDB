@@ -8,25 +8,25 @@
 #include <ti/store/storecollection.h>
 #include <ti/collection.inline.h>
 
-static const char * collection___access_fn      = "access.mp";
-static const char * collection___commits_fn     = "commits.mp";
-static const char * collection___dat_fn         = "collection.dat";
-static const char * collection___enums_fn       = "enums.mp";
-static const char * collection___gcprops_fn     = "gcprops.mp";
-static const char * collection___gcthings_fn    = "gcthings.mp";
-static const char * collection___named_rooms_fn = "named_rooms.mp";
-static const char * collection___procedures_fn  = "procedures.mp";
-static const char * collection___props_fn       = "props.mp";
-static const char * collection___tasks_fn       = "tasks.mp";
-static const char * collection___things_fn      = "things.mp";
-static const char * collection___types_fn       = "types.mp";
+static const char *collection___access_fn      = "access.mp";
+static const char *collection___commits_fn     = "commits.mp";
+static const char *collection___dat_fn         = "collection.dat";
+static const char *collection___enums_fn       = "enums.mp";
+static const char *collection___gcprops_fn     = "gcprops.mp";
+static const char *collection___gcthings_fn    = "gcthings.mp";
+static const char *collection___named_rooms_fn = "named_rooms.mp";
+static const char *collection___procedures_fn  = "procedures.mp";
+static const char *collection___props_fn       = "props.mp";
+static const char *collection___tasks_fn       = "tasks.mp";
+static const char *collection___things_fn      = "things.mp";
+static const char *collection___types_fn       = "types.mp";
 
-ti_store_collection_t * ti_store_collection_create(
-        const char * path,
-        guid_t * guid)
+ti_store_collection_t *ti_store_collection_create(
+        const char *path,
+        guid_t *guid)
 {
-    char * cpath;
-    ti_store_collection_t * store_collection;
+    char *cpath;
+    ti_store_collection_t *store_collection;
 
     store_collection = malloc(sizeof(ti_store_collection_t));
     if (!store_collection)
@@ -75,7 +75,7 @@ fail0:
     return NULL;
 }
 
-void ti_store_collection_destroy(ti_store_collection_t * store_collection)
+void ti_store_collection_destroy(ti_store_collection_t *store_collection)
 {
     if (!store_collection)
         return;
@@ -95,7 +95,7 @@ void ti_store_collection_destroy(ti_store_collection_t * store_collection)
     free(store_collection);
 }
 
-int ti_store_collection_store(ti_collection_t * collection, const char * fn)
+int ti_store_collection_store(ti_collection_t *collection, const char *fn)
 {
     int rc = 0;
     FILE * f = fopen(fn, "w");
@@ -124,12 +124,12 @@ int ti_store_collection_store(ti_collection_t * collection, const char * fn)
     return rc;
 }
 
-int ti_store_collection_restore(ti_collection_t * collection, const char * fn)
+int ti_store_collection_restore(ti_collection_t *collection, const char *fn)
 {
     int rc = 0;
     ssize_t sz;
     uint64_t id;
-    uchar * data = fx_read(fn, &sz);
+    uchar *data = fx_read(fn, &sz);
     if (!data || sz != sizeof(uint64_t))
         goto failed;
 
@@ -162,31 +162,31 @@ done:
     return rc;
 }
 
-_Bool ti_store_collection_is_stored(const char * path, uint64_t collection_id)
+_Bool ti_store_collection_is_stored(const char *path, uint64_t collection_id)
 {
     _Bool exists;
 
-    char * collection_path = ti_store_collection_get_path(path, collection_id);
+    char *collection_path = ti_store_collection_get_path(path, collection_id);
     exists = fx_is_dir(collection_path);
 
     free(collection_path);
     return exists;
 }
 
-char * ti_store_collection_get_path(const char * path, uint64_t collection_id)
+char *ti_store_collection_get_path(const char *path, uint64_t collection_id)
 {
-    char * collection_path;
+    char *collection_path;
     guid_t guid;
     guid_init(&guid, collection_id);
     collection_path = fx_path_join(path, guid.guid);
     return collection_path;
 }
 
-char * ti_store_collection_access_fn(
-        const char * path,
+char *ti_store_collection_access_fn(
+        const char *path,
         uint64_t collection_id)
 {
-    char * fn, * cpath = ti_store_collection_get_path(path, collection_id);
+    char *fn, *cpath = ti_store_collection_get_path(path, collection_id);
     if (!cpath)
         return NULL;
     fn = fx_path_join(cpath, collection___access_fn);
@@ -194,11 +194,11 @@ char * ti_store_collection_access_fn(
     return fn;
 }
 
-char * ti_store_collection_procedures_fn(
-        const char * path,
+char *ti_store_collection_procedures_fn(
+        const char *path,
         uint64_t collection_id)
 {
-    char * fn, * cpath = ti_store_collection_get_path(path, collection_id);
+    char *fn, *cpath = ti_store_collection_get_path(path, collection_id);
     if (!cpath)
         return NULL;
     fn = fx_path_join(cpath, collection___procedures_fn);
@@ -206,11 +206,11 @@ char * ti_store_collection_procedures_fn(
     return fn;
 }
 
-char * ti_store_collection_tasks_fn(
-        const char * path,
+char *ti_store_collection_tasks_fn(
+        const char *path,
         uint64_t collection_id)
 {
-    char * fn, * cpath = ti_store_collection_get_path(path, collection_id);
+    char *fn, *cpath = ti_store_collection_get_path(path, collection_id);
     if (!cpath)
         return NULL;
     fn = fx_path_join(cpath, collection___tasks_fn);
@@ -218,11 +218,11 @@ char * ti_store_collection_tasks_fn(
     return fn;
 }
 
-char * ti_store_collection_dat_fn(
-        const char * path,
+char *ti_store_collection_dat_fn(
+        const char *path,
         uint64_t collection_id)
 {
-    char * fn, * cpath = ti_store_collection_get_path(path, collection_id);
+    char *fn, *cpath = ti_store_collection_get_path(path, collection_id);
     if (!cpath)
         return NULL;
     fn = fx_path_join(cpath, collection___dat_fn);
@@ -230,11 +230,11 @@ char * ti_store_collection_dat_fn(
     return fn;
 }
 
-char * ti_store_collection_props_fn(
-        const char * path,
+char *ti_store_collection_props_fn(
+        const char *path,
         uint64_t collection_id)
 {
-    char * fn, * cpath = ti_store_collection_get_path(path, collection_id);
+    char *fn, *cpath = ti_store_collection_get_path(path, collection_id);
     if (!cpath)
         return NULL;
     fn = fx_path_join(cpath, collection___props_fn);
@@ -242,11 +242,11 @@ char * ti_store_collection_props_fn(
     return fn;
 }
 
-char * ti_store_collection_named_rooms_fn(
-        const char * path,
+char *ti_store_collection_named_rooms_fn(
+        const char *path,
         uint64_t collection_id)
 {
-    char * fn, * cpath = ti_store_collection_get_path(path, collection_id);
+    char *fn, *cpath = ti_store_collection_get_path(path, collection_id);
     if (!cpath)
         return NULL;
     fn = fx_path_join(cpath, collection___named_rooms_fn);
@@ -254,11 +254,11 @@ char * ti_store_collection_named_rooms_fn(
     return fn;
 }
 
-char * ti_store_collection_things_fn(
-        const char * path,
+char *ti_store_collection_things_fn(
+        const char *path,
         uint64_t collection_id)
 {
-    char * fn, * cpath = ti_store_collection_get_path(path, collection_id);
+    char *fn, *cpath = ti_store_collection_get_path(path, collection_id);
     if (!cpath)
         return NULL;
     fn = fx_path_join(cpath, collection___things_fn);
@@ -266,11 +266,11 @@ char * ti_store_collection_things_fn(
     return fn;
 }
 
-char * ti_store_collection_types_fn(
-        const char * path,
+char *ti_store_collection_types_fn(
+        const char *path,
         uint64_t collection_id)
 {
-    char * fn, * cpath = ti_store_collection_get_path(path, collection_id);
+    char *fn, *cpath = ti_store_collection_get_path(path, collection_id);
     if (!cpath)
         return NULL;
     fn = fx_path_join(cpath, collection___types_fn);
@@ -278,11 +278,11 @@ char * ti_store_collection_types_fn(
     return fn;
 }
 
-char * ti_store_collection_enums_fn(
-        const char * path,
+char *ti_store_collection_enums_fn(
+        const char *path,
         uint64_t collection_id)
 {
-    char * fn, * cpath = ti_store_collection_get_path(path, collection_id);
+    char *fn, *cpath = ti_store_collection_get_path(path, collection_id);
     if (!cpath)
         return NULL;
     fn = fx_path_join(cpath, collection___enums_fn);
@@ -290,11 +290,11 @@ char * ti_store_collection_enums_fn(
     return fn;
 }
 
-char * ti_store_collection_gcprops_fn(
-        const char * path,
+char *ti_store_collection_gcprops_fn(
+        const char *path,
         uint64_t collection_id)
 {
-    char * fn, * cpath = ti_store_collection_get_path(path, collection_id);
+    char *fn, *cpath = ti_store_collection_get_path(path, collection_id);
     if (!cpath)
         return NULL;
     fn = fx_path_join(cpath, collection___gcprops_fn);
@@ -302,11 +302,11 @@ char * ti_store_collection_gcprops_fn(
     return fn;
 }
 
-char * ti_store_collection_gcthings_fn(
-        const char * path,
+char *ti_store_collection_gcthings_fn(
+        const char *path,
         uint64_t collection_id)
 {
-    char * fn, * cpath = ti_store_collection_get_path(path, collection_id);
+    char *fn, *cpath = ti_store_collection_get_path(path, collection_id);
     if (!cpath)
         return NULL;
     fn = fx_path_join(cpath, collection___gcthings_fn);
@@ -314,11 +314,11 @@ char * ti_store_collection_gcthings_fn(
     return fn;
 }
 
-char * ti_store_collection_commits_fn(
-        const char * path,
+char *ti_store_collection_commits_fn(
+        const char *path,
         uint64_t collection_id)
 {
-    char * fn, * cpath = ti_store_collection_get_path(path, collection_id);
+    char *fn, *cpath = ti_store_collection_get_path(path, collection_id);
     if (!cpath)
         return NULL;
     fn = fx_path_join(cpath, collection___commits_fn);

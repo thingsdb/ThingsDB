@@ -32,7 +32,7 @@ enum
     PO__FLAG_BITWISE  =1<<PO__BITWISE,
 };
 
-int ti_preopr_bind(const char * s, size_t n)
+int ti_preopr_bind(const char *s, size_t n)
 {
     register int preopr = 0;
     register int negative = 0;
@@ -91,9 +91,9 @@ int ti_preopr_bind(const char * s, size_t n)
     return preopr;
 }
 
-int ti_preopr_calc(int preopr, ti_val_t ** val, ex_t * e)
+int ti_preopr_calc(int preopr, ti_val_t ** val, ex_t *e)
 {
-    ti_val_t * v = *val;
+    ti_val_t *v = *val;
 
     /*
      * Flag PO__FLAG_CHK_NUM is set if a sequence of +- and ! ends with a

@@ -1,11 +1,11 @@
 #include <ti/fn/fn.h>
 
-static int do__f_del_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_del_token(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_token_t * token;
-    ti_task_t * task;
-    ti_raw_t * rkey;
+    ti_token_t *token;
+    ti_task_t *task;
+    ti_raw_t *rkey;
 
     if (fn_not_thingsdb_scope("del_token", query, e) ||
         fn_nargs("del_token", DOC_DEL_TOKEN, 1, nargs, e) ||

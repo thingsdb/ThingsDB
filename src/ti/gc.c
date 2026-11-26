@@ -5,9 +5,9 @@
 #include <ti/gc.h>
 #include <ti/val.inline.h>
 
-ti_gc_t * ti_gc_create(uint64_t change_id, ti_thing_t * thing)
+ti_gc_t *ti_gc_create(uint64_t change_id, ti_thing_t *thing)
 {
-    ti_gc_t * gc = malloc(sizeof(ti_gc_t));
+    ti_gc_t *gc = malloc(sizeof(ti_gc_t));
     if (!gc)
         return NULL;
 
@@ -19,7 +19,7 @@ ti_gc_t * ti_gc_create(uint64_t change_id, ti_thing_t * thing)
     return gc;
 }
 
-void ti_gc_destroy(ti_gc_t * gc)
+void ti_gc_destroy(ti_gc_t *gc)
 {
     if (!gc)
         return;

@@ -29,10 +29,10 @@ struct ti_vtask_s
     int:16;
     uint64_t id;                    /* Unique ID */
     uint64_t run_at;                /* Run at UNIX time-stamp in seconds */
-    ti_user_t * user;               /* Owner of the vtask */
-    ti_closure_t * closure;         /* Closure to run */
-    ti_verror_t * verr;             /* Last run error status */
-    vec_t * args;                   /* Argument values */
+    ti_user_t *user;               /* Owner of the vtask */
+    ti_closure_t *closure;         /* Closure to run */
+    ti_verror_t *verr;             /* Last run error status */
+    vec_t *args;                   /* Argument values */
 };
 
 #endif /* TI_VTASK_T_H_ */

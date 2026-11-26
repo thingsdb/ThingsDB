@@ -12,7 +12,7 @@ static char ti__auth_str[512];
 
 struct ti__auth_repr_s
 {
-    char * str;
+    char *str;
     uint16_t mask;
 };
 
@@ -26,9 +26,9 @@ static struct ti__auth_repr_s ti__auth_map[TI__AUTH_REPR_SZ] = {
         {.str="RUN",            .mask=TI_AUTH_RUN},
 };
 
-ti_auth_t * ti_auth_create(ti_user_t * user, uint16_t mask)
+ti_auth_t *ti_auth_create(ti_user_t *user, uint16_t mask)
 {
-    ti_auth_t * auth = malloc(sizeof(ti_auth_t));
+    ti_auth_t *auth = malloc(sizeof(ti_auth_t));
     if (!auth)
         return NULL;
     auth->user = ti_grab(user);
@@ -36,7 +36,7 @@ ti_auth_t * ti_auth_create(ti_user_t * user, uint16_t mask)
     return auth;
 }
 
-void ti_auth_destroy(ti_auth_t * auth)
+void ti_auth_destroy(ti_auth_t *auth)
 {
     if (!auth)
         return;
@@ -44,9 +44,9 @@ void ti_auth_destroy(ti_auth_t * auth)
     free(auth);
 }
 
-const char * ti_auth_mask_to_str(uint16_t mask)
+const char *ti_auth_mask_to_str(uint16_t mask)
 {
-    char * pt = ti__auth_str;
+    char *pt = ti__auth_str;
     int i;
     struct ti__auth_repr_s * repr = ti__auth_map;
 

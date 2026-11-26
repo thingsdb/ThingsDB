@@ -19,16 +19,16 @@
 #include <util/mpack.h>
 
 static int rmtype_cb(
-        const uchar * name,
+        const uchar *name,
         size_t n,
-        void * data,
-        msgpack_packer * pk)
+        void *data,
+        msgpack_packer *pk)
 {
     uintptr_t type_id = (uintptr_t) data;
     return mp_pack_strn(pk, name, n) || msgpack_pack_uint64(pk, type_id);
 }
 
-static int mktype_cb(ti_type_t * type, msgpack_packer * pk)
+static int mktype_cb(ti_type_t *type, msgpack_packer *pk)
 {
     uintptr_t p;
     if (msgpack_pack_array(pk, 10) ||
@@ -77,7 +77,7 @@ static int mktype_cb(ti_type_t * type, msgpack_packer * pk)
     return 0;
 }
 
-static int count_cb(ti_type_t * type, size_t * n)
+static int count_cb(ti_type_t *type, size_t *n)
 {
     if (ti_type_is_wrap_only(type))
         return 0;
@@ -86,7 +86,7 @@ static int count_cb(ti_type_t * type, size_t * n)
     {
         if (ti_field_has_relation(field))
         {
-            ti_field_t * other = field->condition.rel->field;
+            ti_field_t *other = field->condition.rel->field;
             if (   field == other ||
                     field->type->type_id < other->type->type_id ||
                     (   field->type->type_id == other->type->type_id &&
@@ -97,13 +97,13 @@ static int count_cb(ti_type_t * type, size_t * n)
     return 0;
 }
 
-static int rltype_cb(ti_type_t * type, msgpack_packer * pk)
+static int rltype_cb(ti_type_t *type, msgpack_packer *pk)
 {
     for (vec_each(type->fields, ti_field_t, field))
     {
         if (ti_field_has_relation(field))
         {
-            ti_field_t * other = field->condition.rel->field;
+            ti_field_t *other = field->condition.rel->field;
             if (   field == other ||
                     field->type->type_id < other->type->type_id ||
                     (   field->type->type_id == other->type->type_id &&
@@ -126,7 +126,7 @@ static inline int mp_arr_or_nil(mp_enum_t tp)
     return tp == MP_NIL || tp == MP_ARR;
 }
 
-int ti_store_types_store(ti_types_t * types, const char * fn)
+int ti_store_types_store(ti_types_t *types, const char *fn)
 {
     msgpack_packer pk;
     char namebuf[TI_NAME_MAX];
@@ -173,9 +173,9 @@ done:
     return 0;
 }
 
-int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
+int ti_store_types_restore(ti_types_t *types, imap_t *names, const char *fn)
 {
-    const char * types_position;
+    const char *types_position;
     char namebuf[TI_NAME_MAX+1];
     int rc = -1;
     _Bool with_methods = true;
@@ -186,12 +186,12 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
     _Bool with_row = true;
     fx_mmap_t fmap;
     ex_t e = {0};
-    ti_name_t * name, * oname;
-    ti_type_t * type, * otype;
+    ti_name_t *name, *oname;
+    ti_type_t *type, *otype;
     size_t i, ii;
     uint16_t type_id;
     uintptr_t utype_id;
-    ti_raw_t * spec_raw;
+    ti_raw_t *spec_raw;
     mp_obj_t obj, mp_id, mp_name, mp_wpo, mp_hid, mp_idx,
              mp_spec, mp_created, mp_modified;
     mp_unp_t up;
@@ -461,7 +461,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
 
         for (ii = obj.via.sz; ii--;)
         {
-            ti_val_t * val;
+            ti_val_t *val;
 
             if (mp_next(&up, &mp_id) != MP_U64)
                 goto fail1;
@@ -510,7 +510,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
     if (with_relations)
     {
         mp_obj_t mp_id1, mp_name1, mp_id2, mp_name2;
-        ti_field_t * field, * ofield;
+        ti_field_t *field, *ofield;
 
         if (mp_skip(&up) != MP_STR ||
             mp_next(&up, &obj) != MP_ARR

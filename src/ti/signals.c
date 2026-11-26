@@ -11,7 +11,7 @@
 #include <util/logger.h>
 #include <uv.h>
 
-static void signals__handler(uv_signal_t * sig, int signum);
+static void signals__handler(uv_signal_t *sig, int signum);
 
 #define signals__nsigs 5
 static const int signals__signms[signals__nsigs] = {
@@ -38,7 +38,7 @@ int ti_signals_init(void)
     return 0;
 }
 
-static void signals__handler(uv_signal_t * UNUSED(sig), int signum)
+static void signals__handler(uv_signal_t *UNUSED(sig), int signum)
 {
     if (signum == SIGPIPE)
     {

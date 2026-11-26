@@ -1,14 +1,14 @@
 #include <ti/fn/fn.h>
 
-static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_set_type(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_type_t * type;
-    ti_thing_t * thing;
-    ti_task_t * task;
+    ti_type_t *type;
+    ti_thing_t *thing;
+    ti_task_t *task;
     ssize_t n;
     uint64_t ts_now = util_now_usec();
-    cleri_node_t * child = nd->children;
+    cleri_node_t *child = nd->children;
     _Bool is_new_type = false;
     _Bool wpo = false;
     _Bool hid = false;
@@ -26,7 +26,7 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!type)
     {
         uint16_t type_id;
-        ti_raw_t * rname = (ti_raw_t *) query->rval;
+        ti_raw_t *rname = (ti_raw_t *) query->rval;
 
         if (ti_spec_is_reserved((const char *) rname->data, rname->n))
         {

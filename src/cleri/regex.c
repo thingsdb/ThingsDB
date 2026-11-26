@@ -7,13 +7,13 @@
 #include <string.h>
 #include <assert.h>
 
-static void regex__free(cleri_t * cl_object);
+static void regex__free(cleri_t *cl_object);
 
-static cleri_node_t *  regex__parse(
-        cleri_parse_t * pr,
-        cleri_node_t * parent,
-        cleri_t * cl_obj,
-        cleri_rule_store_t * rule);
+static cleri_node_t *regex__parse(
+        cleri_parse_t *pr,
+        cleri_node_t *parent,
+        cleri_t *cl_obj,
+        cleri_rule_store_t *rule);
 
 /*
  * Returns a regex object or NULL in case of an error.
@@ -24,9 +24,9 @@ static cleri_node_t *  regex__parse(
  * Warning: this function could write to stderr in case the pattern could not
  * be compiled.
  */
-cleri_t * cleri_regex(uint32_t gid, const char * pattern)
+cleri_t *cleri_regex(uint32_t gid, const char *pattern)
 {
-    cleri_t * cl_object;
+    cleri_t *cl_object;
     int pcre_error_num;
     PCRE2_SIZE pcre_error_offset;
 
@@ -96,7 +96,7 @@ cleri_t * cleri_regex(uint32_t gid, const char * pattern)
 /*
  * Destroy regex object.
  */
-static void regex__free(cleri_t * cl_object)
+static void regex__free(cleri_t *cl_object)
 {
     pcre2_match_data_free(cl_object->via.regex->match_data);
     pcre2_code_free(cl_object->via.regex->regex);
@@ -106,16 +106,16 @@ static void regex__free(cleri_t * cl_object)
 /*
  * Returns a node or NULL. In case of an error, pr->is_valid is set to -1
  */
-static cleri_node_t *  regex__parse(
-        cleri_parse_t * pr,
-        cleri_node_t * parent,
-        cleri_t * cl_obj,
-        cleri_rule_store_t * rule __attribute__((unused)))
+static cleri_node_t *regex__parse(
+        cleri_parse_t *pr,
+        cleri_node_t *parent,
+        cleri_t *cl_obj,
+        cleri_rule_store_t *rule __attribute__((unused)))
 {
     int pcre_exec_ret;
     PCRE2_SIZE * ovector;
-    const char * str = parent->str + parent->len;
-    cleri_node_t * node;
+    const char *str = parent->str + parent->len;
+    cleri_node_t *node;
 
     pcre_exec_ret = pcre2_match(
             cl_obj->via.regex->regex,

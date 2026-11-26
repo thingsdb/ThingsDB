@@ -76,8 +76,8 @@ static http_parser_settings api__settings;
 
 static inline _Bool api__starts_with(
         const char ** str,
-        size_t * strn,
-        const char * with,
+        size_t *strn,
+        const char *with,
         size_t withn)
 {
     if (*strn < withn || strncasecmp(*str, with, withn))
@@ -87,9 +87,9 @@ static inline _Bool api__starts_with(
     return true;
 }
 
-static void api__close_cb(uv_handle_t * handle)
+static void api__close_cb(uv_handle_t *handle)
 {
-    ti_api_request_t * ar = handle->data;
+    ti_api_request_t *ar = handle->data;
     log_debug("API connection closed");
     ti_user_drop(ar->user);
     free(ar->content);
@@ -98,15 +98,15 @@ static void api__close_cb(uv_handle_t * handle)
 }
 
 static void api__alloc_cb(
-        uv_handle_t * UNUSED(handle),
+        uv_handle_t *UNUSED(handle),
         size_t UNUSED(sugsz),
-        uv_buf_t * buf)
+        uv_buf_t *buf)
 {
     buf->base = malloc(HTTP_MAX_HEADER_SIZE);
     buf->len = buf->base ? HTTP_MAX_HEADER_SIZE-1 : 0;
 }
 
-static void api__reset(ti_api_request_t * ar)
+static void api__reset(ti_api_request_t *ar)
 {
     free(ar->content);
     free(ar->collection_name);
@@ -127,12 +127,12 @@ static void api__reset(ti_api_request_t * ar)
 }
 
 static void api__data_cb(
-        uv_stream_t * uvstream,
+        uv_stream_t *uvstream,
         ssize_t n,
-        const uv_buf_t * buf)
+        const uv_buf_t *buf)
 {
     size_t parsed;
-    ti_api_request_t * ar = uvstream->data;
+    ti_api_request_t *ar = uvstream->data;
 
     if (ar->flags & TI_API_FLAG_IS_CLOSED)
         goto done;
@@ -177,10 +177,10 @@ done:
      free(buf->base);
 }
 
-static void api__connection_cb(uv_stream_t * server, int status)
+static void api__connection_cb(uv_stream_t *server, int status)
 {
     int rc;
-    ti_api_request_t * ar;
+    ti_api_request_t *ar;
 
     if (status < 0)
     {
@@ -222,9 +222,9 @@ static void api__connection_cb(uv_stream_t * server, int status)
     }
 }
 
-static int api__url_cb(http_parser * parser, const char * at, size_t n)
+static int api__url_cb(http_parser * parser, const char *at, size_t n)
 {
-    ti_api_request_t * ar = parser->data;
+    ti_api_request_t *ar = parser->data;
 
     if (parser->method == HTTP_GET && n == 1 && *at == '/')
     {
@@ -259,9 +259,9 @@ static int api__url_cb(http_parser * parser, const char * at, size_t n)
     return 0;
 }
 
-static int api__header_field_cb(http_parser * parser, const char * at, size_t n)
+static int api__header_field_cb(http_parser * parser, const char *at, size_t n)
 {
-    ti_api_request_t * ar = parser->data;
+    ti_api_request_t *ar = parser->data;
 
     ar->state = API__ICMP_WITH(at, n, "content-type")
             ? TI_API_STATE_CONTENT_TYPE
@@ -272,9 +272,9 @@ static int api__header_field_cb(http_parser * parser, const char * at, size_t n)
     return 0;
 }
 
-static int api__header_value_cb(http_parser * parser, const char * at, size_t n)
+static int api__header_value_cb(http_parser * parser, const char *at, size_t n)
 {
-    ti_api_request_t * ar = parser->data;
+    ti_api_request_t *ar = parser->data;
 
     switch (ar->state)
     {
@@ -341,7 +341,7 @@ static int api__header_value_cb(http_parser * parser, const char * at, size_t n)
 
 static int api__headers_complete_cb(http_parser * parser)
 {
-    ti_api_request_t * ar = parser->data;
+    ti_api_request_t *ar = parser->data;
 
     assert(!ar->content);
 
@@ -355,10 +355,10 @@ static int api__headers_complete_cb(http_parser * parser)
     return 0;
 }
 
-static int api__body_cb(http_parser * parser, const char * at, size_t n)
+static int api__body_cb(http_parser * parser, const char *at, size_t n)
 {
     size_t offset;
-    ti_api_request_t * ar = parser->data;
+    ti_api_request_t *ar = parser->data;
     if (!n || !ar->content_n)
         return 0;
 
@@ -369,9 +369,9 @@ static int api__body_cb(http_parser * parser, const char * at, size_t n)
     return 0;
 }
 
-static void api__write_cb(uv_write_t * req, int status)
+static void api__write_cb(uv_write_t *req, int status)
 {
-    ti_api_request_t * ar = req->handle->data;
+    ti_api_request_t *ar = req->handle->data;
 
     if (status)
         log_error(
@@ -387,14 +387,14 @@ static void api__write_cb(uv_write_t * req, int status)
     ti_api_release(ar);
 }
 
-static void api__write_free_cb(uv_write_t * req, int status)
+static void api__write_free_cb(uv_write_t *req, int status)
 {
     free(req->data);
     api__write_cb(req, status);
 }
 
 inline static int api__header(
-        char * ptr,
+        char *ptr,
         const api__header_t ht,
         const ti_api_content_t ct,
         size_t content_length)
@@ -411,14 +411,14 @@ inline static int api__header(
     return len;
 }
 
-static inline int api__err_body(char ** ptr, ex_t * e)
+static inline int api__err_body(char ** ptr, ex_t *e)
 {
     return asprintf(ptr, "%s (%d)\r\n", e->msg, e->nr);
 }
 
 static int api__close_resp(
-        ti_api_request_t * ar,
-        void * data,
+        ti_api_request_t *ar,
+        void *data,
         size_t size,
         uv_write_cb write_cb)
 {
@@ -439,12 +439,12 @@ static int api__close_resp(
     return 0;
 }
 
-int ti_api_close_with_response(ti_api_request_t * ar, void * data, size_t size)
+int ti_api_close_with_response(ti_api_request_t *ar, void *data, size_t size)
 {
     if (ar->content_type == TI_API_CT_JSON)
     {
         size_t tmp_sz;
-        unsigned char * tmp;
+        unsigned char *tmp;
         yajl_gen_status stat = mpjson_mp_to_json(
                 data,
                 size,
@@ -464,12 +464,12 @@ int ti_api_close_with_response(ti_api_request_t * ar, void * data, size_t size)
     return api__close_resp(ar, data, size, api__write_free_cb);
 }
 
-int ti_api_close_with_err(ti_api_request_t * ar, ex_t * e)
+int ti_api_close_with_err(ti_api_request_t *ar, ex_t *e)
 {
     assert(e->nr);
 
     char header[API__HEADER_MAX_SZ];
-    char * body = NULL;
+    char *body = NULL;
     int header_size = 0, body_size = 0;
 
     switch (e->nr)
@@ -586,7 +586,7 @@ typedef struct
     mp_obj_t mp_vars;
 } api__req_t;
 
-static int api__gen_scope(ti_api_request_t * ar, msgpack_packer * pk)
+static int api__gen_scope(ti_api_request_t *ar, msgpack_packer *pk)
 {
     switch (ar->scope.tp)
     {
@@ -609,10 +609,10 @@ typedef int (*api__gen_data_cb)(
         size_t *);
 
 static int api__gen_run_data(
-        ti_api_request_t * ar,
-        api__req_t * req,
+        ti_api_request_t *ar,
+        api__req_t *req,
         unsigned char ** data,
-        size_t * size)
+        size_t *size)
 {
     int with_args;
     msgpack_packer pk;
@@ -648,10 +648,10 @@ fail:
 }
 
 static int api__gen_query_data(
-        ti_api_request_t * ar,
-        api__req_t * req,
+        ti_api_request_t *ar,
+        api__req_t *req,
         unsigned char ** data,
-        size_t * size)
+        size_t *size)
 {
     msgpack_packer pk;
     msgpack_sbuffer buffer;
@@ -678,16 +678,16 @@ fail:
     return -1;
 }
 
-static ti_pkg_t * api__gen_fwd_pkg(
-        ti_api_request_t * ar,
-        api__req_t * req,
+static ti_pkg_t *api__gen_fwd_pkg(
+        ti_api_request_t *ar,
+        api__req_t *req,
         api__gen_data_cb gen_data_cb,
         ti_proto_enum_t proto)
 {
-    ti_pkg_t * pkg;
+    ti_pkg_t *pkg;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
-    unsigned char * data;
+    unsigned char *data;
     size_t size;
 
     if (mp_sbuffer_alloc_init(&buffer, 128 + ar->content_n, sizeof(ti_pkg_t)))
@@ -713,9 +713,9 @@ static ti_pkg_t * api__gen_fwd_pkg(
     return pkg;
 }
 
-static void api__fwd_cb(ti_req_t * req, ex_enum status)
+static void api__fwd_cb(ti_req_t *req, ex_enum status)
 {
-    ti_api_request_t * ar = req->data;
+    ti_api_request_t *ar = req->data;
     _Bool is_closed = ti_api_is_closed(ar);
 
     ti_api_release(ar);
@@ -744,7 +744,7 @@ static void api__fwd_cb(ti_req_t * req, ex_enum status)
         case TI_API_CT_JSON:
         {
             size_t size;
-            unsigned char * data;
+            unsigned char *data;
             yajl_gen_status stat = mpjson_mp_to_json(
                     req->pkg_res->data,
                     req->pkg_res->n,
@@ -763,7 +763,7 @@ static void api__fwd_cb(ti_req_t * req, ex_enum status)
         case TI_API_CT_MSGPACK:
         {
             size_t size = req->pkg_res->n;
-            char * data = malloc(size);
+            char *data = malloc(size);
             if (!data)
             {
                 ex_set_mem(&ar->e);
@@ -784,12 +784,12 @@ done:
     ti_req_destroy(req);
 }
 
-_Bool ti_api_is_fwd_req(ti_req_t * req)
+_Bool ti_api_is_fwd_req(ti_req_t *req)
 {
     return req->cb_ == api__fwd_cb;
 }
 
-static int api__fwd(ti_api_request_t * ar, ti_node_t * to_node, ti_pkg_t * pkg)
+static int api__fwd(ti_api_request_t *ar, ti_node_t *to_node, ti_pkg_t *pkg)
 {
     ti_api_acquire(ar);
 
@@ -807,14 +807,14 @@ static int api__fwd(ti_api_request_t * ar, ti_node_t * to_node, ti_pkg_t * pkg)
     return 0;
 }
 
-static int api__run(ti_api_request_t * ar, api__req_t * req)
+static int api__run(ti_api_request_t *ar, api__req_t *req)
 {
-    ti_pkg_t * pkg;
-    vec_t * access_;
-    ti_query_t * query = NULL;
-    ti_node_t * this_node = ti.node, * other_node;
-    ex_t * e = &ar->e;
-    unsigned char * data = NULL;
+    ti_pkg_t *pkg;
+    vec_t *access_;
+    ti_query_t *query = NULL;
+    ti_node_t *this_node = ti.node, *other_node;
+    ex_t *e = &ar->e;
+    unsigned char *data = NULL;
     size_t n;
 
     if (req->mp_name.tp != MP_STR)
@@ -887,13 +887,13 @@ fail1:
     return e->nr;
 }
 
-static int api__query(ti_api_request_t * ar, api__req_t * req)
+static int api__query(ti_api_request_t *ar, api__req_t *req)
 {
-    ti_pkg_t * pkg;
-    vec_t * access_;
-    ti_query_t * query = NULL;
-    ti_node_t * this_node = ti.node, * other_node;
-    ex_t * e = &ar->e;
+    ti_pkg_t *pkg;
+    vec_t *access_;
+    ti_query_t *query = NULL;
+    ti_node_t *this_node = ti.node, *other_node;
+    ex_t *e = &ar->e;
 
     if (req->mp_code.tp != MP_STR)
         goto invalid_api_request;
@@ -1016,7 +1016,7 @@ failed:
     return e->nr;
 }
 
-static int api__from_msgpack(ti_api_request_t * ar)
+static int api__from_msgpack(ti_api_request_t *ar)
 {
     api__req_t request = {0};
     mp_unp_t up;
@@ -1098,9 +1098,9 @@ failed:
     return 0;
 }
 
-static int api__plain_response(ti_api_request_t * ar, const api__header_t ht)
+static int api__plain_response(ti_api_request_t *ar, const api__header_t ht)
 {
-    const char * body = api__default_body[ht];
+    const char *body = api__default_body[ht];
     char header[API__HEADER_MAX_SZ];
     size_t body_size;
     int header_size;
@@ -1126,14 +1126,14 @@ static int api__plain_response(ti_api_request_t * ar, const api__header_t ht)
 
 static int api__message_complete_cb(http_parser * parser)
 {
-    ti_api_request_t * ar = parser->data;
+    ti_api_request_t *ar = parser->data;
 
     /* Pause parsing */
     http_parser_pause(&ar->parser, 1);
 
     if (ar->flags & TI_API_FLAG_HOME)
     {
-        char * home = \
+        char *home = \
 "<!DOCTYPE html>\n" \
 "<html>\n" \
 "<head>\n" \
@@ -1189,7 +1189,7 @@ static int api__message_complete_cb(http_parser * parser)
         return api__plain_response(ar, E415_UNSUPPORTED_MEDIA_TYPE);
     case TI_API_CT_JSON:
     {
-        char * data;
+        char *data;
         size_t size;
         if (mpjson_json_to_mp(ar->content, ar->content_n, &data, &size))
             return api__plain_response(ar, E400_BAD_REQUEST);
@@ -1248,13 +1248,13 @@ int ti_api_init(void)
     return 0;
 }
 
-ti_api_request_t * ti_api_acquire(ti_api_request_t * ar)
+ti_api_request_t *ti_api_acquire(ti_api_request_t *ar)
 {
     ar->flags |= TI_API_FLAG_IN_USE;
     return ar;
 }
 
-void ti_api_release(ti_api_request_t * ar)
+void ti_api_release(ti_api_request_t *ar)
 {
     if (!ar)
         return;
@@ -1265,7 +1265,7 @@ void ti_api_release(ti_api_request_t * ar)
         uv_close((uv_handle_t *) &ar->uvstream, api__close_cb);
 }
 
-void ti_api_close(ti_api_request_t * ar)
+void ti_api_close(ti_api_request_t *ar)
 {
     if (!ar || (ar->flags & TI_API_FLAG_IS_CLOSED))
         return;

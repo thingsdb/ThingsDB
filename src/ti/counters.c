@@ -8,7 +8,7 @@
 #include <util/logger.h>
 #include <util/util.h>
 
-static ti_counters_t * counters;
+static ti_counters_t *counters;
 ti_counters_t counters_;
 
 int ti_counters_create(void)
@@ -96,7 +96,7 @@ double ti_counters_upd_success_query(struct timespec * start)
     return duration;
 }
 
-int ti_counters_to_pk(msgpack_packer * pk)
+int ti_counters_to_pk(msgpack_packer *pk)
 {
     return -(
         msgpack_pack_map(pk, 20) ||
@@ -167,9 +167,9 @@ int ti_counters_to_pk(msgpack_packer * pk)
     );
 }
 
-ti_val_t * ti_counters_as_mpval(void)
+ti_val_t *ti_counters_as_mpval(void)
 {
-    ti_raw_t * raw;
+    ti_raw_t *raw;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 

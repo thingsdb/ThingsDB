@@ -28,13 +28,13 @@ struct ti_future_s
     uint8_t tp;
     uint8_t options;        /* stores deep and unpack flag */
     uint16_t pid;
-    ti_query_t * query;     /* parent query */
-    ti_closure_t * then;    /* optional closure, then */
-    ti_closure_t * fail;    /* optional closure, fail */
-    ti_val_t * rval;        /* resolved value or NULL */
-    ti_pkg_t * pkg;
-    ti_module_t * module;   /* with an extra reference */
-    vec_t * args;           /* NULL when the future is not registered */
+    ti_query_t *query;     /* parent query */
+    ti_closure_t *then;    /* optional closure, then */
+    ti_closure_t *fail;    /* optional closure, fail */
+    ti_val_t *rval;        /* resolved value or NULL */
+    ti_pkg_t *pkg;
+    ti_module_t *module;   /* with an extra reference */
+    vec_t *args;           /* NULL when the future is not registered */
 };
 
 #endif  /* TI_FUTURE_T_H_ */

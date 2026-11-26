@@ -13,7 +13,7 @@
 #include <util/fx.h>
 #include <util/mpack.h>
 
-static int named_room__store_cb(ti_room_t * room, msgpack_packer * pk)
+static int named_room__store_cb(ti_room_t *room, msgpack_packer *pk)
 {
     return -(
         msgpack_pack_array(pk, 2) ||
@@ -22,7 +22,7 @@ static int named_room__store_cb(ti_room_t * room, msgpack_packer * pk)
     );
 }
 
-int ti_store_named_rooms_store(smap_t * named_rooms, const char * fn)
+int ti_store_named_rooms_store(smap_t *named_rooms, const char *fn)
 {
     msgpack_packer pk;
     FILE * f = fopen(fn, "w");
@@ -57,15 +57,15 @@ done:
     return 0;
 }
 
-int ti_store_named_rooms_restore(const char * fn, ti_collection_t * collection)
+int ti_store_named_rooms_restore(const char *fn, ti_collection_t *collection)
 {
     int rc = -1;
     fx_mmap_t fmap;
     size_t i;
     mp_obj_t obj, mp_ver, mp_name, mp_id;
     mp_unp_t up;
-    ti_name_t * name;
-    ti_room_t * room;
+    ti_name_t *name;
+    ti_room_t *room;
 
     if (!fx_file_exist(fn))
         return 0;  /* until version v1.7.0 named rooms did not exist */

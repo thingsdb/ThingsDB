@@ -103,7 +103,7 @@ struct ti_node_s
     uint64_t ccid;                 /* last committed change id */
     uint64_t scid;                 /* last stored change id on disk */
     uint64_t next_free_id;
-    ti_stream_t * stream;           /* borrowed reference */
+    ti_stream_t *stream;           /* borrowed reference */
 
     /*
      * TODO: add warning flags, like:
@@ -112,7 +112,7 @@ struct ti_node_s
      *      - unreachable (set from another node)
      *    uint16_t flags;
      */
-    char * addr;                    /* host-name or IP address */
+    char *addr;                    /* host-name or IP address */
     char secret[CRYPTX_SZ];         /* null terminated encrypted secret */
 };
 

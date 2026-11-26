@@ -1,17 +1,17 @@
 #include <ti/fn/fn.h>
 
-static int do__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_new_node(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     char salt[CRYPTX_SALT_SZ];
     char encrypted[CRYPTX_SZ];
-    char * secret;
-    ti_node_t * node;
-    ti_raw_t * rsecret;
-    ti_raw_t * raddr;
-    ti_task_t * task;
-    cleri_node_t * child = nd->children;
-    char * addrstr;
+    char *secret;
+    ti_node_t *node;
+    ti_raw_t *rsecret;
+    ti_raw_t *raddr;
+    ti_task_t *task;
+    cleri_node_t *child = nd->children;
+    char *addrstr;
     int port;
 
     if (fn_not_thingsdb_scope("new_node", query, e) ||

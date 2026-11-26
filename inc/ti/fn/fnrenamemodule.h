@@ -1,11 +1,11 @@
 #include <ti/fn/fn.h>
 
-static int do__f_rename_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_rename_module(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_task_t * task;
-    ti_module_t * module;
-    ti_raw_t * nname;
+    ti_task_t *task;
+    ti_module_t *module;
+    ti_raw_t *nname;
 
     if (fn_not_thingsdb_scope("rename_module", query, e) ||
         fn_nargs("rename_module", DOC_RENAME_MODULE, 2, nargs, e) ||

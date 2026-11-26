@@ -19,7 +19,7 @@ typedef struct cleri_sequence_s cleri_sequence_t;
 extern "C" {
 #endif
 
-cleri_t * cleri_sequence(uint32_t gid, size_t len, ...);
+cleri_t *cleri_sequence(uint32_t gid, size_t len, ...);
 
 #ifdef __cplusplus
 }
@@ -28,7 +28,7 @@ cleri_t * cleri_sequence(uint32_t gid, size_t len, ...);
 /* structs */
 struct cleri_sequence_s
 {
-    cleri_olist_t * olist;
+    cleri_olist_t *olist;
 };
 
 #endif /* CLERI_SEQUENCE_H_ */

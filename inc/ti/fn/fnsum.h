@@ -6,7 +6,7 @@ typedef struct {
     int is_float;
 } sum__t;
 
-static int sum__add(sum__t * sum, ti_val_t * val, ex_t * e)
+static int sum__add(sum__t *sum, ti_val_t *val, ex_t *e)
 {
     switch(val->tp)
     {
@@ -59,10 +59,10 @@ overflow:
     return e->nr;
 }
 
-static int do__f_sum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_sum(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_varr_t * varr;
+    ti_varr_t *varr;
     sum__t sum = {0};
 
     if (!ti_val_is_array(query->rval))
@@ -81,7 +81,7 @@ static int do__f_sum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             goto fail0;
 
         int64_t idx = 0;
-        ti_closure_t * closure = (ti_closure_t *) query->rval;
+        ti_closure_t *closure = (ti_closure_t *) query->rval;
         int lock_was_set = ti_val_ensure_lock((ti_val_t *) varr);
         query->rval = NULL;
 

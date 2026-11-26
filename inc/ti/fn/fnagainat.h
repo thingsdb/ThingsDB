@@ -1,10 +1,10 @@
 #include <ti/fn/fn.h>
 
-static int do__f_again_at(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_again_at(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     time_t run_at, now = util_now_tsec();
-    ti_vtask_t * vtask;
+    ti_vtask_t *vtask;
 
     if (!ti_val_is_task(query->rval))
         return fn_call_try("again_at", query, nd, e);

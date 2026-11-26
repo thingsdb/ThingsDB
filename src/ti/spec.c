@@ -94,7 +94,7 @@ enum
 };
 
 static inline unsigned int spec__hash(
-        register const char * s,
+        register const char *s,
         register size_t n)
 {
     static unsigned char asso_values[] =
@@ -162,9 +162,9 @@ static inline unsigned int spec__hash(
     return hval;
 }
 
-_Bool ti_spec_is_reserved(register const char * s, register size_t n)
+_Bool ti_spec_is_reserved(register const char *s, register size_t n)
 {
-    static const char * wordlist[] =
+    static const char *wordlist[] =
     {
         "", "", "", "", "", "", "",
         "in",
@@ -239,7 +239,7 @@ _Bool ti_spec_is_reserved(register const char * s, register size_t n)
         register unsigned int key = spec__hash(s, n);
         if (key <= MAX_HASH_VALUE)
         {
-            register const char * ws = wordlist[key];
+            register const char *ws = wordlist[key];
 
             if (strlen(ws) == n && !memcmp(s, ws, n))
                 return true;
@@ -249,14 +249,14 @@ _Bool ti_spec_is_reserved(register const char * s, register size_t n)
 }
 
 int ti_spec_from_raw(
-        uint16_t * spec,
-        ti_raw_t * raw,
-        ti_collection_t * collection,
-        ex_t * e)
+        uint16_t *spec,
+        ti_raw_t *raw,
+        ti_collection_t *collection,
+        ex_t *e)
 {
-    const char * str = (const char *) raw->data;
+    const char *str = (const char *) raw->data;
     size_t n = raw->n;
-    ti_field_map_t * fmap;
+    ti_field_map_t *fmap;
 
     *spec = 0;
 
@@ -296,8 +296,8 @@ int ti_spec_from_raw(
 
     if (collection)
     {
-        ti_enum_t * enum_;
-        ti_type_t * type_ = ti_types_by_strn(collection->types, str, n);
+        ti_enum_t *enum_;
+        ti_type_t *type_ = ti_types_by_strn(collection->types, str, n);
         if (type_)
         {
             if (type_->flags & TI_TYPE_FLAG_LOCK)
@@ -346,11 +346,11 @@ empty:
     return e->nr;
 }
 
-ti_raw_t * ti_spec_raw(uint16_t spec, ti_collection_t * collection)
+ti_raw_t *ti_spec_raw(uint16_t spec, ti_collection_t *collection)
 {
-    char * typestr;
-    char * nillable;
-    ti_field_map_t * fmap;
+    char *typestr;
+    char *nillable;
+    ti_field_map_t *fmap;
 
     if (spec == TI_SPEC_ANY)
         return (ti_raw_t *) ti_val_any_str();
@@ -372,7 +372,7 @@ ti_raw_t * ti_spec_raw(uint16_t spec, ti_collection_t * collection)
 /*
  * Returns 0 if the given value is valid for this field
  */
-ti_spec_rval_enum ti__spec_check_nested_val(uint16_t spec, ti_val_t * val)
+ti_spec_rval_enum ti__spec_check_nested_val(uint16_t spec, ti_val_t *val)
 {
     assert(~spec & TI_SPEC_NILLABLE);
     if (spec < TI_SPEC_ANY)
@@ -482,7 +482,7 @@ ti_spec_rval_enum ti__spec_check_nested_val(uint16_t spec, ti_val_t * val)
     return ti_spec_enum_eq_to_val(spec, val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
 }
 
-_Bool ti__spec_maps_to_nested_val(ti_field_t * field, ti_val_t * val)
+_Bool ti__spec_maps_to_nested_val(ti_field_t *field, ti_val_t *val)
 {
     uint16_t spec = field->nested_spec & TI_SPEC_MASK_NILLABLE;
 
@@ -582,7 +582,7 @@ _Bool ti__spec_maps_to_nested_val(ti_field_t * field, ti_val_t * val)
     return ti_val_is_thing(val);
 }
 
-const char * ti_spec_approx_type_str(uint16_t spec)
+const char *ti_spec_approx_type_str(uint16_t spec)
 {
     spec &= TI_SPEC_MASK_NILLABLE;
     switch ((ti_spec_enum_t) spec)

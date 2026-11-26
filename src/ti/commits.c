@@ -8,15 +8,15 @@
 
 typedef struct
 {
-    ti_commits_options_t * options;
-    ex_t * e;
+    ti_commits_options_t *options;
+    ex_t *e;
     _Bool allow_detail;
 } commits__options_t;
 
 static int commits__options(
-        ti_raw_t * key,
-        ti_val_t * val,
-        commits__options_t * w)
+        ti_raw_t *key,
+        ti_val_t *val,
+        commits__options_t *w)
 {
     if (ti_raw_eq_strn(key, "scope", strlen("scope")))
     {
@@ -207,10 +207,10 @@ static int commits__options(
 }
 
 int ti_commits_options(
-    ti_commits_options_t * options,
-    ti_thing_t * thing,
+    ti_commits_options_t *options,
+    ti_thing_t *thing,
     _Bool allow_detail,
-    ex_t * e)
+    ex_t *e)
 {
     commits__options_t w = {
         .options=options,
@@ -237,9 +237,9 @@ int ti_commits_options(
 }
 
 int ti_commits_history(
-    ti_commits_history_t * history,
-    ti_commits_options_t * options,
-    ex_t * e)
+    ti_commits_history_t *history,
+    ti_commits_options_t *options,
+    ex_t *e)
  {
     history->commits = &ti.commits;
     history->access = &ti.access_thingsdb;
@@ -267,7 +267,7 @@ int ti_commits_history(
                 return e->nr;
             case TI_SCOPE_COLLECTION:
             {
-                ti_collection_t * collection = ti_collections_get_by_strn(
+                ti_collection_t *collection = ti_collections_get_by_strn(
                         scope.via.collection_name.name,
                         scope.via.collection_name.sz);
                 if (!collection)
@@ -316,7 +316,7 @@ int ti_commits_history(
     return e->nr;
 }
 
-vec_t ** ti_commits_from_scope(ti_raw_t * scope, ex_t * e)
+vec_t ** ti_commits_from_scope(ti_raw_t *scope, ex_t *e)
 {
     ti_scope_t scope_;
     if (ti_scope_init(&scope_, (const char *) scope->data, scope->n, e))
@@ -332,7 +332,7 @@ vec_t ** ti_commits_from_scope(ti_raw_t * scope, ex_t * e)
             return NULL;
         case TI_SCOPE_COLLECTION:
         {
-            ti_collection_t * collection = ti_collections_get_by_strn(
+            ti_collection_t *collection = ti_collections_get_by_strn(
                     scope_.via.collection_name.name,
                     scope_.via.collection_name.sz);
             if (collection)
@@ -368,8 +368,8 @@ int ti_commits_set_history(vec_t ** commits, _Bool state)
 }
 
 static _Bool commits__match(
-    ti_commit_t * commit,
-    ti_commits_options_t * options)
+    ti_commit_t *commit,
+    ti_commits_options_t *options)
 {
     if (options->contains && (
             !ti_raw_contains(commit->message, options->contains) &&
@@ -400,10 +400,10 @@ static _Bool commits__match(
 }
 
 static void commits__init(
-        vec_t * commits,
-        ti_commits_options_t * options,
-        uint32_t * begin,
-        uint32_t * end)
+        vec_t *commits,
+        ti_commits_options_t *options,
+        uint32_t *begin,
+        uint32_t *end)
 {
     uint32_t n;
     *begin = 0;
@@ -435,17 +435,17 @@ static void commits__init(
         *end = *begin + options->first->int_;
 }
 
-vec_t * ti_commits_find(vec_t * commits, ti_commits_options_t * options)
+vec_t *ti_commits_find(vec_t *commits, ti_commits_options_t *options)
 {
     uint32_t begin, end;;
-    vec_t * vec = vec_new(8);
+    vec_t *vec = vec_new(8);
     if (!vec)
         return NULL;
 
     commits__init(commits, options, &begin, &end);
     for (;begin < end; ++begin)
     {
-        ti_commit_t * commit = VEC_get(commits, begin);
+        ti_commit_t *commit = VEC_get(commits, begin);
         if (commits__match(commit, options) && vec_push(&vec, commit))
             goto fail;
     }
@@ -456,10 +456,10 @@ fail:
     return NULL;
 }
 
-vec_t * ti_commits_del(vec_t ** commits, ti_commits_options_t * options)
+vec_t *ti_commits_del(vec_t ** commits, ti_commits_options_t *options)
 {
     uint32_t begin, end;
-    vec_t * vec = vec_new(8);
+    vec_t *vec = vec_new(8);
     if (!vec)
         return NULL;
 
@@ -467,7 +467,7 @@ vec_t * ti_commits_del(vec_t ** commits, ti_commits_options_t * options)
     commits__init(*commits, options, &begin, &end);
     while (begin < end)
     {
-        ti_commit_t * commit = VEC_get(*commits, --end);
+        ti_commit_t *commit = VEC_get(*commits, --end);
         if (commits__match(commit, options) &&
             vec_push(&vec, vec_remove(*commits, end)))
             goto fail;

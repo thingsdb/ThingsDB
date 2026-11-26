@@ -15,7 +15,7 @@
 #include <util/util.h>
 #include <util/logger.h>
 
-static smap_t * qcache;
+static smap_t *qcache;
 static size_t qcache__cache_sz;
 static size_t qcache__threshold;
 
@@ -27,19 +27,19 @@ typedef struct
 {
     uint32_t used;
     uint32_t last;      /* works fine until we reach year 2038 */
-    ti_query_t * query;
+    ti_query_t *query;
 } qcache__item_t;
 
-static void qcache__item_destroy(qcache__item_t * item)
+static void qcache__item_destroy(qcache__item_t *item)
 {
     if (item)
         ti_query_destroy(item->query);
     free(item);
 }
 
-static ti_query_t * qcache__from_cache(qcache__item_t * item, uint8_t flags)
+static ti_query_t *qcache__from_cache(qcache__item_t *item, uint8_t flags)
 {
-    ti_query_t * query = ti_query_create(flags|TI_QUERY_FLAG_CACHE);
+    ti_query_t *query = ti_query_create(flags|TI_QUERY_FLAG_CACHE);
     if (!query)
         return NULL;
 
@@ -79,9 +79,9 @@ void ti_qcache_destroy(void)
     ti.qcache = NULL;
 }
 
-ti_query_t * ti_qcache_get_query(const char * str, size_t n, uint8_t flags)
+ti_query_t *ti_qcache_get_query(const char *str, size_t n, uint8_t flags)
 {
-    qcache__item_t * item;
+    qcache__item_t *item;
 
     if (n < qcache__threshold)
         return ti_query_create(flags);
@@ -97,7 +97,7 @@ ti_query_t * ti_qcache_get_query(const char * str, size_t n, uint8_t flags)
 /*
  * Only call this function when having a parse result
  */
-void ti_qcache_return(ti_query_t * query)
+void ti_qcache_return(ti_query_t *query)
 {
     assert(query->with_tp == TI_QUERY_WITH_PARSERES);
     assert(query->with.parseres);
@@ -127,7 +127,7 @@ void ti_qcache_return(ti_query_t * query)
 
     if (query->flags & TI_QUERY_FLAG_DO_CACHE)
     {
-        qcache__item_t * item = malloc(sizeof(qcache__item_t));
+        qcache__item_t *item = malloc(sizeof(qcache__item_t));
         if (item)
         {
             /* Set the flags to 0, only `TI_QUERY_FLAG_CACHE` will be set
@@ -154,18 +154,18 @@ void ti_qcache_return(ti_query_t * query)
 
 typedef struct
 {
-    vec_t * qcached;
+    vec_t *qcached;
     uint32_t expire_ts;
 } qcache__cleanup_t;
 
-static int qcache__cleanup_cb(qcache__item_t * item, qcache__cleanup_t * w)
+static int qcache__cleanup_cb(qcache__item_t *item, qcache__cleanup_t *w)
 {
     if (item->last < w->expire_ts)
         (void) vec_push(&w->qcached, item);
     return 0;
 }
 
-static void qcache__cleanup_destroy(qcache__item_t * item)
+static void qcache__cleanup_destroy(qcache__item_t *item)
 {
     if (!item->used)
         ti_counters_inc_wasted_cache();

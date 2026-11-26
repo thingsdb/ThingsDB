@@ -19,8 +19,8 @@ typedef enum
     LOCK_OVERWRITE
 } lock_t;
 
-lock_t lock_lock(const char * path, int flags);
-lock_t lock_unlock(const char * path);
-const char * lock_str(lock_t rc);
+lock_t lock_lock(const char *path, int flags);
+lock_t lock_unlock(const char *path);
+const char *lock_str(lock_t rc);
 
 #endif /* LOCK_H_ */

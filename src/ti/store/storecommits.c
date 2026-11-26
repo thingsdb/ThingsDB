@@ -13,7 +13,7 @@
 #include <util/mpack.h>
 
 
-int ti_store_commits_store(vec_t * commits, const char * fn)
+int ti_store_commits_store(vec_t *commits, const char *fn)
 {
     msgpack_packer pk;
     FILE * f = fopen(fn, "w");
@@ -56,14 +56,14 @@ done:
     return 0;
 }
 
-int ti_store_commits_restore(vec_t ** commits, const char * fn)
+int ti_store_commits_restore(vec_t ** commits, const char *fn)
 {
     int rc = -1;
     fx_mmap_t fmap;
     size_t i;
     mp_obj_t obj;
     mp_unp_t up;
-    ti_commit_t * commit;
+    ti_commit_t *commit;
 
     /* clear existing commits (may exist in the thingsdb scope) */
     ti_commits_destroy(commits);

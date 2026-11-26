@@ -1,10 +1,10 @@
 #include <ti/fn/fn.h>
 
-static int do__f_at(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_at(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_tz_t * tz = fn_default_tz(query);
-    ti_vtask_t * vtask;
+    ti_tz_t *tz = fn_default_tz(query);
+    ti_vtask_t *vtask;
 
     if (!ti_val_is_task(query->rval))
         return fn_call_try("at", query, nd, e);
@@ -16,7 +16,7 @@ static int do__f_at(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (vtask->run_at)
     {
-        ti_datetime_t * dt = ti_datetime_from_u64(vtask->run_at, tz);
+        ti_datetime_t *dt = ti_datetime_from_u64(vtask->run_at, tz);
         query->rval = (ti_val_t *) dt;
         if (!dt)
             ex_set_mem(e);

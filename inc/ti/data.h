@@ -15,7 +15,7 @@ struct ti_data_s
     unsigned char data[];
 };
 
-static inline void ti_data_init(ti_data_t * data, size_t total_n)
+static inline void ti_data_init(ti_data_t *data, size_t total_n)
 {
     data->n = total_n - sizeof(ti_data_t);
 }

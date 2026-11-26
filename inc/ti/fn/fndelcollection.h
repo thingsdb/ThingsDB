@@ -1,12 +1,12 @@
 #include <ti/fn/fn.h>
 
 
-static int do__f_del_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_del_collection(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     uint64_t collection_id;
-    ti_collection_t * collection;
-    ti_task_t * task;
+    ti_collection_t *collection;
+    ti_task_t *task;
 
     if (fn_not_thingsdb_scope("del_collection", query, e) ||
         fn_nargs("del_collection", DOC_DEL_COLLECTION, 1, nargs, e) ||

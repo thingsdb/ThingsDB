@@ -18,7 +18,7 @@ typedef struct cleri_repeat_s cleri_repeat_t;
 extern "C" {
 #endif
 
-cleri_t * cleri_repeat(uint32_t gid, cleri_t * cl_obj, size_t min, size_t max);
+cleri_t *cleri_repeat(uint32_t gid, cleri_t *cl_obj, size_t min, size_t max);
 
 #ifdef __cplusplus
 }
@@ -27,7 +27,7 @@ cleri_t * cleri_repeat(uint32_t gid, cleri_t * cl_obj, size_t min, size_t max);
 /* structs */
 struct cleri_repeat_s
 {
-    cleri_t * cl_obj;
+    cleri_t *cl_obj;
     size_t min;
     size_t max;
 };

@@ -26,14 +26,14 @@ _Bool ti_vbool_no_ref(void);
  * This function is always successful and the result does not have to be
  * checked.
  */
-static inline ti_vbool_t * ti_vbool_get(_Bool b)
+static inline ti_vbool_t *ti_vbool_get(_Bool b)
 {
-    ti_vbool_t * vbool = b ? &vbool__true : &vbool__false;
+    ti_vbool_t *vbool = b ? &vbool__true : &vbool__false;
     ti_incref(vbool);
     return vbool;
 }
 
-static inline int ti_vbool_to_pk(ti_vbool_t * v, msgpack_packer * pk)
+static inline int ti_vbool_to_pk(ti_vbool_t *v, msgpack_packer *pk)
 {
     return v->bool_ ? msgpack_pack_true(pk) : msgpack_pack_false(pk);
 }

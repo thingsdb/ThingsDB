@@ -30,24 +30,24 @@
 #include <util/fx.h>
 #include <util/strx.h>
 
-static void collection__gc_mark_thing(ti_thing_t * thing);
-static inline void collection__gc_val(ti_val_t * val);
+static void collection__gc_mark_thing(ti_thing_t *thing);
+static inline void collection__gc_val(ti_val_t *val);
 
 static const size_t ti_collection_min_name = 1;
 static const size_t ti_collection_max_name = 128;
 
-ti_collection_t * ti_collection_create(
+ti_collection_t *ti_collection_create(
         uint64_t collection_id,
         uint64_t next_free_id,
-        guid_t * guid,
-        const char * name,
+        guid_t *guid,
+        const char *name,
         size_t n,
         uint64_t created_at,
-        ti_tz_t * tz,
+        ti_tz_t *tz,
         uint8_t deep)
 {
     /* we need the `next_free_id` for compatibility with older versions */
-    ti_collection_t * collection = malloc(sizeof(ti_collection_t));
+    ti_collection_t *collection = malloc(sizeof(ti_collection_t));
     if (!collection)
         return NULL;
 
@@ -90,7 +90,7 @@ ti_collection_t * ti_collection_create(
     return collection;
 }
 
-void ti_collection_destroy(ti_collection_t * collection)
+void ti_collection_destroy(ti_collection_t *collection)
 {
     if (!collection)
         return;
@@ -118,7 +118,7 @@ void ti_collection_destroy(ti_collection_t * collection)
     free(collection);
 }
 
-void ti_collection_drop(ti_collection_t * collection)
+void ti_collection_drop(ti_collection_t *collection)
 {
     if (!collection || --collection->ref)
         return;
@@ -135,7 +135,7 @@ void ti_collection_drop(ti_collection_t * collection)
         log_critical(EX_MEMORY_S);
 }
 
-int ti_collection_to_pk(ti_collection_t * collection, msgpack_packer * pk)
+int ti_collection_to_pk(ti_collection_t *collection, msgpack_packer *pk)
 {
     return -(
         msgpack_pack_map(pk, 9) ||
@@ -171,7 +171,7 @@ int ti_collection_to_pk(ti_collection_t * collection, msgpack_packer * pk)
     );
 }
 
-_Bool ti_collection_name_check(const char * name, size_t n, ex_t * e)
+_Bool ti_collection_name_check(const char *name, size_t n, ex_t *e)
 {
     if (n < ti_collection_min_name || n >= ti_collection_max_name)
     {
@@ -194,11 +194,11 @@ _Bool ti_collection_name_check(const char * name, size_t n, ex_t * e)
 }
 
 int ti_collection_rename(
-        ti_collection_t * collection,
-        ti_raw_t * rname,
-        ex_t * e)
+        ti_collection_t *collection,
+        ti_raw_t *rname,
+        ex_t *e)
 {
-    ti_raw_t * scope;
+    ti_raw_t *scope;
     if (!ti_name_is_valid_strn((const char *) rname->data, rname->n))
     {
         ex_set(e, EX_VALUE_ERROR,
@@ -240,9 +240,9 @@ int ti_collection_rename(
  * load an export and use import to restore the collection.
  */
 #define TCCENM collection->name->n, (const char *) collection->name->data
-int ti_collection_check_empty(ti_collection_t * collection, ex_t * e)
+int ti_collection_check_empty(ti_collection_t *collection, ex_t *e)
 {
-    const char * pf = "collection not empty;";
+    const char *pf = "collection not empty;";
 
     if (collection->things->n != 1)
         ex_set(e, EX_OPERATION,
@@ -269,9 +269,9 @@ int ti_collection_check_empty(ti_collection_t * collection, ex_t * e)
     return e->nr;
 }
 
-ti_val_t * ti_collection_as_mpval(ti_collection_t * collection)
+ti_val_t *ti_collection_as_mpval(ti_collection_t *collection)
 {
-    ti_raw_t * raw;
+    ti_raw_t *raw;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -294,12 +294,12 @@ ti_val_t * ti_collection_as_mpval(ti_collection_t * collection)
  * Usually make a call to `ti_collection_find_thing` which will first look in
  * the collection and only if not found will look at the garbage collection.
  */
-ti_thing_t * ti_collection_thing_restore_gc(
-        ti_collection_t * collection,
+ti_thing_t *ti_collection_thing_restore_gc(
+        ti_collection_t *collection,
         uint64_t thing_id)
 {
     size_t idx = 0;
-    ti_thing_t * thing;
+    ti_thing_t *thing;
 
     /* look if the thing is marked for garbage collection */
     for (queue_each(collection->gc, ti_gc_t, gc), ++idx)
@@ -328,7 +328,7 @@ ti_thing_t * ti_collection_thing_restore_gc(
     return NULL;
 }
 
-static void collection__gc_mark_varr(ti_varr_t * varr)
+static void collection__gc_mark_varr(ti_varr_t *varr)
 {
     for (vec_each(varr->vec, ti_val_t, val))
     {
@@ -336,21 +336,21 @@ static void collection__gc_mark_varr(ti_varr_t * varr)
         {
         case TI_VAL_THING:
         {
-            ti_thing_t * thing = (ti_thing_t *) val;
+            ti_thing_t *thing = (ti_thing_t *) val;
             if (thing->flags & TI_THING_FLAG_SWEEP)
                 collection__gc_mark_thing(thing);
             continue;
         }
         case TI_VAL_WRAP:
         {
-            ti_thing_t * thing = ((ti_wrap_t *) val)->thing;
+            ti_thing_t *thing = ((ti_wrap_t *) val)->thing;
             if (thing->flags & TI_THING_FLAG_SWEEP)
                 collection__gc_mark_thing(thing);
             continue;
         }
         case TI_VAL_ARR:
         {
-            ti_varr_t * varr = (ti_varr_t *) val;
+            ti_varr_t *varr = (ti_varr_t *) val;
             if (ti_val_mht(varr))
                 collection__gc_mark_varr(varr);
             continue;
@@ -359,66 +359,66 @@ static void collection__gc_mark_varr(ti_varr_t * varr)
     }
 }
 
-static int colection__set_cb(ti_thing_t * thing, void * UNUSED(arg))
+static int colection__set_cb(ti_thing_t *thing, void *UNUSED(arg))
 {
     if (thing->flags & TI_THING_FLAG_SWEEP)
         collection__gc_mark_thing(thing);
     return 0;
 }
 
-static int colection__dict_cb(ti_val_t * val, void * UNUSED(arg))
+static int colection__dict_cb(ti_val_t *val, void *UNUSED(arg))
 {
     (void) collection__gc_val(val);
     return 0;
 }
 
-static inline void collection__gc_val(ti_val_t * val)
+static inline void collection__gc_val(ti_val_t *val)
 {
     switch(val->tp)
     {
     case TI_VAL_THING:
     {
-        ti_thing_t * thing = (ti_thing_t *) val;
+        ti_thing_t *thing = (ti_thing_t *) val;
         if (thing->flags & TI_THING_FLAG_SWEEP)
             collection__gc_mark_thing(thing);
         return;
     }
     case TI_VAL_WRAP:
     {
-        ti_thing_t * thing = ((ti_wrap_t *) val)->thing;
+        ti_thing_t *thing = ((ti_wrap_t *) val)->thing;
         if (thing->flags & TI_THING_FLAG_SWEEP)
             collection__gc_mark_thing(thing);
         return;
     }
     case TI_VAL_ARR:
     {
-        ti_varr_t * varr = (ti_varr_t *) val;
+        ti_varr_t *varr = (ti_varr_t *) val;
         if (ti_val_mht(varr))
             collection__gc_mark_varr(varr);
         return;
     }
     case TI_VAL_SET:
     {
-        ti_vset_t * vset = (ti_vset_t *) val;
+        ti_vset_t *vset = (ti_vset_t *) val;
         (void) imap_walk(vset->imap, (imap_cb) colection__set_cb, NULL);
         return;
     }
     case TI_VAL_DICT:
     {
-        ti_dict_t * dict = (ti_dict_t *) val;
+        ti_dict_t *dict = (ti_dict_t *) val;
         (void) ti_dict_walk(dict, (ti_dict_cb) colection__dict_cb, NULL);
         return;
     }
     }
 }
 
-static int collection__mark_enum_cb(ti_enum_t * enum_, void * UNUSED(data))
+static int collection__mark_enum_cb(ti_enum_t *enum_, void *UNUSED(data))
 {
     if (enum_->enum_tp == TI_ENUM_THING)
     {
         for (vec_each(enum_->members, ti_member_t, member))
         {
-            ti_thing_t * thing = (ti_thing_t *) VMEMBER(member);
+            ti_thing_t *thing = (ti_thing_t *) VMEMBER(member);
             if (thing->flags & TI_THING_FLAG_SWEEP)
                 collection__gc_mark_thing(thing);
         }
@@ -426,13 +426,13 @@ static int collection__mark_enum_cb(ti_enum_t * enum_, void * UNUSED(data))
     return 0;
 }
 
-static int collection__gc_i_cb(ti_item_t * item, void * UNUSED(arg))
+static int collection__gc_i_cb(ti_item_t *item, void *UNUSED(arg))
 {
     collection__gc_val(item->val);
     return 0;
 }
 
-static void collection__gc_mark_thing(ti_thing_t * thing)
+static void collection__gc_mark_thing(ti_thing_t *thing)
 {
     thing->flags &= ~TI_THING_FLAG_SWEEP;
 
@@ -450,9 +450,9 @@ static void collection__gc_mark_thing(ti_thing_t * thing)
             collection__gc_val(val);
 }
 
-void ti_collection_gc_clear(ti_collection_t * collection)
+void ti_collection_gc_clear(ti_collection_t *collection)
 {
-    ti_gc_t * gc;
+    ti_gc_t *gc;
 
     for (queue_each(collection->gc, ti_gc_t, gc))
         gc->thing->ref = 0;
@@ -469,15 +469,15 @@ void ti_collection_gc_clear(ti_collection_t * collection)
 
 typedef struct
 {
-    ti_collection_t * collection;
+    ti_collection_t *collection;
     uint64_t ccid;
 } collection__gc_t;
 
-static int collection__gc_thing(ti_thing_t * thing, collection__gc_t * w)
+static int collection__gc_thing(ti_thing_t *thing, collection__gc_t *w)
 {
     if (thing->flags & TI_THING_FLAG_SWEEP)
     {
-        ti_gc_t * gc = ti_gc_create(w->ccid, thing);
+        ti_gc_t *gc = ti_gc_create(w->ccid, thing);
 
         /*
          * Things are removed from the collection after the walk because we
@@ -502,9 +502,9 @@ static int collection__gc_thing(ti_thing_t * thing, collection__gc_t * w)
     return 0;
 }
 
-void ti_collection_stop_futures(ti_collection_t * collection)
+void ti_collection_stop_futures(ti_collection_t *collection)
 {
-    ti_future_t * future;
+    ti_future_t *future;
 
     /*
      * First take a reference, otherwise the stop future call might adjust the
@@ -520,7 +520,7 @@ void ti_collection_stop_futures(ti_collection_t * collection)
         ti_val_unsafe_drop((ti_val_t *) future);
 }
 
-int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
+int ti_collection_gc(ti_collection_t *collection, _Bool do_mark_things)
 {
     size_t n = 0, m = 0, idx = 0;
     uint64_t scid = ti.global_stored_change_id;
@@ -585,8 +585,8 @@ int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
 
     while (m--)
     {
-        ti_gc_t * gc = queue_shift(collection->gc);
-        ti_thing_t * thing = gc->thing;
+        ti_gc_t *gc = queue_shift(collection->gc);
+        ti_thing_t *thing = gc->thing;
         free(gc);
 
         if (thing->flags & TI_THING_FLAG_SWEEP)
@@ -655,20 +655,20 @@ int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
     return 0;
 }
 
-ti_pkg_t * ti_collection_join_rooms(
-        ti_collection_t * collection,
-        ti_stream_t * stream,
-        ti_pkg_t * pkg,
-        ex_t * e)
+ti_pkg_t *ti_collection_join_rooms(
+        ti_collection_t *collection,
+        ti_stream_t *stream,
+        ti_pkg_t *pkg,
+        ex_t *e)
 {
-    ti_pkg_t * resp;
+    ti_pkg_t *resp;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
     size_t i, nargs, size = pkg->n + sizeof(ti_pkg_t);
     mp_unp_t up;
     mp_obj_t obj = {0}, mp_id;
-    ti_room_t * room;
-    vec_t * whitelist = stream->via.user->whitelists[TI_WHITELIST_ROOMS];
+    ti_room_t *room;
+    vec_t *whitelist = stream->via.user->whitelists[TI_WHITELIST_ROOMS];
 
     mp_unp_init(&up, pkg->data, pkg->n);
 
@@ -748,19 +748,19 @@ ti_pkg_t * ti_collection_join_rooms(
     return resp;
 }
 
-ti_pkg_t * ti_collection_leave_rooms(
-        ti_collection_t * collection,
-        ti_stream_t * stream,
-        ti_pkg_t * pkg,
-        ex_t * e)
+ti_pkg_t *ti_collection_leave_rooms(
+        ti_collection_t *collection,
+        ti_stream_t *stream,
+        ti_pkg_t *pkg,
+        ex_t *e)
 {
-    ti_pkg_t * resp;
+    ti_pkg_t *resp;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
     size_t i, nargs, size = pkg->n + sizeof(ti_pkg_t);
     mp_unp_t up;
     mp_obj_t obj = {0}, mp_id;
-    ti_room_t * room;
+    ti_room_t *room;
 
     mp_unp_init(&up, pkg->data, pkg->n);
 
@@ -827,12 +827,12 @@ ti_pkg_t * ti_collection_leave_rooms(
  * nodes. Any other error indicates no changes are made.
  */
 int ti_collection_unpack(
-        ti_collection_t * collection,
-        mp_unp_t * up,
-        ex_t * e)
+        ti_collection_t *collection,
+        mp_unp_t *up,
+        ex_t *e)
 {
     mp_obj_t obj, mp_schema, mp_version;
-    char * version = NULL;
+    char *version = NULL;
     size_t i;
 
     if (mp_next(up, &obj) != MP_ARR || obj.via.sz == 0 ||
@@ -883,7 +883,7 @@ int ti_collection_unpack(
     return e->nr;
 }
 
-void ti_collection_tasks_clear(ti_collection_t * collection)
+void ti_collection_tasks_clear(ti_collection_t *collection)
 {
     for (vec_each(collection->vtasks, ti_vtask_t, vtask))
         ti_vtask_del(vtask->id, collection);
@@ -897,9 +897,9 @@ void ti_collection_tasks_clear(ti_collection_t * collection)
  * nodes. Any other error indicates no changes are made.
  */
 int ti_collection_load(
-        ti_collection_t * collection,
-        ti_raw_t * bytes,
-        ex_t * e)
+        ti_collection_t *collection,
+        ti_raw_t *bytes,
+        ex_t *e)
 {
     mp_unp_t up;
     mp_unp_init(&up, bytes->data, bytes->n);

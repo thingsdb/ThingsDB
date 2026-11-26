@@ -1,9 +1,9 @@
 #include <ti/fn/fn.h>
 
-static int do__f_type_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_type_info(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_type_t * type;
+    ti_type_t *type;
 
     if (fn_not_collection_scope("type_info", query, e) ||
         fn_nargs("type_info", DOC_TYPE_INFO, 1, nargs, e) ||

@@ -7,9 +7,9 @@
 #include <ti/item.h>
 #include <ti/val.inline.h>
 
-ti_item_t * ti_item_create(ti_raw_t * raw, ti_val_t * val)
+ti_item_t *ti_item_create(ti_raw_t *raw, ti_val_t *val)
 {
-    ti_item_t * item = malloc(sizeof(ti_item_t));
+    ti_item_t *item = malloc(sizeof(ti_item_t));
     if (!item)
         return NULL;
 
@@ -22,9 +22,9 @@ ti_item_t * ti_item_create(ti_raw_t * raw, ti_val_t * val)
 /*
  * Returns a duplicate of the item with a new reference for the raw and value.
  */
-ti_item_t * ti_item_dup(ti_item_t * item)
+ti_item_t *ti_item_dup(ti_item_t *item)
 {
-    ti_item_t * dup = malloc(sizeof(ti_item_t));
+    ti_item_t *dup = malloc(sizeof(ti_item_t));
     if (!item)
         return NULL;
 
@@ -35,7 +35,7 @@ ti_item_t * ti_item_dup(ti_item_t * item)
     return dup;
 }
 
-void ti_item_unassign_destroy(ti_item_t * item)
+void ti_item_unassign_destroy(ti_item_t *item)
 {
     if (!item)
         return;
@@ -45,7 +45,7 @@ void ti_item_unassign_destroy(ti_item_t * item)
 }
 
 
-void ti_item_unsafe_vdestroy(ti_item_t * item)
+void ti_item_unsafe_vdestroy(ti_item_t *item)
 {
     ti_val_unsafe_drop((ti_val_t *) item->key);
     free(item);

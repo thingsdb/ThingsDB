@@ -17,34 +17,34 @@
 #include <ti/vint.h>
 #include <util/strx.h>
 
-static ti_val_t * condition__dval_cb(ti_field_t * field)
+static ti_val_t *condition__dval_cb(ti_field_t *field)
 {
-    ti_val_t * dval = field->condition.dval->dval;
+    ti_val_t *dval = field->condition.dval->dval;
     ti_incref(dval);
     return dval;
 }
 
-static ti_val_t * condition__dval_true_cb(ti_field_t * UNUSED(field))
+static ti_val_t *condition__dval_true_cb(ti_field_t *UNUSED(field))
 {
     return (ti_val_t *) ti_vbool_get(true);
 }
 
-static ti_val_t * condition__dval_false_cb(ti_field_t * UNUSED(field))
+static ti_val_t *condition__dval_false_cb(ti_field_t *UNUSED(field))
 {
     return (ti_val_t *) ti_vbool_get(false);
 }
 
 int ti_condition_field_info_init(
-        ti_field_t * field,
-        const char * str,
+        ti_field_t *field,
+        const char *str,
         size_t n,
-        ex_t * e)
+        ex_t *e)
 {
-    ti_val_t * dval = NULL;
-    ti_regex_t * regex = NULL;
+    ti_val_t *dval = NULL;
+    ti_regex_t *regex = NULL;
     ti_spec_enum_t spec;
-    const char * end = str + n - 1;
-    char * tmp;
+    const char *end = str + n - 1;
+    char *tmp;
     _Bool is_nillable = field->spec & TI_SPEC_NILLABLE;
 
     /* can be set even for nillable */
@@ -511,14 +511,14 @@ failed:
 }
 
 int ti_condition_field_re_init(
-        ti_field_t * field,
-        const char * str,
+        ti_field_t *field,
+        const char *str,
         size_t n,
-        ex_t * e)
+        ex_t *e)
 {
-    ti_regex_t * regex;
-    ti_val_t * dval = NULL;
-    const char * end = str + n - 1;
+    ti_regex_t *regex;
+    ti_val_t *dval = NULL;
+    const char *end = str + n - 1;
     _Bool is_nillable = field->spec & TI_SPEC_NILLABLE;
 
     /* can be set even for nillable */
@@ -605,7 +605,7 @@ fail0:
     return e->nr;
 }
 
-int ti_condition_init_enum(ti_field_t * field, ti_member_t * member, ex_t * e)
+int ti_condition_init_enum(ti_field_t *field, ti_member_t *member, ex_t *e)
 {
     field->condition.dval = malloc(sizeof(ti_condition_dval_t));
     if (!field->condition.dval)
@@ -620,9 +620,9 @@ int ti_condition_init_enum(ti_field_t * field, ti_member_t * member, ex_t * e)
 }
 
 static void condition__del_type_cb(
-        ti_field_t * field,
-        ti_thing_t * thing,
-        ti_thing_t * UNUSED(relation))
+        ti_field_t *field,
+        ti_thing_t *thing,
+        ti_thing_t *UNUSED(relation))
 {
     ti_val_t ** vaddr = \
             (ti_val_t **) vec_get_addr(thing->items.vec, field->idx);
@@ -631,9 +631,9 @@ static void condition__del_type_cb(
 }
 
 static void condition__add_type_cb(
-        ti_field_t * field,
-        ti_thing_t * thing,
-        ti_thing_t * relation)
+        ti_field_t *field,
+        ti_thing_t *thing,
+        ti_thing_t *relation)
 {
     ti_val_t ** vaddr = \
             (ti_val_t **) vec_get_addr(thing->items.vec, field->idx);
@@ -643,11 +643,11 @@ static void condition__add_type_cb(
 }
 
 static void condition__del_set_cb(
-        ti_field_t * field,
-        ti_thing_t * thing,
-        ti_thing_t * relation)
+        ti_field_t *field,
+        ti_thing_t *thing,
+        ti_thing_t *relation)
 {
-    ti_vset_t * vset = VEC_get(thing->items.vec, field->idx);
+    ti_vset_t *vset = VEC_get(thing->items.vec, field->idx);
     ti_val_gc_drop(imap_pop(vset->imap, ti_thing_key(relation)));
 }
 
@@ -665,23 +665,23 @@ static void condition__del_set_cb(
  *
  */
 static void condition__del_same_set_cb(
-        ti_field_t * field,
-        ti_thing_t * thing,
-        ti_thing_t * relation)
+        ti_field_t *field,
+        ti_thing_t *thing,
+        ti_thing_t *relation)
 {
     if (thing != relation)
     {
-        ti_vset_t * vset = VEC_get(thing->items.vec, field->idx);
+        ti_vset_t *vset = VEC_get(thing->items.vec, field->idx);
         ti_val_gc_drop(imap_pop(vset->imap, ti_thing_key(relation)));
     }
 }
 
 static void condition__add_set_cb(
-        ti_field_t * field,
-        ti_thing_t * thing,
-        ti_thing_t * relation)
+        ti_field_t *field,
+        ti_thing_t *thing,
+        ti_thing_t *relation)
 {
-    ti_vset_t * vset = VEC_get(thing->items.vec, field->idx);
+    ti_vset_t *vset = VEC_get(thing->items.vec, field->idx);
 
     switch(imap_add(vset->imap, ti_thing_key(relation), relation))
     {
@@ -695,7 +695,7 @@ static void condition__add_set_cb(
     }
 }
 
-int ti_condition_field_key(ti_field_t * field, uint16_t spec, ex_t * e)
+int ti_condition_field_key(ti_field_t *field, uint16_t spec, ex_t *e)
 {
     if (field->condition.key)
         return e->nr;
@@ -711,10 +711,10 @@ int ti_condition_field_key(ti_field_t * field, uint16_t spec, ex_t * e)
 }
 
 int ti_condition_field_key_init(
-        ti_field_t * field,
-        const char * str,
+        ti_field_t *field,
+        const char *str,
         size_t n,
-        ex_t * e)
+        ex_t *e)
 {
     assert(*str == '<');
     assert(n >= 2);
@@ -725,8 +725,8 @@ int ti_condition_field_key_init(
     n--;
 
     int pos = 0;
-    const char * ptr = str;
-    const char * end = str + n;
+    const char *ptr = str;
+    const char *end = str + n;
 
     for (; ptr < end; ptr++, pos++)
     {
@@ -783,11 +783,11 @@ invalid_syntax:
 }
 
 int ti_condition_field_rel_init(
-        ti_field_t * field,
-        ti_field_t * ofield,
-        ex_t * e)
+        ti_field_t *field,
+        ti_field_t *ofield,
+        ex_t *e)
 {
-    ti_condition_rel_t * a, * b = malloc(sizeof(ti_condition_rel_t));
+    ti_condition_rel_t *a, *b = malloc(sizeof(ti_condition_rel_t));
 
     a = (field == ofield) ? b : malloc(sizeof(ti_condition_rel_t));
 
@@ -828,12 +828,12 @@ mem_error:
     return e->nr;
 }
 
-int ti_condition_init_type(ti_field_t * field, ex_t * e)
+int ti_condition_init_type(ti_field_t *field, ex_t *e)
 {
     uint8_t flags = TI_TYPE_FLAG_WRAP_ONLY | TI_TYPE_FLAG_HIDE_ID;
-    ti_type_t * type;
-    ti_val_t * val;
-    ti_thing_t * thing;
+    ti_type_t *type;
+    ti_val_t *val;
+    ti_thing_t *thing;
     mp_unp_t up;
     ti_vup_t vup = {
             .isclient = true,
@@ -848,7 +848,7 @@ int ti_condition_init_type(ti_field_t * field, ex_t * e)
 
     if (ti_val_is_array(val))
     {
-        vec_t * vec = VARR(val);
+        vec_t *vec = VARR(val);
         field->nested_spec = TI_SPEC_TYPE;
         field->spec = TI_SPEC_ARR_TYPE | TI_SPEC_NILLABLE;
         thing = vec_first(vec);
@@ -874,7 +874,7 @@ int ti_condition_init_type(ti_field_t * field, ex_t * e)
 
     for (vec_each(thing->items.vec, ti_prop_t, prop))
     {
-        ti_raw_t * spec_raw = (ti_raw_t *) prop->val;
+        ti_raw_t *spec_raw = (ti_raw_t *) prop->val;
         if (ti_val_is_raw(prop->val) && spec_raw->n)
         {
             if (spec_raw->data[0] == '#')
@@ -886,7 +886,7 @@ int ti_condition_init_type(ti_field_t * field, ex_t * e)
                     .immutable_n = 0,
                     .flags = TI_QBIND_FLAG_COLLECTION,
                 };
-                ti_closure_t * closure = ti_closure_from_strn(
+                ti_closure_t *closure = ti_closure_from_strn(
                         &syntax,
                         (const char *) spec_raw->data,
                         spec_raw->n,

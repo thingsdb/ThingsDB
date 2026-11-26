@@ -34,8 +34,8 @@ typedef union ti_change_u ti_change_via_t;
 
 union ti_change_u
 {
-    ti_query_t * query;         /* TI_CHANGE_TP_MASTER (no reference) */
-    ti_cpkg_t * cpkg;           /* TI_CHANGE_TP_CPKG (with reference) */
+    ti_query_t *query;         /* TI_CHANGE_TP_MASTER (no reference) */
+    ti_cpkg_t *cpkg;           /* TI_CHANGE_TP_CPKG (with reference) */
 };
 
 struct ti_change_s
@@ -47,8 +47,8 @@ struct ti_change_s
     uint8_t requests;       /* when master, keep the `n` requests */
     uint64_t id;
     ti_change_via_t via;
-    ti_collection_t * collection;   /* collection with reference or NULL */
-    vec_t * tasks;                 /* ti_task_t */
+    ti_collection_t *collection;   /* collection with reference or NULL */
+    vec_t *tasks;                 /* ti_task_t */
     util_time_t time;               /* timing a change, used for elapsed
                                      * time etc.
                                      */

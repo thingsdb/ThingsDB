@@ -38,298 +38,298 @@
 #include <ti/wrap.inline.h>
 #include <util/strx.h>
 
-static inline int val__str_to_str(ti_val_t ** UNUSED(v), ex_t * UNUSED(e));
-static inline int val__str_to_uuid(ti_val_t ** UNUSED(v), ex_t * UNUSED(e));
-static inline int val__uuid_to_uuid(ti_val_t ** UNUSED(v), ex_t * UNUSED(e));
-static inline int val__no_to_str(ti_val_t ** val, ex_t * e);
-static inline int val__no_to_uuid(ti_val_t ** val, ex_t * e);
+static inline int val__str_to_str(ti_val_t ** UNUSED(v), ex_t *UNUSED(e));
+static inline int val__str_to_uuid(ti_val_t ** UNUSED(v), ex_t *UNUSED(e));
+static inline int val__uuid_to_uuid(ti_val_t ** UNUSED(v), ex_t *UNUSED(e));
+static inline int val__no_to_str(ti_val_t ** val, ex_t *e);
+static inline int val__no_to_uuid(ti_val_t ** val, ex_t *e);
 
-static inline void val__no_attach(ti_val_t * UNUSED(val), ti_thing_t * UNUSED(thing), void * UNUSED(key))
+static inline void val__no_attach(ti_val_t *UNUSED(val), ti_thing_t *UNUSED(thing), void *UNUSED(key))
 {
 }
 
-static inline void val__attach(ti_val_t * val, ti_thing_t * thing, void * key)
+static inline void val__attach(ti_val_t *val, ti_thing_t *thing, void *key)
 {
     ((ti_parent_t *) val)->parent = thing;
     ((ti_parent_t *) val)->key_ = key;
 }
 
 
-static inline _Bool val__as_bool_false(ti_val_t * UNUSED(val))
+static inline _Bool val__as_bool_false(ti_val_t *UNUSED(val))
 {
     return false;
 }
-static inline _Bool val__as_bool_true(ti_val_t * UNUSED(val))
+static inline _Bool val__as_bool_true(ti_val_t *UNUSED(val))
 {
     return true;
 }
-static inline _Bool val__as_bool_int(ti_val_t * val)
+static inline _Bool val__as_bool_int(ti_val_t *val)
 {
     return !!VINT(val);;
 }
-static inline _Bool val__as_bool_float(ti_val_t * val)
+static inline _Bool val__as_bool_float(ti_val_t *val)
 {
     return !!VFLOAT(val);
 }
-static inline _Bool val__as_bool_bool(ti_val_t * val)
+static inline _Bool val__as_bool_bool(ti_val_t *val)
 {
     return VBOOL(val);
 }
-static inline _Bool val__as_bool_raw(ti_val_t * val)
+static inline _Bool val__as_bool_raw(ti_val_t *val)
 {
     return !!((ti_raw_t *) val)->n;
 }
-static inline _Bool val__as_bool_arr(ti_val_t * val)
+static inline _Bool val__as_bool_arr(ti_val_t *val)
 {
     return !!VARR(val)->n;
 }
-static inline _Bool val__as_bool_set(ti_val_t * val)
+static inline _Bool val__as_bool_set(ti_val_t *val)
 {
     return !!VSET(val)->n;
 }
-static inline _Bool val__as_bool_dict(ti_val_t * val)
+static inline _Bool val__as_bool_dict(ti_val_t *val)
 {
     return ti_dict_bool((ti_dict_t *) val);
 }
-static inline _Bool val__as_bool_thing(ti_val_t * val)
+static inline _Bool val__as_bool_thing(ti_val_t *val)
 {
     return !!ti_thing_n((ti_thing_t *) val);
 }
-static inline _Bool val__as_bool_wrap(ti_val_t * val)
+static inline _Bool val__as_bool_wrap(ti_val_t *val)
 {
     return !!ti_thing_n(((ti_wrap_t *) val)->thing);
 }
-static inline _Bool val__as_bool_wano(ti_val_t * val)
+static inline _Bool val__as_bool_wano(ti_val_t *val)
 {
     return !!ti_thing_n(((ti_wano_t *) val)->thing);
 }
-static inline _Bool val__as_bool_room(ti_val_t * val)
+static inline _Bool val__as_bool_room(ti_val_t *val)
 {
     return !!((ti_room_t *) val)->id;
 }
-static inline _Bool val__as_bool_task(ti_val_t * val)
+static inline _Bool val__as_bool_task(ti_val_t *val)
 {
    return !!((ti_vtask_t *) val)->run_at;
 }
-static inline _Bool val__as_bool_member(ti_val_t * val);  /* defined later */
+static inline _Bool val__as_bool_member(ti_val_t *val);  /* defined later */
 
 
-static inline const char * val__nil_type_str(ti_val_t * UNUSED(val))
+static inline const char *val__nil_type_str(ti_val_t *UNUSED(val))
 {
     return TI_VAL_NIL_S;
 }
-static inline const char * val__int_type_str(ti_val_t * UNUSED(val))
+static inline const char *val__int_type_str(ti_val_t *UNUSED(val))
 {
     return TI_VAL_INT_S;
 }
-static inline const char * val__float_type_str(ti_val_t * UNUSED(val))
+static inline const char *val__float_type_str(ti_val_t *UNUSED(val))
 {
     return TI_VAL_FLOAT_S;
 }
-static inline const char * val__bool_type_str(ti_val_t * UNUSED(val))
+static inline const char *val__bool_type_str(ti_val_t *UNUSED(val))
 {
     return TI_VAL_BOOL_S;
 }
-static inline const char * val__datetime_type_str(ti_val_t * val)
+static inline const char *val__datetime_type_str(ti_val_t *val)
 {
     return ti_datetime_is_timeval((ti_datetime_t *) val)
             ? TI_VAL_TIMEVAL_S
             : TI_VAL_DATETIME_S;
 }
-static inline const char * val__str_type_str(ti_val_t * UNUSED(val))
+static inline const char *val__str_type_str(ti_val_t *UNUSED(val))
 {
     return TI_VAL_STR_S;
 }
-static inline const char * val__bytes_type_str(ti_val_t * UNUSED(val))
+static inline const char *val__bytes_type_str(ti_val_t *UNUSED(val))
 {
     return TI_VAL_BYTES_S;
 }
-static inline const char * val__regex_type_str(ti_val_t * UNUSED(val))
+static inline const char *val__regex_type_str(ti_val_t *UNUSED(val))
 {
     return TI_VAL_REGEX_S;
 }
-static inline const char * val__thing_type_str(ti_val_t * val)
+static inline const char *val__thing_type_str(ti_val_t *val)
 {
     return ti_thing_is_object((ti_thing_t *) val)
             ? TI_VAL_THING_S
             : ti_thing_type_str((ti_thing_t *) val);
 }
-static inline const char * val__wrap_type_str(ti_val_t * val)
+static inline const char *val__wrap_type_str(ti_val_t *val)
 {
     return ti_wrap_type_str((ti_wrap_t *) val);
 }
-static inline const char * val__room_type_str(ti_val_t * UNUSED(val))
+static inline const char *val__room_type_str(ti_val_t *UNUSED(val))
 {
     return TI_VAL_ROOM_S;
 }
-static inline const char * val__task_type_str(ti_val_t * UNUSED(val))
+static inline const char *val__task_type_str(ti_val_t *UNUSED(val))
 {
     return TI_VAL_TASK_S;
 }
-static inline const char * val__arr_type_str(ti_val_t * val)
+static inline const char *val__arr_type_str(ti_val_t *val)
 {
     return ti_varr_is_list((ti_varr_t *) val)
             ? TI_VAL_LIST_S
             : TI_VAL_TUPLE_S;
 }
-static inline const char * val__set_type_str(ti_val_t * UNUSED(val))
+static inline const char *val__set_type_str(ti_val_t *UNUSED(val))
 {
     return TI_VAL_SET_S;
 }
-static inline const char * val__dict_type_str(ti_val_t * UNUSED(val))
+static inline const char *val__dict_type_str(ti_val_t *UNUSED(val))
 {
     return TI_VAL_DICT_S;
 }
-static inline const char * val__error_type_str(ti_val_t * UNUSED(val))
+static inline const char *val__error_type_str(ti_val_t *UNUSED(val))
 {
     return TI_VAL_ERROR_S;
 }
-static inline const char * val__member_type_str(ti_val_t * val)
+static inline const char *val__member_type_str(ti_val_t *val)
 {
     return ti_member_enum_name((ti_member_t *) val);
 }
-static inline const char * val__mpdata_type_str(ti_val_t * UNUSED(val))
+static inline const char *val__mpdata_type_str(ti_val_t *UNUSED(val))
 {
     return TI_VAL_MPDATA_S;
 }
-static inline const char * val__closure_type_str(ti_val_t * UNUSED(val))
+static inline const char *val__closure_type_str(ti_val_t *UNUSED(val))
 {
     return TI_VAL_CLOSURE_S;
 }
-static inline const char * val__future_type_str(ti_val_t * UNUSED(val))
+static inline const char *val__future_type_str(ti_val_t *UNUSED(val))
 {
     return TI_VAL_FUTURE_S;
 }
-static inline const char * val__module_type_str(ti_val_t * UNUSED(val))
+static inline const char *val__module_type_str(ti_val_t *UNUSED(val))
 {
     return TI_VAL_MODULE_S;
 }
-static inline const char * val__ano_type_str(ti_val_t * UNUSED(val))
+static inline const char *val__ano_type_str(ti_val_t *UNUSED(val))
 {
     return TI_VAL_ANO_S;
 }
-static inline const char * val__wano_type_str(ti_val_t * UNUSED(val))
+static inline const char *val__wano_type_str(ti_val_t *UNUSED(val))
 {
     return TI_VAL_WANO_S;
 }
-static inline const char * val__uuid_type_str(ti_val_t * UNUSED(val))
+static inline const char *val__uuid_type_str(ti_val_t *UNUSED(val))
 {
     return TI_VAL_UUID_S;
 }
 
-static inline int val__nil_to_client_pk(ti_val_t * UNUSED(v), ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
+static inline int val__nil_to_client_pk(ti_val_t *UNUSED(v), ti_vp_t *vp, int UNUSED(d), int UNUSED(f))
 {
     return msgpack_pack_nil(&vp->pk);
 }
-static inline int val__nil_to_store_pk(ti_val_t * UNUSED(v), msgpack_packer * pk)
+static inline int val__nil_to_store_pk(ti_val_t *UNUSED(v), msgpack_packer *pk)
 {
     return msgpack_pack_nil(pk);
 }
-static inline int val__int_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
+static inline int val__int_to_client_pk(ti_val_t *val, ti_vp_t *vp, int UNUSED(d), int UNUSED(f))
 {
     return msgpack_pack_int64(&vp->pk, VINT(val));
 }
-static inline int val__int_to_store_pk(ti_val_t * val, msgpack_packer * pk)
+static inline int val__int_to_store_pk(ti_val_t *val, msgpack_packer *pk)
 {
     return msgpack_pack_int64(pk, VINT(val));
 }
-static inline int val__float_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
+static inline int val__float_to_client_pk(ti_val_t *val, ti_vp_t *vp, int UNUSED(d), int UNUSED(f))
 {
     return msgpack_pack_double(&vp->pk, VFLOAT(val));
 }
-static inline int val__float_to_store_pk(ti_val_t * val, msgpack_packer * pk)
+static inline int val__float_to_store_pk(ti_val_t *val, msgpack_packer *pk)
 {
     return msgpack_pack_double(pk, VFLOAT(val));
 }
-static inline int val__bool_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
+static inline int val__bool_to_client_pk(ti_val_t *val, ti_vp_t *vp, int UNUSED(d), int UNUSED(f))
 {
     return ti_vbool_to_pk((ti_vbool_t *) val, &vp->pk);
 }
-static inline int val__datetime_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
+static inline int val__datetime_to_client_pk(ti_val_t *val, ti_vp_t *vp, int UNUSED(d), int UNUSED(f))
 {
     return ti_datetime_to_client_pk((ti_datetime_t *) val, &vp->pk);
 }
-static inline int val__str_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
+static inline int val__str_to_client_pk(ti_val_t *val, ti_vp_t *vp, int UNUSED(d), int UNUSED(f))
 {
     return ti_raw_str_to_pk((ti_raw_t *) val, &vp->pk);
 }
-static inline int val__bytes_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
+static inline int val__bytes_to_client_pk(ti_val_t *val, ti_vp_t *vp, int UNUSED(d), int UNUSED(f))
 {
     return ti_raw_bytes_to_pk((ti_raw_t *) val, &vp->pk);
 }
-static inline int val__regex_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
+static inline int val__regex_to_client_pk(ti_val_t *val, ti_vp_t *vp, int UNUSED(d), int UNUSED(f))
 {
     return ti_regex_to_client_pk((ti_regex_t *) val, &vp->pk);
 }
-static inline int val__room_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
+static inline int val__room_to_client_pk(ti_val_t *val, ti_vp_t *vp, int UNUSED(d), int UNUSED(f))
 {
     return ti_room_to_client_pk((ti_room_t *) val, &vp->pk);
 }
-static inline int val__task_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
+static inline int val__task_to_client_pk(ti_val_t *val, ti_vp_t *vp, int UNUSED(d), int UNUSED(f))
 {
     return ti_vtask_to_client_pk((ti_vtask_t *) val, &vp->pk);
 }
-static inline int val__error_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
+static inline int val__error_to_client_pk(ti_val_t *val, ti_vp_t *vp, int UNUSED(d), int UNUSED(f))
 {
     return ti_verror_to_client_pk((ti_verror_t *) val, &vp->pk);
 }
-static inline int val__ano_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
+static inline int val__ano_to_client_pk(ti_val_t *val, ti_vp_t *vp, int UNUSED(d), int UNUSED(f))
 {
     return ti_ano_to_client_pk((ti_ano_t *) val, &vp->pk);
 }
-static inline int val__mpdata_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
+static inline int val__mpdata_to_client_pk(ti_val_t *val, ti_vp_t *vp, int UNUSED(d), int UNUSED(f))
 {
     return ti_raw_mpdata_to_client_pk((ti_raw_t *) val, &vp->pk);
 }
-static inline int val__closure_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
+static inline int val__closure_to_client_pk(ti_val_t *val, ti_vp_t *vp, int UNUSED(d), int UNUSED(f))
 {
     return ti_closure_to_client_pk((ti_closure_t *) val, &vp->pk);
 }
-static inline int val__uuid_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
+static inline int val__uuid_to_client_pk(ti_val_t *val, ti_vp_t *vp, int UNUSED(d), int UNUSED(f))
 {
     return ti_uuid_to_client_pk(VUUID(val), &vp->pk);
 }
-static inline int val__future_to_client_pk(ti_future_t * future, ti_vp_t * vp, int deep, int flags);
-static inline int val__module_to_client_pk(ti_module_t * UNUSED(module), ti_vp_t * vp, int UNUSED(deep), int UNUSED(flags));
-static inline int val__member_to_client_pk(ti_member_t * member, ti_vp_t * vp, int deep, int flags);
-static inline int val__member_to_store_pk(ti_member_t * member, msgpack_packer * pk);
-static inline int val__varr_to_client_pk(ti_varr_t * varr, ti_vp_t * vp, int deep, int flags);
-static inline int val__varr_to_store_pk(ti_varr_t * varr, msgpack_packer * pk);
+static inline int val__future_to_client_pk(ti_future_t *future, ti_vp_t *vp, int deep, int flags);
+static inline int val__module_to_client_pk(ti_module_t *UNUSED(module), ti_vp_t *vp, int UNUSED(deep), int UNUSED(flags));
+static inline int val__member_to_client_pk(ti_member_t *member, ti_vp_t *vp, int deep, int flags);
+static inline int val__member_to_store_pk(ti_member_t *member, msgpack_packer *pk);
+static inline int val__varr_to_client_pk(ti_varr_t *varr, ti_vp_t *vp, int deep, int flags);
+static inline int val__varr_to_store_pk(ti_varr_t *varr, msgpack_packer *pk);
 
-static inline int val__to_nested(ti_val_t ** UNUSED(v), ti_parent_t * UNUSED(p), ex_t * UNUSED(e))
+static inline int val__to_nested(ti_val_t ** UNUSED(v), ti_parent_t *UNUSED(p), ex_t *UNUSED(e))
 {
     return 0;
 }
 
 static inline int val__thing_to_nested(ti_val_t ** UNUSED(v),
-                                       ti_parent_t * p,
-                                       ex_t * UNUSED(e))
+                                       ti_parent_t *p,
+                                       ex_t *UNUSED(e))
 {
     return p->flags |= TI_VFLAG_MHT, 0;
 }
 
 static inline int val__wrap_to_nested(ti_val_t ** UNUSED(v),
-                                      ti_parent_t * p,
-                                      ex_t * UNUSED(e))
+                                      ti_parent_t *p,
+                                      ex_t *UNUSED(e))
 {
     return p->flags |= TI_VFLAG_MHT, 0;
 }
 
 static inline int val__wano_to_nested(ti_val_t ** UNUSED(v),
-                                      ti_parent_t * p,
-                                      ex_t * UNUSED(e))
+                                      ti_parent_t *p,
+                                      ex_t *UNUSED(e))
 {
     return p->flags |= TI_VFLAG_MHT, 0;
 }
 
 static inline int val__room_to_nested(ti_val_t ** UNUSED(v),
-                                      ti_parent_t * p,
-                                      ex_t * UNUSED(e))
+                                      ti_parent_t *p,
+                                      ex_t *UNUSED(e))
 {
     return p->flags |= TI_VFLAG_MHR, 0;
 }
 
-static inline int val__arr_to_nested(ti_val_t ** v, ti_parent_t * p, ex_t * e)
+static inline int val__arr_to_nested(ti_val_t ** v, ti_parent_t *p, ex_t *e)
 {
     if (ti_varr_is_list((ti_varr_t *) *v) &&
         ti_varr_to_tuple((ti_varr_t **) v))
@@ -339,7 +339,7 @@ static inline int val__arr_to_nested(ti_val_t ** v, ti_parent_t * p, ex_t * e)
     return e->nr;
 }
 
-static inline int val__set_to_nested(ti_val_t ** v, ti_parent_t * p, ex_t * e)
+static inline int val__set_to_nested(ti_val_t ** v, ti_parent_t *p, ex_t *e)
 {
     if (ti_vset_to_tuple((ti_vset_t **) v))
         ex_set_mem(e);
@@ -348,7 +348,7 @@ static inline int val__set_to_nested(ti_val_t ** v, ti_parent_t * p, ex_t * e)
     return e->nr;
 }
 
-static inline int val__dict_to_nested(ti_val_t ** v, ti_parent_t * p, ex_t * e)
+static inline int val__dict_to_nested(ti_val_t ** v, ti_parent_t *p, ex_t *e)
 {
     if (ti_dict_to_tuple((ti_dict_t **) v))
         ex_set_mem(e);
@@ -358,17 +358,17 @@ static inline int val__dict_to_nested(ti_val_t ** v, ti_parent_t * p, ex_t * e)
 }
 
 static inline int val__member_to_nested(ti_val_t ** v,
-                                        ti_parent_t * p,
-                                        ex_t * e);
+                                        ti_parent_t *p,
+                                        ex_t *e);
 static inline int val__future_to_nested(ti_val_t ** v,
-                                        ti_parent_t * UNUSED(p),
-                                        ex_t * UNUSED(e));
+                                        ti_parent_t *UNUSED(p),
+                                        ex_t *UNUSED(e));
 static inline int val__module_to_nested(ti_val_t ** v,
-                                        ti_parent_t * UNUSED(p),
-                                        ex_t * UNUSED(e));
+                                        ti_parent_t *UNUSED(p),
+                                        ex_t *UNUSED(e));
 static inline int val__closure_to_nested(ti_val_t ** v,
-                                         ti_parent_t * UNUSED(p),
-                                         ex_t * e)
+                                         ti_parent_t *UNUSED(p),
+                                         ex_t *e)
 {
     return ti_closure_unbound((ti_closure_t *) *v, e);
 }
@@ -379,7 +379,7 @@ typedef int (*ti_val_to_uuid_cb) (ti_val_t **, ex_t *);
 typedef int (*ti_val_to_nested_cb) (ti_val_t **, ti_parent_t *, ex_t *);
 typedef int (*ti_val_to_client_pk_cb) (ti_val_t *, ti_vp_t *, int, int);
 typedef int (*ti_val_to_store_pk_cb) (ti_val_t *, msgpack_packer *);
-typedef const char * (*ti_val_type_str_cb) (ti_val_t *);
+typedef const char *(*ti_val_type_str_cb) (ti_val_t *);
 typedef _Bool (*ti_val_as_bool_cb) (ti_val_t *);
 typedef void (*ti_val_attach_cb) (ti_val_t *, ti_thing_t *, void *);
 
@@ -733,40 +733,40 @@ static ti_val_type_t ti_val_type_props[26] = {
 #define ti_val(__val) (&ti_val_type_props[(__val)->tp])
 #define ti_val_has_parent(__val) ((unsigned)((__val)->tp - TI_VAL_ARR) <= (TI_VAL_DICT - TI_VAL_ARR))
 
-static inline _Bool val__as_bool_member(ti_val_t * val)
+static inline _Bool val__as_bool_member(ti_val_t *val)
 {
    return ti_val(VMEMBER(val))->as_bool(VMEMBER(val));
 }
 
-static inline _Bool ti_val_as_bool(ti_val_t * val)
+static inline _Bool ti_val_as_bool(ti_val_t *val)
 {
     return ti_val(val)->as_bool(val);
 }
 
 static inline void ti_val_attach(
-        ti_val_t * val,
-        ti_thing_t * parent,
-        void * key)  /* ti_raw_t or ti_name_t or ti_field_t */
+        ti_val_t *val,
+        ti_thing_t *parent,
+        void *key)  /* ti_raw_t or ti_name_t or ti_field_t */
 {
     return ti_val(val)->attach(val, parent, key);
 }
 
-static inline const char * ti_val_str(ti_val_t * val)
+static inline const char *ti_val_str(ti_val_t *val)
 {
     return ti_val(val)->get_type_str(val);
 }
 
-static inline int ti_val_to_client_pk(ti_val_t * val, ti_vp_t * vp, int deep, int flags)
+static inline int ti_val_to_client_pk(ti_val_t *val, ti_vp_t *vp, int deep, int flags)
 {
     return ti_val(val)->to_client_pk(val, vp, deep, flags);
 }
 
-static inline int ti_val_to_store_pk(ti_val_t * val, msgpack_packer * pk)
+static inline int ti_val_to_store_pk(ti_val_t *val, msgpack_packer *pk)
 {
     return ti_val(val)->to_store_pk(val, pk);
 }
 
-static inline int ti_val_to_nested(ti_val_t ** val, ti_parent_t * p, ex_t * e)
+static inline int ti_val_to_nested(ti_val_t ** val, ti_parent_t *p, ex_t *e)
 {
     return ti_val(*val)->to_nested(val, p, e);
 }
@@ -775,19 +775,19 @@ static inline int ti_val_to_nested(ti_val_t ** val, ti_parent_t * p, ex_t * e)
  * -------------------------  End value methods ----------------------------
  */
 
-static inline void ti_val_drop(ti_val_t * val)
+static inline void ti_val_drop(ti_val_t *val)
 {
     if (val && !--val->ref)
         ti_val(val)->destroy(val);
 }
 
-static inline void ti_val_unsafe_drop(ti_val_t * val)
+static inline void ti_val_unsafe_drop(ti_val_t *val)
 {
     if (!--val->ref)
         ti_val(val)->destroy(val);
 }
 
-static inline void ti_val_unsafe_gc_drop(ti_val_t * val)
+static inline void ti_val_unsafe_gc_drop(ti_val_t *val)
 {
     if (!--val->ref)
         ti_val(val)->destroy(val);
@@ -795,13 +795,13 @@ static inline void ti_val_unsafe_gc_drop(ti_val_t * val)
         ti_thing_may_push_gc((ti_thing_t *) val);
 }
 
-static inline void ti_val_gc_drop(ti_val_t * val)
+static inline void ti_val_gc_drop(ti_val_t *val)
 {
     if (val)
         ti_val_unsafe_gc_drop(val);
 }
 
-static inline void ti_val_unassign_unsafe_drop(ti_val_t * val)
+static inline void ti_val_unassign_unsafe_drop(ti_val_t *val)
 {
     if (!--val->ref)
         ti_val(val)->destroy(val);
@@ -811,7 +811,7 @@ static inline void ti_val_unassign_unsafe_drop(ti_val_t * val)
         ti_thing_may_push_gc((ti_thing_t *) val);
 }
 
-static inline void ti_val_replace_drop(ti_val_t * oval, ti_val_t * nval)
+static inline void ti_val_replace_drop(ti_val_t *oval, ti_val_t *nval)
 {
     if (!--oval->ref)
         ti_val(oval)->destroy(oval);
@@ -821,90 +821,90 @@ static inline void ti_val_replace_drop(ti_val_t * oval, ti_val_t * nval)
         ti_thing_may_push_gc((ti_thing_t *) oval);
 }
 
-static inline void ti_val_unassign_drop(ti_val_t * val)
+static inline void ti_val_unassign_drop(ti_val_t *val)
 {
     if (val)
         ti_val_unassign_unsafe_drop(val);
 }
 
-static inline _Bool ti_val_is_arr(ti_val_t * val)
+static inline _Bool ti_val_is_arr(ti_val_t *val)
 {
     return val->tp == TI_VAL_ARR;
 }
 
-static inline _Bool ti_val_is_bool(ti_val_t * val)
+static inline _Bool ti_val_is_bool(ti_val_t *val)
 {
     return val->tp == TI_VAL_BOOL;
 }
 
-static inline _Bool ti_val_is_datetime(ti_val_t * val)
+static inline _Bool ti_val_is_datetime(ti_val_t *val)
 {
     return val->tp == TI_VAL_DATETIME;
 }
 
-static inline _Bool ti_val_is_datetime_strict(ti_val_t * val)
+static inline _Bool ti_val_is_datetime_strict(ti_val_t *val)
 {
     return val->tp == TI_VAL_DATETIME &&
             ti_datetime_is_datetime((ti_datetime_t *) val);
 }
 
-static inline _Bool ti_val_is_timeval(ti_val_t * val)
+static inline _Bool ti_val_is_timeval(ti_val_t *val)
 {
     return val->tp == TI_VAL_DATETIME &&
             ti_datetime_is_timeval((ti_datetime_t *) val);
 }
 
-static inline _Bool ti_val_is_closure(ti_val_t * val)
+static inline _Bool ti_val_is_closure(ti_val_t *val)
 {
     return val->tp == TI_VAL_CLOSURE;
 }
 
-static inline _Bool ti_val_is_error(ti_val_t * val)
+static inline _Bool ti_val_is_error(ti_val_t *val)
 {
     return val->tp == TI_VAL_ERROR;
 }
 
-static inline _Bool ti_val_is_number(ti_val_t * val)
+static inline _Bool ti_val_is_number(ti_val_t *val)
 {
     return val->tp == TI_VAL_FLOAT || val->tp == TI_VAL_INT;
 }
 
-static inline _Bool ti_val_is_float(ti_val_t * val)
+static inline _Bool ti_val_is_float(ti_val_t *val)
 {
     return val->tp == TI_VAL_FLOAT;
 }
 
-static inline _Bool ti_val_is_int(ti_val_t * val)
+static inline _Bool ti_val_is_int(ti_val_t *val)
 {
     return val->tp == TI_VAL_INT;
 }
 
-static inline _Bool ti_val_is_uint(ti_val_t * val)
+static inline _Bool ti_val_is_uint(ti_val_t *val)
 {
     return val->tp == TI_VAL_INT && VINT(val) >= 0;
 }
 
-static inline _Bool ti_val_is_pint(ti_val_t * val)
+static inline _Bool ti_val_is_pint(ti_val_t *val)
 {
     return val->tp == TI_VAL_INT && VINT(val) > 0;
 }
 
-static inline _Bool ti_val_is_nint(ti_val_t * val)
+static inline _Bool ti_val_is_nint(ti_val_t *val)
 {
     return val->tp == TI_VAL_INT && VINT(val) < 0;
 }
 
-static inline _Bool ti_val_is_nil(ti_val_t * val)
+static inline _Bool ti_val_is_nil(ti_val_t *val)
 {
     return val->tp == TI_VAL_NIL;
 }
 
-static inline _Bool ti_val_is_opt_chain(ti_val_t * val)
+static inline _Bool ti_val_is_opt_chain(ti_val_t *val)
 {
     return val->tp == TI_VAL_NIL || val->tp == TI_VAL_ERROR;
 }
 
-static inline _Bool ti_val_is_dict_key(ti_val_t * val)
+static inline _Bool ti_val_is_dict_key(ti_val_t *val)
 {
     return val->tp == TI_VAL_STR ||
            val->tp == TI_VAL_NAME ||
@@ -912,52 +912,52 @@ static inline _Bool ti_val_is_dict_key(ti_val_t * val)
            val->tp == TI_VAL_UUID;
 }
 
-static inline _Bool ti_val_is_str(ti_val_t * val)
+static inline _Bool ti_val_is_str(ti_val_t *val)
 {
     return val->tp == TI_VAL_STR || val->tp == TI_VAL_NAME;
 }
 
-static inline _Bool ti_val_is_utf8(ti_val_t * val)
+static inline _Bool ti_val_is_utf8(ti_val_t *val)
 {
     return (val->tp == TI_VAL_STR || val->tp == TI_VAL_NAME) && strx_is_utf8n(
         ((ti_str_t *) val)->str,
         ((ti_str_t *) val)->n);
 }
 
-static inline _Bool ti_val_is_str_nil(ti_val_t * val)
+static inline _Bool ti_val_is_str_nil(ti_val_t *val)
 {
     return val->tp == TI_VAL_STR ||
            val->tp == TI_VAL_NAME ||
            val->tp == TI_VAL_NIL;
 }
 
-static inline _Bool ti_val_is_str_ano(ti_val_t * val)
+static inline _Bool ti_val_is_str_ano(ti_val_t *val)
 {
     return val->tp == TI_VAL_STR ||
            val->tp == TI_VAL_NAME ||
            val->tp == TI_VAL_ANO;
 }
 
-static inline _Bool ti_val_is_str_regex(ti_val_t * val)
+static inline _Bool ti_val_is_str_regex(ti_val_t *val)
 {
     return val->tp == TI_VAL_STR ||
            val->tp == TI_VAL_NAME ||
            val->tp == TI_VAL_REGEX;
 }
 
-static inline _Bool ti_val_is_str_closure(ti_val_t * val)
+static inline _Bool ti_val_is_str_closure(ti_val_t *val)
 {
     return val->tp == TI_VAL_STR ||
            val->tp == TI_VAL_NAME ||
            val->tp == TI_VAL_CLOSURE;
 }
 
-static inline _Bool ti_val_is_bytes(ti_val_t * val)
+static inline _Bool ti_val_is_bytes(ti_val_t *val)
 {
     return val->tp == TI_VAL_BYTES;
 }
 
-static inline _Bool ti_val_is_raw(ti_val_t * val)
+static inline _Bool ti_val_is_raw(ti_val_t *val)
 {
     return val->tp == TI_VAL_STR ||
            val->tp == TI_VAL_NAME ||
@@ -965,7 +965,7 @@ static inline _Bool ti_val_is_raw(ti_val_t * val)
            val->tp == TI_VAL_MPDATA;
 }
 
-static inline _Bool ti_val_is_str_bytes_nil(ti_val_t * val)
+static inline _Bool ti_val_is_str_bytes_nil(ti_val_t *val)
 {
     return val->tp == TI_VAL_STR ||
            val->tp == TI_VAL_NAME ||
@@ -973,113 +973,113 @@ static inline _Bool ti_val_is_str_bytes_nil(ti_val_t * val)
            val->tp == TI_VAL_NIL;
 }
 
-static inline _Bool ti_val_is_mpdata(ti_val_t * val)
+static inline _Bool ti_val_is_mpdata(ti_val_t *val)
 {
     return val->tp == TI_VAL_MPDATA;
 }
 
-static inline _Bool ti_val_is_regex(ti_val_t * val)
+static inline _Bool ti_val_is_regex(ti_val_t *val)
 {
     return val->tp == TI_VAL_REGEX;
 }
 
-static inline _Bool ti_val_is_set(ti_val_t * val)
+static inline _Bool ti_val_is_set(ti_val_t *val)
 {
     return val->tp == TI_VAL_SET;
 }
 
-static inline _Bool ti_val_is_dict(ti_val_t * val)
+static inline _Bool ti_val_is_dict(ti_val_t *val)
 {
     return val->tp == TI_VAL_DICT;
 }
 
-static inline _Bool ti_val_is_thing(ti_val_t * val)
+static inline _Bool ti_val_is_thing(ti_val_t *val)
 {
     return val->tp == TI_VAL_THING;
 }
 
-static inline _Bool ti_val_is_wrap(ti_val_t * val)
+static inline _Bool ti_val_is_wrap(ti_val_t *val)
 {
     return val->tp == TI_VAL_WRAP;
 }
 
-static inline _Bool ti_val_is_wrap_wano(ti_val_t * val)
+static inline _Bool ti_val_is_wrap_wano(ti_val_t *val)
 {
     return val->tp == TI_VAL_WRAP || val->tp == TI_VAL_WANO;
 }
 
-static inline _Bool ti_val_is_wano(ti_val_t * val)
+static inline _Bool ti_val_is_wano(ti_val_t *val)
 {
     return val->tp == TI_VAL_WANO;
 }
 
-static inline _Bool ti_val_is_uuid(ti_val_t * val)
+static inline _Bool ti_val_is_uuid(ti_val_t *val)
 {
     return val->tp == TI_VAL_UUID;
 }
 
-static inline _Bool ti_val_is_room(ti_val_t * val)
+static inline _Bool ti_val_is_room(ti_val_t *val)
 {
     return val->tp == TI_VAL_ROOM;
 }
 
-static inline _Bool ti_val_is_task(ti_val_t * val)
+static inline _Bool ti_val_is_task(ti_val_t *val)
 {
     return val->tp == TI_VAL_TASK;
 }
 
-static inline _Bool ti_val_is_email(ti_val_t * val)
+static inline _Bool ti_val_is_email(ti_val_t *val)
 {
     return val->tp == TI_VAL_STR && ti_regex_test_or_empty(
             (ti_regex_t *) val__re_email,
             (ti_raw_t *) val);
 }
 
-static inline _Bool ti_val_is_url(ti_val_t * val)
+static inline _Bool ti_val_is_url(ti_val_t *val)
 {
     return val->tp == TI_VAL_STR && ti_regex_test_or_empty(
             (ti_regex_t *) val__re_url,
             (ti_raw_t *) val);
 }
 
-static inline _Bool ti_val_is_tel(ti_val_t * val)
+static inline _Bool ti_val_is_tel(ti_val_t *val)
 {
     return val->tp == TI_VAL_STR && ti_regex_test_or_empty(
             (ti_regex_t *) val__re_tel,
             (ti_raw_t *) val);
 }
 
-static inline _Bool ti_val_is_member(ti_val_t * val)
+static inline _Bool ti_val_is_member(ti_val_t *val)
 {
     return val->tp == TI_VAL_MEMBER;
 }
 
-static inline _Bool ti_val_is_array(ti_val_t * val)
+static inline _Bool ti_val_is_array(ti_val_t *val)
 {
     return val->tp == TI_VAL_ARR;
 }
 
-static inline _Bool ti_val_is_list(ti_val_t * val)
+static inline _Bool ti_val_is_list(ti_val_t *val)
 {
     return val->tp == TI_VAL_ARR && ti_varr_is_list((ti_varr_t *) val);
 }
 
-static inline _Bool ti_val_is_tuple(ti_val_t * val)
+static inline _Bool ti_val_is_tuple(ti_val_t *val)
 {
     return val->tp == TI_VAL_ARR && ti_varr_is_tuple((ti_varr_t *) val);
 }
 
-static inline _Bool ti_val_is_future(ti_val_t * val)
+static inline _Bool ti_val_is_future(ti_val_t *val)
 {
     return val->tp == TI_VAL_FUTURE;
 }
 
-static inline _Bool ti_val_is_module(ti_val_t * val)
+static inline _Bool ti_val_is_module(ti_val_t *val)
 {
     return val->tp == TI_VAL_MODULE;
 }
 
-static inline _Bool ti_val_is_ano(ti_val_t * val)
+static inline _Bool ti_val_is_ano(ti_val_t *val)
 {
     return val->tp == TI_VAL_ANO;
 }
@@ -1089,7 +1089,7 @@ static inline _Bool ti_val_overflow_cast(double d)
     return !(d >= -VAL__CAST_MAX && d < VAL__CAST_MAX);
 }
 
-static inline _Bool ti_val_is_mut_locked(ti_val_t * val)
+static inline _Bool ti_val_is_mut_locked(ti_val_t *val)
 {
     return ti_val_has_parent(val) && (val->flags & TI_VFLAG_LOCK);
 }
@@ -1097,172 +1097,172 @@ static inline _Bool ti_val_is_mut_locked(ti_val_t * val)
 /*
  * Names
  */
-static inline ti_val_t * ti_val_data_name(void)
+static inline ti_val_t *ti_val_data_name(void)
 {
     return ti_incref(val__data_name), val__data_name;
 }
 
-static inline ti_val_t * ti_val_time_name(void)
+static inline ti_val_t *ti_val_time_name(void)
 {
     return ti_incref(val__time_name), val__time_name;
 }
 
-static inline ti_val_t * ti_val_year_name(void)
+static inline ti_val_t *ti_val_year_name(void)
 {
     return ti_incref(val__year_name), val__year_name;
 }
 
-static inline ti_val_t * ti_val_month_name(void)
+static inline ti_val_t *ti_val_month_name(void)
 {
     return ti_incref(val__month_name), val__month_name;
 }
 
-static inline ti_val_t * ti_val_day_name(void)
+static inline ti_val_t *ti_val_day_name(void)
 {
     return ti_incref(val__day_name), val__day_name;
 }
 
-static inline ti_val_t * ti_val_hour_name(void)
+static inline ti_val_t *ti_val_hour_name(void)
 {
     return ti_incref(val__hour_name), val__hour_name;
 }
 
-static inline ti_val_t * ti_val_minute_name(void)
+static inline ti_val_t *ti_val_minute_name(void)
 {
     return ti_incref(val__minute_name), val__minute_name;
 }
 
-static inline ti_val_t * ti_val_second_name(void)
+static inline ti_val_t *ti_val_second_name(void)
 {
     return ti_incref(val__second_name), val__second_name;
 }
 
-static inline ti_val_t * ti_val_gmt_offset_name(void)
+static inline ti_val_t *ti_val_gmt_offset_name(void)
 {
     return ti_incref(val__gmt_offset_name), val__gmt_offset_name;
 }
 
-static inline ti_val_t * ti_val_anonymous_name(void)
+static inline ti_val_t *ti_val_anonymous_name(void)
 {
     return ti_incref(val__anonymous_name), val__anonymous_name;
 }
 
-static inline ti_val_t * ti_val_borrow_anonymous_name(void)
+static inline ti_val_t *ti_val_borrow_anonymous_name(void)
 {
     return val__anonymous_name;
 }
 
-static inline ti_val_t * ti_val_borrow_async_name(void)
+static inline ti_val_t *ti_val_borrow_async_name(void)
 {
     return val__async_name;
 }
 
-static inline ti_val_t * ti_val_borrow_year_name(void)
+static inline ti_val_t *ti_val_borrow_year_name(void)
 {
     return val__year_name;
 }
 
-static inline ti_val_t * ti_val_borrow_month_name(void)
+static inline ti_val_t *ti_val_borrow_month_name(void)
 {
     return val__month_name;
 }
 
-static inline ti_val_t * ti_val_borrow_day_name(void)
+static inline ti_val_t *ti_val_borrow_day_name(void)
 {
     return val__day_name;
 }
 
-static inline ti_val_t * ti_val_borrow_hour_name(void)
+static inline ti_val_t *ti_val_borrow_hour_name(void)
 {
     return val__hour_name;
 }
 
-static inline ti_val_t * ti_val_borrow_minute_name(void)
+static inline ti_val_t *ti_val_borrow_minute_name(void)
 {
     return val__minute_name;
 }
 
-static inline ti_val_t * ti_val_borrow_second_name(void)
+static inline ti_val_t *ti_val_borrow_second_name(void)
 {
     return val__second_name;
 }
 
-static inline ti_val_t * ti_val_borrow_module_name(void)
+static inline ti_val_t *ti_val_borrow_module_name(void)
 {
     return val__module_name;
 }
 
-static inline ti_val_t * ti_val_borrow_deep_name(void)
+static inline ti_val_t *ti_val_borrow_deep_name(void)
 {
     return val__deep_name;
 }
 
-static inline ti_val_t * ti_val_borrow_flags_name(void)
+static inline ti_val_t *ti_val_borrow_flags_name(void)
 {
     return val__flags_name;
 }
 
-static inline ti_val_t * ti_val_borrow_load_name(void)
+static inline ti_val_t *ti_val_borrow_load_name(void)
 {
     return val__load_name;
 }
 
-static inline ti_val_t * ti_val_borrow_beautify_name(void)
+static inline ti_val_t *ti_val_borrow_beautify_name(void)
 {
     return val__beautify_name;
 }
 
-static inline ti_val_t * ti_val_borrow_parent_name(void)
+static inline ti_val_t *ti_val_borrow_parent_name(void)
 {
     return val__parent_name;
 }
 
-static inline ti_val_t * ti_val_borrow_parent_type_name(void)
+static inline ti_val_t *ti_val_borrow_parent_type_name(void)
 {
     return val__parent_type_name;
 }
 
-static inline ti_val_t * ti_val_borrow_key_name(void)
+static inline ti_val_t *ti_val_borrow_key_name(void)
 {
     return val__key_name;
 }
 
-static inline ti_val_t * ti_val_borrow_key_type_name(void)
+static inline ti_val_t *ti_val_borrow_key_type_name(void)
 {
     return val__key_type_name;
 }
 
-static inline ti_val_t * ti_val_borrow_re_email(void)
+static inline ti_val_t *ti_val_borrow_re_email(void)
 {
     return val__re_email;
 }
 
-static inline ti_val_t * ti_val_borrow_re_url(void)
+static inline ti_val_t *ti_val_borrow_re_url(void)
 {
     return val__re_url;
 }
 
-static inline ti_val_t * ti_val_borrow_re_tel(void)
+static inline ti_val_t *ti_val_borrow_re_tel(void)
 {
     return val__re_tel;
 }
 
-static inline ti_val_t * ti_val_any_str(void)
+static inline ti_val_t *ti_val_any_str(void)
 {
     return ti_incref(val__sany), val__sany;
 }
 
-static inline ti_val_t * ti_val_nil_str(void)
+static inline ti_val_t *ti_val_nil_str(void)
 {
     return ti_incref(val__snil), val__snil;
 }
 
-static inline ti_val_t * ti_val_true_str(void)
+static inline ti_val_t *ti_val_true_str(void)
 {
     return ti_incref(val__strue), val__strue;
 }
 
-static inline ti_val_t * ti_val_false_str(void)
+static inline ti_val_t *ti_val_false_str(void)
 {
     return ti_incref(val__sfalse), val__sfalse;
 }
@@ -1276,7 +1276,7 @@ static inline ti_val_t * ti_val_false_str(void)
  * Call `ti_val_unlock(..)` with `true` as second argument after a successful
  * lock.
  */
-static inline int ti_val_try_lock(ti_val_t * val, ex_t * e)
+static inline int ti_val_try_lock(ti_val_t *val, ex_t *e)
 {
     if (val->flags & TI_VFLAG_LOCK)
     {
@@ -1289,7 +1289,7 @@ static inline int ti_val_try_lock(ti_val_t * val, ex_t * e)
 }
 
 
-static inline int ti_val_test_unlocked(ti_val_t * val, ex_t * e)
+static inline int ti_val_test_unlocked(ti_val_t *val, ex_t *e)
 {
     if (val->flags & TI_VFLAG_LOCK)
     {
@@ -1311,25 +1311,25 @@ static inline int ti_val_test_unlocked(ti_val_t * val, ex_t * e)
  * For example in the `map(..)` function requires a lock but since `map`
  * does not make changes it is no problem if another lock was set.
  */
-static inline int ti_val_ensure_lock(ti_val_t * val)
+static inline int ti_val_ensure_lock(ti_val_t *val)
 {
     return (val->flags & TI_VFLAG_LOCK)
             ? 0
             : !!(val->flags |= TI_VFLAG_LOCK);
 }
 
-static inline void ti_val_unlock(ti_val_t * val, int lock_was_set)
+static inline void ti_val_unlock(ti_val_t *val, int lock_was_set)
 {
     if (lock_was_set)
         val->flags &= ~TI_VFLAG_LOCK;
 }
 
-static inline _Bool ti_val_is_object(ti_val_t * val)
+static inline _Bool ti_val_is_object(ti_val_t *val)
 {
     return val->tp == TI_VAL_THING && ti_thing_is_object((ti_thing_t *) val);
 }
 
-static inline _Bool ti_val_is_instance(ti_val_t * val)
+static inline _Bool ti_val_is_instance(ti_val_t *val)
 {
     return val->tp == TI_VAL_THING && ti_thing_is_instance((ti_thing_t *) val);
 }
@@ -1345,9 +1345,9 @@ static inline _Bool ti_val_is_instance(ti_val_t * val)
  */
 static inline int ti_val_make_assignable(
         ti_val_t ** val,
-        ti_thing_t * parent,
-        void * key,
-        ex_t * e)
+        ti_thing_t *parent,
+        void *key,
+        ex_t *e)
 {
     switch ((ti_val_enum) (*val)->tp)
     {
@@ -1410,17 +1410,17 @@ static inline int ti_val_make_assignable(
     return 0;
 }
 
-static inline int val__str_to_str(ti_val_t ** UNUSED(v), ex_t * UNUSED(e))
+static inline int val__str_to_str(ti_val_t ** UNUSED(v), ex_t *UNUSED(e))
 {
     return 0;
 }
 
-static inline int val__uuid_to_uuid(ti_val_t ** UNUSED(v), ex_t * UNUSED(e))
+static inline int val__uuid_to_uuid(ti_val_t ** UNUSED(v), ex_t *UNUSED(e))
 {
     return 0;
 }
 
-static inline int val__no_to_str(ti_val_t ** val, ex_t * e)
+static inline int val__no_to_str(ti_val_t ** val, ex_t *e)
 {
     ex_set(e, EX_TYPE_ERROR,
             "cannot convert type `%s` to `"TI_VAL_STR_S"`",
@@ -1428,7 +1428,7 @@ static inline int val__no_to_str(ti_val_t ** val, ex_t * e)
     return e->nr;
 }
 
-static inline int val__no_to_uuid(ti_val_t ** val, ex_t * e)
+static inline int val__no_to_uuid(ti_val_t ** val, ex_t *e)
 {
     ex_set(e, EX_TYPE_ERROR,
             "cannot convert type `%s` to `"TI_VAL_UUID_S"`",
@@ -1436,10 +1436,10 @@ static inline int val__no_to_uuid(ti_val_t ** val, ex_t * e)
     return e->nr;
 }
 
-static inline int val__str_to_uuid(ti_val_t ** val, ex_t * e)
+static inline int val__str_to_uuid(ti_val_t ** val, ex_t *e)
 {
-    ti_str_t * str = (ti_str_t *) *val;
-    ti_uuid_t * uuid = ti_uuid_from_str(str->str, str->n, e);
+    ti_str_t *str = (ti_str_t *) *val;
+    ti_uuid_t *uuid = ti_uuid_from_str(str->str, str->n, e);
     if (uuid)
     {
         ti_val_unsafe_drop(*val);
@@ -1448,7 +1448,7 @@ static inline int val__str_to_uuid(ti_val_t ** val, ex_t * e)
     return e->nr;
 }
 
-static inline int val__future_to_client_pk(ti_future_t * future, ti_vp_t * vp, int deep, int flags)
+static inline int val__future_to_client_pk(ti_future_t *future, ti_vp_t *vp, int deep, int flags)
 {
     /* Only for client to pk */
     return future->rval
@@ -1456,17 +1456,17 @@ static inline int val__future_to_client_pk(ti_future_t * future, ti_vp_t * vp, i
             : msgpack_pack_nil(&vp->pk);
 }
 
-static inline int val__module_to_client_pk(ti_module_t * UNUSED(module), ti_vp_t * vp, int UNUSED(deep), int UNUSED(flags))
+static inline int val__module_to_client_pk(ti_module_t *UNUSED(module), ti_vp_t *vp, int UNUSED(deep), int UNUSED(flags))
 {
     return msgpack_pack_nil(&vp->pk);
 }
 
-static inline int val__member_to_client_pk(ti_member_t * member, ti_vp_t * vp, int deep, int flags)
+static inline int val__member_to_client_pk(ti_member_t *member, ti_vp_t *vp, int deep, int flags)
 {
     return ti_val(member->val)->to_client_pk(member->val, vp, deep, flags);
 }
 
-static inline int val__member_to_store_pk(ti_member_t * member, msgpack_packer * pk)
+static inline int val__member_to_store_pk(ti_member_t *member, msgpack_packer *pk)
 {
     return -(
         msgpack_pack_map(pk, 1) ||
@@ -1477,7 +1477,7 @@ static inline int val__member_to_store_pk(ti_member_t * member, msgpack_packer *
     );
 }
 
-static inline int val__varr_to_client_pk(ti_varr_t * varr, ti_vp_t * vp, int deep, int flags)
+static inline int val__varr_to_client_pk(ti_varr_t *varr, ti_vp_t *vp, int deep, int flags)
 {
     if (msgpack_pack_array(&vp->pk, varr->vec->n))
         return -1;
@@ -1487,7 +1487,7 @@ static inline int val__varr_to_client_pk(ti_varr_t * varr, ti_vp_t * vp, int dee
     return 0;
 }
 
-static inline int val__varr_to_store_pk(ti_varr_t * varr, msgpack_packer * pk)
+static inline int val__varr_to_store_pk(ti_varr_t *varr, msgpack_packer *pk)
 {
     if (msgpack_pack_array(pk, varr->vec->n))
         return -1;
@@ -1505,7 +1505,7 @@ typedef struct
 } ti_val_spec_t;
 
 
-static inline _Bool val__spec_enum_eq_to_val(uint16_t spec, ti_val_t * val)
+static inline _Bool val__spec_enum_eq_to_val(uint16_t spec, ti_val_t *val)
 {
     return (
         ti_val_is_member(val) &&
@@ -1575,7 +1575,7 @@ static ti_val_spec_t ti_val_spec_map[27] = {
         {.is_spec=ti_val_is_member},
 };
 
-static inline _Bool ti_val_is_spec(ti_val_t * val, uint16_t spec)
+static inline _Bool ti_val_is_spec(ti_val_t *val, uint16_t spec)
 {
     if (spec == TI_SPEC_ANY ||
         ((spec & TI_SPEC_NILLABLE) && ti_val_is_nil(val)))
@@ -1590,7 +1590,7 @@ static inline _Bool ti_val_is_spec(ti_val_t * val, uint16_t spec)
     return ti_val_is_thing(val) && ((ti_thing_t *) val)->type_id == spec;
 }
 
-static inline int ti_val_varr_prepare(ti_val_t ** v, ti_varr_t * to, ex_t * e)
+static inline int ti_val_varr_prepare(ti_val_t ** v, ti_varr_t *to, ex_t *e)
 {
     return !ti_val_is_spec((ti_val_t *) *v, ti_varr_spec(to))
             ? ti_varr_nested_spec_err(to, *v, e)
@@ -1598,10 +1598,10 @@ static inline int ti_val_varr_prepare(ti_val_t ** v, ti_varr_t * to, ex_t * e)
 }
 
 static inline int ti_val_tlocked(
-        ti_val_t * val,
-        ti_thing_t * thing,
-        ti_name_t * name,  /* may be type raw */
-        ex_t * e)
+        ti_val_t *val,
+        ti_thing_t *thing,
+        ti_name_t *name,  /* may be type raw */
+        ex_t *e)
 {
     /*
      * Array and Sets are the only two values with are mutable and not set
@@ -1624,8 +1624,8 @@ static inline int ti_val_tlocked(
 }
 
 static inline int val__member_to_nested(ti_val_t ** v,
-                                        ti_parent_t * p,
-                                        ex_t * e)
+                                        ti_parent_t *p,
+                                        ex_t *e)
 {
     if (ti_val_is_thing(VMEMBER(*v)))
         p->flags |= TI_VFLAG_MHT;
@@ -1633,8 +1633,8 @@ static inline int val__member_to_nested(ti_val_t ** v,
 }
 
 static inline int val__future_to_nested(ti_val_t ** UNUSED(v),
-                                        ti_parent_t * UNUSED(p),
-                                        ex_t * e)
+                                        ti_parent_t *UNUSED(p),
+                                        ex_t *e)
 {
     ex_set(e, EX_TYPE_ERROR, TI_FUTURE_NESTED_ERR);
     return e->nr;
@@ -1643,8 +1643,8 @@ static inline int val__future_to_nested(ti_val_t ** UNUSED(v),
 
 
 static inline int val__module_to_nested(ti_val_t ** UNUSED(v),
-                                        ti_parent_t * UNUSED(p),
-                                        ex_t * e)
+                                        ti_parent_t *UNUSED(p),
+                                        ex_t *e)
 {
     ex_set(e, EX_TYPE_ERROR, TI_MODULE_NESTED_ERR);
     return e->nr;
@@ -1654,7 +1654,7 @@ static inline int val__module_to_nested(ti_val_t ** UNUSED(v),
  * does not increment `*v` reference counter but the value might change to
  * a (new) tuple pointer.
  */
-static inline int ti_val_varr_set(ti_varr_t * to, ti_val_t ** v, size_t idx, ex_t * e)
+static inline int ti_val_varr_set(ti_varr_t *to, ti_val_t ** v, size_t idx, ex_t *e)
 {
     if (ti_val_varr_prepare(v, to, e))
         return e->nr;
@@ -1667,7 +1667,7 @@ static inline int ti_val_varr_set(ti_varr_t * to, ti_val_t ** v, size_t idx, ex_
  * does not increment `*v` reference counter but the value might change to
  * a (new) tuple pointer.
  */
-static inline int ti_val_varr_append(ti_varr_t * to, ti_val_t ** v, ex_t * e)
+static inline int ti_val_varr_append(ti_varr_t *to, ti_val_t ** v, ex_t *e)
 {
     if (vec_reserve(&to->vec, 1))
     {
@@ -1686,7 +1686,7 @@ static inline int ti_val_varr_append(ti_varr_t * to, ti_val_t ** v, ex_t * e)
  * of the value accordingly. As the pointer may have been changed you might
  * need to handle the new pointer.
  */
-static inline int ti_val_varr_fill(ti_varr_t * to, ti_val_t ** v, ex_t * e)
+static inline int ti_val_varr_fill(ti_varr_t *to, ti_val_t ** v, ex_t *e)
 {
     uint32_t idx = 0;
     if (ti_val_varr_prepare(v, to, e))
@@ -1706,9 +1706,9 @@ static inline int ti_val_varr_fill(ti_varr_t * to, ti_val_t ** v, ex_t * e)
  * a (new) tuple pointer.
  */
 static inline int ti_val_varr_insert(
-        ti_varr_t * to,
+        ti_varr_t *to,
         ti_val_t ** v,
-        ex_t * e,
+        ex_t *e,
         uint32_t i)
 {
     if (vec_reserve(&to->vec, 1))

@@ -1,9 +1,9 @@
 #include <ti/fn/fn.h>
 
-static int do__f_fill(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_fill(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_varr_t * varr;
+    ti_varr_t *varr;
 
     if (!ti_val_is_list(query->rval))
         return fn_call_try("fill", query, nd, e);
@@ -26,7 +26,7 @@ static int do__f_fill(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (varr->vec->n && varr->parent && varr->parent->id)
     {
-        ti_task_t * task = ti_task_get_task(query->change, varr->parent);
+        ti_task_t *task = ti_task_get_task(query->change, varr->parent);
         if (!task || ti_task_add_fill(
                 task,
                 ti_varr_key(varr),

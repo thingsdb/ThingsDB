@@ -1,9 +1,9 @@
 #include <ti/fn/fn.h>
 
-static int do__f_type_count(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_type_count(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_type_t * type;
+    ti_type_t *type;
     size_t n;
 
     if (fn_not_collection_scope("type_count", query, e) ||

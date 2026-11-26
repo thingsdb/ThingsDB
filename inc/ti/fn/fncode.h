@@ -1,9 +1,9 @@
 #include <ti/fn/fn.h>
 
-static int do__f_code(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_code(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_verror_t * err;
+    ti_verror_t *err;
 
     if (!ti_val_is_error(query->rval))
         return fn_call_try("code", query, nd, e);

@@ -10,10 +10,10 @@
 /* 2 seconds */
 #define CONNECT__INTERVAL 2000
 
-static ti_connect_t * connect_loop;
+static ti_connect_t *connect_loop;
 
-static void connect__destroy(uv_handle_t * UNUSED(handle));
-static void connect__cb(uv_timer_t * UNUSED(handle));
+static void connect__destroy(uv_handle_t *UNUSED(handle));
+static void connect__cb(uv_timer_t *UNUSED(handle));
 
 int ti_connect_create(void)
 {
@@ -80,7 +80,7 @@ void ti_connect_force_sync(void)
     connect_loop->_sync_changes = true;
 }
 
-static void connect__destroy(uv_handle_t * UNUSED(handle))
+static void connect__destroy(uv_handle_t *UNUSED(handle))
 {
     if (connect_loop)
         free(connect_loop->timer);
@@ -91,11 +91,11 @@ static void connect__destroy(uv_handle_t * UNUSED(handle))
 /*
  * Called from the main thread at CONNECT__INTERVAL (every X seconds)
  */
-static void connect__cb(uv_timer_t * UNUSED(handle))
+static void connect__cb(uv_timer_t *UNUSED(handle))
 {
     uint32_t n = ++connect_loop->n_loops;
-    ti_rpkg_t * rpkg = NULL;
-    vec_t * nodes_vec = ti.nodes->vec;
+    ti_rpkg_t *rpkg = NULL;
+    vec_t *nodes_vec = ti.nodes->vec;
     _Bool sync_changes = connect_loop->_sync_changes;
 
     connect_loop->_sync_changes = false;

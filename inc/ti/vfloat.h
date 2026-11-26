@@ -8,8 +8,8 @@ typedef struct ti_vfloat_s ti_vfloat_t;
 
 #define VFLOAT(__x) ((ti_vfloat_t *) (__x))->float_
 
-ti_vfloat_t * ti_vfloat_create(double d);
-static inline void ti_vfloat_free(ti_vfloat_t * vfloat);
+ti_vfloat_t *ti_vfloat_create(double d);
+static inline void ti_vfloat_free(ti_vfloat_t *vfloat);
 
 struct ti_vfloat_s
 {
@@ -20,7 +20,7 @@ struct ti_vfloat_s
     double float_;
 };
 
-static inline void ti_vfloat_free(ti_vfloat_t * vfloat)
+static inline void ti_vfloat_free(ti_vfloat_t *vfloat)
 {
     free(vfloat);
 }

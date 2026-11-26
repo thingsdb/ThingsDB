@@ -15,9 +15,9 @@ static const char guid__map[64] = {
     'U', 'V', 'W', 'X', 'Y', 'Z', '-', '_'
 };
 
-void guid_init(guid_t * guid, uint64_t id)
+void guid_init(guid_t *guid, uint64_t id)
 {
-    char * pt = guid->guid;
+    char *pt = guid->guid;
 
     for (uint64_t i = 60; i >= 6; i -= 6, pt++)
     {

@@ -15,9 +15,9 @@
 #include <ti/val.h>
 #include <ti/val.inline.h>
 
-ti_method_t * ti_method_create(ti_name_t * name, ti_closure_t * closure)
+ti_method_t *ti_method_create(ti_name_t *name, ti_closure_t *closure)
 {
-    ti_method_t * method = malloc(sizeof(ti_method_t));
+    ti_method_t *method = malloc(sizeof(ti_method_t));
     if (!method)
         return NULL;
     method->name = name;
@@ -31,7 +31,7 @@ ti_method_t * ti_method_create(ti_name_t * name, ti_closure_t * closure)
     return method;
 }
 
-void ti_method_destroy(ti_method_t * method)
+void ti_method_destroy(ti_method_t *method)
 {
     ti_name_unsafe_drop(method->name);
     ti_val_unsafe_drop((ti_val_t *) method->closure);
@@ -41,7 +41,7 @@ void ti_method_destroy(ti_method_t * method)
 }
 
 /* may return an empty string but never NULL */
-ti_raw_t * ti_method_doc(ti_method_t * method)
+ti_raw_t *ti_method_doc(ti_method_t *method)
 {
     if (!method->doc)
         method->doc = ti_closure_doc(method->closure);
@@ -49,7 +49,7 @@ ti_raw_t * ti_method_doc(ti_method_t * method)
 }
 
 /* may return NULL */
-ti_raw_t * ti_method_def(ti_method_t * method)
+ti_raw_t *ti_method_def(ti_method_t *method)
 {
     if (!method->def)
         /* calculate only once */
@@ -58,16 +58,16 @@ ti_raw_t * ti_method_def(ti_method_t * method)
 }
 
 int ti_method_call(
-        ti_method_t * method,
-        ti_type_t * type_or_enum,
-        ti_query_t * query,
-        cleri_node_t * nd,
-        ex_t * e)
+        ti_method_t *method,
+        ti_type_t *type_or_enum,
+        ti_query_t *query,
+        cleri_node_t *nd,
+        ex_t *e)
 {
-    cleri_node_t * child = nd->children;        /* first in argument list */
-    vec_t * args = NULL;
+    cleri_node_t *child = nd->children;        /* first in argument list */
+    vec_t *args = NULL;
     uint32_t n = method->closure->vars->n;
-    ti_ref_t * thing_or_member = (ti_ref_t *) query->rval;
+    ti_ref_t *thing_or_member = (ti_ref_t *) query->rval;
     _Bool lock_was_set = ti_type_ensure_lock(type_or_enum);
 
     query->rval = NULL;
@@ -117,13 +117,13 @@ fail0:
 }
 
 int ti_method_set_name_t(
-        ti_method_t * method,
-        ti_type_t * type,
-        const char * s,
+        ti_method_t *method,
+        ti_type_t *type,
+        const char *s,
         size_t n,
-        ex_t * e)
+        ex_t *e)
 {
-    ti_name_t * name;
+    ti_name_t *name;
 
     if (!ti_name_is_valid_strn(s, n))
     {
@@ -161,13 +161,13 @@ fail0:
 }
 
 int ti_method_set_name_e(
-        ti_method_t * method,
-        ti_enum_t * enum_,
-        const char * s,
+        ti_method_t *method,
+        ti_enum_t *enum_,
+        const char *s,
         size_t n,
-        ex_t * e)
+        ex_t *e)
 {
-    ti_name_t * name;
+    ti_name_t *name;
 
     if (!ti_name_is_valid_strn(s, n))
     {
@@ -203,7 +203,7 @@ fail0:
     return e->nr;
 }
 
-void ti_method_set_closure(ti_method_t * method, ti_closure_t * closure)
+void ti_method_set_closure(ti_method_t *method, ti_closure_t *closure)
 {
     ti_val_drop((ti_val_t *) method->def);
     ti_val_drop((ti_val_t *) method->doc);

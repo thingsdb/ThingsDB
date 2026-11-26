@@ -12,11 +12,11 @@
  * Return a thing with a borrowed reference from the collection, or,
  * if not found, tries to restore the thing from the garbage collector.
  */
-static inline ti_thing_t * ti_collection_find_thing(
-        ti_collection_t * collection,
+static inline ti_thing_t *ti_collection_find_thing(
+        ti_collection_t *collection,
         uint64_t thing_id)
 {
-    ti_thing_t * thing = imap_get(collection->things, thing_id);
+    ti_thing_t *thing = imap_get(collection->things, thing_id);
     return thing
             ? thing
             : ti_collection_thing_restore_gc(collection, thing_id);
@@ -26,8 +26,8 @@ static inline ti_thing_t * ti_collection_find_thing(
  * Return a thing with a borrowed reference from the collection but
  * does not look in the garbage collector.
  */
-static inline void * ti_collection_thing_by_id(
-        ti_collection_t * collection,
+static inline void *ti_collection_thing_by_id(
+        ti_collection_t *collection,
         uint64_t thing_id)
 {
     return imap_get(collection->things, thing_id);
@@ -36,8 +36,8 @@ static inline void * ti_collection_thing_by_id(
 /*
  * Return a room with a borrowed reference from the collection.
  */
-static inline void * ti_collection_room_by_id(
-        ti_collection_t * collection,
+static inline void *ti_collection_room_by_id(
+        ti_collection_t *collection,
         uint64_t room_id)
 {
     return imap_get(collection->rooms, room_id);
@@ -46,9 +46,9 @@ static inline void * ti_collection_room_by_id(
 /*
  * Return a room with a borrowed reference from the collection.
  */
-static inline void * ti_collection_room_by_strn(
-        ti_collection_t * collection,
-        const char * str,
+static inline void *ti_collection_room_by_strn(
+        ti_collection_t *collection,
+        const char *str,
         size_t n)
 {
     return smap_getn(collection->named_rooms, str, n);
@@ -57,7 +57,7 @@ static inline void * ti_collection_room_by_strn(
 /*
  * Return the next free id and increment by one.
  */
-static inline uint64_t ti_collection_next_free_id(ti_collection_t * collection)
+static inline uint64_t ti_collection_next_free_id(ti_collection_t *collection)
 {
     return collection->next_free_id++;
 }
@@ -66,7 +66,7 @@ static inline uint64_t ti_collection_next_free_id(ti_collection_t * collection)
  * Update the next free Id if required.
  */
 static inline void ti_collection_update_next_free_id(
-        ti_collection_t * collection,
+        ti_collection_t *collection,
         uint64_t id)
 {
     if (id >= collection->next_free_id)

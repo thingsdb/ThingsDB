@@ -20,7 +20,7 @@ typedef struct cleri_choice_s cleri_choice_t;
 extern "C" {
 #endif
 
-cleri_t * cleri_choice(uint32_t gid, int most_greedy, size_t len, ...);
+cleri_t *cleri_choice(uint32_t gid, int most_greedy, size_t len, ...);
 
 #ifdef __cplusplus
 }
@@ -30,7 +30,7 @@ cleri_t * cleri_choice(uint32_t gid, int most_greedy, size_t len, ...);
 struct cleri_choice_s
 {
     int most_greedy;
-    cleri_olist_t * olist;
+    cleri_olist_t *olist;
 };
 
 #endif /* CLERI_CHOICE_H_ */

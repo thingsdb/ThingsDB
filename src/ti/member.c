@@ -14,13 +14,13 @@
  * The returned `member` has a borrowed reference, the `one` reference is
  * used by the parent `enum` type.
  */
-ti_member_t * ti_member_create(
-        ti_enum_t * enum_,
-        ti_name_t * name,
-        ti_val_t * val,
-        ex_t * e)
+ti_member_t *ti_member_create(
+        ti_enum_t *enum_,
+        ti_name_t *name,
+        ti_val_t *val,
+        ex_t *e)
 {
-    ti_member_t * member;
+    ti_member_t *member;
 
     if (ti_enum_member_by_strn(enum_, name->str, name->n) ||
         ti_enum_get_method(enum_, name))
@@ -66,11 +66,11 @@ ti_member_t * ti_member_create(
     return member;
 }
 
-ti_member_t * ti_member_placeholder(ti_enum_t * enum_, ex_t * e)
+ti_member_t *ti_member_placeholder(ti_enum_t *enum_, ex_t *e)
 {
     int r;
     static char buf[8];
-    ti_member_t * member = malloc(sizeof(ti_member_t));
+    ti_member_t *member = malloc(sizeof(ti_member_t));
     if (!member)
         goto alloc_error;
 
@@ -103,9 +103,9 @@ failed:
     return NULL;
 }
 
-int ti_member_alloc(ti_enum_t * enum_, ti_name_t * name, ex_t * e)
+int ti_member_alloc(ti_enum_t *enum_, ti_name_t *name, ex_t *e)
 {
-    ti_member_t * member = malloc(sizeof(ti_member_t));
+    ti_member_t *member = malloc(sizeof(ti_member_t));
     if (!member)
         goto alloc_error;
 
@@ -128,7 +128,7 @@ failed:
     return e->nr;
 }
 
-void ti_member_destroy(ti_member_t * member)
+void ti_member_destroy(ti_member_t *member)
 {
     if (!member)
         return;
@@ -139,16 +139,16 @@ void ti_member_destroy(ti_member_t * member)
     free(member);
 }
 
-void ti_member_drop(ti_member_t * member)
+void ti_member_drop(ti_member_t *member)
 {
     if (member && !--member->ref)
         ti_member_destroy(member);
 }
 
-void ti_member_remove(ti_member_t * member)
+void ti_member_remove(ti_member_t *member)
 {
-    ti_name_t * name = member->name;
-    ti_val_t * val = member->val;
+    ti_name_t *name = member->name;
+    ti_val_t *val = member->val;
 
     member->name = NULL;
     member->val = NULL;
@@ -160,21 +160,21 @@ void ti_member_remove(ti_member_t * member)
     ti_member_drop(member);
 }
 
-void ti_member_del(ti_member_t * member)
+void ti_member_del(ti_member_t *member)
 {
     ti_enum_del_member(member->enum_, member);
     ti_member_remove(member);
 }
 
-void ti_member_def(ti_member_t * member)
+void ti_member_def(ti_member_t *member)
 {
-    ti_member_t * tmp = VEC_first(member->enum_->members);
+    ti_member_t *tmp = VEC_first(member->enum_->members);
     tmp->idx = member->idx;
     member->idx = 0;
     vec_swap(member->enum_->members, member->idx, tmp->idx);
 }
 
-int ti_member_set_value(ti_member_t * member, ti_val_t * val, ex_t * e)
+int ti_member_set_value(ti_member_t *member, ti_val_t *val, ex_t *e)
 {
     if (ti_enum_check_val(member->enum_, val, e))
         return e->nr;
@@ -187,12 +187,12 @@ int ti_member_set_value(ti_member_t * member, ti_val_t * val, ex_t * e)
 }
 
 int ti_member_set_name(
-        ti_member_t * member,
-        const char * s,
+        ti_member_t *member,
+        const char *s,
         size_t n,
-        ex_t * e)
+        ex_t *e)
 {
-    ti_name_t * name;
+    ti_name_t *name;
 
     if (!ti_name_is_valid_strn(s, n))
     {

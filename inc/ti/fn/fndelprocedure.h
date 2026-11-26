@@ -1,11 +1,11 @@
 #include <ti/fn/fn.h>
 
-static int do__f_del_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_del_procedure(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_procedure_t * procedure;
-    ti_task_t * task;
-    smap_t * procedures = ti_query_procedures(query);
+    ti_procedure_t *procedure;
+    ti_task_t *task;
+    smap_t *procedures = ti_query_procedures(query);
 
     if (fn_not_thingsdb_or_collection_scope("del_procedure", query, e) ||
         fn_commit("del_procedure", query, e) ||

@@ -3,16 +3,16 @@
 
 typedef struct
 {
-    ti_query_t * query;
-    ti_closure_t * closure;
-    ex_t * e;
+    ti_query_t *query;
+    ti_closure_t *closure;
+    ex_t *e;
     vec_sort_r_cb cb;
 } closure_cmp_t;
 
-static int ti_closure_cmp(ti_val_t * va, ti_val_t * vb, closure_cmp_t * cc)
+static int ti_closure_cmp(ti_val_t *va, ti_val_t *vb, closure_cmp_t *cc)
 {
     int64_t i;
-    ti_prop_t * pa, *pb;
+    ti_prop_t *pa, *pb;
 
     if (cc->e->nr)
         return 0;
@@ -49,10 +49,10 @@ static int ti_closure_cmp(ti_val_t * va, ti_val_t * vb, closure_cmp_t * cc)
     return i < INT_MIN ? INT_MIN : i > INT_MAX ? INT_MAX : i;
 }
 
-static int ti_closure_pick(ti_val_t * va, ti_val_t * vb, closure_cmp_t * cc)
+static int ti_closure_pick(ti_val_t *va, ti_val_t *vb, closure_cmp_t *cc)
 {
     int i;
-    ti_prop_t * p;
+    ti_prop_t *p;
 
     if (cc->e->nr)
         return 0;
@@ -90,11 +90,11 @@ static int ti_closure_pick(ti_val_t * va, ti_val_t * vb, closure_cmp_t * cc)
     return i;
 }
 
-static int do__f_sort(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_sort(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_varr_t * varr;
-    ti_closure_t * closure;
+    ti_varr_t *varr;
+    ti_closure_t *closure;
     _Bool reverse = false;
 
     if (!ti_val_is_array(query->rval))

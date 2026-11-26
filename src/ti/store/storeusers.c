@@ -16,7 +16,7 @@
 #include <util/vec.h>
 
 
-static int store__whitelist(vec_t * whitelist, msgpack_packer * pk)
+static int store__whitelist(vec_t *whitelist, msgpack_packer *pk)
 {
 
     if (whitelist)
@@ -35,7 +35,7 @@ static int store__whitelist(vec_t * whitelist, msgpack_packer * pk)
     return 0;
 }
 
-int ti_store_users_store(const char * fn)
+int ti_store_users_store(const char *fn)
 {
     msgpack_packer pk;
     FILE * f = fopen(fn, "w");
@@ -94,7 +94,7 @@ done:
     return 0;
 }
 
-int ti_store_users_restore(const char * fn)
+int ti_store_users_restore(const char *fn)
 {
     ex_t e = {0};
     int rc = -1;
@@ -103,15 +103,15 @@ int ti_store_users_restore(const char * fn)
     mp_obj_t arr, obj, mp_id, mp_name, mp_pass, mp_key,
              mp_expire, mp_desc, mp_created;
     mp_unp_t up;
-    ti_token_t * token;
-    ti_user_t * user;
-    uchar * data = fx_read(fn, &n);
+    ti_token_t *token;
+    ti_user_t *user;
+    uchar *data = fx_read(fn, &n);
     ti_vup_t vup = {
             .isclient = false,
             .collection = NULL,
             .up = &up,
     };
-    char * encrypted;
+    char *encrypted;
     if (!data || ti_users_clear())
         return -1;
 
@@ -190,7 +190,7 @@ int ti_store_users_restore(const char * fn)
                         goto fail;
                     for (ii = obj.via.sz; ii--;)
                     {
-                        ti_val_t * val = ti_val_from_vup(&vup);
+                        ti_val_t *val = ti_val_from_vup(&vup);
                         if (!val)
                             goto fail;
                         VEC_push(user->whitelists[wid], val);

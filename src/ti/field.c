@@ -37,14 +37,14 @@
 
 static int field__auto_convert(
         ti_val_t ** val,
-        ti_collection_t * collection,
+        ti_collection_t *collection,
         uint16_t spec,
         uint16_t nested_spec,
-        ex_t * e);
+        ex_t *e);
 
-static void field__remove_dep(ti_field_t * field)
+static void field__remove_dep(ti_field_t *field)
 {
-    ti_type_t * type;
+    ti_type_t *type;
     uint32_t idx;
     uint16_t spec;
 
@@ -90,8 +90,8 @@ decref:
     return;
 }
 
-static inline _Bool field__maps_dict_keys(ti_field_t * t_field,
-                                          ti_field_t * f_field)
+static inline _Bool field__maps_dict_keys(ti_field_t *t_field,
+                                          ti_field_t *f_field)
 {
     return (
         t_field->condition.key->spec == TI_SPEC_ANY ||
@@ -100,7 +100,7 @@ static inline _Bool field__maps_dict_keys(ti_field_t * t_field,
 }
 
 /* Used for detecting circular references between types */
-static int field__dep_check(ti_type_t * dep, ti_type_t * type)
+static int field__dep_check(ti_type_t *dep, ti_type_t *type)
 {
     for (vec_each(dep->fields, ti_field_t, field))
     {
@@ -116,9 +116,9 @@ static int field__dep_check(ti_type_t * dep, ti_type_t * type)
     return 0;
 }
 
-static int field__add_dep(ti_field_t * field)
+static int field__add_dep(ti_field_t *field)
 {
-    ti_type_t * type;
+    ti_type_t *type;
     uint16_t spec;
 
     spec = field->spec & TI_SPEC_MASK_NILLABLE;
@@ -156,10 +156,10 @@ incref:
 }
 
 static _Bool field__spec_is_ascii(
-        ti_field_t * field,
-        const char * str,
+        ti_field_t *field,
+        const char *str,
         size_t n,
-        ex_t * e)
+        ex_t *e)
 {
     if (!strx_is_asciin(str, n))
     {
@@ -176,27 +176,27 @@ static _Bool field__spec_is_ascii(
 #define field__cmp(__a, __na, __str) \
         strlen(__str) == __na && memcmp(__a, __str, __na) == 0
 
-static ti_val_t * field__dval_nil(ti_field_t * UNUSED(field))
+static ti_val_t *field__dval_nil(ti_field_t *UNUSED(field))
 {
     return (ti_val_t *) ti_nil_get();
 }
 
-static ti_val_t * field__dval_arr(ti_field_t * UNUSED(field))
+static ti_val_t *field__dval_arr(ti_field_t *UNUSED(field))
 {
      return (ti_val_t *) ti_varr_create(0);
 }
 
-static ti_val_t * field__dval_dict(ti_field_t * UNUSED(field))
+static ti_val_t *field__dval_dict(ti_field_t *UNUSED(field))
 {
      return (ti_val_t *) ti_dict_create();
 }
 
-static ti_val_t * field__dval_set(ti_field_t * UNUSED(field))
+static ti_val_t *field__dval_set(ti_field_t *UNUSED(field))
 {
     return (ti_val_t *) ti_vset_create();;
 }
 
-static ti_val_t * field__dval_thing(ti_field_t * field)
+static ti_val_t *field__dval_thing(ti_field_t *field)
 {
     return (ti_val_t *) ti_thing_o_create(
             0,      /* id */
@@ -204,9 +204,9 @@ static ti_val_t * field__dval_thing(ti_field_t * field)
             field->type->types->collection);
 }
 
-static ti_val_t * field__dval_restricted(ti_field_t * field)
+static ti_val_t *field__dval_restricted(ti_field_t *field)
 {
-     ti_thing_t * thing = ti_thing_o_create(
+     ti_thing_t *thing = ti_thing_o_create(
             0,      /* id */
             0,      /* initial size */
             field->type->types->collection);
@@ -215,98 +215,98 @@ static ti_val_t * field__dval_restricted(ti_field_t * field)
      return (ti_val_t *) thing;
 }
 
-static ti_val_t * field__dval_str(ti_field_t * UNUSED(field))
+static ti_val_t *field__dval_str(ti_field_t *UNUSED(field))
 {
     return ti_val_empty_str();
 }
 
-static ti_val_t * field__dval_bin(ti_field_t * UNUSED(field))
+static ti_val_t *field__dval_bin(ti_field_t *UNUSED(field))
 {
     return ti_val_empty_bin();
 }
 
-static ti_val_t * field__dval_int(ti_field_t * UNUSED(field))
+static ti_val_t *field__dval_int(ti_field_t *UNUSED(field))
 {
     return (ti_val_t *) ti_vint_create(0);
 }
 
-static ti_val_t * field__dval_pint(ti_field_t * UNUSED(field))
+static ti_val_t *field__dval_pint(ti_field_t *UNUSED(field))
 {
     return (ti_val_t *) ti_vint_create(1);
 }
 
-static ti_val_t * field__dval_nint(ti_field_t * UNUSED(field))
+static ti_val_t *field__dval_nint(ti_field_t *UNUSED(field))
 {
     return (ti_val_t *) ti_vint_create(-1);
 }
 
-static ti_val_t * field__dval_float(ti_field_t * UNUSED(field))
+static ti_val_t *field__dval_float(ti_field_t *UNUSED(field))
 {
     return (ti_val_t *) ti_vfloat_create(0.0);
 }
 
-static ti_val_t * field__dval_bool(ti_field_t * UNUSED(field))
+static ti_val_t *field__dval_bool(ti_field_t *UNUSED(field))
 {
     return (ti_val_t *) ti_vbool_get(false);
 }
 
-static ti_val_t * field__dval_uuid(ti_field_t * UNUSED(field))
+static ti_val_t *field__dval_uuid(ti_field_t *UNUSED(field))
 {
     return (ti_val_t *) ti_uuid_new();
 }
 
-static ti_val_t * field__dval_regex(ti_field_t * UNUSED(field))
+static ti_val_t *field__dval_regex(ti_field_t *UNUSED(field))
 {
     return ti_val_default_re();
 }
 
-static ti_val_t * field__dval_closure(ti_field_t * UNUSED(field))
+static ti_val_t *field__dval_closure(ti_field_t *UNUSED(field))
 {
     return ti_val_default_closure();
 }
 
-static ti_val_t * field__dval_error(ti_field_t * UNUSED(field))
+static ti_val_t *field__dval_error(ti_field_t *UNUSED(field))
 {
     return (ti_val_t *) ti_verror_from_code(TI_VERROR_DEF_CODE);
 }
 
-static ti_val_t * field__dval_room(ti_field_t * field)
+static ti_val_t *field__dval_room(ti_field_t *field)
 {
     return (ti_val_t *) ti_room_create(0, field->type->types->collection);
 }
 
-static ti_val_t * field__dval_task(ti_field_t * UNUSED(field))
+static ti_val_t *field__dval_task(ti_field_t *UNUSED(field))
 {
     return (ti_val_t *) ti_vtask_nil();
 }
 
-static ti_val_t * field__dval_datetime(ti_field_t * field)
+static ti_val_t *field__dval_datetime(ti_field_t *field)
 {
     return (ti_val_t *) ti_datetime_from_u64(
             util_now_usec(),
             field->type->types->collection->tz);
 }
 
-static ti_val_t * field__dval_timeval(ti_field_t * field)
+static ti_val_t *field__dval_timeval(ti_field_t *field)
 {
     return (ti_val_t *) ti_timeval_from_u64(
             util_now_usec(),
             field->type->types->collection->tz);
 }
 
-static ti_val_t * field__dval_type(ti_field_t * field)
+static ti_val_t *field__dval_type(ti_field_t *field)
 {
     return ti_type_dval(ti_types_by_id(field->type->types, field->spec));
 }
 
-static ti_val_t * field__dval_enum(ti_field_t * field)
+static ti_val_t *field__dval_enum(ti_field_t *field)
 {
     return ti_enum_dval(ti_enums_by_id(
             field->type->types->collection->enums,
             field->spec & TI_ENUM_ID_MASK));
 }
 
-static inline void field__set_cb(ti_field_t * field, ti_field_dval_cb cb)
+static inline void field__set_cb(ti_field_t *field, ti_field_dval_cb cb)
 {
     if (!field->dval_cb)
         field->dval_cb = cb;
@@ -330,7 +330,7 @@ enum
 };
 
 static inline unsigned int field__hash(
-        register const char * s,
+        register const char *s,
         register size_t n)
 {
     static unsigned short asso_values[] =
@@ -426,7 +426,7 @@ ti_field_map_t field__mapping[TOTAL_KEYWORDS] = {
     {.name="enum",      .spec=TI_SPEC_ENUM,     .dval_cb=field__dval_nil},
 };
 
-static ti_field_map_t * field__map[MAX_HASH_VALUE+1];
+static ti_field_map_t *field__map[MAX_HASH_VALUE+1];
 
 /*
  * Initializes ThingsDB function mapping.
@@ -438,7 +438,7 @@ void ti_field_init(void)
     for (size_t i = 0, n = TOTAL_KEYWORDS; i < n; ++i)
     {
         uint32_t key;
-        ti_field_map_t * fmap = &field__mapping[i];
+        ti_field_map_t *fmap = &field__mapping[i];
 
         fmap->n = strlen(fmap->name);
         key = field__hash(fmap->name, fmap->n);
@@ -450,27 +450,27 @@ void ti_field_init(void)
     }
 }
 
-ti_field_map_t * ti_field_map_by_strn(const char * s, size_t n)
+ti_field_map_t *ti_field_map_by_strn(const char *s, size_t n)
 {
     register uint32_t key = field__hash(s, n);
-    ti_field_map_t * fmap = key <= MAX_HASH_VALUE
+    ti_field_map_t *fmap = key <= MAX_HASH_VALUE
             ? field__map[key] : NULL;
     return fmap && memcmp(s, fmap->name, n) == 0 ? fmap : NULL;
 }
 
-ti_field_map_t * ti_field_map_by_spec(const uint16_t spec)
+ti_field_map_t *ti_field_map_by_spec(const uint16_t spec)
 {
     if (spec < TI_SPEC_ANY || spec >= TI_SPEC_ANY + TOTAL_KEYWORDS)
         return NULL;
     return &field__mapping[spec-TI_SPEC_ANY];
 }
 
-static int field__init(ti_field_t * field, ex_t * e)
+static int field__init(ti_field_t *field, ex_t *e)
 {
-    const char * str = (const char *) field->spec_raw->data;
+    const char *str = (const char *) field->spec_raw->data;
     size_t n = field->spec_raw->n;
-    uint16_t * spec = &field->spec;
-    ti_field_map_t * fmap;
+    uint16_t *spec = &field->spec;
+    ti_field_map_t *fmap;
 
     field->flags = 0;
     field->spec = 0;
@@ -709,7 +709,7 @@ skip_nesting:
         {
             if (str[m] == '{')
             {
-                ti_enum_t * enum_ = ti_enums_by_strn(
+                ti_enum_t *enum_ = ti_enums_by_strn(
                     field->type->types->collection->enums,
                     str,
                     m);
@@ -718,7 +718,7 @@ skip_nesting:
 
                 if (enum_)
                 {
-                    ti_member_t * member;
+                    ti_member_t *member;
 
                     if (enum_->flags & TI_ENUM_FLAG_LOCK)
                     {
@@ -858,10 +858,10 @@ skip_nesting:
     }
     else
     {
-        ti_type_t * dep = ti_types_by_strn(field->type->types, str, n);
+        ti_type_t *dep = ti_types_by_strn(field->type->types, str, n);
         if (!dep)
         {
-            ti_enum_t * enum_ = ti_enums_by_strn(
+            ti_enum_t *enum_ = ti_enums_by_strn(
                     field->type->types->collection->enums,
                     str,
                     n);
@@ -1030,13 +1030,13 @@ duplicate_flag:
  * If successful, the reference counter for `name` and `spec_raw` will
  * increase.
  */
-ti_field_t * ti_field_create(
-        ti_name_t * name,
-        ti_raw_t * spec_raw,
-        ti_type_t * type,
-        ex_t * e)
+ti_field_t *ti_field_create(
+        ti_name_t *name,
+        ti_raw_t *spec_raw,
+        ti_type_t *type,
+        ex_t *e)
 {
-    ti_field_t * field = malloc(sizeof(ti_field_t));
+    ti_field_t *field = malloc(sizeof(ti_field_t));
     if (!field)
     {
         ex_set_mem(e);
@@ -1072,17 +1072,17 @@ ti_field_t * ti_field_create(
 
 typedef struct
 {
-    ti_data_t * data;
-    ti_name_t * name;
+    ti_data_t *data;
+    ti_name_t *name;
     ti_val_t ** vaddr;
     uint64_t val_idx;
     uint16_t type_id;
     ex_t e;
 } field__mod_t;
 
-ti_field_t * ti_field_as_new(ti_field_t * field, ti_raw_t * spec_raw, ex_t * e)
+ti_field_t *ti_field_as_new(ti_field_t *field, ti_raw_t *spec_raw, ex_t *e)
 {
-    ti_field_t * new_field = malloc(sizeof(ti_field_t));
+    ti_field_t *new_field = malloc(sizeof(ti_field_t));
     if (!new_field)
     {
         ex_set_mem(e);
@@ -1110,7 +1110,7 @@ ti_field_t * ti_field_as_new(ti_field_t * field, ti_raw_t * spec_raw, ex_t * e)
 /*
  * Destroys `with_field` and sets this pointer to NULL
  */
-void ti_field_replace(ti_field_t * field, ti_field_t ** with_field)
+void ti_field_replace(ti_field_t *field, ti_field_t ** with_field)
 {
     assert(field->idx == (*with_field)->idx);
     assert(field->type == (*with_field)->type);
@@ -1135,9 +1135,9 @@ void ti_field_replace(ti_field_t * field, ti_field_t ** with_field)
     *with_field = NULL;
 }
 
-int ti_field_mod_force(ti_field_t * field, ti_raw_t * spec_raw, ex_t * e)
+int ti_field_mod_force(ti_field_t *field, ti_raw_t *spec_raw, ex_t *e)
 {
-    ti_raw_t * prev_spec_raw = field->spec_raw;
+    ti_raw_t *prev_spec_raw = field->spec_raw;
     ti_condition_via_t prev_condition = field->condition;
     uint16_t prev_spec = field->spec;
     uint16_t prev_nested_spec = field->nested_spec;
@@ -1169,11 +1169,11 @@ undo:
 }
 
 int ti_field_mod(
-        ti_field_t * field,
-        ti_raw_t * spec_raw,
-        ex_t * e)
+        ti_field_t *field,
+        ti_raw_t *spec_raw,
+        ex_t *e)
 {
-    ti_raw_t * prev_spec_raw = field->spec_raw;
+    ti_raw_t *prev_spec_raw = field->spec_raw;
     ti_condition_via_t prev_condition = field->condition;
     uint16_t prev_spec = field->spec;
     uint16_t prev_nested_spec = field->nested_spec;
@@ -1259,12 +1259,12 @@ done:
 }
 
 int ti_field_set_name(
-        ti_field_t * field,
-        const char * s,
+        ti_field_t *field,
+        const char *s,
         size_t n,
-        ex_t * e)
+        ex_t *e)
 {
-    ti_name_t * name;
+    ti_name_t *name;
 
     if (!ti_name_is_valid_strn(s, n))
     {
@@ -1301,9 +1301,9 @@ fail0:
     return e->nr;
 }
 
-int ti_field_del(ti_field_t * field)
+int ti_field_del(ti_field_t *field)
 {
-    vec_t * vec = imap_vec_ref(field->type->types->collection->things);
+    vec_t *vec = imap_vec_ref(field->type->types->collection->things);
     uint16_t type_id = field->type->type_id;
     if (!vec)
         return -1;
@@ -1334,9 +1334,9 @@ int ti_field_del(ti_field_t * field)
 }
 
 /* remove field from type and destroy; no update of things; */
-void ti_field_remove(ti_field_t * field)
+void ti_field_remove(ti_field_t *field)
 {
-    ti_field_t * swap;
+    ti_field_t *swap;
     if (!field)
         return;
 
@@ -1353,7 +1353,7 @@ void ti_field_remove(ti_field_t * field)
 }
 
 /* just destroy a field object; no remove from type nor update things; */
-void ti_field_destroy(ti_field_t * field)
+void ti_field_destroy(ti_field_t *field)
 {
     if (!field)
         return;
@@ -1365,7 +1365,7 @@ void ti_field_destroy(ti_field_t * field)
     free(field);
 }
 
-void ti_field_destroy_dep(ti_field_t * field)
+void ti_field_destroy_dep(ti_field_t *field)
 {
     if (!field)
         return;
@@ -1373,25 +1373,25 @@ void ti_field_destroy_dep(ti_field_t * field)
     ti_field_destroy(field);
 }
 
-static inline int field__walk_assign(ti_thing_t * thing, ti_field_t * field)
+static inline int field__walk_assign(ti_thing_t *thing, ti_field_t *field)
 {
     return thing->type_id != field->nested_spec;
 }
 
 typedef struct
 {
-    ti_field_t * field;
-    ti_thing_t * relation;
-    imap_t * imap;
+    ti_field_t *field;
+    ti_thing_t *relation;
+    imap_t *imap;
 } field__walk_set_t;
 
-static int field__walk_unset_cb(ti_thing_t * thing, field__walk_set_t * w)
+static int field__walk_unset_cb(ti_thing_t *thing, field__walk_set_t *w)
 {
     w->field->condition.rel->del_cb(w->field, thing, w->relation);
     return 0;
 }
 
-static int field__walk_set_cb(ti_thing_t * thing, field__walk_set_t * w)
+static int field__walk_set_cb(ti_thing_t *thing, field__walk_set_t *w)
 {
     if (w->imap && imap_pop(w->imap, ti_thing_key(thing)))
     {
@@ -1403,9 +1403,9 @@ static int field__walk_set_cb(ti_thing_t * thing, field__walk_set_t * w)
     return 0;
 }
 
-static int field__walk_tset_cb(ti_thing_t * thing, field__walk_set_t * w)
+static int field__walk_tset_cb(ti_thing_t *thing, field__walk_set_t *w)
 {
-    ti_thing_t * other;
+    ti_thing_t *other;
 
     if (w->imap && imap_pop(w->imap, ti_thing_key(thing)))
     {
@@ -1416,7 +1416,7 @@ static int field__walk_tset_cb(ti_thing_t * thing, field__walk_set_t * w)
     other = VEC_get(thing->items.vec, w->field->idx);
     if (other->tp == TI_VAL_THING)
     {
-        ti_field_t * ofield = w->field->condition.rel->field;
+        ti_field_t *ofield = w->field->condition.rel->field;
         ofield->condition.rel->del_cb(ofield, other, thing);
     }
 
@@ -1425,10 +1425,10 @@ static int field__walk_tset_cb(ti_thing_t * thing, field__walk_set_t * w)
 }
 
 int ti_field_vset_pre_assign(
-        ti_field_t * field,
-        imap_t * imap,
-        ti_thing_t * parent,
-        ex_t * e,
+        ti_field_t *field,
+        imap_t *imap,
+        ti_thing_t *parent,
+        ex_t *e,
         _Bool do_type_check)
 {
     /*
@@ -1436,7 +1436,7 @@ int ti_field_vset_pre_assign(
      * In case of `any`, we have to make sure the specification will be
      * OBJECT, not ANY.
      */
-    ti_vset_t * oset;
+    ti_vset_t *oset;
     _Bool with_relation = field->condition.rel && parent;
 
     if (field->nested_spec == TI_SPEC_ANY || imap->n == 0)
@@ -1486,17 +1486,17 @@ done:
 }
 
 static int field__vset_assign(
-        ti_field_t * field,
+        ti_field_t *field,
         ti_vset_t ** vset,
-        ti_thing_t * parent,
-        ex_t * e)
+        ti_thing_t *parent,
+        ex_t *e)
 {
     /*
      * This method may be called when field is either `any` or a `set.
      * In case of `any`, we have to make sure the specification will be
      * OBJECT, not ANY.
      */
-    ti_vset_t * oset;
+    ti_vset_t *oset;
     _Bool with_relation = field->condition.rel && parent;
 
     if (field->nested_spec == TI_SPEC_ANY ||
@@ -1561,10 +1561,10 @@ done:
 }
 
 static int field__varr_assign(
-        ti_field_t * field,
+        ti_field_t *field,
         ti_varr_t ** varr,
-        ti_thing_t * parent,
-        ex_t * e)
+        ti_thing_t *parent,
+        ex_t *e)
 {
     if (field->nested_spec == TI_SPEC_ANY ||
         field->nested_spec == ti_varr_spec(*varr) ||
@@ -1652,13 +1652,13 @@ done:
 
 typedef struct
 {
-    ti_field_t * field;
-    ex_t * e;
+    ti_field_t *field;
+    ex_t *e;
 } field__pair_t;
 
-static int field__dict_pair_cb(ti_dict_key_t * key,
-                               ti_val_t * val,
-                               field__pair_t * w)
+static int field__dict_pair_cb(ti_dict_key_t *key,
+                               ti_val_t *val,
+                               field__pair_t *w)
 {
     register uint16_t key_spec = w->field->condition.key->spec;
     register uint16_t val_spec = w->field->nested_spec;
@@ -1770,10 +1770,10 @@ static int field__dict_pair_cb(ti_dict_key_t * key,
 }
 
 static int field__dict_assign(
-        ti_field_t * field,
+        ti_field_t *field,
         ti_dict_t ** dictaddr,
-        ti_thing_t * parent,
-        ex_t * e)
+        ti_thing_t *parent,
+        ex_t *e)
 {
     /* field can be either an `any` or `dict` field */
     if (field->condition.none == NULL || !ti_dict_bool(*dictaddr))
@@ -1800,15 +1800,15 @@ done:
     return 0;
 }
 
-static int field__restrict_cb(ti_prop_t * prop, ti_field_t * field)
+static int field__restrict_cb(ti_prop_t *prop, ti_field_t *field)
 {
     return ti_spec_check_nested_val(field->nested_spec, prop->val);
 }
 
 static int field__thing_assign(
-        ti_field_t * field,
-        ti_thing_t * thing,
-        ex_t * e)
+        ti_field_t *field,
+        ti_thing_t *thing,
+        ex_t *e)
 {
     ti_spec_rval_enum rc = TI_SPEC_RVAL_SUCCESS;
 
@@ -1922,9 +1922,9 @@ static int field__thing_assign(
     return 0;
 }
 
-static int field__maps_dict_pair(ti_dict_key_t * key,
-                                 ti_val_t * val,
-                                 ti_field_t * field)
+static int field__maps_dict_pair(ti_dict_key_t *key,
+                                 ti_val_t *val,
+                                 ti_field_t *field)
 {
     switch (field->condition.key->spec)
     {
@@ -1946,7 +1946,7 @@ static int field__maps_dict_pair(ti_dict_key_t * key,
     return !ti_spec_maps_to_nested_val(field, val);
 }
 
-static _Bool field__maps_dict_to_dict(ti_field_t * field, ti_dict_t * dict)
+static _Bool field__maps_dict_to_dict(ti_field_t *field, ti_dict_t *dict)
 {
     if ((
             field->condition.key->spec == TI_SPEC_ANY ||
@@ -1960,12 +1960,12 @@ static _Bool field__maps_dict_to_dict(ti_field_t * field, ti_dict_t * dict)
     return !ti_dict_pairs(dict, (ti_dict_pair_cb) field__maps_dict_pair, field);
 }
 
-static int field__maps_dict_walk(ti_val_t * val, ti_field_t * field)
+static int field__maps_dict_walk(ti_val_t *val, ti_field_t *field)
 {
     return !ti_spec_maps_to_nested_val(field, val);
 }
 
-static _Bool field__maps_dict_to_arr(ti_field_t * field, ti_dict_t * dict)
+static _Bool field__maps_dict_to_arr(ti_field_t *field, ti_dict_t *dict)
 {
     if ((
         field->nested_spec == TI_SPEC_ANY ||
@@ -1976,7 +1976,7 @@ static _Bool field__maps_dict_to_arr(ti_field_t * field, ti_dict_t * dict)
     return !ti_dict_walk(dict, (ti_dict_cb) field__maps_dict_walk, field);
 }
 
-static _Bool field__maps_arr_to_arr(ti_field_t * field, ti_varr_t * varr)
+static _Bool field__maps_arr_to_arr(ti_field_t *field, ti_varr_t *varr)
 {
     if (field->nested_spec == TI_SPEC_ANY ||
         varr->vec->n == 0 ||
@@ -1990,7 +1990,7 @@ static _Bool field__maps_arr_to_arr(ti_field_t * field, ti_varr_t * varr)
     return true;
 }
 
-static _Bool field__maps_arr_to_type(ti_varr_t * varr)
+static _Bool field__maps_arr_to_type(ti_varr_t *varr)
 {
     for (vec_each(varr->vec, ti_val_t, val))
         if (!ti_val_is_thing(val))
@@ -1998,22 +1998,22 @@ static _Bool field__maps_arr_to_type(ti_varr_t * varr)
     return true;
 }
 
-static int field__dict_things(ti_val_t * val, void * UNUSED(_))
+static int field__dict_things(ti_val_t *val, void *UNUSED(_))
 {
     return !ti_val_is_thing(val);
 }
 
-static _Bool field__maps_dict_to_type(ti_dict_t * dict)
+static _Bool field__maps_dict_to_type(ti_dict_t *dict)
 {
     return !ti_dict_walk(dict, (ti_dict_cb) field__dict_things, NULL);
 }
 
-static int field__map_restrict_cb(ti_prop_t * prop, ti_field_t * field)
+static int field__map_restrict_cb(ti_prop_t *prop, ti_field_t *field)
 {
     return !ti_spec_maps_to_nested_val(field, prop->val);
 }
 
-static _Bool field__maps_restricted(ti_field_t * field, ti_thing_t * thing)
+static _Bool field__maps_restricted(ti_field_t *field, ti_thing_t *thing)
 {
     if (field->nested_spec == TI_SPEC_ANY)
         return true;
@@ -2037,7 +2037,7 @@ static _Bool field__maps_restricted(ti_field_t * field, ti_thing_t * thing)
     return true;
 }
 
-static _Bool field__maps_set_to_arr(ti_field_t * field)
+static _Bool field__maps_set_to_arr(ti_field_t *field)
 {
     /*
      * A set can only map to an array if, and only if the array accepts a
@@ -2046,7 +2046,7 @@ static _Bool field__maps_set_to_arr(ti_field_t * field)
     return ((field->nested_spec & TI_SPEC_MASK_NILLABLE) <= TI_SPEC_OBJECT);
 }
 
-static int field__auto_convert_int(ti_val_t ** val, ex_t * e)
+static int field__auto_convert_int(ti_val_t ** val, ex_t *e)
 {
     if (ti_val_is_float(*val))
     {
@@ -2137,7 +2137,7 @@ static _Bool field__require_convert(uint16_t spec)
 /* no conversion when nested in objects for arr, set and dict;
  * these need make assignable calls;
  */
-static int field__test_object_convert(ti_val_t * val, uint16_t spec)
+static int field__test_object_convert(ti_val_t *val, uint16_t spec)
 {
     if (spec < TI_SPEC_ANY)
         return (ti_val_is_object(val) ||
@@ -2201,12 +2201,12 @@ static int field__test_object_convert(ti_val_t * val, uint16_t spec)
     return !ti_val_is_member(val);
 }
 
-static int field__object_convert_wall(ti_item_t * item, uint16_t * spec)
+static int field__object_convert_wall(ti_item_t *item, uint16_t *spec)
 {
     return field__test_object_convert(item->val, *spec);
 }
 
-static _Bool field__object_require_convert(ti_thing_t * thing, uint16_t spec)
+static _Bool field__object_require_convert(ti_thing_t *thing, uint16_t spec)
 {
     if (ti_thing_is_dict(thing))
         return smap_values(
@@ -2222,12 +2222,12 @@ static _Bool field__object_require_convert(ti_thing_t * thing, uint16_t spec)
 
 typedef struct
 {
-    ti_collection_t * collection;
-    ex_t * e;
+    ti_collection_t *collection;
+    ex_t *e;
     uint16_t nested_spec;
 } field__auto_convert_t;
 
-static int field__walk_auto_convert(ti_item_t * item, field__auto_convert_t * w)
+static int field__walk_auto_convert(ti_item_t *item, field__auto_convert_t *w)
 {
     return field__auto_convert(
             &item->val,
@@ -2239,20 +2239,20 @@ static int field__walk_auto_convert(ti_item_t * item, field__auto_convert_t * w)
 
 static int field__auto_convert_thing(
         ti_val_t ** val,
-        ti_collection_t * collection,
+        ti_collection_t *collection,
         uint16_t spec,
         uint16_t nested_spec,
-        ex_t * e)
+        ex_t *e)
 {
     if (ti_val_is_thing(*val))
     {
-        ti_thing_t * tsrc = (ti_thing_t *) (*val);
+        ti_thing_t *tsrc = (ti_thing_t *) (*val);
         if (ti_thing_is_object(tsrc))
         {
             if (spec < TI_SPEC_ANY)
             {
-                ti_thing_t * thing;
-                ti_type_t * type = ti_types_by_id(collection->types, spec);
+                ti_thing_t *thing;
+                ti_type_t *type = ti_types_by_id(collection->types, spec);
                 assert(type && !ti_type_is_wrap_only(type));
                 thing = ti_type_from_thing(type, tsrc, e);
                 if (thing)
@@ -2266,7 +2266,7 @@ static int field__auto_convert_thing(
             if (field__require_convert(nested_spec) &&
                 field__object_require_convert(tsrc, nested_spec))
             {
-                ti_thing_t * thing = tsrc;
+                ti_thing_t *thing = tsrc;
                 ti_incref(thing);
                 if (ti_thing_copy(&thing, 1))
                 {
@@ -2315,7 +2315,7 @@ static int field__auto_convert_thing(
 
     if (ti_val_is_int(*val))
     {
-        ti_thing_t * thing;
+        ti_thing_t *thing;
         int64_t thing_id = VINT(*val);
         thing = thing_id
             ? ti_collection_thing_by_id(collection, (uint64_t) thing_id)
@@ -2338,15 +2338,15 @@ static int field__auto_convert_thing(
 
 static int field__auto_convert_arr(
         ti_val_t ** val,
-        ti_collection_t * collection,
+        ti_collection_t *collection,
         uint16_t nested_spec,
-        ex_t * e)
+        ex_t *e)
 {
     if (ti_val_is_array(*val))
     {
         /* there is no reason for testing if conversion is required,
          * by creating a new one we prevent duplication later */
-        ti_varr_t * varr = ti_varr_cp((ti_varr_t *) (*val));
+        ti_varr_t *varr = ti_varr_cp((ti_varr_t *) (*val));
         if (!varr)
         {
             ex_set_mem(e);
@@ -2372,7 +2372,7 @@ static int field__auto_convert_arr(
     return 0;
 }
 
-static int field__auto_convert_float(ti_val_t ** val, ex_t * e)
+static int field__auto_convert_float(ti_val_t ** val, ex_t *e)
 {
     if (ti_val_is_int(*val))
     {
@@ -2383,12 +2383,12 @@ static int field__auto_convert_float(ti_val_t ** val, ex_t * e)
     return e->nr;
 }
 
-static int field__auto_convert_regex(ti_val_t ** val, ex_t * e)
+static int field__auto_convert_regex(ti_val_t ** val, ex_t *e)
 {
     if (ti_val_is_str(*val))
     {
         ti_incref(*val);
-        ti_regex_t * regex = ti_regex_from_raw((ti_raw_t *) *val, e);
+        ti_regex_t *regex = ti_regex_from_raw((ti_raw_t *) *val, e);
         if (regex)
         {
             ti_val_unsafe_drop(*val);
@@ -2398,7 +2398,7 @@ static int field__auto_convert_regex(ti_val_t ** val, ex_t * e)
     return e->nr;
 }
 
-static int field__auto_convert_uuid(ti_val_t ** val, ex_t * e)
+static int field__auto_convert_uuid(ti_val_t ** val, ex_t *e)
 {
     if (ti_val_is_str(*val))
         return val__str_to_uuid(val, e);
@@ -2407,7 +2407,7 @@ static int field__auto_convert_uuid(ti_val_t ** val, ex_t * e)
     return 0;
 }
 
-static int field__auto_convert_closure(ti_val_t ** val, ex_t * e)
+static int field__auto_convert_closure(ti_val_t ** val, ex_t *e)
 {
     if (ti_val_is_str(*val))
     {
@@ -2415,8 +2415,8 @@ static int field__auto_convert_closure(ti_val_t ** val, ex_t * e)
             .immutable_n = 0,
             .flags = TI_QBIND_FLAG_COLLECTION
         };
-        ti_str_t * str = (ti_str_t *) (*val);
-        ti_closure_t * closure = ti_closure_from_strn(
+        ti_str_t *str = (ti_str_t *) (*val);
+        ti_closure_t *closure = ti_closure_from_strn(
                 &syntax,
                 str->str,
                 str->n,
@@ -2430,15 +2430,15 @@ static int field__auto_convert_closure(ti_val_t ** val, ex_t * e)
     return e->nr;
 }
 
-static int field__auto_convert_error(ti_val_t ** val, ex_t * e)
+static int field__auto_convert_error(ti_val_t ** val, ex_t *e)
 {
     if (ti_val_is_str(*val))
     {
-        ti_str_t * msg = (ti_str_t *) (*val);
+        ti_str_t *msg = (ti_str_t *) (*val);
         if (ti_verror_check_msg(msg->str, msg->n, e))
             return e->nr;
 
-        ti_verror_t * verror = ti_verror_create(
+        ti_verror_t *verror = ti_verror_create(
                 msg->str,
                 msg->n,
                 TI_VERROR_DEF_CODE);
@@ -2455,14 +2455,14 @@ static int field__auto_convert_error(ti_val_t ** val, ex_t * e)
 
 static int field__auto_convert_set(
         ti_val_t ** val,
-        ti_collection_t * collection,
+        ti_collection_t *collection,
         uint16_t nested_spec,
-        ex_t * e)
+        ex_t *e)
 {
     if (ti_val_is_array(*val))
     {
-        ti_varr_t * varr = (ti_varr_t *) (*val);
-        ti_vset_t * vset = ti_vset_create();
+        ti_varr_t *varr = (ti_varr_t *) (*val);
+        ti_vset_t *vset = ti_vset_create();
         if (!vset)
         {
             ex_set_mem(e);
@@ -2496,12 +2496,12 @@ static int field__auto_convert_set(
 
 static int field__auto_convert_datetime(
             ti_val_t ** val,
-            ti_collection_t * collection,
-            ex_t * e)
+            ti_collection_t *collection,
+            ex_t *e)
 {
     if (ti_val_is_str(*val))
     {
-        ti_datetime_t * dt = ti_datetime_from_str(
+        ti_datetime_t *dt = ti_datetime_from_str(
                 (ti_raw_t *) (*val),
                 collection->tz,
                 e);
@@ -2516,15 +2516,15 @@ static int field__auto_convert_datetime(
 
 static int field__auto_convert_timeval(
             ti_val_t ** val,
-            ti_collection_t * collection,
-            ex_t * e)
+            ti_collection_t *collection,
+            ex_t *e)
 {
     switch ((ti_val_enum) (*val)->tp)
     {
     case TI_VAL_INT:
     {
         int64_t i = VINT(*val);
-        ti_datetime_t * dt = ti_datetime_from_i64(i, 0, collection->tz);
+        ti_datetime_t *dt = ti_datetime_from_i64(i, 0, collection->tz);
         if (dt)
         {
             dt->flags |= DT_AS_TIMEVAL;
@@ -2545,7 +2545,7 @@ static int field__auto_convert_timeval(
             return e->nr;
         }
         i = (int64_t) d;
-        ti_datetime_t * dt = ti_datetime_from_i64(i, 0, collection->tz);
+        ti_datetime_t *dt = ti_datetime_from_i64(i, 0, collection->tz);
         if (dt)
         {
             dt->flags |= DT_AS_TIMEVAL;
@@ -2563,12 +2563,12 @@ static int field__auto_convert_timeval(
 
 static int field__auto_convert_enum(
             ti_val_t ** val,
-            ti_collection_t * collection,
+            ti_collection_t *collection,
             uint16_t spec,
-            ex_t * e)
+            ex_t *e)
 {
-    ti_member_t * member;
-    ti_enum_t * enum_ = ti_enums_by_id(collection->enums,
+    ti_member_t *member;
+    ti_enum_t *enum_ = ti_enums_by_id(collection->enums,
                                        spec & TI_ENUM_ID_MASK);
     assert(enum_);
 
@@ -2590,10 +2590,10 @@ static int field__auto_convert_enum(
 
 static int field__auto_convert(
         ti_val_t ** val,
-        ti_collection_t * collection,
+        ti_collection_t *collection,
         uint16_t spec,
         uint16_t nested_spec,
-        ex_t * e)
+        ex_t *e)
 {
     spec &= TI_SPEC_MASK_NILLABLE;
     nested_spec &= TI_SPEC_MASK_NILLABLE;
@@ -2669,10 +2669,10 @@ static int field__auto_convert(
 }
 
 int ti_field_auto_convert(
-        ti_field_t * field,
+        ti_field_t *field,
         ti_val_t ** val,
-        ti_thing_t * parent,
-        ex_t * e)
+        ti_thing_t *parent,
+        ex_t *e)
 {
     if (parent->collection && field__auto_convert(
             val,
@@ -2697,10 +2697,10 @@ int ti_field_auto_convert(
  * Returns 0 if the given value is valid for this field
  */
 int ti_field_make_assignable(
-        ti_field_t * field,
+        ti_field_t *field,
         ti_val_t ** val,
-        ti_thing_t * parent,  /* may be NULL */
-        ex_t * e)
+        ti_thing_t *parent,  /* may be NULL */
+        ex_t *e)
 {
     uint16_t spec = field->spec & TI_SPEC_MASK_NILLABLE;
 
@@ -2717,8 +2717,8 @@ int ti_field_make_assignable(
          */
         if (parent && field->condition.rel)
         {
-            ti_thing_t * relation = vec_get(parent->items.vec, field->idx);
-            ti_field_t * rfield = field->condition.rel->field;
+            ti_thing_t *relation = vec_get(parent->items.vec, field->idx);
+            ti_field_t *rfield = field->condition.rel->field;
 
             if (!ti_val_is_nil(*val) && (!ti_val_is_thing(*val) ||
                 ((ti_thing_t *) *val)->type_id != spec))
@@ -2735,7 +2735,7 @@ int ti_field_make_assignable(
                 relation = (ti_thing_t *) *val;
                 if (rfield->spec != TI_SPEC_SET)
                 {
-                    ti_thing_t * prev = \
+                    ti_thing_t *prev = \
                             VEC_get(relation->items.vec, rfield->idx);
                     if (prev->tp == TI_VAL_THING)
                         field->condition.rel->del_cb(field, prev, relation);
@@ -3157,7 +3157,7 @@ read_only_error:
 /*
  * Used for wrapping
  */
-_Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
+_Bool ti_field_maps_to_val(ti_field_t *field, ti_val_t *val)
 {
     uint16_t spec = field->spec;
 
@@ -3307,7 +3307,7 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
 /*
  * Used for wrapping
  */
-static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
+static _Bool field__maps_to_nested(ti_field_t *t_field, ti_field_t *f_field)
 {
     uint16_t t_spec, f_spec;
 
@@ -3337,7 +3337,7 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
         }
         else
         {
-            ti_enum_t * enum_ = ti_enums_by_id(
+            ti_enum_t *enum_ = ti_enums_by_id(
                 f_field->type->types->collection->enums,
                 f_spec & TI_ENUM_ID_MASK);
             f_spec = ti_enum_spec(enum_);
@@ -3420,7 +3420,7 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
 /*
  * Used for wrapping
  */
-_Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
+_Bool ti_field_maps_to_field(ti_field_t *t_field, ti_field_t *f_field)
 {
     uint16_t t_spec, f_spec;
     assert(t_field->name == f_field->name);
@@ -3451,7 +3451,7 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
         }
         else
         {
-            ti_enum_t * enum_ = ti_enums_by_id(
+            ti_enum_t *enum_ = ti_enums_by_id(
                 f_field->type->types->collection->enums,
                 f_spec & TI_ENUM_ID_MASK);
             f_spec = ti_enum_spec(enum_);
@@ -3595,9 +3595,9 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
     return f_spec < TI_SPEC_ANY || f_spec == TI_SPEC_OBJECT;
 }
 
-static int field__nested_to_pk(ti_field_t * field, msgpack_packer * pk)
+static int field__nested_to_pk(ti_field_t *field, msgpack_packer *pk)
 {
-    ti_type_t * type = field->condition.type;
+    ti_type_t *type = field->condition.type;
     size_t size = type->fields->n + type->methods->n + !!type->idname;
 
     if ((field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ARR_TYPE &&
@@ -3627,7 +3627,7 @@ static int field__nested_to_pk(ti_field_t * field, msgpack_packer * pk)
 
     for (vec_each(type->methods, ti_method_t, m))
     {
-        ti_raw_t * def = ti_method_def(m);
+        ti_raw_t *def = ti_method_def(m);
         if (!def ||
             mp_pack_strn(pk, m->name->str, m->name->n) ||
             mp_pack_strn(pk, def->data, def->n))
@@ -3636,9 +3636,9 @@ static int field__nested_to_pk(ti_field_t * field, msgpack_packer * pk)
     return 0;
 }
 
-ti_raw_t * ti_field_nested_to_mpdata(ti_field_t * field)
+ti_raw_t *ti_field_nested_to_mpdata(ti_field_t *field)
 {
-    ti_raw_t * raw;
+    ti_raw_t *raw;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -3657,13 +3657,13 @@ ti_raw_t * ti_field_nested_to_mpdata(ti_field_t * field)
     return raw;
 }
 
-ti_field_t * ti_field_by_strn_e(
-        ti_type_t * type,
-        const char * str,
+ti_field_t *ti_field_by_strn_e(
+        ti_type_t *type,
+        const char *str,
         size_t n,
-        ex_t * e)
+        ex_t *e)
 {
-    ti_name_t * name = ti_names_weak_get_strn(str, n);
+    ti_name_t *name = ti_names_weak_get_strn(str, n);
     if (name)
         for (vec_each(type->fields, ti_field_t, field))
             if (field->name == name)
@@ -3682,13 +3682,13 @@ ti_field_t * ti_field_by_strn_e(
 
 typedef struct
 {
-    ti_field_t * field;
+    ti_field_t *field;
     ti_val_t ** vaddr;
     uint16_t type_id;
     ex_t e;
 } field__add_t;
 
-static int field__add(ti_thing_t * thing, field__add_t * w)
+static int field__add(ti_thing_t *thing, field__add_t *w)
 {
     if (thing->type_id != w->type_id)
         return 0;
@@ -3709,7 +3709,7 @@ static int field__add(ti_thing_t * thing, field__add_t * w)
  *       function
  * error: can only fail in case of a memory allocation error
  */
-int ti_field_init_things(ti_field_t * field, ti_val_t ** vaddr)
+int ti_field_init_things(ti_field_t *field, ti_val_t ** vaddr)
 {
     assert(field == vec_last(field->type->fields));
     int rc;
@@ -3734,18 +3734,18 @@ int ti_field_init_things(ti_field_t * field, ti_val_t ** vaddr)
 
 typedef struct
 {
-    ti_field_t * field;
-    ti_field_t * ofield;
-    ex_t * e;
+    ti_field_t *field;
+    ti_field_t *ofield;
+    ex_t *e;
 } field__type_rel_chk_t;
 
 static int field__type_rel_chk(
-        ti_thing_t * thing,
-        ti_field_t * field,
-        ti_field_t * ofield,
-        ex_t * e)
+        ti_thing_t *thing,
+        ti_field_t *field,
+        ti_field_t *ofield,
+        ex_t *e)
 {
-    ti_thing_t * me, * othing = VEC_get(thing->items.vec, field->idx);
+    ti_thing_t *me, *othing = VEC_get(thing->items.vec, field->idx);
     if (othing->tp == TI_VAL_NIL)
         return 0;
 
@@ -3771,7 +3771,7 @@ static int field__type_rel_chk(
     return e->nr;
 }
 
-static int field__type_rel_chk_cb(ti_thing_t * thing, field__type_rel_chk_t * w)
+static int field__type_rel_chk_cb(ti_thing_t *thing, field__type_rel_chk_t *w)
 {
     /* check type_id, as here we may get an object.
      * (Objects do not use via.type)
@@ -3790,16 +3790,16 @@ static int field__type_rel_chk_cb(ti_thing_t * thing, field__type_rel_chk_t * w)
 
 typedef struct
 {
-    imap_t * collect;
-    ti_field_t * field;
-    ti_field_t * ofield;
-    ti_thing_t * parent;
-    ex_t * e;
+    imap_t *collect;
+    ti_field_t *field;
+    ti_field_t *ofield;
+    ti_thing_t *parent;
+    ex_t *e;
 } field__set_rel_chk_t;
 
-static int field__set_rel_cb(ti_thing_t * thing, field__set_rel_chk_t * w)
+static int field__set_rel_cb(ti_thing_t *thing, field__set_rel_chk_t *w)
 {
-    ti_thing_t * other = VEC_get(thing->items.vec, w->field->idx);
+    ti_thing_t *other = VEC_get(thing->items.vec, w->field->idx);
     if (other->tp == TI_VAL_THING && other != w->parent)
     {
         if (thing->id)
@@ -3843,22 +3843,22 @@ static int field__set_rel_cb(ti_thing_t * thing, field__set_rel_chk_t * w)
     return w->e->nr;
 }
 
-static int field__set_rel_chk_cb(ti_thing_t * thing, field__set_rel_chk_t * w)
+static int field__set_rel_chk_cb(ti_thing_t *thing, field__set_rel_chk_t *w)
 {
     if (thing->type_id == w->ofield->type->type_id)
     {
         w->parent = thing;
-        ti_vset_t * vset = VEC_get(thing->items.vec, w->ofield->idx);
+        ti_vset_t *vset = VEC_get(thing->items.vec, w->ofield->idx);
         return imap_walk(vset->imap, (imap_cb) field__set_rel_cb, w);
     }
     return 0;
 }
 
 static int field__walk_things(
-        vec_t * vars,
-        ti_collection_t * collection,
+        vec_t *vars,
+        ti_collection_t *collection,
         imap_cb cb,
-        void * w)
+        void *w)
 {
     return (
         (vars && ti_query_vars_walk(vars, collection, (imap_cb) cb, w)) ||
@@ -3867,7 +3867,7 @@ static int field__walk_things(
     );
 }
 
-static int field__non_id_chk(ti_thing_t * thing, field__set_rel_chk_t * w)
+static int field__non_id_chk(ti_thing_t *thing, field__set_rel_chk_t *w)
 {
     if (thing->id)
         return 0;
@@ -3880,12 +3880,12 @@ static int field__non_id_chk(ti_thing_t * thing, field__set_rel_chk_t * w)
 }
 
 int ti_field_relation_check(
-        ti_field_t * field,
-        ti_field_t * ofield,
-        vec_t * vars,
-        ex_t * e)
+        ti_field_t *field,
+        ti_field_t *ofield,
+        vec_t *vars,
+        ex_t *e)
 {
-    ti_collection_t * collection = field->type->types->collection;
+    ti_collection_t *collection = field->type->types->collection;
 
     if (vars)
     {
@@ -3925,7 +3925,7 @@ int ti_field_relation_check(
 
     if (field->spec == TI_SPEC_SET)
     {
-        ti_field_t * tmp = field;
+        ti_field_t *tmp = field;
         field = ofield;
         ofield = tmp;
     }
@@ -3956,27 +3956,27 @@ int ti_field_relation_check(
 
 typedef struct
 {
-    ti_field_t * field;
-    ti_field_t * ofield;
+    ti_field_t *field;
+    ti_field_t *ofield;
 } field__rel_t;
 
 typedef struct
 {
-    ti_field_t * field;
-    ti_thing_t * relation;
+    ti_field_t *field;
+    ti_thing_t *relation;
 } field__rel_set_t;
 
-static int field__rel_set_add(ti_thing_t * thing, field__rel_set_t * w)
+static int field__rel_set_add(ti_thing_t *thing, field__rel_set_t *w)
 {
     w->field->condition.rel->add_cb(w->field, thing, w->relation);
     return 0;
 }
 
-static int field__rel_set_cb(ti_thing_t * thing, field__rel_t * w)
+static int field__rel_set_cb(ti_thing_t *thing, field__rel_t *w)
 {
     if (thing->type_id == w->field->type->type_id)
     {
-        ti_vset_t * vset = VEC_get(thing->items.vec, w->field->idx);
+        ti_vset_t *vset = VEC_get(thing->items.vec, w->field->idx);
         field__rel_set_t r = {
                 .field = w->ofield,
                 .relation = thing,
@@ -3989,7 +3989,7 @@ static int field__rel_set_cb(ti_thing_t * thing, field__rel_t * w)
 
     if (thing->type_id == w->ofield->type->type_id)
     {
-        ti_vset_t * vset = VEC_get(thing->items.vec, w->ofield->idx);
+        ti_vset_t *vset = VEC_get(thing->items.vec, w->ofield->idx);
         field__rel_set_t r = {
                 .field = w->field,
                 .relation = thing,
@@ -4000,11 +4000,11 @@ static int field__rel_set_cb(ti_thing_t * thing, field__rel_t * w)
     return 0;
 }
 
-static int field__rel_type_cb(ti_thing_t * thing, field__rel_t * w)
+static int field__rel_type_cb(ti_thing_t *thing, field__rel_t *w)
 {
     if (thing->type_id == w->field->type->type_id)
     {
-        ti_thing_t * relation = VEC_get(thing->items.vec, w->field->idx);
+        ti_thing_t *relation = VEC_get(thing->items.vec, w->field->idx);
         if (relation->tp == TI_VAL_THING)
             w->ofield->condition.rel->add_cb(w->ofield, relation, thing);
         /* the fields may be different but of the same type, therefore
@@ -4014,18 +4014,18 @@ static int field__rel_type_cb(ti_thing_t * thing, field__rel_t * w)
 
     if (thing->type_id == w->ofield->type->type_id)
     {
-        ti_thing_t * relation = VEC_get(thing->items.vec, w->ofield->idx);
+        ti_thing_t *relation = VEC_get(thing->items.vec, w->ofield->idx);
         if (relation->tp == TI_VAL_THING)
             w->field->condition.rel->add_cb(w->field, relation, thing);
     }
     return 0;
 }
 
-static int field__rel_st_cb(ti_thing_t * thing, field__rel_t * w)
+static int field__rel_st_cb(ti_thing_t *thing, field__rel_t *w)
 {
     if (thing->type_id == w->field->type->type_id)
     {
-        ti_thing_t * relation = VEC_get(thing->items.vec, w->field->idx);
+        ti_thing_t *relation = VEC_get(thing->items.vec, w->field->idx);
         if (relation->tp == TI_VAL_THING)
             w->ofield->condition.rel->add_cb(w->ofield, relation, thing);
         /* the fields may be different but of the same type, therefore
@@ -4035,7 +4035,7 @@ static int field__rel_st_cb(ti_thing_t * thing, field__rel_t * w)
 
     if (thing->type_id == w->ofield->type->type_id)
     {
-        ti_vset_t * vset = VEC_get(thing->items.vec, w->ofield->idx);
+        ti_vset_t *vset = VEC_get(thing->items.vec, w->ofield->idx);
         field__rel_set_t r = {
                 .field = w->field,
                 .relation = thing,
@@ -4046,11 +4046,11 @@ static int field__rel_st_cb(ti_thing_t * thing, field__rel_t * w)
 }
 
 int ti_field_relation_make(
-        ti_field_t * field,
-        ti_field_t * ofield,
-        vec_t * vars)   /* may be NULL */
+        ti_field_t *field,
+        ti_field_t *ofield,
+        vec_t *vars)   /* may be NULL */
 {
-    ti_collection_t * collection = field->type->types->collection;
+    ti_collection_t *collection = field->type->types->collection;
     field__rel_t w = {
            .field = field,
            .ofield = ofield,

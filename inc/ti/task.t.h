@@ -114,7 +114,7 @@ struct ti_task_s
     uint64_t change_id;
     uint64_t thing_id;
     size_t approx_sz;
-    vec_t * list;           /* q-pack (unsigned char *) */
+    vec_t *list;           /* q-pack (unsigned char *) */
 };
 
 #endif /* TI_TASK_T_H_ */

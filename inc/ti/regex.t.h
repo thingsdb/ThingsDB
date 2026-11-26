@@ -39,25 +39,25 @@ struct ti_regex_s
 
     pcre2_code * code;
     pcre2_match_data * match_data;
-    ti_raw_t * pattern;
+    ti_raw_t *pattern;
 };
 
-static inline int ti_regex_to_client_pk(ti_regex_t * re, msgpack_packer * pk)
+static inline int ti_regex_to_client_pk(ti_regex_t *re, msgpack_packer *pk)
 {
     return mp_pack_strn(pk, re->pattern->data, re->pattern->n);
 }
 
-static inline int ti_regex_to_store_pk(ti_regex_t * re, msgpack_packer * pk)
+static inline int ti_regex_to_store_pk(ti_regex_t *re, msgpack_packer *pk)
 {
     return mp_pack_ext(pk, MPACK_EXT_REGEX, re->pattern->data, re->pattern->n);
 }
 
-static inline bool ti_regex_is_global(ti_regex_t * re)
+static inline bool ti_regex_is_global(ti_regex_t *re)
 {
     return re->flags & TI_REGEX_FLAG_IS_GLOBAL;
 }
 
-static inline _Bool ti_regex_test(ti_regex_t * regex, ti_raw_t * raw)
+static inline _Bool ti_regex_test(ti_regex_t *regex, ti_raw_t *raw)
 {
     return pcre2_match(
             regex->code,
@@ -69,7 +69,7 @@ static inline _Bool ti_regex_test(ti_regex_t * regex, ti_raw_t * raw)
             NULL) >= 0;
 }
 
-static inline _Bool ti_regex_test_or_empty(ti_regex_t * regex, ti_raw_t * raw)
+static inline _Bool ti_regex_test_or_empty(ti_regex_t *regex, ti_raw_t *raw)
 {
     return raw->n == 0 || pcre2_match(
             regex->code,
@@ -81,7 +81,7 @@ static inline _Bool ti_regex_test_or_empty(ti_regex_t * regex, ti_raw_t * raw)
             NULL) >= 0;
 }
 
-static inline _Bool ti_regex_eq(ti_regex_t * ra, ti_regex_t * rb)
+static inline _Bool ti_regex_eq(ti_regex_t *ra, ti_regex_t *rb)
 {
     return ti_raw_eq(ra->pattern, rb->pattern);
 }

@@ -1,9 +1,9 @@
 #include <ti/fn/fn.h>
 
-static int do__f_ano(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_ano(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_raw_t * spec_raw;
+    ti_raw_t *spec_raw;
 
     if (fn_not_collection_scope("ano", query, e) ||
         fn_nargs("ano", DOC_ANO, 1, nargs, e) ||

@@ -18,60 +18,60 @@ typedef struct imap_s imap_t;
 #include <stddef.h>
 #include <util/vec.h>
 
-typedef int (*imap_cb)(void * data, void * arg);
-typedef int (*imap_item_cb)(uint64_t id, void * data, void * arg);
-typedef void (*imap_destroy_cb)(void * data);
+typedef int (*imap_cb)(void *data, void *arg);
+typedef int (*imap_item_cb)(uint64_t id, void *data, void *arg);
+typedef void (*imap_destroy_cb)(void *data);
 typedef void (*imap_update_cb)(
-        imap_t * dest,
-        imap_t * imap,
+        imap_t *dest,
+        imap_t *imap,
         imap_destroy_cb decref_cb);
 
-imap_t * imap_create(void);
-void imap_destroy(imap_t * imap, imap_destroy_cb cb);
-void imap_clear(imap_t * imap, imap_destroy_cb cb);
-void * imap_set(imap_t * imap, uint64_t id, void * data, int * new);
-int imap_add(imap_t * imap, uint64_t id, void * data);
-void * imap_get(imap_t * imap, uint64_t id);
-void * imap_pop(imap_t * imap, uint64_t id);
-void * imap_one(imap_t * imap);
-int imap_walk(imap_t * imap, imap_cb cb, void * arg);
+imap_t *imap_create(void);
+void imap_destroy(imap_t *imap, imap_destroy_cb cb);
+void imap_clear(imap_t *imap, imap_destroy_cb cb);
+void *imap_set(imap_t *imap, uint64_t id, void *data, int *new);
+int imap_add(imap_t *imap, uint64_t id, void *data);
+void *imap_get(imap_t *imap, uint64_t id);
+void *imap_pop(imap_t *imap, uint64_t id);
+void *imap_one(imap_t *imap);
+int imap_walk(imap_t *imap, imap_cb cb, void *arg);
 int imap_walk_cp(
-        imap_t * imap,
+        imap_t *imap,
         imap_cb cb,
-        void * arg,
+        void *arg,
         imap_destroy_cb destroy_cb);
-int imap_items(imap_t * imap, imap_item_cb cb, void * arg);
-imap_t * imap_dup(imap_t * imap, _Bool incref);
-_Bool imap__eq_(imap_t * a, imap_t * b);
-_Bool imap__le_(imap_t * a, imap_t * b);
-static inline _Bool imap_eq(imap_t * a, imap_t * b);
-vec_t * imap_vec(imap_t * imap);
-vec_t * imap_vec_ref(imap_t * imap);
-uint64_t imap_unused_id(imap_t * imap, uint64_t max);
+int imap_items(imap_t *imap, imap_item_cb cb, void *arg);
+imap_t *imap_dup(imap_t *imap, _Bool incref);
+_Bool imap__eq_(imap_t *a, imap_t *b);
+_Bool imap__le_(imap_t *a, imap_t *b);
+static inline _Bool imap_eq(imap_t *a, imap_t *b);
+vec_t *imap_vec(imap_t *imap);
+vec_t *imap_vec_ref(imap_t *imap);
+uint64_t imap_unused_id(imap_t *imap, uint64_t max);
 
 /* union `|` */
-void imap_union_move(imap_t * dest, imap_t * imap);
-int imap_union_make(imap_t * dest, imap_t * a, imap_t * b);
+void imap_union_move(imap_t *dest, imap_t *imap);
+int imap_union_make(imap_t *dest, imap_t *a, imap_t *b);
 
 /* difference `-` */
-void imap_difference_inplace(imap_t * dest, imap_t * imap);
-int imap_difference_make(imap_t * dest, imap_t * a, imap_t * b);
+void imap_difference_inplace(imap_t *dest, imap_t *imap);
+int imap_difference_make(imap_t *dest, imap_t *a, imap_t *b);
 
 /* intersection `&` */
-void imap_intersection_inplace(imap_t * dest, imap_t * imap, imap_destroy_cb cb);
-int imap_intersection_make(imap_t * dest, imap_t * a, imap_t * b);
+void imap_intersection_inplace(imap_t *dest, imap_t *imap, imap_destroy_cb cb);
+int imap_intersection_make(imap_t *dest, imap_t *a, imap_t *b);
 
 /* symmetric difference `^` */
-void imap_symmdiff_move(imap_t * dest, imap_t * imap, imap_destroy_cb cb);
-int imap_symmdiff_make(imap_t * dest, imap_t * a, imap_t * b);
+void imap_symmdiff_move(imap_t *dest, imap_t *imap, imap_destroy_cb cb);
+int imap_symmdiff_make(imap_t *dest, imap_t *a, imap_t *b);
 
 struct imap_node_s
 {
     uint32_t sz;
     uint8_t key;
     long:24;
-    void * data;
-    imap_node_t * nodes;
+    void *data;
+    imap_node_t *nodes;
 };
 
 struct imap_s
@@ -80,17 +80,17 @@ struct imap_s
     imap_node_t nodes[];
 };
 
-static inline _Bool imap_eq(imap_t * a, imap_t * b)
+static inline _Bool imap_eq(imap_t *a, imap_t *b)
 {
     return a == b || (a->n == b->n && (!a->n || imap__eq_(a, b)));
 }
 
-static inline _Bool imap_le(imap_t * a, imap_t * b)
+static inline _Bool imap_le(imap_t *a, imap_t *b)
 {
     return a == b || !a->n || (a->n <= b->n && imap__le_(a, b));
 }
 
-static inline _Bool imap_lt(imap_t * a, imap_t * b)
+static inline _Bool imap_lt(imap_t *a, imap_t *b)
 {
     return (!a->n && b->n) || (a != b && a->n < b->n && imap__le_(a, b));
 }

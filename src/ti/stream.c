@@ -15,17 +15,17 @@
 #include <ti/ws.h>
 #include <util/logger.h>
 
-static void stream__write_pkg_cb(ti_write_t * req, ex_enum status);
-static void stream__write_mpkg_cb(ti_write_t * req, ex_enum status);
-static void stream__write_rpkg_cb(ti_write_t * req, ex_enum status);
-static void stream__close(ti_stream_t * stream);
-static void stream__close_cb(uv_handle_t * uvstream);
+static void stream__write_pkg_cb(ti_write_t *req, ex_enum status);
+static void stream__write_mpkg_cb(ti_write_t *req, ex_enum status);
+static void stream__write_rpkg_cb(ti_write_t *req, ex_enum status);
+static void stream__close(ti_stream_t *stream);
+static void stream__close_cb(uv_handle_t *uvstream);
 
 #define STREAM__UNRESOLVED "unresolved";
 
 static size_t stream__client_connections;
 
-static int stream__init_uvstream(ti_stream_t * stream)
+static int stream__init_uvstream(ti_stream_t *stream)
 {
     stream->with.uvstream = malloc(sizeof(uv_stream_t));
     if (!stream->with.uvstream)
@@ -34,9 +34,9 @@ static int stream__init_uvstream(ti_stream_t * stream)
     return 0;
 }
 
-ti_stream_t * ti_stream_create(ti_stream_enum tp, ti_stream_pkg_cb cb)
+ti_stream_t *ti_stream_create(ti_stream_enum tp, ti_stream_pkg_cb cb)
 {
-    ti_stream_t * stream = calloc(1, sizeof(ti_stream_t));
+    ti_stream_t *stream = calloc(1, sizeof(ti_stream_t));
     if (!stream)
         return NULL;
 
@@ -80,7 +80,7 @@ ti_stream_t * ti_stream_create(ti_stream_enum tp, ti_stream_pkg_cb cb)
     return NULL;
 }
 
-void ti_stream_drop(ti_stream_t * stream)
+void ti_stream_drop(ti_stream_t *stream)
 {
     if (stream && !--stream->ref)
     {
@@ -97,7 +97,7 @@ void ti_stream_drop(ti_stream_t * stream)
     }
 }
 
-void ti_stream_close(ti_stream_t * stream)
+void ti_stream_close(ti_stream_t *stream)
 {
     if (!stream || (stream->flags & TI_STREAM_FLAG_CLOSED))
         return;
@@ -108,7 +108,7 @@ void ti_stream_close(ti_stream_t * stream)
     ti_stream_drop(stream);
 }
 
-void ti_stream_stop_listeners(ti_stream_t * stream)
+void ti_stream_stop_listeners(ti_stream_t *stream)
 {
     if (!stream || !stream->listeners)
         return;
@@ -116,7 +116,7 @@ void ti_stream_stop_listeners(ti_stream_t * stream)
     stream->listeners = NULL;
 }
 
-void ti_stream_set_node(ti_stream_t * stream, ti_node_t * node)
+void ti_stream_set_node(ti_stream_t *stream, ti_node_t *node)
 {
     assert(stream->tp == TI_STREAM_TCP_OUT_NODE ||
             stream->tp == TI_STREAM_TCP_IN_NODE);
@@ -133,7 +133,7 @@ void ti_stream_set_node(ti_stream_t * stream, ti_node_t * node)
     ti_incref(node);
 }
 
-void ti_stream_set_user(ti_stream_t * stream, ti_user_t * user)
+void ti_stream_set_user(ti_stream_t *stream, ti_user_t *user)
 {
     assert(stream->tp == TI_STREAM_TCP_IN_CLIENT ||
            stream->tp == TI_STREAM_PIPE_IN_CLIENT ||
@@ -149,9 +149,9 @@ void ti_stream_set_user(ti_stream_t * stream, ti_user_t * user)
     stream->via.user = ti_grab(user);
 }
 
-void ti_stream_alloc_buf(uv_handle_t * handle, size_t sugsz, uv_buf_t * buf)
+void ti_stream_alloc_buf(uv_handle_t *handle, size_t sugsz, uv_buf_t *buf)
 {
-    ti_stream_t * stream = handle->data;
+    ti_stream_t *stream = handle->data;
 
     if (!stream->n && stream->sz != sugsz)
     {
@@ -172,10 +172,10 @@ void ti_stream_alloc_buf(uv_handle_t * handle, size_t sugsz, uv_buf_t * buf)
     buf->len = stream->sz - stream->n;
 }
 
-void ti_stream_on_data(uv_stream_t * uvstream, ssize_t n, const uv_buf_t * buf)
+void ti_stream_on_data(uv_stream_t *uvstream, ssize_t n, const uv_buf_t *buf)
 {
-    ti_stream_t * stream = uvstream->data;
-    ti_pkg_t * pkg;
+    ti_stream_t *stream = uvstream->data;
+    ti_pkg_t *pkg;
     size_t total_sz;
 
     if (stream->flags & TI_STREAM_FLAG_CLOSED)
@@ -215,7 +215,7 @@ void ti_stream_on_data(uv_stream_t * uvstream, ssize_t n, const uv_buf_t * buf)
     {
         if (stream->sz < total_sz)
         {
-            char * tmp = realloc(stream->buf, total_sz);
+            char *tmp = realloc(stream->buf, total_sz);
             if (!tmp)
             {
                 log_error(EX_MEMORY_S);
@@ -239,7 +239,7 @@ void ti_stream_on_data(uv_stream_t * uvstream, ssize_t n, const uv_buf_t * buf)
     }
 }
 
-const char * ti_stream_name(ti_stream_t * stream)
+const char *ti_stream_name(ti_stream_t *stream)
 {
     char prefix[30];
     if (!stream)
@@ -291,9 +291,9 @@ const char * ti_stream_name(ti_stream_t * stream)
     return STREAM__UNRESOLVED;
 }
 
-void ti_stream_on_response(ti_stream_t * stream, ti_pkg_t * pkg)
+void ti_stream_on_response(ti_stream_t *stream, ti_pkg_t *pkg)
 {
-    ti_req_t * req = omap_rm(stream->reqmap, pkg->id);
+    ti_req_t *req = omap_rm(stream->reqmap, pkg->id);
     if (!req)
     {
         log_warning(
@@ -307,18 +307,18 @@ void ti_stream_on_response(ti_stream_t * stream, ti_pkg_t * pkg)
     ti_req_result(req);
 }
 
-int ti_stream_write_pkg(ti_stream_t * stream, ti_pkg_t * pkg)
+int ti_stream_write_pkg(ti_stream_t *stream, ti_pkg_t *pkg)
 {
     return ti_write(stream, pkg, NULL, stream__write_pkg_cb);
 }
 
-int ti_stream_write_mpkg(ti_stream_t * stream, ti_mpkg_t * mpkg)
+int ti_stream_write_mpkg(ti_stream_t *stream, ti_mpkg_t *mpkg)
 {
     return ti_write(stream, ti_mpkg_pkg(mpkg), mpkg, stream__write_mpkg_cb);
 }
 
 /* increases with a new reference as long as required */
-int ti_stream_write_rpkg(ti_stream_t * stream, ti_rpkg_t * rpkg)
+int ti_stream_write_rpkg(ti_stream_t *stream, ti_rpkg_t *rpkg)
 {
     ti_incref(rpkg);
 
@@ -334,28 +334,28 @@ size_t ti_stream_client_connections(void)
     return stream__client_connections;
 }
 
-static void stream__write_pkg_cb(ti_write_t * req, ex_enum status)
+static void stream__write_pkg_cb(ti_write_t *req, ex_enum status)
 {
     (void)(status);     /* errors are logged by ti__write_cb() */
     free(req->pkg);
     ti_write_destroy(req);
 }
 
-static void stream__write_mpkg_cb(ti_write_t * req, ex_enum status)
+static void stream__write_mpkg_cb(ti_write_t *req, ex_enum status)
 {
     (void)(status);     /* errors are logged by ti__write_cb() */
     free(req->data);
     ti_write_destroy(req);
 }
 
-static void stream__write_rpkg_cb(ti_write_t * req, ex_enum status)
+static void stream__write_rpkg_cb(ti_write_t *req, ex_enum status)
 {
     (void)(status);     /* errors are logged by ti__write_cb() */
     ti_rpkg_drop(req->data);
     ti_write_destroy(req);
 }
 
-static void stream__close(ti_stream_t * stream)
+static void stream__close(ti_stream_t *stream)
 {
     assert(stream);
     assert(stream->flags & TI_STREAM_FLAG_CLOSED);
@@ -391,7 +391,7 @@ static void stream__close(ti_stream_t * stream)
     free(stream);
 }
 
-static void stream__close_cb(uv_handle_t * uvstream)
+static void stream__close_cb(uv_handle_t *uvstream)
 {
     stream__close((ti_stream_t *) uvstream->data);
     free(uvstream);

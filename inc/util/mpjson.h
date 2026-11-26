@@ -30,7 +30,7 @@ typedef struct
     uint32_t count[YAJL_MAX_DEPTH];
 } mpjson_convert_t;
 
-static yajl_gen_status mp__to_json(yajl_gen g, mp_unp_t * up)
+static yajl_gen_status mp__to_json(yajl_gen g, mp_unp_t *up)
 {
     mp_obj_t obj;
     switch (mp_next(up, &obj))
@@ -102,10 +102,10 @@ static yajl_gen_status mp__to_json(yajl_gen g, mp_unp_t * up)
 }
 
 static yajl_gen_status __attribute__((unused))mpjson_mp_to_json(
-        const void * src,
+        const void *src,
         size_t src_n,
         unsigned char ** dst,
-        size_t * dst_n,
+        size_t *dst_n,
         size_t offset,
         int flags)
 {
@@ -124,7 +124,7 @@ static yajl_gen_status __attribute__((unused))mpjson_mp_to_json(
 
     if ((stat = mp__to_json(g, &up)) == yajl_gen_status_ok)
     {
-        const unsigned char * tmp;
+        const unsigned char *tmp;
         if ((stat = yajl_gen_get_buf(g, &tmp, dst_n)) == yajl_gen_status_ok)
         {
             *dst_n += offset;
@@ -140,7 +140,7 @@ static yajl_gen_status __attribute__((unused))mpjson_mp_to_json(
     return stat;
 }
 
-static void __attribute__((unused))mpjson__set_err(ex_t * e, yajl_gen_status stat)
+static void __attribute__((unused))mpjson__set_err(ex_t *e, yajl_gen_status stat)
 {
     switch (stat)
     {
@@ -171,44 +171,44 @@ static void __attribute__((unused))mpjson__set_err(ex_t * e, yajl_gen_status sta
     ex_set(e, EX_INTERNAL, "JSON unexpected error");
 }
 
-static int reformat_null(void * ctx)
+static int reformat_null(void *ctx)
 {
-    mpjson_convert_t * c = (mpjson_convert_t *) ctx;
+    mpjson_convert_t *c = (mpjson_convert_t *) ctx;
     ++c->count[c->deep];
     return 0 == msgpack_pack_nil(&c->pk);
 }
 
-static int reformat_boolean(void * ctx, int boolean)
+static int reformat_boolean(void *ctx, int boolean)
 {
-    mpjson_convert_t * c = (mpjson_convert_t *) ctx;
+    mpjson_convert_t *c = (mpjson_convert_t *) ctx;
     ++c->count[c->deep];
     return 0 == mp_pack_bool(&c->pk, boolean);
 }
 
-static int reformat_integer(void * ctx, long long i)
+static int reformat_integer(void *ctx, long long i)
 {
-    mpjson_convert_t * c = (mpjson_convert_t *) ctx;
+    mpjson_convert_t *c = (mpjson_convert_t *) ctx;
     ++c->count[c->deep];
     return 0 == msgpack_pack_int64(&c->pk, i);
 }
 
-static int reformat_double(void * ctx, double d)
+static int reformat_double(void *ctx, double d)
 {
-    mpjson_convert_t * c = (mpjson_convert_t *) ctx;
+    mpjson_convert_t *c = (mpjson_convert_t *) ctx;
     ++c->count[c->deep];
     return 0 == msgpack_pack_double(&c->pk, d);
 }
 
-static int reformat_string(void * ctx, const unsigned char * s, size_t n)
+static int reformat_string(void *ctx, const unsigned char *s, size_t n)
 {
-    mpjson_convert_t * c = (mpjson_convert_t *) ctx;
+    mpjson_convert_t *c = (mpjson_convert_t *) ctx;
     ++c->count[c->deep];
     return 0 == mp_pack_strn(&c->pk, s, n);
 }
 
-static int reformat_start_map(void * ctx)
+static int reformat_start_map(void *ctx)
 {
-    mpjson_convert_t * c = (mpjson_convert_t *) ctx;
+    mpjson_convert_t *c = (mpjson_convert_t *) ctx;
     msgpack_sbuffer * buffer = c->pk.data;
 
     ++c->count[c->deep];
@@ -221,15 +221,15 @@ static int reformat_start_map(void * ctx)
     return 0 == msgpack_pack_map(&c->pk, 0x10000UL);
 }
 
-static int reformat_map_key(void * ctx, const unsigned char * s, size_t n)
+static int reformat_map_key(void *ctx, const unsigned char *s, size_t n)
 {
-    mpjson_convert_t * c = (mpjson_convert_t *) ctx;
+    mpjson_convert_t *c = (mpjson_convert_t *) ctx;
     return 0 == mp_pack_strn(&c->pk, s, n);
 }
 
-static int reformat_end_map(void * ctx)
+static int reformat_end_map(void *ctx)
 {
-    mpjson_convert_t * c = (mpjson_convert_t *) ctx;
+    mpjson_convert_t *c = (mpjson_convert_t *) ctx;
     msgpack_sbuffer * buffer = c->pk.data;
 
     _msgpack_store32(buffer->data + c->buf_n[c->deep], c->count[c->deep]);
@@ -238,9 +238,9 @@ static int reformat_end_map(void * ctx)
     return 1;  /* success */
 }
 
-static int reformat_start_array(void * ctx)
+static int reformat_start_array(void *ctx)
 {
-    mpjson_convert_t * c = (mpjson_convert_t *) ctx;
+    mpjson_convert_t *c = (mpjson_convert_t *) ctx;
     msgpack_sbuffer * buffer = c->pk.data;
 
     ++c->count[c->deep];
@@ -253,9 +253,9 @@ static int reformat_start_array(void * ctx)
     return 0 == msgpack_pack_array(&c->pk, 0x10000L);
 }
 
-static int reformat_end_array(void * ctx)
+static int reformat_end_array(void *ctx)
 {
-    mpjson_convert_t * c = (mpjson_convert_t *) ctx;
+    mpjson_convert_t *c = (mpjson_convert_t *) ctx;
     msgpack_sbuffer * buffer = c->pk.data;
 
     _msgpack_store32(buffer->data + c->buf_n[c->deep], c->count[c->deep]);
@@ -281,7 +281,7 @@ static yajl_callbacks mpjson__callbacks = {
 static void take_buffer(
         msgpack_sbuffer * buffer,
         char ** dst,
-        size_t * dst_n)
+        size_t *dst_n)
 {
     *dst = buffer->data;
     *dst_n = buffer->size;
@@ -289,10 +289,10 @@ static void take_buffer(
 }
 
 static yajl_status __attribute__((unused))mpjson_json_to_mp(
-        const void * src,
+        const void *src,
         size_t src_n,
         char ** dst,
-        size_t * dst_n)
+        size_t *dst_n)
 {
     yajl_handle hand;
     msgpack_sbuffer buffer;

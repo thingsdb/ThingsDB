@@ -1,10 +1,10 @@
 #include <ti/fn/fn.h>
 
-static int do__f_count(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_count(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     size_t count = 0;
-    ti_varr_t * varr;
+    ti_varr_t *varr;
 
     if (!ti_val_is_array(query->rval))
         return fn_call_try("count", query, nd, e);
@@ -21,7 +21,7 @@ static int do__f_count(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_val_is_closure(query->rval))
     {
         int64_t idx = 0;
-        ti_closure_t * closure = (ti_closure_t *) query->rval;
+        ti_closure_t *closure = (ti_closure_t *) query->rval;
         int lock_was_set = ti_val_ensure_lock((ti_val_t *) varr);
         query->rval = NULL;
 

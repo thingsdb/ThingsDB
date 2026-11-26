@@ -211,9 +211,9 @@ void ti_verror_init(void)
     }
 }
 
-ti_verror_t * ti_verror_create(const char * msg, size_t n, int8_t code)
+ti_verror_t *ti_verror_create(const char *msg, size_t n, int8_t code)
 {
-    ti_verror_t * verror = malloc(sizeof(ti_verror_t) + n + 1);
+    ti_verror_t *verror = malloc(sizeof(ti_verror_t) + n + 1);
     if (!verror)
         return NULL;
     assert(n <= EX_MAX_SZ);
@@ -226,16 +226,16 @@ ti_verror_t * ti_verror_create(const char * msg, size_t n, int8_t code)
     return verror;
 }
 
-ti_verror_t * ti_verror_from_code(int8_t code)
+ti_verror_t *ti_verror_from_code(int8_t code)
 {
-    ti_verror_t * verror;
+    ti_verror_t *verror;
     assert(code >= -127 && code <= 0);
     verror = (ti_verror_t *) &verror__cache[-code];
     ti_incref(verror);
     return verror;
 }
 
-void ti_verror_to_e(ti_verror_t * verror, ex_t * e)
+void ti_verror_to_e(ti_verror_t *verror, ex_t *e)
 {
     e->n = verror->msg_n;
     e->nr = verror->code;
@@ -244,7 +244,7 @@ void ti_verror_to_e(ti_verror_t * verror, ex_t * e)
 }
 
 /* return 0 if valid, < 0 if not */
-int ti_verror_check_msg(const char * msg, size_t n, ex_t * e)
+int ti_verror_check_msg(const char *msg, size_t n, ex_t *e)
 {
     assert(e->nr == 0);
     if (n > EX_MAX_SZ)

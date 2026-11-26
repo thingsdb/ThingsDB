@@ -1,12 +1,12 @@
 #include <ti/fn/fn.h>
 
-static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_new_type(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    cleri_node_t * child = nd->children;
-    ti_raw_t * rname;
-    ti_type_t * type;
-    ti_task_t * task;
+    cleri_node_t *child = nd->children;
+    ti_raw_t *rname;
+    ti_type_t *type;
+    ti_task_t *task;
     uint16_t type_id;
     uint8_t flags = 0;
 

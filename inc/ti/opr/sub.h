@@ -1,6 +1,6 @@
 #include <ti/opr/oprinc.h>
 
-static int opr__sub(ti_val_t * a, ti_val_t ** b, ex_t * e, _Bool inplace)
+static int opr__sub(ti_val_t *a, ti_val_t ** b, ex_t *e, _Bool inplace)
 {
     int64_t int_ = 0;       /* set to 0 only to prevent warning */
     double float_ = 0.0;    /* set to 0 only to prevent warning */
@@ -59,7 +59,7 @@ static int opr__sub(ti_val_t * a, ti_val_t ** b, ex_t * e, _Bool inplace)
 
     case OPR_SET_SET:
     {
-        ti_field_t * field = ti_vset_field((ti_vset_t *) a);
+        ti_field_t *field = ti_vset_field((ti_vset_t *) a);
         _Bool unrestricted = !field || field->nested_spec == TI_SPEC_ANY;
         /*
          * The resulting set will only contain things which already exist
@@ -78,7 +78,7 @@ static int opr__sub(ti_val_t * a, ti_val_t ** b, ex_t * e, _Bool inplace)
         }
         else
         {
-            imap_t * imap = imap_create();
+            imap_t *imap = imap_create();
             if (!imap || imap_difference_make(imap, VSET(a), VSET(*b)))
                 goto alloc_err;
 

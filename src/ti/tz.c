@@ -21,7 +21,7 @@ enum
 
 
 static inline unsigned int tz__hash(
-        register const char * s,
+        register const char *s,
         register size_t n)
 {
     static unsigned short asso_values[] =
@@ -768,10 +768,10 @@ static ti_tz_t tz__list[TOTAL_KEYWORDS] = {
 };
 
 
-static ti_tz_t * tz__mapping[MAX_HASH_VALUE+1];
+static ti_tz_t *tz__mapping[MAX_HASH_VALUE+1];
 static char tz__env[MAX_WORD_LENGTH+5];
-static char * tz__write_chr = tz__env + 3;
-static char * tz__write_env = tz__env + 4;
+static char *tz__write_chr = tz__env + 3;
+static char *tz__write_env = tz__env + 4;
 
 void ti_tz_init(void)
 {
@@ -782,7 +782,7 @@ void ti_tz_init(void)
     for (size_t i = 0, n = TOTAL_KEYWORDS; i < n; ++i)
     {
         unsigned int key;
-        ti_tz_t * tz = &tz__list[i];
+        ti_tz_t *tz = &tz__list[i];
 
         tz->index = i;
         tz->n = strlen(tz->name);
@@ -801,7 +801,7 @@ void ti_tz_set_utc(void)
     memcpy(tz__write_env, "UTC", 4);
 }
 
-void ti_tz_set(ti_tz_t * tz)
+void ti_tz_set(ti_tz_t *tz)
 {
     *tz__write_chr = ':';
     memcpy(tz__write_env, tz->name, tz->n+1);
@@ -815,7 +815,7 @@ void ti_tz_set_offset(int16_t offset)
     sprintf(tz__write_chr, "UTC%c%02d:%02d", sign, hours, minutes);
 }
 
-ti_tz_t * ti_tz_utc(void)
+ti_tz_t *ti_tz_utc(void)
 {
     return &tz__list[0];
 }
@@ -824,7 +824,7 @@ ti_tz_t * ti_tz_utc(void)
  * used internally only. An error will be logged when an invalid time zone
  * is asked.
  */
-ti_tz_t * ti_tz_from_index(size_t tz_index)
+ti_tz_t *ti_tz_from_index(size_t tz_index)
 {
     if (tz_index >= TOTAL_KEYWORDS)
     {
@@ -837,10 +837,10 @@ ti_tz_t * ti_tz_from_index(size_t tz_index)
 /*
  * Returns NULL if the time zone is unknown.
  */
-ti_tz_t * ti_tz_from_strn(register const char * s, register size_t n)
+ti_tz_t *ti_tz_from_strn(register const char *s, register size_t n)
 {
     register unsigned int key;
-    ti_tz_t * tz;
+    ti_tz_t *tz;
 
     if (n == 0)
         return NULL;
@@ -850,9 +850,9 @@ ti_tz_t * ti_tz_from_strn(register const char * s, register size_t n)
     return tz && memcmp(tz->name, s, n) == 0 ? tz : NULL;
 }
 
-ti_val_t * ti_tz_as_mpval(void)
+ti_val_t *ti_tz_as_mpval(void)
 {
-    ti_raw_t * raw;
+    ti_raw_t *raw;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -864,7 +864,7 @@ ti_val_t * ti_tz_as_mpval(void)
 
     for (size_t i = 0, n = TOTAL_KEYWORDS; i < n; ++i)
     {
-        ti_tz_t * tz = &tz__list[i];
+        ti_tz_t *tz = &tz__list[i];
         if (mp_pack_strn(&pk, tz->name, tz->n))
             goto fail;
     }

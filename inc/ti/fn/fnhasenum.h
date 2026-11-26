@@ -1,8 +1,8 @@
 #include <ti/fn/fn.h>
 
-static int do__f_has_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_has_enum(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
-    ti_raw_t * rname;
+    ti_raw_t *rname;
     _Bool has_enum;
     const int nargs = fn_get_nargs(nd);
 

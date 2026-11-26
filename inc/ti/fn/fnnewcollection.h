@@ -1,11 +1,11 @@
 #include <ti/fn/fn.h>
 
-static int do__f_new_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_new_collection(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_raw_t * rname;
-    ti_collection_t * collection;
-    ti_task_t * task;
+    ti_raw_t *rname;
+    ti_collection_t *collection;
+    ti_task_t *task;
 
     if (fn_not_thingsdb_scope("new_collection", query, e) ||
         fn_nargs("new_collection", DOC_NEW_COLLECTION, 1, nargs, e) ||

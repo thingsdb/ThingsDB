@@ -17,10 +17,10 @@
 /* Tasks will be checked every X seconds */
 #define VTASKS__INTERVAL 1 * 1000
 
-static ti_tasks_t * tasks;
+static ti_tasks_t *tasks;
 
-static void tasks__destroy(uv_handle_t * UNUSED(handle));
-static void tasks__cb(uv_timer_t * UNUSED(handle));
+static void tasks__destroy(uv_handle_t *UNUSED(handle));
+static void tasks__cb(uv_timer_t *UNUSED(handle));
 
 int ti_tasks_create(void)
 {
@@ -85,7 +85,7 @@ void ti_tasks_stop(void)
     }
 }
 
-static void tasks__destroy(uv_handle_t * UNUSED(handle))
+static void tasks__destroy(uv_handle_t *UNUSED(handle))
 {
     if (tasks)
     {
@@ -97,8 +97,8 @@ static void tasks__destroy(uv_handle_t * UNUSED(handle))
 }
 
 static inline int tasks__handle_vtask(
-        ti_vtask_t * vtask,
-        ti_collection_t * collection,
+        ti_vtask_t *vtask,
+        ti_collection_t *collection,
         const uint64_t now,
         const uint32_t rel_id,
         const uint32_t nodes_n)
@@ -124,7 +124,7 @@ static inline int tasks__handle_vtask(
 /*
  * Called from the main thread at CONNECT__INTERVAL (every X seconds)
  */
-static void tasks__cb(uv_timer_t * UNUSED(handle))
+static void tasks__cb(uv_timer_t *UNUSED(handle))
 {
     const uint64_t now = util_now_usec();
     const uint32_t rel_id = ti.rel_id;
@@ -155,7 +155,7 @@ static void tasks__cb(uv_timer_t * UNUSED(handle))
         log_info("initiated %d task%s", n, n == 1 ? "": "s");
 }
 
-int ti_tasks_append(vec_t ** vtasks, ti_vtask_t * vtask)
+int ti_tasks_append(vec_t ** vtasks, ti_vtask_t *vtask)
 {
     uint32_t rel_id = ti.rel_id;
     uint32_t nodes_n = ti.nodes->vec->n;
@@ -174,7 +174,7 @@ int ti_tasks_append(vec_t ** vtasks, ti_vtask_t * vtask)
  */
 void ti_tasks_clear_dropped(vec_t ** vtasks)
 {
-    ti_vtask_t * vtask;
+    ti_vtask_t *vtask;
     while ((vtask = vec_pop(*vtasks)))
     {
         ti_vtask_unsafe_drop(vtask);
@@ -182,7 +182,7 @@ void ti_tasks_clear_dropped(vec_t ** vtasks)
     vec_shrink(vtasks);
 }
 
-void ti_tasks_del_user(ti_user_t * user)
+void ti_tasks_del_user(ti_user_t *user)
 {
     for (vec_each_rev(tasks->vtasks, ti_vtask_t, vtask))
         if (vtask->user == user)
@@ -203,9 +203,9 @@ void ti_tasks_clear_all(void)
         ti_collection_tasks_clear(collection);
 }
 
-ti_varr_t * ti_tasks_list(vec_t * tasks)
+ti_varr_t *ti_tasks_list(vec_t *tasks)
 {
-    ti_varr_t * varr = ti_varr_create(tasks->n);
+    ti_varr_t *varr = ti_varr_create(tasks->n);
     if (!varr)
         return NULL;
 
@@ -218,7 +218,7 @@ ti_varr_t * ti_tasks_list(vec_t * tasks)
     return varr;
 }
 
-vec_t * ti_tasks_from_scope_id(uint64_t scope_id)
+vec_t *ti_tasks_from_scope_id(uint64_t scope_id)
 {
     if (scope_id == TI_SCOPE_THINGSDB)
         return tasks->vtasks;
@@ -235,7 +235,7 @@ void ti_tasks_reset_lowest_run_at(void)
     tasks->lowest_run_at = 0;  /* forces a one time loop */
 }
 
-void ti_tasks_vtask_finish(ti_vtask_t * vtask)
+void ti_tasks_vtask_finish(ti_vtask_t *vtask)
 {
     if (vtask->run_at)
     {

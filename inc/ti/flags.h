@@ -18,6 +18,6 @@ enum
                              * with TI_FIELD_FLAG_NO_IDS */
 };
 
-int ti_flags_set_from_val(ti_val_t * val, uint8_t * flags, ex_t * e);
+int ti_flags_set_from_val(ti_val_t *val, uint8_t *flags, ex_t *e);
 
 #endif  /* TI_FLAGS_H_ */

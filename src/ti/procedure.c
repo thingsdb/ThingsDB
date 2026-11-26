@@ -19,13 +19,13 @@
 
 #define PROCEDURE__DEEP_UNSET 255
 
-ti_procedure_t * ti_procedure_create(
-        const char * str,
+ti_procedure_t *ti_procedure_create(
+        const char *str,
         size_t name_n,
-        ti_closure_t * closure,
+        ti_closure_t *closure,
         uint64_t created_at)
 {
-    ti_procedure_t * procedure = malloc(sizeof(ti_procedure_t));
+    ti_procedure_t *procedure = malloc(sizeof(ti_procedure_t));
     if (!procedure)
         return NULL;
 
@@ -49,8 +49,8 @@ ti_procedure_t * ti_procedure_create(
 }
 
 void ti_procedure_mod(
-        ti_procedure_t * procedure,
-        ti_closure_t * closure,
+        ti_procedure_t *procedure,
+        ti_closure_t *closure,
         uint64_t created_at)
 {
     ti_val_unsafe_drop((ti_val_t *) procedure->closure);
@@ -62,7 +62,7 @@ void ti_procedure_mod(
     procedure->created_at = created_at;
 }
 
-void ti_procedure_destroy(ti_procedure_t * procedure)
+void ti_procedure_destroy(ti_procedure_t *procedure)
 {
     if (!procedure)
         return;
@@ -76,7 +76,7 @@ void ti_procedure_destroy(ti_procedure_t * procedure)
 }
 
 /* may return an empty string but never NULL */
-ti_raw_t * ti_procedure_doc(ti_procedure_t * procedure)
+ti_raw_t *ti_procedure_doc(ti_procedure_t *procedure)
 {
     if (!procedure->doc)
         procedure->doc = ti_closure_doc(procedure->closure);
@@ -84,7 +84,7 @@ ti_raw_t * ti_procedure_doc(ti_procedure_t * procedure)
 }
 
 /* may return an empty string but never NULL */
-ti_raw_t * ti_procedure_def(ti_procedure_t * procedure)
+ti_raw_t *ti_procedure_def(ti_procedure_t *procedure)
 {
     if (!procedure->def)
         /* calculate only once */
@@ -93,12 +93,12 @@ ti_raw_t * ti_procedure_def(ti_procedure_t * procedure)
 }
 
 int ti_procedure_info_to_pk(
-        ti_procedure_t * procedure,
-        msgpack_packer * pk,
+        ti_procedure_t *procedure,
+        msgpack_packer *pk,
         _Bool with_definition)
 {
-    ti_raw_t * doc = ti_procedure_doc(procedure);
-    ti_raw_t * def;
+    ti_raw_t *doc = ti_procedure_doc(procedure);
+    ti_raw_t *def;
 
     if (msgpack_pack_map(pk, 5 + !!with_definition) ||
 
@@ -129,11 +129,11 @@ int ti_procedure_info_to_pk(
     return 0;
 }
 
-ti_val_t * ti_procedure_as_mpval(
-        ti_procedure_t * procedure,
+ti_val_t *ti_procedure_as_mpval(
+        ti_procedure_t *procedure,
         _Bool with_definition)
 {
-    ti_raw_t * raw;
+    ti_raw_t *raw;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 

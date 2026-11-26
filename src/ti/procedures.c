@@ -8,7 +8,7 @@
  * Returns 0 if added, >0 if already exists or <0 in case of an error
  * Does NOT increment the reference count
  */
-int ti_procedures_add(smap_t * procedures, ti_procedure_t * procedure)
+int ti_procedures_add(smap_t *procedures, ti_procedure_t *procedure)
 {
     switch(smap_add(procedures, procedure->name->str, procedure))
     {
@@ -20,19 +20,19 @@ int ti_procedures_add(smap_t * procedures, ti_procedure_t * procedure)
     return 0;
 }
 
-static int procedures__info_cb(ti_procedure_t * procedure, ti_varr_t * varr)
+static int procedures__info_cb(ti_procedure_t *procedure, ti_varr_t *varr)
 {
-    ti_val_t * mpinfo = ti_procedure_as_mpval(procedure, varr->flags);
+    ti_val_t *mpinfo = ti_procedure_as_mpval(procedure, varr->flags);
     if (!mpinfo)
         return -1;
     VEC_push(varr->vec, mpinfo);
     return 0;
 }
 
-ti_varr_t * ti_procedures_info(smap_t * procedures, _Bool with_definition)
+ti_varr_t *ti_procedures_info(smap_t *procedures, _Bool with_definition)
 {
     uint8_t flags;
-    ti_varr_t * varr = ti_varr_create(procedures->n);
+    ti_varr_t *varr = ti_varr_create(procedures->n);
     if (!varr)
         return NULL;
 
@@ -46,7 +46,7 @@ ti_varr_t * ti_procedures_info(smap_t * procedures, _Bool with_definition)
     return varr;
 }
 
-static int procedures__pk_cb(ti_procedure_t * procedure, msgpack_packer * pk)
+static int procedures__pk_cb(ti_procedure_t *procedure, msgpack_packer *pk)
 {
     return ti_procedure_info_to_pk(procedure, pk, false);
 }
@@ -54,7 +54,7 @@ static int procedures__pk_cb(ti_procedure_t * procedure, msgpack_packer * pk)
 /*
  * Pack procedures without definitions
  */
-int ti_procedures_to_pk(smap_t * procedures, msgpack_packer * pk)
+int ti_procedures_to_pk(smap_t *procedures, msgpack_packer *pk)
 {
     if (msgpack_pack_array(pk, procedures->n))
         return -1;
@@ -63,12 +63,12 @@ int ti_procedures_to_pk(smap_t * procedures, msgpack_packer * pk)
 }
 
 int ti_procedures_rename(
-        smap_t * procedures,
-        ti_procedure_t * procedure,
-        const char * str,
+        smap_t *procedures,
+        ti_procedure_t *procedure,
+        const char *str,
         size_t n)
 {
-    ti_name_t * name = ti_names_get_slow(str, n);
+    ti_name_t *name = ti_names_get_slow(str, n);
     if (!name || smap_add(procedures, name->str, procedure))
     {
         ti_name_drop(name);

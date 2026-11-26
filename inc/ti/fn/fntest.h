@@ -1,10 +1,10 @@
 #include <ti/fn/fn.h>
 
 
-static int do__f_test(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_test(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_regex_t * regex;
+    ti_regex_t *regex;
     _Bool has_match;
 
     if (!ti_val_is_regex(query->rval))

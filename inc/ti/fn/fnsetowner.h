@@ -1,13 +1,13 @@
 #include <ti/fn/fn.h>
 
-static int do__f_set_owner(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_set_owner(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_task_t * task;
-    ti_vtask_t * vtask;
-    ti_raw_t * ruser;
-    ti_user_t * user;
-    vec_t * access_ = query->collection ?
+    ti_task_t *task;
+    ti_vtask_t *vtask;
+    ti_raw_t *ruser;
+    ti_user_t *user;
+    vec_t *access_ = query->collection ?
             query->collection->access :
             ti.access_thingsdb;
 

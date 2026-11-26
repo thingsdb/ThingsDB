@@ -1,10 +1,10 @@
 #include <ti/fn/fn.h>
 
-static int do__f_alt_raise(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_alt_raise(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     ex_enum errnr;
-    ti_vint_t * vcode;
+    ti_vint_t *vcode;
     ex_t ex = {0};
 
     if (fn_nargs_range("alt_raise", DOC_ALT_RAISE, 2, 3, nargs, e))
@@ -39,7 +39,7 @@ static int do__f_alt_raise(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs == 3)
     {
-        ti_raw_t * msg;
+        ti_raw_t *msg;
         if (ti_do_statement(
                 query,
                 nd->children->next->next->next->next,

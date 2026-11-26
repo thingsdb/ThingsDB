@@ -22,10 +22,10 @@
 #include <util/logger.h>
 
 
-static int export__val(ti_fmt_t * fmt, ti_val_t * val);
+static int export__val(ti_fmt_t *fmt, ti_val_t *val);
 
 
-static int export__mp_dump_up(ti_fmt_t * fmt, mp_unp_t * up)
+static int export__mp_dump_up(ti_fmt_t *fmt, mp_unp_t *up)
 {
     mp_obj_t obj;
     switch (mp_next(up, &obj))
@@ -55,7 +55,7 @@ static int export__mp_dump_up(ti_fmt_t * fmt, mp_unp_t * up)
                 .immutable_n = 0,
                 .flags = TI_QBIND_FLAG_COLLECTION,
             };
-            ti_closure_t * closure = ti_closure_from_strn(
+            ti_closure_t *closure = ti_closure_from_strn(
                     &syntax,
                     obj.via.str.data,
                     obj.via.str.n,
@@ -115,14 +115,14 @@ static int export__mp_dump_up(ti_fmt_t * fmt, mp_unp_t * up)
     return -1;
 }
 
-static int export__mp_dump(ti_fmt_t * fmt, const void * data, size_t n)
+static int export__mp_dump(ti_fmt_t *fmt, const void *data, size_t n)
 {
     mp_unp_t up;
     mp_unp_init(&up, data, n);
     return export__mp_dump_up(fmt, &up);
 }
 
-static int export__uuid(ti_fmt_t * fmt, uuid_t uuid)
+static int export__uuid(ti_fmt_t *fmt, uuid_t uuid)
 {
     uuid_raw_t raw;
     ti_uuid_to_raw(uuid, raw);
@@ -135,7 +135,7 @@ static int export__uuid(ti_fmt_t * fmt, uuid_t uuid)
     );
 }
 
-static int export__new_type_cb(ti_type_t * type_, ti_fmt_t * fmt)
+static int export__new_type_cb(ti_type_t *type_, ti_fmt_t *fmt)
 {
     const int8_t wpo         = TI_TYPE_FLAG_WRAP_ONLY;
     const int8_t hid         = TI_TYPE_FLAG_HIDE_ID;
@@ -169,7 +169,7 @@ static int export__new_type_cb(ti_type_t * type_, ti_fmt_t * fmt)
     );
 }
 
-static int export__set_type_cb(ti_type_t * type_, ti_fmt_t * fmt)
+static int export__set_type_cb(ti_type_t *type_, ti_fmt_t *fmt)
 {
     if (type_->fields->n == 0 && type_->methods->n == 0 && !type_->idname)
         return 0;
@@ -228,9 +228,9 @@ static int export__set_type_cb(ti_type_t * type_, ti_fmt_t * fmt)
 }
 
 static int export__write_relation(
-        ti_fmt_t * fmt,
-        ti_field_t * field_a,
-        ti_field_t * field_b)
+        ti_fmt_t *fmt,
+        ti_field_t *field_a,
+        ti_field_t *field_b)
 {
     return -(
         buf_append_str(&fmt->buf, "mod_type('") ||
@@ -246,13 +246,13 @@ static int export__write_relation(
     );
 }
 
-static int export__relation_cb(ti_type_t * type, ti_fmt_t * fmt)
+static int export__relation_cb(ti_type_t *type, ti_fmt_t *fmt)
 {
     for (vec_each(type->fields, ti_field_t, field))
     {
         if (ti_field_has_relation(field))
         {
-            ti_field_t * other = field->condition.rel->field;
+            ti_field_t *other = field->condition.rel->field;
             if ((   field == other ||
                     field->type->type_id < other->type->type_id ||
                     (   field->type->type_id == other->type->type_id &&
@@ -264,7 +264,7 @@ static int export__relation_cb(ti_type_t * type, ti_fmt_t * fmt)
     return 0;
 }
 
-static int export__row_cb(ti_type_t * type, ti_fmt_t * fmt)
+static int export__row_cb(ti_type_t *type, ti_fmt_t *fmt)
 {
     if (type->row)
     {
@@ -279,7 +279,7 @@ static int export__row_cb(ti_type_t * type, ti_fmt_t * fmt)
         fmt->indent++;
         for (vec_each(type->row->columns, ti_column_t, column))
         {
-            ti_name_t * name = ti_column_name(column);
+            ti_name_t *name = ti_column_name(column);
 
             if (ti_fmt_indent(fmt) ||
                 buf_append_fmt(
@@ -294,7 +294,7 @@ static int export__row_cb(ti_type_t * type, ti_fmt_t * fmt)
     return 0;
 }
 
-static int export__write_new_types(ti_fmt_t * fmt, ti_types_t * types)
+static int export__write_new_types(ti_fmt_t *fmt, ti_types_t *types)
 {
     return -(
         smap_values(types->smap, (smap_val_cb) export__new_type_cb, fmt) ||
@@ -302,7 +302,7 @@ static int export__write_new_types(ti_fmt_t * fmt, ti_types_t * types)
     );
 }
 
-static int export__write_types(ti_fmt_t * fmt, ti_types_t * types)
+static int export__write_types(ti_fmt_t *fmt, ti_types_t *types)
 {
     return -(
         smap_values(types->smap, (smap_val_cb) export__set_type_cb, fmt) ||
@@ -314,9 +314,9 @@ static int export__write_types(ti_fmt_t * fmt, ti_types_t * types)
     );
 }
 
-static inline int export__thing_smap_cb(ti_item_t * item, ti_fmt_t * fmt)
+static inline int export__thing_smap_cb(ti_item_t *item, ti_fmt_t *fmt)
 {
-    buf_t * buf = &fmt->buf;
+    buf_t *buf = &fmt->buf;
 
     if (!ti_name_is_valid_strn((const char *) item->key->data, item->key->n))
         return -(
@@ -337,9 +337,9 @@ static inline int export__thing_smap_cb(ti_item_t * item, ti_fmt_t * fmt)
     );
 }
 
-static int export__thing(ti_fmt_t * fmt, ti_thing_t * thing)
+static int export__thing(ti_fmt_t *fmt, ti_thing_t *thing)
 {
-    buf_t * buf = &fmt->buf;
+    buf_t *buf = &fmt->buf;
 
     if (ti_thing_is_object(thing))
     {
@@ -376,8 +376,8 @@ static int export__thing(ti_fmt_t * fmt, ti_thing_t * thing)
     }
     else
     {
-        ti_name_t * name;
-        ti_val_t * val;
+        ti_name_t *name;
+        ti_val_t *val;
 
         if (ti_thing_n(thing) == 0)
             return buf_append_fmt(buf, "%s{}", thing->via.type->name);
@@ -410,7 +410,7 @@ static int export__thing(ti_fmt_t * fmt, ti_thing_t * thing)
     );
 }
 
-static int export__set_val(ti_thing_t * thing, ti_fmt_t * fmt)
+static int export__set_val(ti_thing_t *thing, ti_fmt_t *fmt)
 {
     return -(
         ti_fmt_indent(fmt) ||
@@ -419,11 +419,11 @@ static int export__set_val(ti_thing_t * thing, ti_fmt_t * fmt)
     );
 }
 
-static int export__dict_pair(ti_dict_key_t * key,
-                             ti_val_t * val,
-                             ti_fmt_t * fmt)
+static int export__dict_pair(ti_dict_key_t *key,
+                             ti_val_t *val,
+                             ti_fmt_t *fmt)
 {
-    buf_t * buf = &fmt->buf;
+    buf_t *buf = &fmt->buf;
     if (ti_fmt_indent(fmt) || buf_write(buf, '['))
         return -1;
 
@@ -452,9 +452,9 @@ static int export__dict_pair(ti_dict_key_t * key,
     );
 }
 
-static int export__val(ti_fmt_t * fmt, ti_val_t * val)
+static int export__val(ti_fmt_t *fmt, ti_val_t *val)
 {
-    buf_t * buf = &fmt->buf;
+    buf_t *buf = &fmt->buf;
 
     switch((ti_val_enum) val->tp)
     {
@@ -477,7 +477,7 @@ static int export__val(ti_fmt_t * fmt, ti_val_t * val)
         return buf_append_str(buf, "bytes() /* WARN: not exported */");
     case TI_VAL_REGEX:
     {
-        ti_raw_t * pattern = ((ti_regex_t *) val)->pattern;
+        ti_raw_t *pattern = ((ti_regex_t *) val)->pattern;
         return buf_append(buf, (const char *) pattern->data, pattern->n);
     }
     case TI_VAL_THING:
@@ -490,7 +490,7 @@ static int export__val(ti_fmt_t * fmt, ti_val_t * val)
         return buf_append_str(buf, "task() /* WARN: not exported */");
     case TI_VAL_ARR:
     {
-        vec_t * vec = VARR(val);
+        vec_t *vec = VARR(val);
         if (!vec->n)
             return buf_append_str(buf, "[]");
         if (buf_append_str(buf, "[\n"))
@@ -509,7 +509,7 @@ static int export__val(ti_fmt_t * fmt, ti_val_t * val)
     }
     case TI_VAL_SET:
     {
-        imap_t * imap = VSET(val);
+        imap_t *imap = VSET(val);
         if (!imap->n)
             return buf_append_str(buf, "set()");
         if (buf_append_str(buf, "set(\n"))
@@ -525,7 +525,7 @@ static int export__val(ti_fmt_t * fmt, ti_val_t * val)
     }
     case TI_VAL_DICT:
     {
-        ti_dict_t * dict = (ti_dict_t *) val;
+        ti_dict_t *dict = (ti_dict_t *) val;
         if (!ti_dict_n(dict))
             return buf_append_str(buf, "dict()");
         if (buf_append_str(buf, "dict([\n"))
@@ -543,7 +543,7 @@ static int export__val(ti_fmt_t * fmt, ti_val_t * val)
         return buf_append_str(buf, "error() /* WARN: not exported */");
     case TI_VAL_MEMBER:
     {
-        ti_member_t * member = (ti_member_t *) val;
+        ti_member_t *member = (ti_member_t *) val;
         return buf_append_fmt(
             buf,
             "%s{%.*s}",
@@ -553,7 +553,7 @@ static int export__val(ti_fmt_t * fmt, ti_val_t * val)
     case TI_VAL_MPDATA:
         return buf_append_str(buf, "bytes() /* WARN: not exported */");
     case TI_VAL_CLOSURE:
-        return ti_fmt_nd(fmt, ((ti_closure_t * ) val)->node);
+        return ti_fmt_nd(fmt, ((ti_closure_t *) val)->node);
     case TI_VAL_ANO:
         return -(
             buf_write(buf, '&') ||
@@ -567,7 +567,7 @@ static int export__val(ti_fmt_t * fmt, ti_val_t * val)
         return buf_append_str(buf, "future(||nil) /* WARN: not exported */");
     case TI_VAL_MODULE:
     {
-        ti_module_t * module = (ti_module_t *) val;
+        ti_module_t *module = (ti_module_t *) val;
         return buf_append_fmt(
             buf,
             "%.*s /* WARN: module must be installed */",
@@ -579,7 +579,7 @@ static int export__val(ti_fmt_t * fmt, ti_val_t * val)
      return 0;
 }
 
-static int export__set_enum_cb(ti_enum_t * enum_, ti_fmt_t * fmt)
+static int export__set_enum_cb(ti_enum_t *enum_, ti_fmt_t *fmt)
 {
     if (
         buf_append_str(&fmt->buf, "set_enum('") ||
@@ -651,7 +651,7 @@ static int export__set_enum_cb(ti_enum_t * enum_, ti_fmt_t * fmt)
             case TI_VAL_BYTES:
                 {
                     int rc;
-                    ti_raw_t * tmp = ti_str_base64_from_raw(
+                    ti_raw_t *tmp = ti_str_base64_from_raw(
                             (ti_raw_t *) member->val);
                     if (!tmp)
                         return -1;
@@ -704,7 +704,7 @@ static int export__set_enum_cb(ti_enum_t * enum_, ti_fmt_t * fmt)
     return 0;
 }
 
-static int export__members_cb(ti_enum_t * enum_, ti_fmt_t * fmt)
+static int export__members_cb(ti_enum_t *enum_, ti_fmt_t *fmt)
 {
     for (vec_each(enum_->members, ti_member_t, member))
     {
@@ -723,7 +723,7 @@ static int export__members_cb(ti_enum_t * enum_, ti_fmt_t * fmt)
     return buf_write(&fmt->buf, '\n');
 }
 
-static int export__write_enums(ti_fmt_t * fmt, ti_enums_t * enums)
+static int export__write_enums(ti_fmt_t *fmt, ti_enums_t *enums)
 {
     return -(
         smap_values(enums->smap, (smap_val_cb) export__set_enum_cb, fmt) ||
@@ -732,7 +732,7 @@ static int export__write_enums(ti_fmt_t * fmt, ti_enums_t * enums)
 
 }
 
-static int export__write_members(ti_fmt_t * fmt, ti_enums_t * enums)
+static int export__write_members(ti_fmt_t *fmt, ti_enums_t *enums)
 {
     return -(
         smap_values(enums->smap, (smap_val_cb) export__members_cb, fmt) ||
@@ -740,7 +740,7 @@ static int export__write_members(ti_fmt_t * fmt, ti_enums_t * enums)
     );
 }
 
-static int export__procedure_cb(ti_procedure_t * procedure, ti_fmt_t * fmt)
+static int export__procedure_cb(ti_procedure_t *procedure, ti_fmt_t *fmt)
 {
     return -(
         buf_append_str(&fmt->buf, "new_procedure('") ||
@@ -754,7 +754,7 @@ static int export__procedure_cb(ti_procedure_t * procedure, ti_fmt_t * fmt)
     );
 }
 
-static int export__write_procedures(ti_fmt_t * fmt, smap_t * procedures)
+static int export__write_procedures(ti_fmt_t *fmt, smap_t *procedures)
 {
     return -(
         smap_values(procedures, (smap_val_cb) export__procedure_cb, fmt) ||
@@ -762,7 +762,7 @@ static int export__write_procedures(ti_fmt_t * fmt, smap_t * procedures)
     );
 }
 
-static int export__write_to_type(ti_fmt_t * fmt, ti_collection_t * collection)
+static int export__write_to_type(ti_fmt_t *fmt, ti_collection_t *collection)
 {
     return ti_thing_is_instance(collection->root)
         ? buf_append_fmt(
@@ -772,7 +772,7 @@ static int export__write_to_type(ti_fmt_t * fmt, ti_collection_t * collection)
         : 0;
 }
 
-static int export__commit(ti_fmt_t * fmt, ti_collection_t * collection)
+static int export__commit(ti_fmt_t *fmt, ti_collection_t *collection)
 {
     return buf_append_fmt(
         &fmt->buf,
@@ -780,7 +780,7 @@ static int export__commit(ti_fmt_t * fmt, ti_collection_t * collection)
         collection->name->n, collection->name->data);
 }
 
-static int export__collection(ti_fmt_t * fmt, ti_collection_t * collection)
+static int export__collection(ti_fmt_t *fmt, ti_collection_t *collection)
 {
 
     return -(
@@ -799,9 +799,9 @@ static int export__collection(ti_fmt_t * fmt, ti_collection_t * collection)
  * Export enumerators, types and procedures. (No data will be exported and
  * enumerators of type `thing` are created with new *empty* things.
  */
-ti_raw_t * ti_export_collection(ti_collection_t * collection)
+ti_raw_t *ti_export_collection(ti_collection_t *collection)
 {
-    ti_raw_t * str;
+    ti_raw_t *str;
     ti_fmt_t fmt;
     ti_fmt_init(&fmt, TI_FMT_TAB);
 

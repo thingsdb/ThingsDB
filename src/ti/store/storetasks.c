@@ -14,7 +14,7 @@
 #include <util/fx.h>
 #include <util/mpack.h>
 
-int ti_store_tasks_store(vec_t * vtasks, const char * fn)
+int ti_store_tasks_store(vec_t *vtasks, const char *fn)
 {
     msgpack_packer pk;
     FILE * f = fopen(fn, "w");
@@ -68,20 +68,20 @@ done:
 
 int ti_store_tasks_restore(
         vec_t ** vtasks,
-        const char * fn,
-        ti_collection_t * collection)  /* collection may be NULL */
+        const char *fn,
+        ti_collection_t *collection)  /* collection may be NULL */
 {
     int rc = -1;
-    const char * keep;
+    const char *keep;
     fx_mmap_t fmap;
     size_t i, j;
     mp_obj_t obj, mp_id, mp_run_at, mp_user_id;
     mp_unp_t up;
-    ti_closure_t * closure;
-    ti_varr_t * varr = NULL;
-    ti_vtask_t * vtask;
-    ti_verror_t * verr;
-    ti_user_t * user;
+    ti_closure_t *closure;
+    ti_varr_t *varr = NULL;
+    ti_vtask_t *vtask;
+    ti_verror_t *verr;
+    ti_user_t *user;
     ti_vup_t vup = {
             .isclient = false,
             .collection = collection,

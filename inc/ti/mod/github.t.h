@@ -14,11 +14,11 @@ typedef struct ti_mod_github_s ti_mod_github_t;
 
 struct ti_mod_github_s
 {
-    char * owner;
-    char * repo;
-    char * ref;             /* NULL or tag, branch etc. */
-    char * token_header;    /* NULL when public, not visible */
-    char * manifest_url;
+    char *owner;
+    char *repo;
+    char *ref;             /* NULL or tag, branch etc. */
+    char *token_header;    /* NULL when public, not visible */
+    char *manifest_url;
 };
 
 #endif  /* TI_MOD_GITHUB_T_H_ */

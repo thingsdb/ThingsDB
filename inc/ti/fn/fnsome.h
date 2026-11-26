@@ -2,12 +2,12 @@
 
 typedef struct
 {
-    ex_t * e;
-    ti_closure_t * closure;
-    ti_query_t * query;
+    ex_t *e;
+    ti_closure_t *closure;
+    ti_query_t *query;
 } some__walk_t;
 
-static int some__walk_set(ti_thing_t * t, some__walk_t * w)
+static int some__walk_set(ti_thing_t *t, some__walk_t *w)
 {
     _Bool some;
     if (ti_closure_vars_vset(w->closure, t) ||
@@ -24,14 +24,14 @@ static int some__walk_set(ti_thing_t * t, some__walk_t * w)
     return 0;
 }
 
-static int do__f_some(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_some(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
-    const char * doc;
+    const char *doc;
     const int nargs = fn_get_nargs(nd);
     _Bool some = false;
     int lock_was_set;
-    ti_val_t * iterval;
-    ti_closure_t * closure;
+    ti_val_t *iterval;
+    ti_closure_t *closure;
 
     doc = doc_some(query->rval);
     if (!doc)
@@ -60,7 +60,7 @@ static int do__f_some(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case TI_VAL_ARR:
     {
         int64_t idx  = 0;
-        vec_t * vec = ((ti_varr_t *) iterval)->vec;
+        vec_t *vec = ((ti_varr_t *) iterval)->vec;
 
         for (vec_each(vec, ti_val_t, v), ++idx)
         {

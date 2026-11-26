@@ -46,17 +46,17 @@ void osarch_init(void)
     strcat(osarch__this, osarch__uinfo.machine);
 }
 
-const char * osarch_get_os(void)
+const char *osarch_get_os(void)
 {
     return osarch__uinfo.sysname;
 }
 
-const char * osarch_get_arch(void)
+const char *osarch_get_arch(void)
 {
     return osarch__uinfo.machine;
 }
 
-const char * osarch_get(void)
+const char *osarch_get(void)
 {
     return osarch__this;
 }

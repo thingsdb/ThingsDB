@@ -6,54 +6,54 @@
 #include <ti/evars.h>
 #include <util/fx.h>
 
-static void evars__bool(const char * evar, _Bool * b)
+static void evars__bool(const char *evar, _Bool * b)
 {
-    char * u8str = getenv(evar);
+    char *u8str = getenv(evar);
     if (!u8str)
         return;
 
     *b = (_Bool) strtoul(u8str, NULL, 10);
 }
 
-static void evars__u8(const char * evar, uint8_t * u8)
+static void evars__u8(const char *evar, uint8_t *u8)
 {
-    char * u8str = getenv(evar);
+    char *u8str = getenv(evar);
     if (!u8str)
         return;
 
     *u8 = (uint8_t) strtoul(u8str, NULL, 10);
 }
 
-static void evars__u16(const char * evar, uint16_t * u16)
+static void evars__u16(const char *evar, uint16_t *u16)
 {
-    char * u16str = getenv(evar);
+    char *u16str = getenv(evar);
     if (!u16str)
         return;
 
     *u16 = (uint16_t) strtoul(u16str, NULL, 10);
 }
 
-static void evars__sizet(const char * evar, size_t * sz)
+static void evars__sizet(const char *evar, size_t *sz)
 {
-    char * sizetstr = getenv(evar);
+    char *sizetstr = getenv(evar);
     if (!sizetstr)
         return;
 
     *sz = (size_t) strtoull(sizetstr, NULL, 10);
 }
 
-static void evars__abs_double(const char * evar, double * d)
+static void evars__abs_double(const char *evar, double * d)
 {
-    char * doublestr = getenv(evar);
+    char *doublestr = getenv(evar);
     if (!doublestr)
         return;
 
     *d = fabs(strtod(doublestr, NULL));
 }
 
-static void evars__str(const char * evar, char ** straddr)
+static void evars__str(const char *evar, char ** straddr)
 {
-    char * str = getenv(evar);
+    char *str = getenv(evar);
     if (!str || !(str = strdup(str)))
         return;
 
@@ -61,26 +61,26 @@ static void evars__str(const char * evar, char ** straddr)
     *straddr = str;
 }
 
-static void evars__bool_arg(const char * evar, int32_t * b)
+static void evars__bool_arg(const char *evar, int32_t *b)
 {
-    char * u8str = getenv(evar);
+    char *u8str = getenv(evar);
     if (!u8str)
         return;
 
     *b = ((int32_t) strtoul(u8str, NULL, 10)) != 0;
 }
 
-static void evars__str_arg(const char * evar, char * strarg)
+static void evars__str_arg(const char *evar, char *strarg)
 {
-    char * str = getenv(evar);
+    char *str = getenv(evar);
     if (!str || strlen(str) >= ARGPARSE_MAX_LEN_ARG)
         return;
     (void) strcpy(strarg, str);
 }
 
-static void evars__ip_support(const char * evar, int * ip_support)
+static void evars__ip_support(const char *evar, int *ip_support)
 {
-    char * str = getenv(evar);
+    char *str = getenv(evar);
     (void) ti_tcp_ip_support_int(str, ip_support);
 }
 

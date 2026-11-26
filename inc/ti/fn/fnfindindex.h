@@ -1,11 +1,11 @@
 #include <ti/fn/fn.h>
 
-static int do__f_find_index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_find_index(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     size_t idx = 0;
-    ti_varr_t * varr;
-    ti_closure_t * closure;
+    ti_varr_t *varr;
+    ti_closure_t *closure;
     int lock_was_set;
 
     if (!ti_val_is_array(query->rval))

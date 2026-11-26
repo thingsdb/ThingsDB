@@ -11,9 +11,9 @@
 #include <ti/val.inline.h>
 
 
-ti_types_t * ti_types_create(ti_collection_t * collection)
+ti_types_t *ti_types_create(ti_collection_t *collection)
 {
-    ti_types_t * types = malloc(sizeof(ti_types_t));
+    ti_types_t *types = malloc(sizeof(ti_types_t));
     if (!types)
         return NULL;
 
@@ -33,7 +33,7 @@ ti_types_t * ti_types_create(ti_collection_t * collection)
     return types;
 }
 
-void ti_types_destroy(ti_types_t * types)
+void ti_types_destroy(ti_types_t *types)
 {
     if (!types)
         return;
@@ -44,7 +44,7 @@ void ti_types_destroy(ti_types_t * types)
     free(types);
 }
 
-int ti_types_add(ti_types_t * types, ti_type_t * type)
+int ti_types_add(ti_types_t *types, ti_type_t *type)
 {
     if (imap_add(types->imap, type->type_id, type))
         return -1;
@@ -66,7 +66,7 @@ int ti_types_add(ti_types_t * types, ti_type_t * type)
  * existing things using this type will be converted to objects and
  * restrictions will be removed.
  */
-void ti_types_del(ti_types_t * types, ti_type_t * type)
+void ti_types_del(ti_types_t *types, ti_type_t *type)
 {
     assert(!type->refcount);
     (void) imap_pop(types->imap, type->type_id);
@@ -77,10 +77,10 @@ typedef struct
 {
     uint16_t id;
     uint32_t nchanges;
-    ti_raw_t * nname;
+    ti_raw_t *nname;
 } types__ren_t;
 
-int types__spec_flags_pos(const unsigned char * x)
+int types__spec_flags_pos(const unsigned char *x)
 {
     int i = 0;
     while (x[i] == '^' ||
@@ -94,11 +94,11 @@ int types__spec_flags_pos(const unsigned char * x)
     return i;
 }
 
-static int types__ren_member(ti_field_t * field, ti_member_t * member)
+static int types__ren_member(ti_field_t *field, ti_member_t *member)
 {
     /* enum with default value rename */
     int flags_pos = types__spec_flags_pos(field->spec_raw->data);
-    ti_raw_t * spec_raw = ti_str_from_fmt(
+    ti_raw_t *spec_raw = ti_str_from_fmt(
             "%.*s%s{%s}%s%s",
             flags_pos,
             (const char *) field->spec_raw->data,
@@ -116,9 +116,9 @@ static int types__ren_member(ti_field_t * field, ti_member_t * member)
 }
 
 static int types__ren_member_nested(
-        ti_type_t * type,
-        ti_member_t * member,
-        int * has_changed)
+        ti_type_t *type,
+        ti_member_t *member,
+        int *has_changed)
 {
     for (vec_each(type->fields, ti_field_t, field))
     {
@@ -143,7 +143,7 @@ static int types__ren_member_nested(
     return 0;
 }
 
-static int types__ren_member_cb(ti_type_t * type, ti_member_t * member)
+static int types__ren_member_cb(ti_type_t *type, ti_member_t *member)
 {
     for (vec_each(type->fields, ti_field_t, field))
     {
@@ -158,7 +158,7 @@ static int types__ren_member_cb(ti_type_t * type, ti_member_t * member)
 
             if (has_changed)
             {
-                ti_raw_t * spec_raw = ti_field_nested_to_mpdata(field);
+                ti_raw_t *spec_raw = ti_field_nested_to_mpdata(field);
                 if (!spec_raw)
                     return -1;
 
@@ -176,7 +176,7 @@ static int types__ren_member_cb(ti_type_t * type, ti_member_t * member)
     return 0;
 }
 
-static int types__ren_cb(ti_type_t * type, types__ren_t * w)
+static int types__ren_cb(ti_type_t *type, types__ren_t *w)
 {
     for (vec_each(type->fields, ti_field_t, field))
     {
@@ -188,7 +188,7 @@ static int types__ren_cb(ti_type_t * type, types__ren_t * w)
 
             if (type->type_id != TI_SPEC_TYPE && w->nchanges > prev)
             {
-                ti_raw_t * spec_raw = ti_field_nested_to_mpdata(field);
+                ti_raw_t *spec_raw = ti_field_nested_to_mpdata(field);
                 if (!spec_raw)
                     return -1;
 
@@ -205,9 +205,9 @@ static int types__ren_cb(ti_type_t * type, types__ren_t * w)
             if (ti_spec_is_enum(field->spec) && field->condition.dval)
             {
                 /* enum with default value rename */
-                ti_member_t * member = \
+                ti_member_t *member = \
                     (ti_member_t *) field->condition.dval->dval;
-                ti_raw_t * spec_raw = ti_str_from_fmt(
+                ti_raw_t *spec_raw = ti_str_from_fmt(
                         "%.*s%.*s{%.*s}%s%s",
                         flags_pos,
                         (const char *) field->spec_raw->data,
@@ -234,7 +234,7 @@ static int types__ren_cb(ti_type_t * type, types__ren_t * w)
             }
             else
             {
-                ti_raw_t * spec_raw = ti_str_from_fmt(
+                ti_raw_t *spec_raw = ti_str_from_fmt(
                         "%.*s%.*s%s%s",
                         flags_pos,
                         (const char *) field->spec_raw->data,
@@ -252,10 +252,10 @@ static int types__ren_cb(ti_type_t * type, types__ren_t * w)
         }
         else if ((field->nested_spec & TI_SPEC_MASK_NILLABLE) == w->id)
         {
-            ti_raw_t * spec_raw;
+            ti_raw_t *spec_raw;
             uint16_t spec = field->spec & TI_SPEC_MASK_NILLABLE;
             int flags_pos = types__spec_flags_pos(field->spec_raw->data);
-            char * begin, end;
+            char *begin, end;
             switch (spec)
             {
             case TI_SPEC_ARR:
@@ -312,9 +312,9 @@ static int types__ren_cb(ti_type_t * type, types__ren_t * w)
 }
 
 int ti_types_ren_spec(
-        ti_types_t * types,
+        ti_types_t *types,
         uint16_t type_or_enum_id,
-        ti_raw_t * nname)
+        ti_raw_t *nname)
 {
     types__ren_t w = {
         .id = type_or_enum_id,
@@ -325,15 +325,15 @@ int ti_types_ren_spec(
     return imap_walk(types->imap, (imap_cb) types__ren_cb, &w);
 }
 
-int ti_types_ren_member_spec(ti_types_t * types, ti_member_t * member)
+int ti_types_ren_member_spec(ti_types_t *types, ti_member_t *member)
 {
     return imap_walk(types->imap, (imap_cb) types__ren_member_cb, member);
 }
 
-uint16_t ti_types_get_new_id(ti_types_t * types, ti_raw_t * rname, ex_t * e)
+uint16_t ti_types_get_new_id(ti_types_t *types, ti_raw_t *rname, ex_t *e)
 {
     uintptr_t utype;
-    void * ptype;
+    void *ptype;
 
     assert(rname->n <= TI_NAME_MAX);
 
@@ -358,22 +358,22 @@ uint16_t ti_types_get_new_id(ti_types_t * types, ti_raw_t * rname, ex_t * e)
 
 typedef struct
 {
-    ti_varr_t * varr;
+    ti_varr_t *varr;
     _Bool with_definition;
 } types__info_cb;
 
-static int types__pack_type(ti_type_t * type, types__info_cb * w)
+static int types__pack_type(ti_type_t *type, types__info_cb * w)
 {
-    ti_val_t * mpinfo = ti_type_as_mpval(type, w->with_definition);
+    ti_val_t *mpinfo = ti_type_as_mpval(type, w->with_definition);
     if (!mpinfo)
         return -1;
     VEC_push(w->varr->vec, mpinfo);
     return 0;
 }
 
-ti_varr_t * ti_types_info(ti_types_t * types, _Bool with_definition)
+ti_varr_t *ti_types_info(ti_types_t *types, _Bool with_definition)
 {
-    ti_varr_t * varr = ti_varr_create(types->imap->n);
+    ti_varr_t *varr = ti_varr_create(types->imap->n);
     if (!varr)
         return NULL;
 

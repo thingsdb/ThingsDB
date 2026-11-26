@@ -11,7 +11,7 @@ typedef struct ti_wprop_s ti_wprop_t;
 
 struct ti_wprop_s
 {
-    ti_name_t * name;   /* without reference */
+    ti_name_t *name;   /* without reference */
     ti_val_t ** val;    /* without reference */
 };
 

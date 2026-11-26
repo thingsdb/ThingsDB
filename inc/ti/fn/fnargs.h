@@ -1,10 +1,10 @@
 #include <ti/fn/fn.h>
 
-static int do__f_args(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_args(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_vtask_t * vtask;
-    vec_t * args;
+    ti_vtask_t *vtask;
+    vec_t *args;
     size_t i, n;
 
     if (!ti_val_is_task(query->rval))
@@ -30,7 +30,7 @@ static int do__f_args(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     for (i=1; i < n; ++i)
     {
-        ti_val_t * v = VEC_get(vtask->args, i);
+        ti_val_t *v = VEC_get(vtask->args, i);
         VEC_push(args, v);
         ti_incref(v);
     }

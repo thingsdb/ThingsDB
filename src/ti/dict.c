@@ -17,9 +17,9 @@
 
 #define DICT__MAX_STACK_SIZE 512
 
-ti_dict_t * ti_dict_create(void)
+ti_dict_t *ti_dict_create(void)
 {
-    ti_dict_t * dict = malloc(sizeof(ti_dict_t));
+    ti_dict_t *dict = malloc(sizeof(ti_dict_t));
     if (!dict)
         return NULL;
 
@@ -36,7 +36,7 @@ ti_dict_t * ti_dict_create(void)
     return dict;
 }
 
-void ti_dict_destroy(ti_dict_t * dict)
+void ti_dict_destroy(ti_dict_t *dict)
 {
     imap_destroy(dict->imap_, (imap_destroy_cb) ti_val_unsafe_gc_drop);
     smap_destroy(dict->smap_, (smap_destroy_cb) ti_val_unsafe_gc_drop);
@@ -44,7 +44,7 @@ void ti_dict_destroy(ti_dict_t * dict)
     free(dict);
 }
 
-void ti_dict_clear(ti_dict_t * dict)
+void ti_dict_clear(ti_dict_t *dict)
 {
     imap_destroy(dict->imap_, (imap_destroy_cb) ti_val_unsafe_gc_drop);
     smap_destroy(dict->smap_, (smap_destroy_cb) ti_val_unsafe_gc_drop);
@@ -57,18 +57,18 @@ void ti_dict_clear(ti_dict_t * dict)
 typedef struct
 {
     ti_dict_pair_cb cb;
-    void * arg;
+    void *arg;
 } dict__pair_t;
 
 typedef struct
 {
     ti_dict_item_cb cb;
-    void * arg;
+    void *arg;
 } dict__item_t;
 
-static int dict__umap_item(const uuid_t uuid, ti_val_t * val, dict__item_t * w)
+static int dict__umap_item(const uuid_t uuid, ti_val_t *val, dict__item_t *w)
 {
-    ti_val_t * key = (ti_val_t *) ti_uuid_from_bytes(uuid);
+    ti_val_t *key = (ti_val_t *) ti_uuid_from_bytes(uuid);
     if (!key)
         return -1;
     int rc = w->cb(key, val, w->arg);
@@ -76,9 +76,9 @@ static int dict__umap_item(const uuid_t uuid, ti_val_t * val, dict__item_t * w)
     return rc;
 }
 
-static int dict__imap_item(uint64_t id, ti_val_t * val, dict__item_t * w)
+static int dict__imap_item(uint64_t id, ti_val_t *val, dict__item_t *w)
 {
-    ti_val_t * key = (ti_val_t *) ti_vint_create((int64_t) id);
+    ti_val_t *key = (ti_val_t *) ti_vint_create((int64_t) id);
     if (!key)
         return -1;
     int rc = w->cb(key, val, w->arg);
@@ -87,12 +87,12 @@ static int dict__imap_item(uint64_t id, ti_val_t * val, dict__item_t * w)
 }
 
 static int dict__smap_item(
-        const char * str,
+        const char *str,
         size_t n,
-        ti_val_t * val,
-        dict__item_t * w)
+        ti_val_t *val,
+        dict__item_t *w)
 {
-    ti_val_t * key = (ti_val_t *) ti_str_create(str, n);
+    ti_val_t *key = (ti_val_t *) ti_str_create(str, n);
     if (!key)
         return -1;
     int rc = w->cb(key, val, w->arg);
@@ -100,7 +100,7 @@ static int dict__smap_item(
     return rc;
 }
 
-static int dict__umap_pair(uuid_t uuid, ti_val_t * val, dict__pair_t * w)
+static int dict__umap_pair(uuid_t uuid, ti_val_t *val, dict__pair_t *w)
 {
     ti_dict_key_t key = {
         .tp = TI_DICT_KEY_UUID,
@@ -109,7 +109,7 @@ static int dict__umap_pair(uuid_t uuid, ti_val_t * val, dict__pair_t * w)
     return w->cb(&key, val, w->arg);
 }
 
-static int dict__imap_pair(uint64_t id, ti_val_t * val, dict__pair_t * w)
+static int dict__imap_pair(uint64_t id, ti_val_t *val, dict__pair_t *w)
 {
     ti_dict_key_t key = {
         .tp = TI_DICT_KEY_INT,
@@ -119,10 +119,10 @@ static int dict__imap_pair(uint64_t id, ti_val_t * val, dict__pair_t * w)
 }
 
 static int dict__smap_pair(
-        const char * str,
+        const char *str,
         size_t n,
-        ti_val_t * val,
-        dict__pair_t * w)
+        ti_val_t *val,
+        dict__pair_t *w)
 {
     ti_dict_key_t key = {
         .tp = TI_DICT_KEY_STR,
@@ -141,7 +141,7 @@ static int dict__smap_pair(
  * Otherwise, the return value is the last callback result. A return value
  * of 0 means that the callback function is called on all items in the dict.
  */
-int ti_dict_items(ti_dict_t * dict, ti_dict_item_cb cb, void * arg)
+int ti_dict_items(ti_dict_t *dict, ti_dict_item_cb cb, void *arg)
 {
     int rc = 0;
     dict__item_t w = {
@@ -162,7 +162,7 @@ int ti_dict_items(ti_dict_t * dict, ti_dict_item_cb cb, void * arg)
     if (dict->smap_ && dict->smap_->n)
     {
         char stack_buf[DICT__MAX_STACK_SIZE];
-        char * buf = stack_buf;
+        char *buf = stack_buf;
         size_t max_key_size = smap_longest_key_size(dict->smap_);
 
         if (max_key_size > DICT__MAX_STACK_SIZE)
@@ -196,7 +196,7 @@ int ti_dict_items(ti_dict_t * dict, ti_dict_item_cb cb, void * arg)
  * can be allocated. This can only happen with keys exceeding the
  * reserverd DICT__MAX_STACK_SIZE size.
  */
-int ti_dict_pairs(ti_dict_t * dict, ti_dict_pair_cb cb, void * arg)
+int ti_dict_pairs(ti_dict_t *dict, ti_dict_pair_cb cb, void *arg)
 {
     int rc = 0;
     dict__pair_t w = {
@@ -217,7 +217,7 @@ int ti_dict_pairs(ti_dict_t * dict, ti_dict_pair_cb cb, void * arg)
     if (dict->smap_ && dict->smap_->n)
     {
         char stack_buf[DICT__MAX_STACK_SIZE];
-        char * buf = stack_buf;
+        char *buf = stack_buf;
         size_t max_key_size = smap_longest_key_size(dict->smap_);
 
         if (max_key_size > DICT__MAX_STACK_SIZE)
@@ -245,7 +245,7 @@ int ti_dict_pairs(ti_dict_t * dict, ti_dict_pair_cb cb, void * arg)
  * The return value is the last callback result. A return value
  * of 0 means that the callback function is called on all items in the dict.
  */
-int ti_dict_walk(ti_dict_t * dict, ti_dict_cb cb, void * arg)
+int ti_dict_walk(ti_dict_t *dict, ti_dict_cb cb, void *arg)
 {
     int rc = 0;
     if (dict->umap_ &&
@@ -268,14 +268,14 @@ int ti_dict_walk(ti_dict_t * dict, ti_dict_cb cb, void * arg)
 
 typedef struct
 {
-    ti_vp_t * vp;
+    ti_vp_t *vp;
     int deep;
     int flags;
 } dict__client_pk_t;
 
-static int dict__pair_client_pk_cb(ti_dict_key_t * key,
-                                   ti_val_t * val,
-                                   dict__client_pk_t * w)
+static int dict__pair_client_pk_cb(ti_dict_key_t *key,
+                                   ti_val_t *val,
+                                   dict__client_pk_t *w)
 {
     return -(
         msgpack_pack_array(&w->vp->pk, 2) ||
@@ -284,9 +284,9 @@ static int dict__pair_client_pk_cb(ti_dict_key_t * key,
     );
 }
 
-static int dict__pair_store_pk_cb(ti_dict_key_t * key,
-                                  ti_val_t * val,
-                                  msgpack_packer * pk)
+static int dict__pair_store_pk_cb(ti_dict_key_t *key,
+                                  ti_val_t *val,
+                                  msgpack_packer *pk)
 {
     switch(key->tp)
     {
@@ -306,7 +306,7 @@ static int dict__pair_store_pk_cb(ti_dict_key_t * key,
     return ti_val_to_store_pk(val, pk);
 }
 
-int ti_dict_to_client_pk(ti_dict_t * dict, ti_vp_t * vp, int deep, int flags)
+int ti_dict_to_client_pk(ti_dict_t *dict, ti_vp_t *vp, int deep, int flags)
 {
     dict__client_pk_t w = {
         .vp = vp,
@@ -319,7 +319,7 @@ int ti_dict_to_client_pk(ti_dict_t * dict, ti_vp_t * vp, int deep, int flags)
     );
 }
 
-int ti_dict_to_store_pk(ti_dict_t * dict, msgpack_packer * pk)
+int ti_dict_to_store_pk(ti_dict_t *dict, msgpack_packer *pk)
 {
     return -(
         msgpack_pack_map(pk, 1) ||
@@ -329,9 +329,9 @@ int ti_dict_to_store_pk(ti_dict_t * dict, msgpack_packer * pk)
     );
 }
 
-static int dict__as_vec_cb(ti_val_t * key, ti_val_t * val, vec_t * vec)
+static int dict__as_vec_cb(ti_val_t *key, ti_val_t *val, vec_t *vec)
 {
-    ti_tuple_t * tuple = malloc(sizeof(ti_tuple_t));
+    ti_tuple_t *tuple = malloc(sizeof(ti_tuple_t));
     if (!tuple)
         goto failed;
 
@@ -357,9 +357,9 @@ failed:
     return -1;
 }
 
-static vec_t * dict__as_vec(ti_dict_t * dict)
+static vec_t *dict__as_vec(ti_dict_t *dict)
 {
-    vec_t * vec = vec_new(ti_dict_n(dict));
+    vec_t *vec = vec_new(ti_dict_n(dict));
     if (vec && ti_dict_items(dict, (ti_dict_item_cb) dict__as_vec_cb, vec))
     {
         vec_destroy(vec, (vec_destroy_cb) ti_val_unsafe_drop);
@@ -370,8 +370,8 @@ static vec_t * dict__as_vec(ti_dict_t * dict)
 
 int ti_dict_to_list(ti_dict_t ** dictaddr)
 {
-    ti_dict_t * dict = (ti_dict_t *) (*dictaddr);
-    ti_varr_t * list = malloc(sizeof(ti_varr_t));
+    ti_dict_t *dict = (ti_dict_t *) (*dictaddr);
+    ti_varr_t *list = malloc(sizeof(ti_varr_t));
     if (!list)
         goto failed;
 
@@ -396,8 +396,8 @@ failed:
 
 int ti_dict_to_tuple(ti_dict_t ** dictaddr)
 {
-    ti_dict_t * dict = (ti_dict_t *) (*dictaddr);
-    ti_tuple_t * tuple = malloc(sizeof(ti_tuple_t));
+    ti_dict_t *dict = (ti_dict_t *) (*dictaddr);
+    ti_tuple_t *tuple = malloc(sizeof(ti_tuple_t));
     if (!tuple)
         goto failed;
 
@@ -419,7 +419,7 @@ failed:
     return -1;
 }
 
-static int dict__assign_cb(ti_dict_key_t * key, ti_val_t * val, ti_dict_t * dict)
+static int dict__assign_cb(ti_dict_key_t *key, ti_val_t *val, ti_dict_t *dict)
 {
     if (ti_dict_setr(dict, key, val))
     {
@@ -429,9 +429,9 @@ static int dict__assign_cb(ti_dict_key_t * key, ti_val_t * val, ti_dict_t * dict
     return 0;
 }
 
-ti_dict_t * ti_dict_cp(ti_dict_t * dict)
+ti_dict_t *ti_dict_cp(ti_dict_t *dict)
 {
-    ti_dict_t * ndict = ti_dict_create();
+    ti_dict_t *ndict = ti_dict_create();
     if (!ndict)
         return NULL;
 
@@ -442,7 +442,7 @@ ti_dict_t * ti_dict_cp(ti_dict_t * dict)
             : ndict;
 }
 
-ti_val_t * ti_dict_del(ti_dict_t * dict, ti_val_t * key)
+ti_val_t *ti_dict_del(ti_dict_t *dict, ti_val_t *key)
 {
     switch(key->tp)
     {
@@ -463,7 +463,7 @@ ti_val_t * ti_dict_del(ti_dict_t * dict, ti_val_t * key)
 
 int ti_dict_assign(ti_dict_t ** dictaddr)
 {
-    ti_dict_t * ndict, * odict = *dictaddr;
+    ti_dict_t *ndict, *odict = *dictaddr;
 
     if (odict->ref == 1)
         return 0;  /* with only one reference we do not require a copy */
@@ -484,11 +484,11 @@ int ti_dict_assign(ti_dict_t ** dictaddr)
 
 typedef struct
 {
-    ti_dict_t * dict;
+    ti_dict_t *dict;
     int deep;
 } dict__copy_t;
 
-static int dict__copy_cb(ti_dict_key_t * key, ti_val_t * val, dict__copy_t * w)
+static int dict__copy_cb(ti_dict_key_t *key, ti_val_t *val, dict__copy_t *w)
 {
     int rc;
     ti_val_t ** vaddr = &val;
@@ -508,7 +508,7 @@ static int dict__copy_cb(ti_dict_key_t * key, ti_val_t * val, dict__copy_t * w)
 int ti_dict_copy(ti_dict_t ** dictaddr, uint8_t deep)
 {
     assert(deep);
-    ti_dict_t * ndict, * odict = *dictaddr;
+    ti_dict_t *ndict, *odict = *dictaddr;
 
     if (!(ndict = ti_dict_create()))
         return -1;
@@ -530,7 +530,7 @@ int ti_dict_copy(ti_dict_t ** dictaddr, uint8_t deep)
     return 0;
 }
 
-static int dict__dup_cb(ti_dict_key_t * key, ti_val_t * val, dict__copy_t * w)
+static int dict__dup_cb(ti_dict_key_t *key, ti_val_t *val, dict__copy_t *w)
 {
     int rc;
     ti_val_t ** vaddr = &val;
@@ -551,7 +551,7 @@ int ti_dict_dup(ti_dict_t ** dictaddr, uint8_t deep)
 {
     assert(deep);
 
-    ti_dict_t * ndict, * odict = *dictaddr;
+    ti_dict_t *ndict, *odict = *dictaddr;
 
     if (!(ndict = ti_dict_create()))
         return -1;
@@ -577,7 +577,7 @@ int ti_dict_dup(ti_dict_t ** dictaddr, uint8_t deep)
  * Increases the reference counter of `val` on newly written key/pair.
  * New value is created for type list, set and dict as they cannot be nested.
  */
-int ti_dict_set(ti_dict_t * dict, ti_val_t * key, ti_val_t ** val, ex_t * e)
+int ti_dict_set(ti_dict_t *dict, ti_val_t *key, ti_val_t ** val, ex_t *e)
 {
     switch (ti_dict_key_spec(dict))
     {
@@ -625,7 +625,7 @@ int ti_dict_set(ti_dict_t * dict, ti_val_t * key, ti_val_t ** val, ex_t * e)
                 assert(dict->parent);
                 assert(ti_thing_is_instance(dict->parent));
                 assert(dict->key_);
-                ti_field_t * field = (ti_field_t *) dict->key_;
+                ti_field_t *field = (ti_field_t *) dict->key_;
                 ex_set(e, EX_TYPE_ERROR,
                     "dict requires values to match definition `%.*s`, "
                     "got type `%s`",
@@ -679,7 +679,7 @@ int ti_dict_set(ti_dict_t * dict, ti_val_t * key, ti_val_t ** val, ex_t * e)
         case TI_VAL_NAME:
         case TI_VAL_STR:
         {
-            ti_str_t * str = (ti_str_t *) key;
+            ti_str_t *str = (ti_str_t *) key;
             if (ti_dict_set_strn(dict, str->str, str->n, *val))
                 goto memerr;
             break;

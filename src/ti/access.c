@@ -15,10 +15,10 @@
  * Helper function to add more info to an authentication (forbidden) error.
  */
 static void access__helper_str(
-        const vec_t * access,
+        const vec_t *access,
         char ** scope,
         char ** name,
-        size_t * name_sz)
+        size_t *name_sz)
 {
     if (access == ti.access_thingsdb)
     {
@@ -52,9 +52,9 @@ static void access__helper_str(
     *name_sz = strlen("<unknown>");
 }
 
-int ti_access_grant(vec_t ** access, ti_user_t * user, uint64_t mask)
+int ti_access_grant(vec_t ** access, ti_user_t *user, uint64_t mask)
 {
-    ti_auth_t * auth;
+    ti_auth_t *auth;
     for (vec_each(*access, ti_auth_t, auth))
     {
         if (auth->user == user)
@@ -73,7 +73,7 @@ int ti_access_grant(vec_t ** access, ti_user_t * user, uint64_t mask)
     return 0;
 }
 
-void ti_access_revoke(vec_t * access, ti_user_t * user, uint64_t mask)
+void ti_access_revoke(vec_t *access, ti_user_t *user, uint64_t mask)
 {
     uint32_t i = 0;
     for (vec_each(access, ti_auth_t, auth), i++)
@@ -88,7 +88,7 @@ void ti_access_revoke(vec_t * access, ti_user_t * user, uint64_t mask)
     }
 }
 
-_Bool ti_access_check(const vec_t * access, ti_user_t * user, uint64_t mask)
+_Bool ti_access_check(const vec_t *access, ti_user_t *user, uint64_t mask)
 {
     for (vec_each(access, ti_auth_t, auth))
         if (auth->user == user)
@@ -96,7 +96,7 @@ _Bool ti_access_check(const vec_t * access, ti_user_t * user, uint64_t mask)
     return false;
 }
 
-_Bool ti_access_check_or(const vec_t * access, ti_user_t * user, uint64_t mask)
+_Bool ti_access_check_or(const vec_t *access, ti_user_t *user, uint64_t mask)
 {
     for (vec_each(access, ti_auth_t, auth))
         if (auth->user == user)
@@ -110,16 +110,16 @@ _Bool ti_access_check_or(const vec_t * access, ti_user_t * user, uint64_t mask)
  * with e->msg set
  */
 int ti_access_check_err(
-        const vec_t * access,
-        ti_user_t * user,
+        const vec_t *access,
+        ti_user_t *user,
         uint64_t mask,
-        ex_t * e)
+        ex_t *e)
 {
     assert(e->nr == 0);
 
     if (!ti_access_check(access, user, mask))
     {
-        char * prefix, * name;
+        char *prefix, *name;
         size_t name_sz;
         access__helper_str(access, &prefix, &name, &name_sz);
 
@@ -138,10 +138,10 @@ int ti_access_check_err(
  * The value is non-zero if "n" has rights which "o" does not have
  */
 int ti_access_more_check(
-        const vec_t * access,
-        ti_user_t * o,
-        ti_user_t * n,
-        ex_t * e)
+        const vec_t *access,
+        ti_user_t *o,
+        ti_user_t *n,
+        ex_t *e)
 {
     uint16_t om = 0;
     uint16_t nm = 0;
@@ -154,7 +154,7 @@ int ti_access_more_check(
     }
     if (nm -= (om & nm))
     {
-        char * prefix, * name;
+        char *prefix, *name;
         size_t name_sz;
         access__helper_str(access, &prefix, &name, &name_sz);
 
@@ -175,16 +175,16 @@ int ti_access_more_check(
  * with e->msg set
  */
 int ti_access_check_or_err(
-        const vec_t * access,
-        ti_user_t * user,
+        const vec_t *access,
+        ti_user_t *user,
         uint64_t mask,
-        ex_t * e)
+        ex_t *e)
 {
     assert(e->nr == 0);
 
     if (!ti_access_check_or(access, user, mask))
     {
-        char * prefix, * name;
+        char *prefix, *name;
         size_t name_sz;
         access__helper_str(access, &prefix, &name, &name_sz);
 

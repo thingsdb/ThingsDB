@@ -1,10 +1,10 @@
 #include <ti/fn/fn.h>
 
-static int do__f_del_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_del_type(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_type_t * type;
-    ti_task_t * task;
+    ti_type_t *type;
+    ti_task_t *task;
 
     if (fn_not_collection_scope("del_type", query, e) ||
         fn_commit("del_type", query, e) ||
@@ -43,7 +43,7 @@ static int do__f_del_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         if (ti_val_is_thing(prop->val))
         {
-            ti_thing_t * thing = (ti_thing_t *) prop->val;
+            ti_thing_t *thing = (ti_thing_t *) prop->val;
 
             if (thing->type_id == type->type_id)
                 ti_thing_t_to_object(thing);

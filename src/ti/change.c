@@ -23,9 +23,9 @@
 
 static uint64_t change__req_id = 0;
 
-ti_change_t * ti_change_create(ti_change_tp_enum tp)
+ti_change_t *ti_change_create(ti_change_tp_enum tp)
 {
-    ti_change_t * change = malloc(sizeof(ti_change_t));
+    ti_change_t *change = malloc(sizeof(ti_change_t));
     if (!change)
         return NULL;
 
@@ -46,9 +46,9 @@ ti_change_t * ti_change_create(ti_change_tp_enum tp)
     return change;
 }
 
-ti_change_t * ti_change_cpkg(ti_cpkg_t * cpkg)
+ti_change_t *ti_change_cpkg(ti_cpkg_t *cpkg)
 {
-    ti_change_t * change;
+    ti_change_t *change;
     change = ti_change_create(TI_CHANGE_TP_CPKG);
     if (!change)
     {
@@ -63,15 +63,15 @@ ti_change_t * ti_change_cpkg(ti_cpkg_t * cpkg)
     return change;
 }
 
-ti_change_t * ti_change_initial(void)
+ti_change_t *ti_change_initial(void)
 {
-    ti_cpkg_t * cpkg = ti_cpkg_initial();
+    ti_cpkg_t *cpkg = ti_cpkg_initial();
     if (!cpkg)
         return NULL;
     return ti_change_cpkg(cpkg);
 }
 
-void ti_change_drop(ti_change_t * change)
+void ti_change_drop(ti_change_t *change)
 {
     if (!change || --change->ref)
         return;
@@ -88,8 +88,8 @@ void ti_change_drop(ti_change_t * change)
 
 void ti_change_missing(uint64_t change_id)
 {
-    ti_pkg_t * pkg;
-    ti_node_t * node;
+    ti_pkg_t *pkg;
+    ti_node_t *node;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -131,10 +131,10 @@ void ti_change_missing(uint64_t change_id)
  *
  *  { [0, 0]: {0: [ {'task':...} ] } }
  */
-static int change__run_deprecated_v0(ti_change_t * change)
+static int change__run_deprecated_v0(ti_change_t *change)
 {
-    ti_thing_t * thing;
-    ti_pkg_t * pkg = change->via.cpkg->pkg;
+    ti_thing_t *thing;
+    ti_pkg_t *pkg = change->via.cpkg->pkg;
     mp_unp_t up;
     size_t i, ii;
     mp_obj_t obj, mp_scope, mp_id;
@@ -234,7 +234,7 @@ fail:
     return -1;
 }
 
-int ti_change_run(ti_change_t * change)
+int ti_change_run(ti_change_t *change)
 {
     assert(change->tp == TI_CHANGE_TP_CPKG);
     assert(change->via.cpkg);
@@ -242,8 +242,8 @@ int ti_change_run(ti_change_t * change)
     assert(change->via.cpkg->pkg->tp == TI_PROTO_NODE_CHANGE ||
             change->via.cpkg->pkg->tp == TI_PROTO_NODE_REQ_SYNCEPART);
 
-    ti_thing_t * thing;
-    ti_pkg_t * pkg = change->via.cpkg->pkg;
+    ti_thing_t *thing;
+    ti_pkg_t *pkg = change->via.cpkg->pkg;
     mp_unp_t up;
     size_t i, ii;
     mp_obj_t obj, mp_scope, mp_id;
@@ -335,7 +335,7 @@ fail:
     return -1;
 }
 
-void ti__change_log_(const char * prefix, ti_change_t * change, int log_level)
+void ti__change_log_(const char *prefix, ti_change_t *change, int log_level)
 {
     log_with_level(log_level, "%s: "TI_CHANGE_ID" details:", prefix, change->id);
 
@@ -389,7 +389,7 @@ void ti__change_log_(const char * prefix, ti_change_t * change, int log_level)
     (void) fprintf(Logger.ostream, "\n");
 }
 
-const char * ti_change_status_str(ti_change_t * change)
+const char *ti_change_status_str(ti_change_t *change)
 {
     switch ((ti_change_status_enum) change->status)
     {

@@ -15,24 +15,24 @@
 #include <util/logger.h>
 #include <util/cryptx.h>
 
-static void node__on_connect(uv_connect_t * req, int status);
-static void node__on_connect_req(ti_req_t * req, ex_enum status);
+static void node__on_connect(uv_connect_t *req, int status);
+static void node__on_connect_req(ti_req_t *req, ex_enum status);
 
 /*
  * Nodes are created ti_nodes_new_node() to ensure a correct id
  * is generated for each node.
  */
-ti_node_t * ti_node_create(
+ti_node_t *ti_node_create(
         uint32_t id,
         uint8_t zone,
         uint16_t port,
-        const char * addr,
-        const char * secret)
+        const char *addr,
+        const char *secret)
 {
     assert(strlen(secret) == CRYPTX_SZ - 1);
     assert(strlen(addr) < INET6_ADDRSTRLEN);
 
-    ti_node_t * node = malloc(sizeof(ti_node_t));
+    ti_node_t *node = malloc(sizeof(ti_node_t));
     if (!node)
         return NULL;
 
@@ -60,7 +60,7 @@ ti_node_t * ti_node_create(
     return node;
 }
 
-void ti_node_drop(ti_node_t * node)
+void ti_node_drop(ti_node_t *node)
 {
     if (node && !--node->ref)
     {
@@ -75,9 +75,9 @@ void ti_node_drop(ti_node_t * node)
     }
 }
 
-void ti_node_upd_node(ti_node_t * node, uint16_t port, mp_obj_t * node_name)
+void ti_node_upd_node(ti_node_t *node, uint16_t port, mp_obj_t *node_name)
 {
-    char * addr;
+    char *addr;
 
     if (node->port != port)
     {
@@ -93,7 +93,7 @@ void ti_node_upd_node(ti_node_t * node, uint16_t port, mp_obj_t * node_name)
     }
 }
 
-const char * ti_node_status_str(ti_node_status_t status)
+const char *ti_node_status_str(ti_node_status_t status)
 {
     switch (status)
     {
@@ -110,11 +110,11 @@ const char * ti_node_status_str(ti_node_status_t status)
     return "UNKNOWN";
 }
 
-static void node__connect(ti_node_t * node, struct sockaddr_storage * sockaddr)
+static void node__connect(ti_node_t *node, struct sockaddr_storage * sockaddr)
 {
     int rc;
-    ti_stream_t * stream;
-    uv_connect_t * req;
+    ti_stream_t *stream;
+    uv_connect_t *req;
 
     if (node->stream)
         return;
@@ -168,8 +168,8 @@ fail0:
  * Return 0 if successful, < 0 in case of error, > 0 for lookup required
  */
 static int node__addr(
-        ti_node_t * node,
-        const char * addr,
+        ti_node_t *node,
+        const char *addr,
         struct sockaddr_storage * sockaddr)
 {
     struct in_addr sa;
@@ -207,13 +207,13 @@ static int node__addr(
 }
 
 static void node__on_resolved(
-        uv_getaddrinfo_t * resolver,
+        uv_getaddrinfo_t *resolver,
         int status,
         struct addrinfo * res)
 {
     char addr[INET6_ADDRSTRLEN];
     struct sockaddr_storage sockaddr;
-    ti_node_t * node = resolver->data;
+    ti_node_t *node = resolver->data;
 
     if (status < 0)
     {
@@ -249,7 +249,7 @@ done:
     free(resolver);
 }
 
-static void node__resolve_dns(ti_node_t * node)
+static void node__resolve_dns(ti_node_t *node)
 {
     int rc;
     char port[6]= {0};
@@ -259,7 +259,7 @@ static void node__resolve_dns(ti_node_t * node)
             .ai_protocol = IPPROTO_TCP,
             .ai_flags = AI_NUMERICSERV,
     };
-    uv_getaddrinfo_t * resolver = malloc(sizeof(uv_getaddrinfo_t));
+    uv_getaddrinfo_t *resolver = malloc(sizeof(uv_getaddrinfo_t));
     if (!resolver)
         return;
 
@@ -283,7 +283,7 @@ static void node__resolve_dns(ti_node_t * node)
     }
 }
 
-void ti_node_connect(ti_node_t * node)
+void ti_node_connect(ti_node_t *node)
 {
     int rc;
     struct sockaddr_storage sockaddr;
@@ -297,7 +297,7 @@ void ti_node_connect(ti_node_t * node)
         node__resolve_dns(node);
 }
 
-int ti_node_info_to_pk(ti_node_t * node, msgpack_packer * pk)
+int ti_node_info_to_pk(ti_node_t *node, msgpack_packer *pk)
 {
     static char syntax_buf[7]; /* vXXXXX_ */
     (void) sprintf(syntax_buf, "v%"PRIu16, node->syntax_ver);
@@ -336,9 +336,9 @@ int ti_node_info_to_pk(ti_node_t * node, msgpack_packer * pk)
     );
 }
 
-ti_val_t * ti_node_as_mpval(ti_node_t * node)
+ti_val_t *ti_node_as_mpval(ti_node_t *node)
 {
-    ti_raw_t * raw;
+    ti_raw_t *raw;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -357,7 +357,7 @@ ti_val_t * ti_node_as_mpval(ti_node_t * node)
     return (ti_val_t *) raw;
 }
 
-int ti_node_status_from_unp(ti_node_t * node, mp_unp_t * up)
+int ti_node_status_from_unp(ti_node_t *node, mp_unp_t *up)
 {
     mp_obj_t obj,
              mp_next_thing_id,
@@ -420,14 +420,14 @@ int ti_node_status_from_unp(ti_node_t * node, mp_unp_t * up)
     return 0;
 }
 
-static void node__on_connect(uv_connect_t * req, int status)
+static void node__on_connect(uv_connect_t *req, int status)
 {
     int rc;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
-    ti_pkg_t * pkg;
-    ti_node_t * node = req->data;
-    ti_node_t * ti_node = ti.node;
+    ti_pkg_t *pkg;
+    ti_node_t *node = req->data;
+    ti_node_t *ti_node = ti.node;
 
     if (status)
     {
@@ -507,11 +507,11 @@ done:
     free(req);
 }
 
-static void node__on_connect_req(ti_req_t * req, ex_enum status)
+static void node__on_connect_req(ti_req_t *req, ex_enum status)
 {
     mp_unp_t up;
-    ti_pkg_t * pkg = req->pkg_res;
-    ti_node_t * node = req->data;
+    ti_pkg_t *pkg = req->pkg_res;
+    ti_node_t *node = req->data;
 
     if (status)
         goto failed;

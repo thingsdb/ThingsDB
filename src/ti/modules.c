@@ -13,7 +13,7 @@
  */
 void ti_modules_init(void)
 {
-    char * path, * modules_path = ti.cfg->modules_path;
+    char *path, *modules_path = ti.cfg->modules_path;
 
     if (!fx_is_dir(modules_path) && mkdir(modules_path, FX_DEFAULT_DIR_ACCESS))
     {
@@ -50,7 +50,7 @@ do_python:
     ti.cfg->python_interpreter = path;
 }
 
-static int modules__load_cb(ti_module_t * module, void * UNUSED(arg))
+static int modules__load_cb(ti_module_t *module, void *UNUSED(arg))
 {
     ti_module_load(module);
     return 0;
@@ -61,7 +61,7 @@ void ti_modules_load(void)
     (void) smap_values(ti.modules, (smap_val_cb) modules__load_cb, NULL);
 }
 
-static int modules__ready_cb(ti_module_t * module, void * UNUSED(arg))
+static int modules__ready_cb(ti_module_t *module, void *UNUSED(arg))
 {
     return !ti_module_is_ready(module);
 }
@@ -77,9 +77,9 @@ void ti_modules_stop_and_destroy(void)
     ti.modules = NULL;
 }
 
-int ti_modules_rename(ti_module_t * module, const char * s, size_t n)
+int ti_modules_rename(ti_module_t *module, const char *s, size_t n)
 {
-    ti_name_t * tmp = ti_names_get_slow(s, n);
+    ti_name_t *tmp = ti_names_get_slow(s, n);
 
     if (!tmp || smap_add(ti.modules, tmp->str, module))
     {
@@ -93,19 +93,19 @@ int ti_modules_rename(ti_module_t * module, const char * s, size_t n)
     return 0;
 }
 
-static int modues__info_cb(ti_module_t * module, ti_varr_t * varr)
+static int modues__info_cb(ti_module_t *module, ti_varr_t *varr)
 {
-    ti_val_t * mpinfo = ti_module_as_mpval(module, varr->flags);
+    ti_val_t *mpinfo = ti_module_as_mpval(module, varr->flags);
     if (!mpinfo)
         return -1;
     VEC_push(varr->vec, mpinfo);
     return 0;
 }
 
-ti_varr_t * ti_modules_info(uint8_t flags)
+ti_varr_t *ti_modules_info(uint8_t flags)
 {
     uint8_t tmp_flags;
-    ti_varr_t * varr = ti_varr_create(ti.modules->n);
+    ti_varr_t *varr = ti_varr_create(ti.modules->n);
     if (!varr)
         return NULL;
 
@@ -122,7 +122,7 @@ ti_varr_t * ti_modules_info(uint8_t flags)
     return varr;
 }
 
-static int modules__cfuture_cb(ti_module_t * module, void * UNUSED(arg))
+static int modules__cfuture_cb(ti_module_t *module, void *UNUSED(arg))
 {
     ti_module_cancel_futures(module);
     return 0;

@@ -1,11 +1,11 @@
 #include <ti/fn/fn.h>
 
-static int do__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_add(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    cleri_node_t * child = nd->children;        /* first in argument list */
-    vec_t * added;
-    ti_vset_t * vset;
+    cleri_node_t *child = nd->children;        /* first in argument list */
+    vec_t *added;
+    ti_vset_t *vset;
 
     if (!ti_val_is_set(query->rval))
         return fn_call_try("add", query, nd, e);
@@ -48,7 +48,7 @@ static int do__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (added->n && vset->parent && vset->parent->id)
     {
-        ti_task_t * task = ti_task_get_task(query->change, vset->parent);
+        ti_task_t *task = ti_task_get_task(query->change, vset->parent);
         if (!task || ti_task_add_set_add(
                 task,
                 ti_vset_key(vset),

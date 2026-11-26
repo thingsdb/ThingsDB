@@ -8,9 +8,9 @@
 #include <ti/val.inline.h>
 #include <ti.h>
 
-static void future__unreg(ti_future_t * future)
+static void future__unreg(ti_future_t *future)
 {
-    ti_collection_t * collection = future->query->collection;
+    ti_collection_t *collection = future->query->collection;
     if (collection)
     {
         size_t idx = 0;
@@ -25,14 +25,14 @@ static void future__unreg(ti_future_t * future)
     }
 }
 
-ti_future_t * ti_future_create(
-        ti_query_t * query,
-        ti_module_t * module,
+ti_future_t *ti_future_create(
+        ti_query_t *query,
+        ti_module_t *module,
         size_t nargs,
         uint8_t deep,
         _Bool load)
 {
-    ti_future_t * future = malloc(sizeof(ti_future_t));
+    ti_future_t *future = malloc(sizeof(ti_future_t));
     if (!future)
         return NULL;
 
@@ -68,17 +68,17 @@ ti_future_t * ti_future_create(
 /*
  * Arguments *must* be set before calling the register function.
  */
-int ti_future_register(ti_future_t * future)
+int ti_future_register(ti_future_t *future)
 {
     assert(future->args);
-    ti_collection_t * collection = future->query->collection;
+    ti_collection_t *collection = future->query->collection;
     int rc = collection ? vec_push(&collection->futures, future) : 0;
     if (rc == 0 && (rc = link_insert(&future->query->futures, future)) == 0)
         ti_incref(future);  /* reference for future->query->futures */
     return rc;
 }
 
-void ti_future_destroy(ti_future_t * future)
+void ti_future_destroy(ti_future_t *future)
 {
     if (!future)
         return;
@@ -92,14 +92,14 @@ void ti_future_destroy(ti_future_t * future)
     free(future);
 }
 
-void ti_future_cancel(ti_future_t * future)
+void ti_future_cancel(ti_future_t *future)
 {
     ex_t e;
     ex_set(&e, EX_CANCELLED, "future cancelled before completion");
     ti_query_on_future_result(future, &e);
 }
 
-void ti_future_stop(ti_future_t * future)
+void ti_future_stop(ti_future_t *future)
 {
     if (future->module != ti_async_get_module())
         (void) omap_rm(future->module->futures, future->pid);

@@ -1,12 +1,12 @@
 #include <ti/fn/fn.h>
 
-static int do__f_set_module_scope(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_set_module_scope(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_module_t * module;
-    ti_task_t * task;
-    ti_raw_t * rname;
-    uint64_t * scope_id;
+    ti_module_t *module;
+    ti_task_t *task;
+    ti_raw_t *rname;
+    uint64_t *scope_id;
 
     if (fn_not_thingsdb_scope("set_module_scope", query, e) ||
         fn_nargs("set_module_scope", DOC_SET_MODULE_SCOPE, 2, nargs, e) ||
@@ -36,7 +36,7 @@ static int do__f_set_module_scope(ti_query_t * query, cleri_node_t * nd, ex_t * 
     else if (ti_val_is_str(query->rval))
     {
         ti_scope_t scope;
-        ti_raw_t * rscope = (ti_raw_t *) query->rval;
+        ti_raw_t *rscope = (ti_raw_t *) query->rval;
         scope_id = malloc(sizeof(uint64_t));
         if (!scope_id ||
             ti_scope_init(&scope, (const char *) rscope->data, rscope->n, e) ||

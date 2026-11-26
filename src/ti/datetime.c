@@ -13,10 +13,10 @@
 
 #define DATETIME__BUF_SZ 80
 static char datetime__buf[DATETIME__BUF_SZ];
-static const char * datetime__fmt_zone = "%Y-%m-%dT%H:%M:%S%z";
-static const char * datetime__fmp_utc = "%Y-%m-%dT%H:%M:%SZ";
+static const char *datetime__fmt_zone = "%Y-%m-%dT%H:%M:%S%z";
+static const char *datetime__fmp_utc = "%Y-%m-%dT%H:%M:%SZ";
 
-static inline const char * datetime__fmt(ti_datetime_t * dt)
+static inline const char *datetime__fmt(ti_datetime_t *dt)
 {
     return ti_tz_is_not_utc(dt->tz) || dt->offset
             ? datetime__fmt_zone
@@ -26,9 +26,9 @@ static inline const char * datetime__fmt(ti_datetime_t * dt)
 /*
  * Arguments `ts` is in seconds, `offset` in minutes.
  */
-ti_datetime_t * ti_timeval_from_i64(int64_t ts, int16_t offset, ti_tz_t * tz)
+ti_datetime_t *ti_timeval_from_i64(int64_t ts, int16_t offset, ti_tz_t *tz)
 {
-    ti_datetime_t * dt = malloc(sizeof(ti_datetime_t));
+    ti_datetime_t *dt = malloc(sizeof(ti_datetime_t));
     if (!dt)
         return NULL;
     dt->ref = 1;
@@ -43,9 +43,9 @@ ti_datetime_t * ti_timeval_from_i64(int64_t ts, int16_t offset, ti_tz_t * tz)
 /*
  * Arguments `ts` is in seconds, `offset` in minutes.
  */
-ti_datetime_t * ti_timeval_from_u64(uint64_t ts, ti_tz_t * tz)
+ti_datetime_t *ti_timeval_from_u64(uint64_t ts, ti_tz_t *tz)
 {
-    ti_datetime_t * dt = malloc(sizeof(ti_datetime_t));
+    ti_datetime_t *dt = malloc(sizeof(ti_datetime_t));
     if (!dt)
         return NULL;
     dt->ref = 1;
@@ -60,9 +60,9 @@ ti_datetime_t * ti_timeval_from_u64(uint64_t ts, ti_tz_t * tz)
 /*
  * Arguments `ts` is in seconds, `offset` in minutes.
  */
-ti_datetime_t * ti_datetime_from_i64(int64_t ts, int16_t offset, ti_tz_t * tz)
+ti_datetime_t *ti_datetime_from_i64(int64_t ts, int16_t offset, ti_tz_t *tz)
 {
-    ti_datetime_t * dt = malloc(sizeof(ti_datetime_t));
+    ti_datetime_t *dt = malloc(sizeof(ti_datetime_t));
     if (!dt)
         return NULL;
     dt->ref = 1;
@@ -77,9 +77,9 @@ ti_datetime_t * ti_datetime_from_i64(int64_t ts, int16_t offset, ti_tz_t * tz)
 /*
  * Arguments `ts` is in seconds, `offset` in minutes.
  */
-ti_datetime_t * ti_datetime_from_u64(uint64_t ts, ti_tz_t * tz)
+ti_datetime_t *ti_datetime_from_u64(uint64_t ts, ti_tz_t *tz)
 {
-    ti_datetime_t * dt = malloc(sizeof(ti_datetime_t));
+    ti_datetime_t *dt = malloc(sizeof(ti_datetime_t));
     if (!dt)
         return NULL;
     dt->ref = 1;
@@ -91,15 +91,15 @@ ti_datetime_t * ti_datetime_from_u64(uint64_t ts, ti_tz_t * tz)
     return dt;
 }
 
-ti_datetime_t * ti_datetime_copy(ti_datetime_t * dt)
+ti_datetime_t *ti_datetime_copy(ti_datetime_t *dt)
 {
-    ti_datetime_t * dtnew = malloc(sizeof(ti_datetime_t));
+    ti_datetime_t *dtnew = malloc(sizeof(ti_datetime_t));
     memcpy(dtnew, dt, sizeof(ti_datetime_t));
     dtnew->ref = 1;
     return dtnew;
 }
 
-int ti_datetime_time(ti_datetime_t * dt, struct tm * tm)
+int ti_datetime_time(ti_datetime_t *dt, struct tm * tm)
 {
     if (dt->tz)
     {
@@ -118,7 +118,7 @@ int ti_datetime_time(ti_datetime_t * dt, struct tm * tm)
     return -(gmtime_r(&dt->ts, tm) != tm);
 }
 
-static long int datetime__offset_in_sec(const char * str, ex_t * e)
+static long int datetime__offset_in_sec(const char *str, ex_t *e)
 {
     int sign;
     long int hours, minutes;
@@ -178,20 +178,20 @@ invalid:
     return 0;
 }
 
-static ti_datetime_t * datetime__from_strn(
-        ti_raw_t * str,
-        const char * fmt,
+static ti_datetime_t *datetime__from_strn(
+        ti_raw_t *str,
+        const char *fmt,
         size_t n,
-        ti_tz_t * tz,
-        ex_t * e)
+        ti_tz_t *tz,
+        ex_t *e)
 {
-    ti_datetime_t * dt;
+    ti_datetime_t *dt;
     time_t ts;
     long int offset;
     struct tm tm;
     const size_t buf_sz = 120;
     char buf[buf_sz];
-    char * c;
+    char *c;
 
     if (str->n >= buf_sz)
     {
@@ -261,7 +261,7 @@ invalid:
     return NULL;
 }
 
-static inline _Bool datetime__with_t(ti_raw_t * str)
+static inline _Bool datetime__with_t(ti_raw_t *str)
 {
     return str->data[10] == 'T';
 }
@@ -269,7 +269,7 @@ static inline _Bool datetime__with_t(ti_raw_t * str)
 #define datetime__from_str(__s, __f, __tz, __e) \
     (datetime__from_strn(__s, __f, strlen(__f), __tz, __e))
 
-ti_datetime_t * ti_datetime_from_str(ti_raw_t * str, ti_tz_t * tz, ex_t * e)
+ti_datetime_t *ti_datetime_from_str(ti_raw_t *str, ti_tz_t *tz, ex_t *e)
 {
     switch(str->n)
     {
@@ -307,11 +307,11 @@ ti_datetime_t * ti_datetime_from_str(ti_raw_t * str, ti_tz_t * tz, ex_t * e)
     return NULL;
 }
 
-ti_datetime_t * ti_datetime_from_fmt(
-        ti_raw_t * str,
-        ti_raw_t * fmt,
-        ti_tz_t * tz,
-        ex_t * e)
+ti_datetime_t *ti_datetime_from_fmt(
+        ti_raw_t *str,
+        ti_raw_t *fmt,
+        ti_tz_t *tz,
+        ex_t *e)
 {
     if (fmt->n < 2 || fmt->n >= DATETIME__BUF_SZ)
     {
@@ -332,11 +332,11 @@ ti_datetime_t * ti_datetime_from_fmt(
  * written inside the given buffer.
  */
 static size_t datetime__write(
-        ti_datetime_t * dt,
-        char * buf,
+        ti_datetime_t *dt,
+        char *buf,
         size_t buf_sz,
-        const char * fmt,
-        ex_t * e)
+        const char *fmt,
+        ex_t *e)
 {
     size_t sz;
     struct tm tm = {0};
@@ -355,9 +355,9 @@ static size_t datetime__write(
 /*
  * This function is not thread safe.
  */
-ti_raw_t * ti_datetime_to_str(ti_datetime_t * dt, ex_t * e)
+ti_raw_t *ti_datetime_to_str(ti_datetime_t *dt, ex_t *e)
 {
-    ti_raw_t * str;
+    ti_raw_t *str;
     size_t sz = datetime__write(
             dt,
             datetime__buf,
@@ -373,10 +373,10 @@ ti_raw_t * ti_datetime_to_str(ti_datetime_t * dt, ex_t * e)
     return str;
 }
 
-ti_raw_t * ti_datetime_to_str_fmt(ti_datetime_t * dt, ti_raw_t * fmt, ex_t * e)
+ti_raw_t *ti_datetime_to_str_fmt(ti_datetime_t *dt, ti_raw_t *fmt, ex_t *e)
 {
     size_t sz;
-    ti_raw_t * str;
+    ti_raw_t *str;
     const size_t buf_sz = 120;
     char buf[buf_sz];
 
@@ -407,7 +407,7 @@ ti_raw_t * ti_datetime_to_str_fmt(ti_datetime_t * dt, ti_raw_t * fmt, ex_t * e)
     return str;
 }
 
-int ti_datetime_strict_to_client_pk(ti_datetime_t * dt, msgpack_packer * pk)
+int ti_datetime_strict_to_client_pk(ti_datetime_t *dt, msgpack_packer *pk)
 {
     ex_t e = {0};
     size_t sz = datetime__write(
@@ -424,14 +424,14 @@ int ti_datetime_strict_to_client_pk(ti_datetime_t * dt, msgpack_packer * pk)
 /*
  * This function is not thread safe.
  */
-int ti_datetime_to_client_pk(ti_datetime_t * dt, msgpack_packer * pk)
+int ti_datetime_to_client_pk(ti_datetime_t *dt, msgpack_packer *pk)
 {
     return ti_datetime_is_datetime(dt)
         ? ti_datetime_strict_to_client_pk(dt, pk)
         : msgpack_pack_int64(pk, dt->ts);
 }
 
-int ti_datetime_to_store_pk(ti_datetime_t * dt, msgpack_packer * pk)
+int ti_datetime_to_store_pk(ti_datetime_t *dt, msgpack_packer *pk)
 {
     return (
         msgpack_pack_map(pk, 1) ||
@@ -448,7 +448,7 @@ int ti_datetime_to_store_pk(ti_datetime_t * dt, msgpack_packer * pk)
     );
 }
 
-int ti_datetime_to_zone(ti_datetime_t * dt, ti_raw_t * tzinfo, ex_t * e)
+int ti_datetime_to_zone(ti_datetime_t *dt, ti_raw_t *tzinfo, ex_t *e)
 {
     if (!tzinfo->n)
     {
@@ -484,7 +484,7 @@ int ti_datetime_to_zone(ti_datetime_t * dt, ti_raw_t * tzinfo, ex_t * e)
     }
     else
     {
-        ti_tz_t * tz = ti_tz_from_strn((const char *) tzinfo->data, tzinfo->n);
+        ti_tz_t *tz = ti_tz_from_strn((const char *) tzinfo->data, tzinfo->n);
         if (!tz)
         {
             ex_set(e, EX_VALUE_ERROR, "unknown time zone"DOC_TIME_ZONES_INFO);
@@ -498,10 +498,10 @@ int ti_datetime_to_zone(ti_datetime_t * dt, ti_raw_t * tzinfo, ex_t * e)
     return e->nr;
 }
 
-ti_datetime_t * ti_datetime_from_tm_tz(struct tm * tm, ti_tz_t * tz, ex_t * e)
+ti_datetime_t *ti_datetime_from_tm_tz(struct tm * tm, ti_tz_t *tz, ex_t *e)
 {
     time_t ts;
-    ti_datetime_t * dt;
+    ti_datetime_t *dt;
     long int offset;
     int mday = tm->tm_mday;
 
@@ -533,13 +533,13 @@ ti_datetime_t * ti_datetime_from_tm_tz(struct tm * tm, ti_tz_t * tz, ex_t * e)
     return dt;
 }
 
-ti_datetime_t * ti_datetime_from_tm_tzinfo(
+ti_datetime_t *ti_datetime_from_tm_tzinfo(
         struct tm * tm,
-        ti_raw_t * tzinfo,
-        ex_t * e)
+        ti_raw_t *tzinfo,
+        ex_t *e)
 {
-    ti_datetime_t * dt;
-    ti_tz_t * tz;
+    ti_datetime_t *dt;
+    ti_tz_t *tz;
     time_t ts;
     long int offset;
     int mday = tm->tm_mday;
@@ -607,10 +607,10 @@ ti_datetime_t * ti_datetime_from_tm_tzinfo(
  * objects with no bindings. (usually a reference count of one)
  */
 int ti_datetime_move(
-        ti_datetime_t * dt,
+        ti_datetime_t *dt,
         datetime_unit_e unit,
         int64_t num,
-        ex_t * e)
+        ex_t *e)
 {
     if (unit <= DT_DAYS)
     {
@@ -708,19 +708,19 @@ int ti_datetime_move(
     return e->nr;
 }
 
-int ti_datetime_weekday(ti_datetime_t * dt)
+int ti_datetime_weekday(ti_datetime_t *dt)
 {
     struct tm tm = {0};
     return ti_datetime_time(dt, &tm) < 0 ? -1 : tm.tm_wday;
 }
 
-int ti_datetime_yday(ti_datetime_t * dt)
+int ti_datetime_yday(ti_datetime_t *dt)
 {
     struct tm tm = {0};
     return ti_datetime_time(dt, &tm) < 0 ? -1 : tm.tm_yday;
 }
 
-int ti_datetime_week(ti_datetime_t * dt)
+int ti_datetime_week(ti_datetime_t *dt)
 {
     struct tm tm = {0};
     return ti_datetime_time(dt, &tm) < 0
@@ -730,7 +730,7 @@ int ti_datetime_week(ti_datetime_t * dt)
             : (tm.tm_yday - tm.tm_wday) / 7 + 1;    /* calculate week */
 }
 
-const char * ti_datetime_ts_str(const time_t * ts)
+const char *ti_datetime_ts_str(const time_t *ts)
 {
     struct tm tm;
 
@@ -749,7 +749,7 @@ const char * ti_datetime_ts_str(const time_t * ts)
  * Returns the unit corresponding to the given string.
  * (`e` must be checked for errors)
  */
-datetime_unit_e ti_datetime_get_unit(ti_raw_t * raw, ex_t * e)
+datetime_unit_e ti_datetime_get_unit(ti_raw_t *raw, ex_t *e)
 {
     if (ti_raw_eq_strn(raw, "years", 5))
         return DT_YEARS;

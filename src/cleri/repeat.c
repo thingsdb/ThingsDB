@@ -5,13 +5,13 @@
 #include <stdlib.h>
 #include <assert.h>
 
-static void repeat__free(cleri_t * cl_object);
+static void repeat__free(cleri_t *cl_object);
 
-static cleri_node_t * repeat__parse(
-        cleri_parse_t * pr,
-        cleri_node_t * parent,
-        cleri_t * cl_obj,
-        cleri_rule_store_t * rule);
+static cleri_node_t *repeat__parse(
+        cleri_parse_t *pr,
+        cleri_node_t *parent,
+        cleri_t *cl_obj,
+        cleri_rule_store_t *rule);
 
 /*
  * Returns NULL in case an error has occurred.
@@ -21,7 +21,7 @@ static cleri_node_t * repeat__parse(
  * max :        should be equal to or higher then min, or 0 which means
  *              unlimited.
  */
-cleri_t * cleri_repeat(uint32_t gid, cleri_t * cl_obj, size_t min, size_t max)
+cleri_t *cleri_repeat(uint32_t gid, cleri_t *cl_obj, size_t min, size_t max)
 {
     if (cl_obj == NULL)
     {
@@ -30,7 +30,7 @@ cleri_t * cleri_repeat(uint32_t gid, cleri_t * cl_obj, size_t min, size_t max)
 
     assert (!max || max >= min);
 
-    cleri_t * cl_object = cleri_new(
+    cleri_t *cl_object = cleri_new(
             gid,
             CLERI_TP_REPEAT,
             &repeat__free,
@@ -61,7 +61,7 @@ cleri_t * cleri_repeat(uint32_t gid, cleri_t * cl_obj, size_t min, size_t max)
 /*
  * Destroy repeat object.
  */
-static void repeat__free(cleri_t * cl_object)
+static void repeat__free(cleri_t *cl_object)
 {
     cleri_free(cl_object->via.repeat->cl_obj);
     free(cl_object->via.repeat);
@@ -70,14 +70,14 @@ static void repeat__free(cleri_t * cl_object)
 /*
  * Returns a node or NULL. In case of an error pr->is_valid is set to -1.
  */
-static cleri_node_t * repeat__parse(
-        cleri_parse_t * pr,
-        cleri_node_t * parent,
-        cleri_t * cl_obj,
-        cleri_rule_store_t * rule)
+static cleri_node_t *repeat__parse(
+        cleri_parse_t *pr,
+        cleri_node_t *parent,
+        cleri_t *cl_obj,
+        cleri_rule_store_t *rule)
 {
-    cleri_node_t * node;
-    cleri_node_t * rnode;
+    cleri_node_t *node;
+    cleri_node_t *rnode;
     size_t i;
     if ((node = cleri__node_new(cl_obj, parent->str + parent->len, 0)) == NULL)
     {

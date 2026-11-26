@@ -5,14 +5,14 @@
 #include <stdlib.h>
 #include <util/queue.h>
 
-static queue_t * queue__grow(queue_t * queue);
+static queue_t *queue__grow(queue_t *queue);
 
 /*
  * Returns a new queue with size sz.
  */
-queue_t * queue_new(size_t sz)
+queue_t *queue_new(size_t sz)
 {
-    queue_t * queue = malloc(sizeof(queue_t) + sz * sizeof(void*));
+    queue_t *queue = malloc(sizeof(queue_t) + sz * sizeof(void*));
     if (!queue)
         return NULL;
     queue->sz = sz;
@@ -25,7 +25,7 @@ queue_t * queue_new(size_t sz)
  * Destroy a queue with optional callback. If callback is NULL then it is
  * just as safe to simply call free() instead of this function.
  */
-void queue_destroy(queue_t * queue, queue_destroy_cb cb)
+void queue_destroy(queue_t *queue, queue_destroy_cb cb)
 {
     if (queue && cb)
     {
@@ -38,9 +38,9 @@ void queue_destroy(queue_t * queue, queue_destroy_cb cb)
  * Returns a copy of queue with an exact fit so the new queue->sz and queue->n
  * will be equal. In case of an allocation error the return value is NULL.
  */
-queue_t * queue_dup(const queue_t * queue)
+queue_t *queue_dup(const queue_t *queue)
 {
-    queue_t * q = malloc(sizeof(queue_t) + queue->n * sizeof(void*));
+    queue_t *q = malloc(sizeof(queue_t) + queue->n * sizeof(void*));
     if (!q)
         return NULL;
 
@@ -61,13 +61,13 @@ queue_t * queue_dup(const queue_t * queue)
     return q;
 }
 
-void * queue_remove(queue_t * queue, size_t idx)
+void *queue_remove(queue_t *queue, size_t idx)
 {
     if (idx >= queue->n)
         return NULL;
 
     size_t i = queue__i(queue, idx);
-    void * data = queue->data_[i];
+    void *data = queue->data_[i];
 
     if (i >= queue->s_)
     {
@@ -95,7 +95,7 @@ void * queue_remove(queue_t * queue, size_t idx)
  * Removes and returns the first value in the queue which is equal to data.
  * If the value is not found, than NULL is returned.
  */
-void * queue_rmval(queue_t * queue, void * data)
+void *queue_rmval(queue_t *queue, void *data)
 {
     size_t i = 0;
     for (queue_each(queue, void, d), i++)
@@ -104,10 +104,10 @@ void * queue_rmval(queue_t * queue, void * data)
     return NULL;
 }
 
-void * queue_replace(queue_t * queue, size_t idx, void * data)
+void *queue_replace(queue_t *queue, size_t idx, void *data)
 {
     size_t i = queue__i(queue, idx);
-    void * ret = queue->data_[i];
+    void *ret = queue->data_[i];
     queue->data_[i] = data;
     return ret;
 }
@@ -118,11 +118,11 @@ void * queue_replace(queue_t * queue, size_t idx, void * data)
  */
 int queue_reserve(queue_t ** qaddr, size_t n)
 {
-    queue_t * queue = *qaddr;
+    queue_t *queue = *qaddr;
     size_t nn = queue->n + n;
     if (nn > queue->sz)
     {
-        queue_t * q;
+        queue_t *q;
         size_t sz = queue->sz;
 
         /*
@@ -150,12 +150,12 @@ int queue_reserve(queue_t ** qaddr, size_t n)
     return 0;
 }
 
-int queue_push(queue_t ** qaddr, void * data)
+int queue_push(queue_t ** qaddr, void *data)
 {
-    queue_t * queue = *qaddr;
+    queue_t *queue = *qaddr;
     if (queue->n == queue->sz)
     {
-        queue_t * q = queue__grow(queue);
+        queue_t *q = queue__grow(queue);
         if (!q)
             return -1;
         *qaddr = queue = q;
@@ -164,12 +164,12 @@ int queue_push(queue_t ** qaddr, void * data)
     return 0;
 }
 
-int queue_unshift(queue_t ** qaddr, void * data)
+int queue_unshift(queue_t ** qaddr, void *data)
 {
-    queue_t * queue = *qaddr;
+    queue_t *queue = *qaddr;
     if (queue->n == queue->sz)
     {
-        queue_t * tmp = queue__grow(queue);
+        queue_t *tmp = queue__grow(queue);
         if (!tmp)
             return -1;
         *qaddr = queue = tmp;
@@ -178,9 +178,9 @@ int queue_unshift(queue_t ** qaddr, void * data)
     return 0;
 }
 
-int queue_insert(queue_t ** qaddr, size_t idx, void * data)
+int queue_insert(queue_t ** qaddr, size_t idx, void *data)
 {
-    queue_t * queue = *qaddr;
+    queue_t *queue = *qaddr;
 
     if (!idx)
         return queue_unshift(qaddr, data);
@@ -189,7 +189,7 @@ int queue_insert(queue_t ** qaddr, size_t idx, void * data)
 
     if (queue->n == queue->sz)
     {
-        queue_t * q = queue__grow(queue);
+        queue_t *q = queue__grow(queue);
         if (!q)
             return -1;
         queue = *qaddr = q;
@@ -224,9 +224,9 @@ int queue_insert(queue_t ** qaddr, size_t idx, void * data)
     return 0;
 }
 
-int queue_extend(queue_t ** qaddr, void * data[], size_t n)
+int queue_extend(queue_t ** qaddr, void *data[], size_t n)
 {
-    queue_t * q;
+    queue_t *q;
     size_t m, next;
     if (queue_reserve(qaddr, n))
         return -1;
@@ -254,9 +254,9 @@ int queue_extend(queue_t ** qaddr, void * data[], size_t n)
  */
 int queue_shrink(queue_t ** qaddr)
 {
-    queue_t * queue = *qaddr;
+    queue_t *queue = *qaddr;
     size_t n;
-    queue_t * q;
+    queue_t *q;
     if (queue->n == queue->sz)
         return 0;
 
@@ -278,7 +278,7 @@ int queue_shrink(queue_t ** qaddr)
     return 0;
 }
 
-int queue_walk(queue_t * queue, queue_cb cb, void * arg)
+int queue_walk(queue_t *queue, queue_cb cb, void *arg)
 {
     int rc;
     for (queue_each(queue, void, data))
@@ -287,9 +287,9 @@ int queue_walk(queue_t * queue, queue_cb cb, void * arg)
     return 0;
 }
 
-static queue_t * queue__grow(queue_t * queue)
+static queue_t *queue__grow(queue_t *queue)
 {
-    queue_t * q;
+    queue_t *q;
     size_t sz = queue->sz;
 
     if (!sz)

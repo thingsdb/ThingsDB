@@ -1,15 +1,15 @@
 #include <ti/fn/fn.h>
 
-static int restrict__cb(ti_prop_t * prop, uint16_t * spec)
+static int restrict__cb(ti_prop_t *prop, uint16_t *spec)
 {
     return !ti_val_is_spec(prop->val, *spec);
 }
 
-static int do__f_restrict(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_restrict(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_task_t * task;
-    ti_thing_t * thing;
+    ti_task_t *task;
+    ti_thing_t *thing;
     uint16_t spec = TI_SPEC_ANY;
 
     if (!ti_val_is_object(query->rval))

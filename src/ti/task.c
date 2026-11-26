@@ -17,14 +17,14 @@
 #include <util/cryptx.h>
 #include <util/mpack.h>
 
-static inline void task__upd_approx_sz(ti_task_t * task, ti_data_t * data)
+static inline void task__upd_approx_sz(ti_task_t *task, ti_data_t *data)
 {
     task->approx_sz += data->n;
 }
 
-ti_task_t * ti_task_create(uint64_t change_id, ti_thing_t * thing)
+ti_task_t *ti_task_create(uint64_t change_id, ti_thing_t *thing)
 {
-    ti_task_t * task = malloc(sizeof(ti_task_t));
+    ti_task_t *task = malloc(sizeof(ti_task_t));
     if (!task)
         return NULL;
 
@@ -42,9 +42,9 @@ ti_task_t * ti_task_create(uint64_t change_id, ti_thing_t * thing)
     return task;
 }
 
-ti_task_t * ti_task_new_task(ti_change_t * change, ti_thing_t * thing)
+ti_task_t *ti_task_new_task(ti_change_t *change, ti_thing_t *thing)
 {
-    ti_task_t * task = ti_task_create(change->id, thing);
+    ti_task_t *task = ti_task_create(change->id, thing);
     if (!task)
         goto failed;
 
@@ -58,9 +58,9 @@ failed:
     return NULL;
 }
 
-ti_task_t * ti_task_get_task(ti_change_t * change, ti_thing_t * thing)
+ti_task_t *ti_task_get_task(ti_change_t *change, ti_thing_t *thing)
 {
-    ti_task_t * task = vec_last(change->tasks);
+    ti_task_t *task = vec_last(change->tasks);
     if (task && task->thing_id == thing->id)
         return task;
 
@@ -78,7 +78,7 @@ failed:
     return NULL;
 }
 
-void ti_task_destroy(ti_task_t * task)
+void ti_task_destroy(ti_task_t *task)
 {
     if (!task)
         return;
@@ -86,11 +86,11 @@ void ti_task_destroy(ti_task_t * task)
     free(task);
 }
 
-int ti_task_add_set_add(ti_task_t * task, ti_raw_t * key, vec_t * added)
+int ti_task_add_set_add(ti_task_t *task, ti_raw_t *key, vec_t *added)
 {
     assert(added->n);
     assert(key);
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -129,10 +129,10 @@ fail_pack:
     return -1;
 }
 
-int ti_task_add_thing_clear(ti_task_t * task)
+int ti_task_add_thing_clear(ti_task_t *task)
 {
     size_t alloc = 32;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -157,11 +157,11 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_arr_clear(ti_task_t * task, ti_raw_t * key)
+int ti_task_add_arr_clear(ti_task_t *task, ti_raw_t *key)
 {
     assert(key);
     size_t alloc = 28 + key->n;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -186,11 +186,11 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_set_clear(ti_task_t * task, ti_raw_t * key)
+int ti_task_add_set_clear(ti_task_t *task, ti_raw_t *key)
 {
     assert(key);
     size_t alloc = 28 + key->n;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -215,9 +215,9 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_set(ti_task_t * task, ti_raw_t * key, ti_val_t * val)
+int ti_task_add_set(ti_task_t *task, ti_raw_t *key, ti_val_t *val)
 {
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -254,10 +254,10 @@ fail_pack:
     return -1;
 }
 
-int ti_task_add_new_type(ti_task_t * task, ti_type_t * type)
+int ti_task_add_new_type(ti_task_t *task, ti_type_t *type)
 {
     size_t alloc = 64 + type->rname->n;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -302,10 +302,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_to_thing(ti_task_t * task)
+int ti_task_add_to_thing(ti_task_t *task)
 {
     size_t alloc = 32;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -332,10 +332,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_to_type(ti_task_t * task, ti_type_t * type)
+int ti_task_add_to_type(ti_task_t *task, ti_type_t *type)
 {
     size_t alloc = 32;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -362,10 +362,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_restrict(ti_task_t * task, uint16_t spec)
+int ti_task_add_restrict(ti_task_t *task, uint16_t spec)
 {
     size_t alloc = 32;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -393,10 +393,10 @@ fail_data:
 }
 
 
-int ti_task_add_set_type(ti_task_t * task, ti_type_t * type)
+int ti_task_add_set_type(ti_task_t *task, ti_type_t *type)
 {
     size_t alloc = 64 + ti_type_fields_approx_pack_sz(type);
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -444,10 +444,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_del(ti_task_t * task, ti_raw_t * rname)
+int ti_task_add_del(ti_task_t *task, ti_raw_t *rname)
 {
     size_t alloc = 64 + rname->n;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -475,10 +475,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_ren(ti_task_t * task, ti_raw_t * oname, ti_raw_t * nname)
+int ti_task_add_ren(ti_task_t *task, ti_raw_t *oname, ti_raw_t *nname)
 {
     size_t alloc = 64 + oname->n + nname->n;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -509,10 +509,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_del_collection(ti_task_t * task, uint64_t collection_id)
+int ti_task_add_del_collection(ti_task_t *task, uint64_t collection_id)
 {
     size_t alloc = 64;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -539,10 +539,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_del_expired(ti_task_t * task, uint64_t after_ts)
+int ti_task_add_del_expired(ti_task_t *task, uint64_t after_ts)
 {
     size_t alloc = 64;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -569,10 +569,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_del_procedure(ti_task_t * task, ti_raw_t * name)
+int ti_task_add_del_procedure(ti_task_t *task, ti_raw_t *name)
 {
     size_t alloc = 64 + name->n;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -599,10 +599,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_del_token(ti_task_t * task, ti_token_key_t * key)
+int ti_task_add_del_token(ti_task_t *task, ti_token_key_t *key)
 {
     size_t alloc = 128;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -629,10 +629,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_del_type(ti_task_t * task, ti_type_t * type)
+int ti_task_add_del_type(ti_task_t *task, ti_type_t *type)
 {
     size_t alloc = 64;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -659,10 +659,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_rename_type(ti_task_t * task, ti_type_t * type)
+int ti_task_add_rename_type(ti_task_t *task, ti_type_t *type)
 {
     size_t alloc = 64 + type->rname->n;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -695,10 +695,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_rename_enum(ti_task_t * task, ti_enum_t * enum_)
+int ti_task_add_rename_enum(ti_task_t *task, ti_enum_t *enum_)
 {
     size_t alloc = 64 + enum_->rname->n;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -731,10 +731,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_del_user(ti_task_t * task, ti_user_t * user)
+int ti_task_add_del_user(ti_task_t *task, ti_user_t *user)
 {
     size_t alloc = 64;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -761,10 +761,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_del_module(ti_task_t * task, ti_module_t * module)
+int ti_task_add_del_module(ti_task_t *task, ti_module_t *module)
 {
     size_t alloc = 64 + module->name->n;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -792,12 +792,12 @@ fail_data:
 }
 
 int ti_task_add_deploy_module(
-        ti_task_t * task,
-        ti_module_t * module,
-        ti_raw_t * mdata)  /* mdata may be NULL */
+        ti_task_t *task,
+        ti_module_t *module,
+        ti_raw_t *mdata)  /* mdata may be NULL */
 {
     size_t alloc = 64 + module->name->n + (mdata ? mdata->n : 0);
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -833,10 +833,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_set_module_scope(ti_task_t * task, ti_module_t * module)
+int ti_task_add_set_module_scope(ti_task_t *task, ti_module_t *module)
 {
     size_t alloc = 64 + module->name->n;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -872,10 +872,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_set_module_conf(ti_task_t * task, ti_module_t * module)
+int ti_task_add_set_module_conf(ti_task_t *task, ti_module_t *module)
 {
     size_t alloc = 64 + module->name->n;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -917,13 +917,13 @@ fail_data:
 }
 
 int ti_task_add_grant(
-        ti_task_t * task,
+        ti_task_t *task,
         uint64_t scope_id,
-        ti_user_t * user,
+        ti_user_t *user,
         uint64_t mask)
 {
     size_t alloc = 64;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -960,12 +960,12 @@ fail_data:
 }
 
 int ti_task_add_new_collection(
-        ti_task_t * task,
-        ti_collection_t * collection,
-        ti_user_t * user)
+        ti_task_t *task,
+        ti_collection_t *collection,
+        ti_user_t *user)
 {
     size_t alloc = 64 + collection->name->n;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -1008,9 +1008,9 @@ fail_data:
 }
 
 int ti_task_add_new_module(
-        ti_task_t * task,
-        ti_module_t * module,
-        ti_raw_t * source)
+        ti_task_t *task,
+        ti_module_t *module,
+        ti_raw_t *source)
 {
     size_t alloc = \
             128 + \
@@ -1018,7 +1018,7 @@ int ti_task_add_new_module(
             source->n + \
             (module->conf_pkg ? module->conf_pkg->n : 0);
 
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -1071,10 +1071,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_room_set_name(ti_task_t * task, ti_room_t * room)
+int ti_task_add_room_set_name(ti_task_t *task, ti_room_t *room)
 {
     size_t alloc = 32 + (room->name ? room->name->n : 0);
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -1107,10 +1107,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_new_node(ti_task_t * task, ti_node_t * node)
+int ti_task_add_new_node(ti_task_t *task, ti_node_t *node)
 {
     size_t alloc = 256;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -1149,10 +1149,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_new_procedure(ti_task_t * task, ti_procedure_t * procedure)
+int ti_task_add_new_procedure(ti_task_t *task, ti_procedure_t *procedure)
 {
     size_t alloc = procedure->closure->node->len + procedure->name->n + 64;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -1193,10 +1193,10 @@ fail_pack:
     return -1;
 }
 
-int ti_task_add_mod_procedure(ti_task_t * task, ti_procedure_t * procedure)
+int ti_task_add_mod_procedure(ti_task_t *task, ti_procedure_t *procedure)
 {
     size_t alloc = procedure->closure->node->len + procedure->name->n + 64;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -1237,10 +1237,10 @@ fail_pack:
     return -1;
 }
 
-int ti_task_add_vtask_new(ti_task_t * task, ti_vtask_t * vtask)
+int ti_task_add_vtask_new(ti_task_t *task, ti_vtask_t *vtask)
 {
     size_t alloc = 1024;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -1296,10 +1296,10 @@ fail_pack:
     return -1;
 }
 
-int ti_task_add_vtask_del(ti_task_t * task, ti_vtask_t * vtask)
+int ti_task_add_vtask_del(ti_task_t *task, ti_vtask_t *vtask)
 {
     size_t alloc = 64;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -1329,10 +1329,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_vtask_cancel(ti_task_t * task, ti_vtask_t * vtask)
+int ti_task_add_vtask_cancel(ti_task_t *task, ti_vtask_t *vtask)
 {
     size_t alloc = 64;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -1362,10 +1362,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_vtask_finish(ti_task_t * task, ti_vtask_t * vtask)
+int ti_task_add_vtask_finish(ti_task_t *task, ti_vtask_t *vtask)
 {
     size_t alloc = 1024;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -1408,10 +1408,10 @@ fail_pack:
     return -1;
 }
 
-int ti_task_add_vtask_set_args(ti_task_t * task, ti_vtask_t * vtask)
+int ti_task_add_vtask_set_args(ti_task_t *task, ti_vtask_t *vtask)
 {
     size_t alloc = 1024;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -1457,10 +1457,10 @@ fail_pack:
     return -1;
 }
 
-int ti_task_add_vtask_set_owner(ti_task_t * task, ti_vtask_t * vtask)
+int ti_task_add_vtask_set_owner(ti_task_t *task, ti_vtask_t *vtask)
 {
     size_t alloc = 128;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -1493,10 +1493,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_vtask_set_closure(ti_task_t * task, ti_vtask_t * vtask)
+int ti_task_add_vtask_set_closure(ti_task_t *task, ti_vtask_t *vtask)
 {
     size_t alloc = 64 + vtask->closure->node->len;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -1534,12 +1534,12 @@ fail_pack:
     return -1;
 }
 int ti_task_add_new_token(
-        ti_task_t * task,
-        ti_user_t * user,
-        ti_token_t * token)
+        ti_task_t *task,
+        ti_user_t *user,
+        ti_token_t *token)
 {
     size_t alloc = 256;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -1581,10 +1581,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_new_user(ti_task_t * task, ti_user_t * user)
+int ti_task_add_new_user(ti_task_t *task, ti_user_t *user)
 {
     size_t alloc = 64 + user->name->n;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -1621,13 +1621,13 @@ fail_data:
 }
 
 int ti_task_add_mod_type_add_field(
-        ti_task_t * task,
-        ti_type_t * type,
-        ti_val_t * dval)
+        ti_task_t *task,
+        ti_type_t *type,
+        ti_val_t *dval)
 {
-    ti_field_t * field = VEC_last(type->fields);
+    ti_field_t *field = VEC_last(type->fields);
     size_t alloc = dval ? 8192 : 64 + field->name->n + field->spec_raw->n;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -1680,10 +1680,10 @@ fail_pack:
     return -1;
 }
 
-int ti_task_add_mod_type_add_idname(ti_task_t * task, ti_type_t * type)
+int ti_task_add_mod_type_add_idname(ti_task_t *task, ti_type_t *type)
 {
     size_t alloc = 64 + type->idname->n;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -1722,11 +1722,11 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_mod_type_add_method(ti_task_t * task, ti_type_t * type)
+int ti_task_add_mod_type_add_method(ti_task_t *task, ti_type_t *type)
 {
-    ti_method_t * method = VEC_last(type->methods);
+    ti_method_t *method = VEC_last(type->methods);
     size_t alloc = 80 + method->closure->node->len + method->name->n;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -1771,14 +1771,14 @@ fail_pack:
 }
 
 int ti_task_add_mod_type_rel_add(
-        ti_task_t * task,
-        ti_type_t * type1,
-        ti_name_t * name1,
-        ti_type_t * type2,
-        ti_name_t * name2)
+        ti_task_t *task,
+        ti_type_t *type1,
+        ti_name_t *name1,
+        ti_type_t *type2,
+        ti_name_t *name2)
 {
     size_t alloc = 96 + name1->n + name2->n;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -1821,12 +1821,12 @@ fail_data:
 }
 
 int ti_task_add_mod_type_rel_del(
-        ti_task_t * task,
-        ti_type_t * type,
-        ti_name_t * name)
+        ti_task_t *task,
+        ti_type_t *type,
+        ti_name_t *name)
 {
     size_t alloc = 64 + name->n;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -1863,12 +1863,12 @@ fail_data:
 }
 
 int ti_task_add_mod_type_del(
-        ti_task_t * task,
-        ti_type_t * type,
-        ti_name_t * name)
+        ti_task_t *task,
+        ti_type_t *type,
+        ti_name_t *name)
 {
     size_t alloc = 64 + name->n;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -1904,10 +1904,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_mod_type_mod_field(ti_task_t * task, ti_field_t * field)
+int ti_task_add_mod_type_mod_field(ti_task_t *task, ti_field_t *field)
 {
     size_t alloc = 64 + field->name->n + field->spec_raw->n;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -1950,12 +1950,12 @@ fail_data:
 }
 
 int ti_task_add_mod_type_mod_method(
-        ti_task_t * task,
-        ti_type_t * type,
-        ti_method_t * method)
+        ti_task_t *task,
+        ti_type_t *type,
+        ti_method_t *method)
 {
     size_t alloc = 80 + method->name->n + method->closure->node->len;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -1995,13 +1995,13 @@ fail_data:
 }
 
 int ti_task_add_mod_type_ren(
-        ti_task_t * task,
-        ti_type_t * type,
-        ti_name_t * oldname,
-        ti_name_t * newname)
+        ti_task_t *task,
+        ti_type_t *type,
+        ti_name_t *oldname,
+        ti_name_t *newname)
 {
     size_t alloc = 64 + oldname->n + newname->n;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -2040,10 +2040,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_mod_type_wpo(ti_task_t * task, ti_type_t * type)
+int ti_task_add_mod_type_wpo(ti_task_t *task, ti_type_t *type)
 {
     size_t alloc = 64;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -2079,10 +2079,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_mod_type_hid(ti_task_t * task, ti_type_t * type)
+int ti_task_add_mod_type_hid(ti_task_t *task, ti_type_t *type)
 {
     size_t alloc = 64;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -2118,10 +2118,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_mod_type_idx(ti_task_t * task, ti_type_t * type)
+int ti_task_add_mod_type_idx(ti_task_t *task, ti_type_t *type)
 {
     size_t alloc = 64;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -2157,10 +2157,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_del_node(ti_task_t * task, uint32_t node_id)
+int ti_task_add_del_node(ti_task_t *task, uint32_t node_id)
 {
     size_t alloc = 64;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -2187,12 +2187,12 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_set_remove(ti_task_t * task, ti_raw_t * key, vec_t * removed)
+int ti_task_add_set_remove(ti_task_t *task, ti_raw_t *key, vec_t *removed)
 {
     assert(removed->n);
     assert(key);
     size_t alloc = 64 + key->n + removed->n * 9;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -2226,11 +2226,11 @@ fail_data:
 }
 
 int ti_task_add_rename_collection(
-        ti_task_t * task,
-        ti_collection_t * collection)
+        ti_task_t *task,
+        ti_collection_t *collection)
 {
     size_t alloc = 64 + collection->name->n;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -2264,12 +2264,12 @@ fail_data:
 }
 
 int ti_task_add_set_time_zone(
-        ti_task_t * task,
+        ti_task_t *task,
         uint64_t scope_id,
         uint64_t tz_index)
 {
     size_t alloc = 64;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -2303,12 +2303,12 @@ fail_data:
 }
 
 int ti_task_add_set_default_deep(
-        ti_task_t * task,
+        ti_task_t *task,
         uint64_t scope_id,
         uint8_t deep)
 {
     size_t alloc = 64;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -2342,12 +2342,12 @@ fail_data:
 }
 
 int ti_task_add_rename_procedure(
-        ti_task_t * task,
-        ti_procedure_t * procedure,
-        ti_raw_t * nname)
+        ti_task_t *task,
+        ti_procedure_t *procedure,
+        ti_raw_t *nname)
 {
     size_t alloc = 64 + procedure->name->n + nname->n;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -2381,12 +2381,12 @@ fail_data:
 }
 
 int ti_task_add_rename_module(
-        ti_task_t * task,
-        ti_module_t * module,
-        ti_raw_t * nname)
+        ti_task_t *task,
+        ti_module_t *module,
+        ti_raw_t *nname)
 {
     size_t alloc = 64 + module->name->n + nname->n;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -2419,10 +2419,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_rename_user(ti_task_t * task, ti_user_t * user)
+int ti_task_add_rename_user(ti_task_t *task, ti_user_t *user)
 {
     size_t alloc = 64 + user->name->n;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -2456,13 +2456,13 @@ fail_data:
 }
 
 int ti_task_add_revoke(
-        ti_task_t * task,
+        ti_task_t *task,
         uint64_t scope_id,
-        ti_user_t * user,
+        ti_user_t *user,
         uint64_t mask)
 {
     size_t alloc = 64;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -2498,10 +2498,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_set_password(ti_task_t * task, ti_user_t * user)
+int ti_task_add_set_password(ti_task_t *task, ti_user_t *user)
 {
     size_t alloc = 64 + CRYPTX_SZ;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -2537,10 +2537,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_fill(ti_task_t * task, ti_raw_t * key, ti_val_t * val)
+int ti_task_add_fill(ti_task_t *task, ti_raw_t *key, ti_val_t *val)
 {
     size_t alloc = 512;  /* often used for small values */
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -2577,9 +2577,9 @@ fail_pack:
 }
 
 int ti_task_add_splice(
-        ti_task_t * task,
-        ti_raw_t * key,
-        ti_varr_t * varr,
+        ti_task_t *task,
+        ti_raw_t *key,
+        ti_varr_t *varr,
         uint32_t i,  /* start index */
         uint32_t c,  /* number of items to remove */
         uint32_t n)  /* number of items to add */
@@ -2587,9 +2587,9 @@ int ti_task_add_splice(
     assert(!varr || varr->tp == TI_VAL_ARR);
     assert((n && varr) || !n);
     assert(key);
-    ti_val_t * val;
+    ti_val_t *val;
     size_t alloc = n ? 8192 : (key->n + 64);
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -2635,10 +2635,10 @@ fail_pack:
     return -1;
 }
 
-int ti_task_add_arr_remove(ti_task_t * task, ti_raw_t * key, vec_t * vec)
+int ti_task_add_arr_remove(ti_task_t *task, ti_raw_t *key, vec_t *vec)
 {
     size_t alloc = 32 + key->n + (vec->n * 9);
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -2672,10 +2672,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_thing_remove(ti_task_t * task, vec_t * vec, size_t alloc_sz)
+int ti_task_add_thing_remove(ti_task_t *task, vec_t *vec, size_t alloc_sz)
 {
     size_t alloc = 32 + alloc_sz + (vec->n << 1);
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -2711,10 +2711,10 @@ fail_pack:
     return -1;
 }
 
-int ti_task_add_restore(ti_task_t * task)
+int ti_task_add_restore(ti_task_t *task)
 {
     size_t alloc = 64;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -2741,10 +2741,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_import(ti_task_t * task, ti_raw_t * bytes, _Bool import_tasks)
+int ti_task_add_import(ti_task_t *task, ti_raw_t *bytes, _Bool import_tasks)
 {
     size_t alloc = 96 + bytes->n;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -2777,10 +2777,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_set_enum(ti_task_t * task, ti_enum_t * enum_)
+int ti_task_add_set_enum(ti_task_t *task, ti_enum_t *enum_)
 {
     size_t alloc = 8192;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -2835,13 +2835,13 @@ fail_pack:
 }
 
 int ti_task_add_mod_enum_add(
-        ti_task_t * task,
-        ti_enum_t * enum_,
-        ti_name_t * name,
-        ti_val_t * val)
+        ti_task_t *task,
+        ti_enum_t *enum_,
+        ti_name_t *name,
+        ti_val_t *val)
 {
     size_t alloc = 8192;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -2888,10 +2888,10 @@ fail_pack:
     return -1;
 }
 
-int ti_task_add_mod_enum_def(ti_task_t * task, ti_member_t * member)
+int ti_task_add_mod_enum_def(ti_task_t *task, ti_member_t *member)
 {
     size_t alloc = 64;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -2928,12 +2928,12 @@ fail_data:
 }
 
 int ti_task_add_mod_enum_del(
-        ti_task_t * task,
-        ti_enum_t * enum_,
-        ti_name_t * name)
+        ti_task_t *task,
+        ti_enum_t *enum_,
+        ti_name_t *name)
 {
     size_t alloc = 64;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -2970,13 +2970,13 @@ fail_data:
 }
 
 int ti_task_add_mod_enum_mod(
-        ti_task_t * task,
-        ti_enum_t * enum_,
-        ti_name_t * name,
-        ti_val_t * val)
+        ti_task_t *task,
+        ti_enum_t *enum_,
+        ti_name_t *name,
+        ti_val_t *val)
 {
     size_t alloc = 8192;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -3024,13 +3024,13 @@ fail_pack:
 }
 
 int ti_task_add_mod_enum_ren(
-        ti_task_t * task,
-        ti_enum_t * enum_,
-        ti_name_t * oldname,
-        ti_name_t * newname)
+        ti_task_t *task,
+        ti_enum_t *enum_,
+        ti_name_t *oldname,
+        ti_name_t *newname)
 {
     size_t alloc = 64 + oldname->n + newname->n;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -3069,10 +3069,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_del_enum(ti_task_t * task, ti_enum_t * enum_)
+int ti_task_add_del_enum(ti_task_t *task, ti_enum_t *enum_)
 {
     size_t alloc = 64;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -3100,13 +3100,13 @@ fail_data:
 }
 
 int ti_task_add_whitelist_add(
-        ti_task_t * task,
-        ti_user_t * user,
-        ti_val_t * val,
+        ti_task_t *task,
+        ti_user_t *user,
+        ti_val_t *val,
         int wid)
 {
     size_t alloc = 128;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -3143,13 +3143,13 @@ fail_pack:
 }
 
 int ti_task_add_whitelist_del(
-        ti_task_t * task,
-        ti_user_t * user,
-        ti_val_t * val,
+        ti_task_t *task,
+        ti_user_t *user,
+        ti_val_t *val,
         int wid)
 {
     size_t alloc = 128;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -3185,7 +3185,7 @@ fail_pack:
     return -1;
 }
 
-int ti_task_add_commit_add(ti_task_t * task, ti_commit_t * commit)
+int ti_task_add_commit_add(ti_task_t *task, ti_commit_t *commit)
 {
     size_t alloc = (
         50 +
@@ -3194,7 +3194,7 @@ int ti_task_add_commit_add(ti_task_t * task, ti_commit_t * commit)
         commit->by->n +
         (commit->err_msg ? commit->err_msg->n : 0)
     );
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -3221,10 +3221,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_set_history(ti_task_t * task, uint64_t scope_id, _Bool state)
+int ti_task_add_set_history(ti_task_t *task, uint64_t scope_id, _Bool state)
 {
     size_t alloc = 40;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -3255,12 +3255,12 @@ fail_data:
 }
 
 int ti_task_add_del_history(
-        ti_task_t * task,
+        ti_task_t *task,
         uint64_t scope_id,
-        vec_t * commits)
+        vec_t *commits)
 {
     size_t alloc = 28 + (commits->n * 9);
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -3294,13 +3294,13 @@ fail_data:
 }
 
 int ti_task_add_dict_set(
-        ti_task_t * task,
-        ti_raw_t * key,
-        ti_val_t * k,
-        ti_val_t * v)
+        ti_task_t *task,
+        ti_raw_t *key,
+        ti_val_t *k,
+        ti_val_t *v)
 {
     static const size_t alloc = 4096;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -3341,12 +3341,12 @@ fail_pack:
 }
 
 int ti_task_add_dict_del(
-        ti_task_t * task,
-        ti_raw_t * key,
-        ti_val_t * k)
+        ti_task_t *task,
+        ti_raw_t *key,
+        ti_val_t *k)
 {
     static const size_t alloc = 128;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -3382,11 +3382,11 @@ fail_pack:
 }
 
 int ti_task_add_dict_clear(
-        ti_task_t * task,
-        ti_raw_t * key)
+        ti_task_t *task,
+        ti_raw_t *key)
 {
     size_t alloc = 28 + key->n;
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -3414,11 +3414,11 @@ fail_data:
 }
 
 int ti_task_add_mod_type_row(
-        ti_task_t * task,
-        ti_type_t * type)
+        ti_task_t *task,
+        ti_type_t *type)
 {
     size_t alloc = 64 + (type->row ? type->row->columns->n * 16 : 0);
-    ti_data_t * data;
+    ti_data_t *data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 

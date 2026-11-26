@@ -13,7 +13,7 @@ typedef struct ti_watch_s ti_watch_t;
 
 struct ti_watch_s
 {
-    ti_stream_t * stream;       /* weak reference */
+    ti_stream_t *stream;       /* weak reference */
 };
 
 #endif  /* TI_WATCH_T_H_ */

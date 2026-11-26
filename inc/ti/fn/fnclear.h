@@ -1,9 +1,9 @@
 #include <ti/fn/fn.h>
 
-static int do__f_clear_object(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_clear_object(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_thing_t * thing;
+    ti_thing_t *thing;
     size_t n;
 
     if (fn_nargs("clear", DOC_THING_CLEAR, 0, nargs, e) ||
@@ -19,7 +19,7 @@ static int do__f_clear_object(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (n && thing->id)
     {
-        ti_task_t * task = ti_task_get_task(query->change, thing);
+        ti_task_t *task = ti_task_get_task(query->change, thing);
         if (!task || ti_task_add_thing_clear(task))
             ti_panic("task thing_clear");
     }
@@ -30,10 +30,10 @@ static int do__f_clear_object(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
-static int do__f_clear_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_clear_list(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_varr_t * varr;
+    ti_varr_t *varr;
     size_t n;
 
     if (fn_nargs("clear", DOC_LIST_CLEAR, 0, nargs, e) ||
@@ -48,7 +48,7 @@ static int do__f_clear_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     vec_clear_cb(varr->vec, (vec_destroy_cb) ti_val_unsafe_gc_drop);
     if (n && varr->parent && varr->parent->id)
     {
-        ti_task_t * task = ti_task_get_task(query->change, varr->parent);
+        ti_task_t *task = ti_task_get_task(query->change, varr->parent);
         if (!task || ti_task_add_arr_clear(task, ti_varr_key(varr)))
             ti_panic("task arr_clear");
     }
@@ -59,10 +59,10 @@ static int do__f_clear_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
-static int do__f_clear_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_clear_set(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_vset_t * vset;
+    ti_vset_t *vset;
     size_t n;
 
     if (fn_nargs("clear", DOC_SET_CLEAR, 0, nargs, e) ||
@@ -78,7 +78,7 @@ static int do__f_clear_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (n && vset->parent && vset->parent->id)
     {
         /* clear must have a task as this is enforced */
-        ti_task_t * task = ti_task_get_task(query->change, vset->parent);
+        ti_task_t *task = ti_task_get_task(query->change, vset->parent);
         if (!task || ti_task_add_set_clear(task, ti_vset_key(vset)))
             ti_panic("task set_clear");
     }
@@ -90,10 +90,10 @@ static int do__f_clear_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 }
 
 
-static int do__f_clear_dict(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_clear_dict(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_dict_t * dict;
+    ti_dict_t *dict;
     size_t n;
 
     if (fn_nargs("clear", DOC_DICT_CLEAR, 0, nargs, e) ||
@@ -109,7 +109,7 @@ static int do__f_clear_dict(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (n && dict->parent && dict->parent->id)
     {
         /* clear must have a task as this is enforced */
-        ti_task_t * task = ti_task_get_task(query->change, dict->parent);
+        ti_task_t *task = ti_task_get_task(query->change, dict->parent);
         if (!task || ti_task_add_dict_clear(task, ti_dict_key(dict)))
             ti_panic("task dict_clear");
     }
@@ -120,7 +120,7 @@ static int do__f_clear_dict(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
-static inline int do__f_clear(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static inline int do__f_clear(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     return ti_val_is_object(query->rval)
             ? do__f_clear_object(query, nd, e)

@@ -8,34 +8,34 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static void choice__free(cleri_t * cl_object);
+static void choice__free(cleri_t *cl_object);
 
-static cleri_node_t * choice__parse(
-        cleri_parse_t * pr,
-        cleri_node_t * parent,
-        cleri_t * cl_obj,
-        cleri_rule_store_t * rule);
+static cleri_node_t *choice__parse(
+        cleri_parse_t *pr,
+        cleri_node_t *parent,
+        cleri_t *cl_obj,
+        cleri_rule_store_t *rule);
 
-static cleri_node_t * choice__parse_most_greedy(
-        cleri_parse_t * pr,
-        cleri_node_t * parent,
-        cleri_t * cl_obj,
-        cleri_rule_store_t * rule);
+static cleri_node_t *choice__parse_most_greedy(
+        cleri_parse_t *pr,
+        cleri_node_t *parent,
+        cleri_t *cl_obj,
+        cleri_rule_store_t *rule);
 
-static cleri_node_t * choice__parse_first_match(
-        cleri_parse_t * pr,
-        cleri_node_t * parent,
-        cleri_t * cl_obj,
-        cleri_rule_store_t * rule);
+static cleri_node_t *choice__parse_first_match(
+        cleri_parse_t *pr,
+        cleri_node_t *parent,
+        cleri_t *cl_obj,
+        cleri_rule_store_t *rule);
 
 /*
  * Returns NULL in case an error has occurred.
  */
-cleri_t * cleri_choice(uint32_t gid, int most_greedy, size_t len, ...)
+cleri_t *cleri_choice(uint32_t gid, int most_greedy, size_t len, ...)
 {
     va_list ap;
 
-    cleri_t * cl_object = cleri_new(
+    cleri_t *cl_object = cleri_new(
             gid,
             CLERI_TP_CHOICE,
             &choice__free,
@@ -84,7 +84,7 @@ cleri_t * cleri_choice(uint32_t gid, int most_greedy, size_t len, ...)
 /*
  * Destroy choice object.
  */
-static void choice__free(cleri_t * cl_object)
+static void choice__free(cleri_t *cl_object)
 {
     cleri__olist_free(cl_object->via.choice->olist);
     free(cl_object->via.choice);
@@ -93,11 +93,11 @@ static void choice__free(cleri_t * cl_object)
 /*
  * Returns a node or NULL.
  */
-static cleri_node_t * choice__parse(
-        cleri_parse_t * pr,
-        cleri_node_t * parent,
-        cleri_t * cl_obj,
-        cleri_rule_store_t * rule)
+static cleri_node_t *choice__parse(
+        cleri_parse_t *pr,
+        cleri_node_t *parent,
+        cleri_t *cl_obj,
+        cleri_rule_store_t *rule)
 {
     return (cl_obj->via.choice->most_greedy) ?
             choice__parse_most_greedy(pr, parent, cl_obj, rule) :
@@ -107,17 +107,17 @@ static cleri_node_t * choice__parse(
 /*
  * Returns a node or NULL. In case of an error pr->is_valid is set to -1.
  */
-static cleri_node_t * choice__parse_most_greedy(
-        cleri_parse_t * pr,
-        cleri_node_t * parent,
-        cleri_t * cl_obj,
-        cleri_rule_store_t * rule)
+static cleri_node_t *choice__parse_most_greedy(
+        cleri_parse_t *pr,
+        cleri_node_t *parent,
+        cleri_t *cl_obj,
+        cleri_rule_store_t *rule)
 {
-    cleri_olist_t * olist;
-    cleri_node_t * node;
-    cleri_node_t * rnode;
-    cleri_node_t * mg_node = NULL;
-    const char * str = parent->str + parent->len;
+    cleri_olist_t *olist;
+    cleri_node_t *node;
+    cleri_node_t *rnode;
+    cleri_node_t *mg_node = NULL;
+    const char *str = parent->str + parent->len;
 
     olist = cl_obj->via.choice->olist;
     while (olist != NULL)
@@ -155,15 +155,15 @@ static cleri_node_t * choice__parse_most_greedy(
 /*
  * Returns a node or NULL. In case of an error pr->is_valid is set to -1.
  */
-static cleri_node_t * choice__parse_first_match(
-        cleri_parse_t * pr,
-        cleri_node_t * parent,
-        cleri_t * cl_obj,
-        cleri_rule_store_t * rule)
+static cleri_node_t *choice__parse_first_match(
+        cleri_parse_t *pr,
+        cleri_node_t *parent,
+        cleri_t *cl_obj,
+        cleri_rule_store_t *rule)
 {
-    cleri_olist_t * olist;
-    cleri_node_t * node;
-    cleri_node_t * rnode;
+    cleri_olist_t *olist;
+    cleri_node_t *node;
+    cleri_node_t *rnode;
 
     olist = cl_obj->via.choice->olist;
 

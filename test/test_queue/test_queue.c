@@ -3,7 +3,7 @@
 #include <util/vec.h>
 
 static const unsigned int num_entries = 8;
-static char * entries[] = {
+static char *entries[] = {
     "Zero",
     "First entry",
     "Second entry",
@@ -14,7 +14,7 @@ static char * entries[] = {
     "Seventh entry",
 };
 
-static void push_entries(queue_t * q)
+static void push_entries(queue_t *q)
 {
     for (size_t i = 0; i < num_entries; i++)
     {
@@ -26,7 +26,7 @@ int main()
 {
     test_start("queue");
 
-    queue_t * q = queue_new(0);
+    queue_t *q = queue_new(0);
 
     _assert (q);
 
@@ -134,7 +134,7 @@ int main()
 
     /* test adding an extra value */
     {
-        const char * extra = "extra";
+        const char *extra = "extra";
         _assert (queue_push(&q, (void *) extra) == 0);
         _assert (q->sz == num_entries * 2);
         _assert (q->n == num_entries + 1);
@@ -147,7 +147,7 @@ int main()
 
     /* test dup */
     {
-        queue_t * cp;
+        queue_t *cp;
         _assert ((cp = queue_dup(q)) != NULL);
         _assert (cp->n == num_entries);
         _assert (cp->sz == num_entries);
@@ -251,7 +251,7 @@ int main()
     {
         queue_clear(q);
         size_t n = 11;
-        void * data = entries[0];
+        void *data = entries[0];
         for (size_t i = 0; i < n; i++)
         {
             queue_push(&q, data);
@@ -286,7 +286,7 @@ int main()
         queue_clear(q);
         for (size_t i = 0; i < num_entries; i++)
         {
-            char * d = strdup(entries[i]);
+            char *d = strdup(entries[i]);
             _assert (d);
             _assert (queue_push(&q, d) == 0);
         }

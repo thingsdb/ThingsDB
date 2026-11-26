@@ -1,13 +1,13 @@
 #include <ti/fn/fn.h>
 
-static int do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_remove_list(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     intptr_t idx;
     int64_t limit;
-    ti_closure_t * closure;
-    ti_varr_t * varr;
-    vec_t * vec;
+    ti_closure_t *closure;
+    ti_varr_t *varr;
+    vec_t *vec;
 
     if (fn_nargs_range("remove", DOC_LIST_REMOVE, 1, 2, nargs, e) ||
         ti_query_test_varr_operation(query, e) ||
@@ -107,7 +107,7 @@ static int do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (vec->n && varr->parent && varr->parent->id)
     {
-        ti_task_t * task;
+        ti_task_t *task;
         task = ti_task_get_task(query->change, varr->parent);
         if (!task || ti_task_add_arr_remove(task, ti_varr_key(varr), vec))
         {
@@ -140,14 +140,14 @@ fail1:
 
 typedef struct
 {
-    ex_t * e;
-    ti_closure_t * closure;
-    ti_query_t * query;
+    ex_t *e;
+    ti_closure_t *closure;
+    ti_query_t *query;
     vec_t ** removed;
     int64_t limit;
 } remove__walk_set_t;
 
-static int remove__walk(ti_thing_t * t, remove__walk_set_t * w)
+static int remove__walk(ti_thing_t *t, remove__walk_set_t *w)
 {
     if (ti_closure_vars_vset(w->closure, t))
     {
@@ -172,13 +172,13 @@ static int remove__walk(ti_thing_t * t, remove__walk_set_t * w)
 
 static int do__f_remove_set_from_closure(
         vec_t ** removed,
-        ti_vset_t * vset,
-        ti_query_t * query,
-        cleri_node_t * nd,
-        ex_t * e)
+        ti_vset_t *vset,
+        ti_query_t *query,
+        cleri_node_t *nd,
+        ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_closure_t * closure = (ti_closure_t *) query->rval;
+    ti_closure_t *closure = (ti_closure_t *) query->rval;
     int64_t limit;
     query->rval = NULL;
 
@@ -229,11 +229,11 @@ fail:
     return e->nr;
 }
 
-static int do__f_remove_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_remove_set(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
-    vec_t * removed = NULL;
+    vec_t *removed = NULL;
     const int nargs = fn_get_nargs(nd);
-    ti_vset_t * vset;
+    ti_vset_t *vset;
 
     if (fn_nargs_min("remove", DOC_SET_REMOVE, 1, nargs, e) ||
         ti_query_test_vset_operation(query, e) ||
@@ -266,7 +266,7 @@ static int do__f_remove_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     else
     {
         size_t narg;
-        cleri_node_t * child = nd->children;
+        cleri_node_t *child = nd->children;
 
         removed = vec_new(nargs);
         if (!removed)
@@ -312,7 +312,7 @@ static int do__f_remove_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         if (vset->parent->id)
         {
-            ti_task_t * task = ti_task_get_task(query->change, vset->parent);
+            ti_task_t *task = ti_task_get_task(query->change, vset->parent);
             if (!task || ti_task_add_set_remove(
                     task,
                     ti_vset_key(vset),
@@ -325,8 +325,8 @@ static int do__f_remove_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         if (ti_vset_has_relation(vset))
         {
-            ti_field_t * field = vset->key_;
-            ti_field_t * ofield = field->condition.rel->field;
+            ti_field_t *field = vset->key_;
+            ti_field_t *ofield = field->condition.rel->field;
             for (vec_each(removed, ti_thing_t, thing))
                 ofield->condition.rel->del_cb(
                         ofield,
@@ -360,16 +360,16 @@ done:
 
 typedef struct
 {
-    ex_t * e;
-    ti_closure_t * closure;
-    ti_query_t * query;
+    ex_t *e;
+    ti_closure_t *closure;
+    ti_query_t *query;
     vec_t ** removed;
-    ti_thing_t * thing;
+    ti_thing_t *thing;
     int64_t limit;
-    size_t * alloc_sz;
+    size_t *alloc_sz;
 } remove__walk_i_t;
 
-static int remove__walk_i(ti_item_t * item, remove__walk_i_t * w)
+static int remove__walk_i(ti_item_t *item, remove__walk_i_t *w)
 {
     ti_closure_vars_item(w->closure, item);
     if (ti_closure_do_statement(w->closure, w->query, w->e))
@@ -398,13 +398,13 @@ static int remove__walk_i(ti_item_t * item, remove__walk_i_t * w)
     return (*w->removed)->n == w->limit;
 }
 
-static int do__f_remove_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_remove_thing(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     int64_t limit;
-    ti_closure_t * closure;
-    ti_thing_t * thing;
-    vec_t * vec;
+    ti_closure_t *closure;
+    ti_thing_t *thing;
+    vec_t *vec;
     size_t alloc_sz = 0;
 
     if (fn_nargs_range("remove", DOC_THING_REMOVE, 1, 2, nargs, e) ||
@@ -495,7 +495,7 @@ static int do__f_remove_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (vec->n && thing->id)
     {
-        ti_task_t * task;
+        ti_task_t *task;
         task = ti_task_get_task(query->change, thing);
         if (!task || ti_task_add_thing_remove(task, vec, alloc_sz))
         {
@@ -530,7 +530,7 @@ fail1:
     return e->nr;
 }
 
-static inline int do__f_remove(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static inline int do__f_remove(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     return ti_val_is_list(query->rval)
             ? do__f_remove_list(query, nd, e)

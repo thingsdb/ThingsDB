@@ -25,59 +25,59 @@ typedef struct ti_condition_key_s ti_condition_key_t;
 
 union ti_condition_via_u
 {
-    ti_type_t * type;                   /* nested type (wrap-only) */
-    ti_condition_re_t * re;             /* str, utf8 */
-    ti_condition_srange_t * srange;     /* str, utf8 */
-    ti_condition_irange_t * irange;     /* int, float */
-    ti_condition_drange_t * drange;     /* int, float */
-    ti_condition_rel_t * rel;           /* relation */
-    ti_condition_key_t * key;           /* dict key/value */
-    ti_condition_dval_t * dval;         /* just dval */
-    ti_condition_t * none;              /* NULL */
+    ti_type_t *type;                   /* nested type (wrap-only) */
+    ti_condition_re_t *re;             /* str, utf8 */
+    ti_condition_srange_t *srange;     /* str, utf8 */
+    ti_condition_irange_t *irange;     /* int, float */
+    ti_condition_drange_t *drange;     /* int, float */
+    ti_condition_rel_t *rel;           /* relation */
+    ti_condition_key_t *key;           /* dict key/value */
+    ti_condition_dval_t *dval;         /* just dval */
+    ti_condition_t *none;              /* NULL */
 };
 
 typedef void (*ti_condition_rel_cb) (ti_field_t *, ti_thing_t *, ti_thing_t *);
 
 struct ti_condition_s
 {
-    void * none;
+    void *none;
 };
 
 struct ti_condition_dval_s
 {
-    ti_val_t * dval;
+    ti_val_t *dval;
 };
 
 struct ti_condition_re_s
 {
-    ti_val_t * dval;
-    ti_regex_t * regex;
+    ti_val_t *dval;
+    ti_regex_t *regex;
 };
 
 struct ti_condition_srange_s
 {
-    ti_val_t * dval;
+    ti_val_t *dval;
     size_t mi;
     size_t ma;
 };
 
 struct ti_condition_irange_s
 {
-    ti_val_t * dval;
+    ti_val_t *dval;
     int64_t mi;
     int64_t ma;
 };
 
 struct ti_condition_drange_s
 {
-    ti_val_t * dval;
+    ti_val_t *dval;
     double mi;
     double ma;
 };
 
 struct ti_condition_rel_s
 {
-    ti_field_t * field;
+    ti_field_t *field;
     ti_condition_rel_cb del_cb;
     ti_condition_rel_cb add_cb;
 };

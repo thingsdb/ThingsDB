@@ -1,6 +1,6 @@
 #include <ti/opr/oprinc.h>
 
-static int opr__div(ti_val_t * a, ti_val_t ** b, ex_t * e)
+static int opr__div(ti_val_t *a, ti_val_t ** b, ex_t *e)
 {
     int64_t int_ = 0;       /* set to 0 only to prevent warning */
     double float_ = 0.0;    /* set to 0 only to prevent warning */

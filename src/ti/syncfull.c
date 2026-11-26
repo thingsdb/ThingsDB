@@ -48,9 +48,9 @@ typedef enum
     SYNCFULL__COLLECTION_END,
 } syncfull__file_t;
 
-static char * syncfull__get_fn(uint64_t scope_id, syncfull__file_t ft)
+static char *syncfull__get_fn(uint64_t scope_id, syncfull__file_t ft)
 {
-    char * path = ti.store->store_path;
+    char *path = ti.store->store_path;
 
     switch (ft)
     {
@@ -106,7 +106,7 @@ static char * syncfull__get_fn(uint64_t scope_id, syncfull__file_t ft)
     return NULL;
 }
 
-static _Bool syncfull__next_file(uint64_t * scope_id, syncfull__file_t * ft)
+static _Bool syncfull__next_file(uint64_t *scope_id, syncfull__file_t *ft)
 {
     (*ft)++;
     if (*ft == SYNCFULL__COLLECTION_END)
@@ -115,9 +115,9 @@ static _Bool syncfull__next_file(uint64_t * scope_id, syncfull__file_t * ft)
     if (*ft == SYNCFULL__COLLECTION_DAT_FILE)
     {
         size_t i = 0;
-        uint64_t * collection_id;
-        vec_t * collection_ids = ti.store->collection_ids;
-        char * path = ti.store->store_path;
+        uint64_t *collection_id;
+        vec_t *collection_ids = ti.store->collection_ids;
+        char *path = ti.store->store_path;
 
         if (*scope_id)
             for (vec_each(collection_ids, uint64_t, collection_id))
@@ -142,7 +142,7 @@ static _Bool syncfull__next_file(uint64_t * scope_id, syncfull__file_t * ft)
     return true;
 }
 
-static void syncfull__done_cb(ti_req_t * req, ex_enum status)
+static void syncfull__done_cb(ti_req_t *req, ex_enum status)
 {
     int rc;
     uint64_t next_change_id = ti.store->last_stored_change_id + 1;
@@ -173,16 +173,16 @@ static void syncfull__done_cb(ti_req_t * req, ex_enum status)
     ti_req_destroy(req);
 }
 
-static ti_pkg_t * syncfull__pkg(
+static ti_pkg_t *syncfull__pkg(
         uint64_t scope_id,
         syncfull__file_t ft,
         off_t offset)
 {
-    ti_pkg_t * pkg;
+    ti_pkg_t *pkg;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
     int more;
-    char * fn;
+    char *fn;
 
     if (mp_sbuffer_alloc_init(&buffer, 64 + SYNCPART_SIZE, sizeof(ti_pkg_t)))
         return NULL;
@@ -215,11 +215,11 @@ failed:
     return NULL;
 }
 
-static void syncfull__push_cb(ti_req_t * req, ex_enum status)
+static void syncfull__push_cb(ti_req_t *req, ex_enum status)
 {
     mp_unp_t up;
-    ti_pkg_t * pkg = req->pkg_res;
-    ti_pkg_t * next_pkg;
+    ti_pkg_t *pkg = req->pkg_res;
+    ti_pkg_t *next_pkg;
     mp_obj_t obj, mp_scope, mp_ft, mp_offset;
     uint64_t scope_id;
     syncfull__file_t ft;
@@ -303,9 +303,9 @@ done:
     ti_req_destroy(req);
 }
 
-int ti_syncfull_start(ti_stream_t * stream)
+int ti_syncfull_start(ti_stream_t *stream)
 {
-    ti_pkg_t * pkg = syncfull__pkg(0, SYNCFULL__USERS_FILE, 0);
+    ti_pkg_t *pkg = syncfull__pkg(0, SYNCFULL__USERS_FILE, 0);
     if (!pkg)
         return -1;
 
@@ -322,18 +322,18 @@ int ti_syncfull_start(ti_stream_t * stream)
     return 0;
 }
 
-ti_pkg_t * ti_syncfull_on_part(ti_pkg_t * pkg, ex_t * e)
+ti_pkg_t *ti_syncfull_on_part(ti_pkg_t *pkg, ex_t *e)
 {
     int rc;
     mp_unp_t up;
-    ti_pkg_t * resp;
+    ti_pkg_t *resp;
     mp_obj_t obj, mp_scope, mp_ft, mp_offset, mp_bin, mp_more;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
     syncfull__file_t ft;
     off_t offset;
     uint64_t scope_id;
-    char * fn;
+    char *fn;
 
     mp_unp_init(&up, pkg->data, pkg->n);
 
@@ -355,7 +355,7 @@ ti_pkg_t * ti_syncfull_on_part(ti_pkg_t * pkg, ex_t * e)
     if (ft == SYNCFULL__COLLECTION_DAT_FILE)
     {
         int rc;
-        char * path = ti.store->store_path;
+        char *path = ti.store->store_path;
         path = ti_store_collection_get_path(path, scope_id);
         if (fx_is_dir(path))
         {

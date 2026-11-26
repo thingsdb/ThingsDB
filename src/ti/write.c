@@ -8,12 +8,12 @@
 #include <ti/ws.h>
 #include <util/logger.h>
 
-static void ti__write_cb(uv_write_t * req, int status);
+static void ti__write_cb(uv_write_t *req, int status);
 
-int ti_write(ti_stream_t * stream, ti_pkg_t * pkg, void * data, ti_write_cb cb)
+int ti_write(ti_stream_t *stream, ti_pkg_t *pkg, void *data, ti_write_cb cb)
 {
     uv_buf_t wrbuf;
-    ti_write_t * req = malloc(sizeof(ti_write_t));
+    ti_write_t *req = malloc(sizeof(ti_write_t));
     if (!req)
         return -1;
 
@@ -36,7 +36,7 @@ int ti_write(ti_stream_t * stream, ti_pkg_t * pkg, void * data, ti_write_cb cb)
     return 0;
 }
 
-void ti_write_destroy(ti_write_t * req)
+void ti_write_destroy(ti_write_t *req)
 {
     ti_stream_drop(req->stream);
     free(req);
@@ -45,9 +45,9 @@ void ti_write_destroy(ti_write_t * req)
 /*
  * Actually a callback on uv_write.
  */
-static void ti__write_cb(uv_write_t * req, int status)
+static void ti__write_cb(uv_write_t *req, int status)
 {
-    ti_write_t * ti_req = req->data;
+    ti_write_t *ti_req = req->data;
 
     if (status)
         log_error(

@@ -12,13 +12,13 @@
 
 #include <cleri/cleri.h>
 
-cleri_grammar_t * compile_langdef(void);
+cleri_grammar_t *compile_langdef(void);
 
 /* TODO: (COMPAT) For compatibility with < v1.5 (old syntax) */
-cleri_grammar_t * compile_compat1(void);
+cleri_grammar_t *compile_compat1(void);
 
 /* TODO: (COMPAT) For compatibility with < v1.10.1 (without ! syntax) */
-cleri_grammar_t * compile_compat2(void);
+cleri_grammar_t *compile_compat2(void);
 
 enum cleri_grammar_ids {
     CLERI_NONE,   // used for objects with no name

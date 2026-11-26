@@ -1,9 +1,9 @@
 #include <ti/fn/fn.h>
 
-static int do__f_max(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_max(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_varr_t * varr;
+    ti_varr_t *varr;
 
     if (!ti_val_is_array(query->rval))
         return fn_call_try("max", query, nd, e);

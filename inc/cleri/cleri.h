@@ -60,7 +60,7 @@ typedef struct cleri_dup_s cleri_dup_t;
 typedef union cleri_u cleri_via_t;
 
 typedef void (*cleri_free_object_t)(cleri_t *);
-typedef cleri_node_t * (*cleri_parse_object_t)(
+typedef cleri_node_t *(*cleri_parse_object_t)(
         cleri_parse_t *,
         cleri_node_t *,
         cleri_t *,
@@ -88,19 +88,19 @@ typedef enum cleri_e {
 /* unions */
 union cleri_u
 {
-    cleri_keyword_t * keyword;
-    cleri_sequence_t * sequence;
-    cleri_optional_t * optional;
-    cleri_choice_t * choice;
-    cleri_regex_t * regex;
-    cleri_list_t * list;
-    cleri_repeat_t * repeat;
-    cleri_token_t * token;
-    cleri_tokens_t * tokens;
-    cleri_prio_t * prio;
-    cleri_rule_t * rule;
-    cleri_dup_t * dup;
-    void * dummy; /* place holder */
+    cleri_keyword_t *keyword;
+    cleri_sequence_t *sequence;
+    cleri_optional_t *optional;
+    cleri_choice_t *choice;
+    cleri_regex_t *regex;
+    cleri_list_t *list;
+    cleri_repeat_t *repeat;
+    cleri_token_t *token;
+    cleri_tokens_t *tokens;
+    cleri_prio_t *prio;
+    cleri_rule_t *rule;
+    cleri_dup_t *dup;
+    void *dummy; /* place holder */
 };
 
 /* public functions */
@@ -108,21 +108,21 @@ union cleri_u
 extern "C" {
 #endif
 
-cleri_t * cleri_new(
+cleri_t *cleri_new(
         uint32_t gid,
         cleri_tp tp,
         cleri_free_object_t free_object,
         cleri_parse_object_t parse_object);
-void cleri_incref(cleri_t * cl_object);
-void cleri_decref(cleri_t * cl_object);
-int cleri_free(cleri_t * cl_object);
+void cleri_incref(cleri_t *cl_object);
+void cleri_decref(cleri_t *cl_object);
+int cleri_free(cleri_t *cl_object);
 
 #ifdef __cplusplus
 }
 #endif
 
 /* fixed end of statement object */
-extern cleri_t * CLERI_END_OF_STATEMENT;
+extern cleri_t *CLERI_END_OF_STATEMENT;
 
 /* structs */
 
@@ -142,7 +142,7 @@ struct cleri_s
 struct cleri_dup_s
 {
     CLERI_OBJECT_FIELDS
-    cleri_t * dup;
+    cleri_t *dup;
 };
 
 #endif /* CLERI_OBJECT_H_ */

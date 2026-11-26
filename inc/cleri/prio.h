@@ -21,7 +21,7 @@ typedef struct cleri_prio_s cleri_prio_t;
 extern "C" {
 #endif
 
-cleri_t * cleri_prio(uint32_t gid, size_t len, ...);
+cleri_t *cleri_prio(uint32_t gid, size_t len, ...);
 
 #ifdef __cplusplus
 }
@@ -30,7 +30,7 @@ cleri_t * cleri_prio(uint32_t gid, size_t len, ...);
 /* structs */
 struct cleri_prio_s
 {
-    cleri_olist_t * olist;
+    cleri_olist_t *olist;
 };
 
 #endif /* CLERI_PRIO_H_ */

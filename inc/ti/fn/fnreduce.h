@@ -2,14 +2,14 @@
 
 typedef struct
 {
-    ex_t * e;
-    ti_closure_t * closure;
-    ti_query_t * query;
+    ex_t *e;
+    ti_closure_t *closure;
+    ti_query_t *query;
 } reduce__walk_t;
 
-static int reduce__walk_set(ti_thing_t * t, reduce__walk_t * w)
+static int reduce__walk_set(ti_thing_t *t, reduce__walk_t *w)
 {
-    ti_prop_t * prop;
+    ti_prop_t *prop;
 
     if (!w->query->rval)
     {
@@ -54,12 +54,12 @@ static int reduce__walk_set(ti_thing_t * t, reduce__walk_t * w)
     return ti_closure_do_statement(w->closure, w->query, w->e);
 }
 
-static int do__f_reduce(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_reduce(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
-    const char * doc;
+    const char *doc;
     const int nargs = fn_get_nargs(nd);
-    ti_closure_t * closure;
-    ti_val_t * lockval;
+    ti_closure_t *closure;
+    ti_val_t *lockval;
     int lock_was_set;
 
     doc = doc_reduce(query->rval);
@@ -88,7 +88,7 @@ static int do__f_reduce(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
     case TI_VAL_ARR:
     {
-        vec_t * vec = VARR(lockval);
+        vec_t *vec = VARR(lockval);
 
         if (nargs == 2)
         {
@@ -109,8 +109,8 @@ static int do__f_reduce(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         for (size_t idx = nargs & 1, m = vec->n; idx < m; ++idx)
         {
-            ti_val_t * v;
-            ti_prop_t * prop;
+            ti_val_t *v;
+            ti_prop_t *prop;
             switch(closure->vars->n)
             {
             default:

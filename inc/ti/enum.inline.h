@@ -19,7 +19,7 @@ static uint16_t ti_enum_spec_map[] = {
     TI_SPEC_OBJECT,
 };
 
-static const char * ti_enum_str_map[] = {
+static const char *ti_enum_str_map[] = {
     TI_VAL_INT_S,
     TI_VAL_FLOAT_S,
     TI_VAL_STR_S,
@@ -27,47 +27,47 @@ static const char * ti_enum_str_map[] = {
     TI_VAL_THING_S,
 };
 
-static inline ti_val_t * ti_enum_dval(ti_enum_t * enum_)
+static inline ti_val_t *ti_enum_dval(ti_enum_t *enum_)
 {
-    ti_val_t * val = VEC_first(enum_->members);
+    ti_val_t *val = VEC_first(enum_->members);
     ti_incref(val);
     return val;
 }
 
 
-static inline uint16_t ti_enum_spec(ti_enum_t * enum_)
+static inline uint16_t ti_enum_spec(ti_enum_t *enum_)
 {
     return ti_enum_spec_map[enum_->enum_tp];
 }
 
-static inline const char * ti_enum_tp_str(ti_enum_t * enum_)
+static inline const char *ti_enum_tp_str(ti_enum_t *enum_)
 {
     return ti_enum_str_map[enum_->enum_tp];
 }
 
-static inline ti_member_t * ti_enum_member_by_idx(
-        ti_enum_t * enum_,
+static inline ti_member_t *ti_enum_member_by_idx(
+        ti_enum_t *enum_,
         uint16_t idx)
 {
     return vec_get(enum_->members, idx);
 }
 
-static inline ti_member_t * ti_enum_member_by_strn(
-        ti_enum_t * enum_,
-        const char * str,
+static inline ti_member_t *ti_enum_member_by_strn(
+        ti_enum_t *enum_,
+        const char *str,
         size_t n)
 {
     return smap_getn(enum_->smap, str, n);
 }
 
-static inline ti_member_t * ti_enum_member_by_raw(
-        ti_enum_t * enum_,
-        ti_raw_t * raw)
+static inline ti_member_t *ti_enum_member_by_raw(
+        ti_enum_t *enum_,
+        ti_raw_t *raw)
 {
     return smap_getn(enum_->smap, (const char *) raw->data, raw->n);
 }
 
-static inline int ti_enum_try_lock(ti_enum_t * enum_, ex_t * e)
+static inline int ti_enum_try_lock(ti_enum_t *enum_, ex_t *e)
 {
     if (enum_->flags & TI_ENUM_FLAG_LOCK)
     {
@@ -79,22 +79,22 @@ static inline int ti_enum_try_lock(ti_enum_t * enum_, ex_t * e)
     return (enum_->flags |= TI_ENUM_FLAG_LOCK) & 0;
 }
 
-static inline int ti_enum_ensure_lock(ti_enum_t * enum_)
+static inline int ti_enum_ensure_lock(ti_enum_t *enum_)
 {
     return (enum_->flags & TI_ENUM_FLAG_LOCK)
             ? 0
             : !!(enum_->flags |= TI_ENUM_FLAG_LOCK);
 }
 
-static inline void ti_enum_unlock(ti_enum_t * enum_, int lock_was_set)
+static inline void ti_enum_unlock(ti_enum_t *enum_, int lock_was_set)
 {
     if (lock_was_set)
         enum_->flags &= ~TI_ENUM_FLAG_LOCK;
 }
 
-static inline ti_method_t * ti_enum_get_method(
-        ti_enum_t * enum_,
-        ti_name_t * name)
+static inline ti_method_t *ti_enum_get_method(
+        ti_enum_t *enum_,
+        ti_name_t *name)
 {
     for (vec_each(enum_->methods, ti_method_t, method))
         if (method->name == name)

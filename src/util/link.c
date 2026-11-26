@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <util/link.h>
 
-static struct link__s * link__new(void * data, struct link__s * next)
+static struct link__s * link__new(void *data, struct link__s * next)
 {
     struct link__s * link = malloc(sizeof(struct link__s));
     if (!link)
@@ -16,9 +16,9 @@ static struct link__s * link__new(void * data, struct link__s * next)
     return link;
 }
 
-link_t * link_create(void)
+link_t *link_create(void)
 {
-    link_t * link = malloc(sizeof(link_t));
+    link_t *link = malloc(sizeof(link_t));
     if (!link)
         return NULL;
     link->next_ = NULL;
@@ -27,13 +27,13 @@ link_t * link_create(void)
     return link;
 }
 
-void link_destroy(link_t * link, link_destroy_cb cb)
+void link_destroy(link_t *link, link_destroy_cb cb)
 {
     link_clear(link, cb);
     free(link);
 }
 
-void link_clear(link_t * link, link_destroy_cb cb)
+void link_clear(link_t *link, link_destroy_cb cb)
 {
     struct link__s * node = link->next_;
 
@@ -51,9 +51,9 @@ void link_clear(link_t * link, link_destroy_cb cb)
     }
 }
 
-void * link_rm(link_t * link, void * data)
+void *link_rm(link_t *link, void *data)
 {
-    struct link__s * cur, * prev = (struct link__s *) link;
+    struct link__s * cur, *prev = (struct link__s *) link;
 
     while ((cur = prev->next_))
     {
@@ -73,7 +73,7 @@ void * link_rm(link_t * link, void * data)
  * Removes the current item from the list and sets the iterator to the next
  * item in the list.
  */
-int link_insert(link_t * link, void * data)
+int link_insert(link_t *link, void *data)
 {
     struct link__s * tmp = link__new(data, link->next_);
     if (!tmp)

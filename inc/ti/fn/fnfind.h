@@ -2,12 +2,12 @@
 
 typedef struct
 {
-    ex_t * e;
-    ti_closure_t * closure;
-    ti_query_t * query;
+    ex_t *e;
+    ti_closure_t *closure;
+    ti_query_t *query;
 } find__walk_t;
 
-static int find__walk_set(ti_thing_t * t, find__walk_t * w)
+static int find__walk_set(ti_thing_t *t, find__walk_t *w)
 {
     _Bool found;
     if (ti_closure_vars_vset(w->closure, t))
@@ -29,13 +29,13 @@ static int find__walk_set(ti_thing_t * t, find__walk_t * w)
     return 0;
 }
 
-static int do__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_find(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
-    const char * doc;
+    const char *doc;
     const int nargs = fn_get_nargs(nd);
     int64_t idx = 0;
-    ti_closure_t * closure;
-    ti_val_t * iterval;
+    ti_closure_t *closure;
+    ti_val_t *iterval;
     int lock_was_set;
 
     doc = doc_find(query->rval);

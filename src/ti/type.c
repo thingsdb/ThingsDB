@@ -29,11 +29,11 @@
 
 typedef struct
 {
-    ti_type_t * type;
-    imap_t * imap;
+    ti_type_t *type;
+    imap_t *imap;
 } type__collect_t;
 
-static int type__collect_cb(ti_thing_t * thing, type__collect_t * w)
+static int type__collect_cb(ti_thing_t *thing, type__collect_t *w)
 {
     if (thing->type_id == w->type->type_id)
     {
@@ -45,24 +45,24 @@ static int type__collect_cb(ti_thing_t * thing, type__collect_t * w)
     return 0;
 }
 
-static char * type__wrap_name(const char * name, size_t n)
+static char *type__wrap_name(const char *name, size_t n)
 {
-    char * wname;
+    char *wname;
     return asprintf(&wname, "<%.*s>", (int) n, name) < 0
             ? NULL
             : wname;
 }
 
-ti_type_t * ti_type_create(
-        ti_types_t * types,
+ti_type_t *ti_type_create(
+        ti_types_t *types,
         uint16_t type_id,
         uint8_t flags,
-        const char * name,
+        const char *name,
         size_t name_n,
         uint64_t created_at,
         uint64_t modified_at)
 {
-    ti_type_t * type = malloc(sizeof(ti_type_t));
+    ti_type_t *type = malloc(sizeof(ti_type_t));
     if (!type)
         return NULL;
 
@@ -97,12 +97,12 @@ ti_type_t * ti_type_create(
     return type;
 }
 
-ti_type_t * ti_type_create_anonymous(
-        ti_types_t * types,
-        ti_raw_t * name,
+ti_type_t *ti_type_create_anonymous(
+        ti_types_t *types,
+        ti_raw_t *name,
         uint8_t flags)
 {
-    ti_type_t * type = malloc(sizeof(ti_type_t));
+    ti_type_t *type = malloc(sizeof(ti_type_t));
     if (!type)
         return NULL;
     type->refcount = 0;  /* only incremented when this type
@@ -138,14 +138,14 @@ ti_type_t * ti_type_create_anonymous(
     return type;
 }
 
-void ti_type_row_clear(ti_type_t * type)
+void ti_type_row_clear(ti_type_t *type)
 {
     ti_type_map_cleanup_for_row(type);
     ti_row_destroy(type->row);
     type->row = NULL;
 }
 
-int ti_type_row_init(ti_type_t * type, size_t n)
+int ti_type_row_init(ti_type_t *type, size_t n)
 {
     ti_type_map_cleanup_for_row(type);
     ti_row_destroy(type->row);
@@ -155,17 +155,17 @@ int ti_type_row_init(ti_type_t * type, size_t n)
 
 /* we can be short with error messages as these should not occur */
 int ti_type_row_add_column_strn(
-        ti_type_t * type,
-        const char * str,
+        ti_type_t *type,
+        const char *str,
         size_t n,
-        ex_t * e)
+        ex_t *e)
 {
     /* we must have row and space left */
     assert(type->row && type->row->columns->sz > type->row->columns->n);
-    ti_column_t * column;
-    ti_field_t * field;
-    ti_method_t * method;
-    ti_name_t * name = ti_names_weak_get_strn(str, n);
+    ti_column_t *column;
+    ti_field_t *field;
+    ti_method_t *method;
+    ti_name_t *name = ti_names_weak_get_strn(str, n);
     if (!name)
     {
         ex_set(e, EX_LOOKUP_ERROR, "add column failed: name missing");
@@ -199,7 +199,7 @@ int ti_type_row_add_column_strn(
     return 0;
 }
 
-imap_t * ti_type_collect_things(ti_query_t * query, ti_type_t * type)
+imap_t *ti_type_collect_things(ti_query_t *query, ti_type_t *type)
 {
     if (type->t_cache)
         return imap_dup(type->t_cache, true);
@@ -232,7 +232,7 @@ imap_t * ti_type_collect_things(ti_query_t * query, ti_type_t * type)
     return collect.imap;
 }
 
-_Bool ti_type_has_property(ti_type_t * type, ti_name_t * name)
+_Bool ti_type_has_property(ti_type_t *type, ti_name_t *name)
 {
     if (type->idname == name)
         return true;
@@ -244,7 +244,7 @@ _Bool ti_type_has_property(ti_type_t * type, ti_name_t * name)
 }
 
 /* used as a callback function and removes all cached type mappings */
-static int type__map_cleanup(ti_type_t * t_haystack, ti_type_t * t_needle)
+static int type__map_cleanup(ti_type_t *t_haystack, ti_type_t *t_needle)
 {
     ti_map_destroy(imap_pop(t_haystack->t_mappings, t_needle->type_id));
     for (vec_each(t_haystack->fields, ti_field_t, field))  /* issue #428 */
@@ -254,12 +254,12 @@ static int type__map_cleanup(ti_type_t * t_haystack, ti_type_t * t_needle)
 }
 
 /* used as a callback function and removes all cached type mappings */
-static int type__map_cleanup_ano_cb(ti_ano_t * ano, ti_type_t * t_needle)
+static int type__map_cleanup_ano_cb(ti_ano_t *ano, ti_type_t *t_needle)
 {
     return type__map_cleanup(ano->type, t_needle);
 }
 
-void ti_type_map_cleanup(ti_type_t * type)
+void ti_type_map_cleanup(ti_type_t *type)
 {
     (void) imap_walk(type->types->imap, (imap_cb) type__map_cleanup, type);
     (void) smap_values(
@@ -269,13 +269,13 @@ void ti_type_map_cleanup(ti_type_t * type)
     imap_clear(type->t_mappings, (imap_destroy_cb) ti_map_destroy);
 }
 
-void ti_type_map_cleanup_for_row(ti_type_t * type)
+void ti_type_map_cleanup_for_row(ti_type_t *type)
 {
     /* we only need the own mappings as here the row mappngs are stored */
    imap_clear(type->t_mappings, (imap_destroy_cb) ti_map_destroy);
 }
 
-void ti_type_drop(ti_type_t * type)
+void ti_type_drop(ti_type_t *type)
 {
     uintptr_t type_id;
 
@@ -295,7 +295,7 @@ void ti_type_drop(ti_type_t * type)
     ti_type_destroy(type);
 }
 
-void ti_type_drop_anonymous(ti_type_t * type)
+void ti_type_drop_anonymous(ti_type_t *type)
 {
     if (!type)
         return;
@@ -307,7 +307,7 @@ void ti_type_drop_anonymous(ti_type_t * type)
     ti_type_destroy(type);
 }
 
-static int type__del(ti_thing_t * thing, uint16_t * type_id)
+static int type__del(ti_thing_t *thing, uint16_t *type_id)
 {
     if (thing->type_id == *type_id)
         ti_thing_t_to_object(thing);
@@ -317,11 +317,11 @@ static int type__del(ti_thing_t * thing, uint16_t * type_id)
     return 0;
 }
 
-void ti_type_del(ti_type_t * type, vec_t * vars)
+void ti_type_del(ti_type_t *type, vec_t *vars)
 {
     assert(!type->refcount);
     uint16_t type_id = type->type_id;
-    ti_collection_t * collection = type->types->collection;
+    ti_collection_t *collection = type->types->collection;
 
     if (vars)
         ti_query_vars_walk(vars, collection, (imap_cb) type__del, &type_id);
@@ -331,7 +331,7 @@ void ti_type_del(ti_type_t * type, vec_t * vars)
     ti_type_drop(type);
 }
 
-void ti_type_destroy(ti_type_t * type)
+void ti_type_destroy(ti_type_t *type)
 {
     if (!type)
         return;
@@ -350,7 +350,7 @@ void ti_type_destroy(ti_type_t * type)
     free(type);
 }
 
-size_t ti_type_fields_approx_pack_sz(ti_type_t * type)
+size_t ti_type_fields_approx_pack_sz(ti_type_t *type)
 {
     size_t n = 0;
     for (vec_each(type->fields, ti_field_t, field))
@@ -358,12 +358,12 @@ size_t ti_type_fields_approx_pack_sz(ti_type_t * type)
     return n;
 }
 
-int ti_type_rename(ti_type_t * type, ti_raw_t * nname)
+int ti_type_rename(ti_type_t *type, ti_raw_t *nname)
 {
-    void * ptype;
-    char * type_name;
-    char * wtype_name;
-    ti_raw_t * rwtype_name;
+    void *ptype;
+    char *type_name;
+    char *wtype_name;
+    ti_raw_t *rwtype_name;
 
     assert(nname->n <= TI_NAME_MAX);
 
@@ -419,12 +419,12 @@ int ti_type_rename(ti_type_t * type, ti_raw_t * nname)
 }
 
 int ti_type_add_method(
-        ti_type_t * type,
-        ti_name_t * name,
-        ti_closure_t * closure,
-        ex_t * e)
+        ti_type_t *type,
+        ti_name_t *name,
+        ti_closure_t *closure,
+        ex_t *e)
 {
-    ti_method_t * method = ti_method_create(name, closure);
+    ti_method_t *method = ti_method_create(name, closure);
     if (!method)
     {
         ex_set_mem(e);
@@ -440,7 +440,7 @@ int ti_type_add_method(
     return e->nr;
 }
 
-void ti_type_remove_method(ti_type_t * type, ti_name_t * name)
+void ti_type_remove_method(ti_type_t *type, ti_name_t *name)
 {
     size_t idx = 0;
     for (vec_each(type->methods, ti_method_t, m), ++idx)
@@ -454,13 +454,13 @@ void ti_type_remove_method(ti_type_t * type, ti_name_t * name)
 }
 
 int ti_type_ren_idname(
-        ti_type_t * type,
-        const char * s,
+        ti_type_t *type,
+        const char *s,
         size_t n,
-        ex_t * e)
+        ex_t *e)
 {
-    ti_name_t * name;
-    ti_column_t * column;
+    ti_name_t *name;
+    ti_column_t *column;
 
     if (!ti_name_is_valid_strn(s, n))
     {
@@ -503,7 +503,7 @@ fail0:
     return e->nr;
 }
 
-static int type__init_type_cb(ti_item_t * item, ex_t * e)
+static int type__init_type_cb(ti_item_t *item, ex_t *e)
 {
     if (!ti_raw_is_name(item->key))
         ex_set(e, EX_VALUE_ERROR,
@@ -511,12 +511,12 @@ static int type__init_type_cb(ti_item_t * item, ex_t * e)
     return e->nr;
 }
 
-ti_raw_t * ti_type_spec_raw_from_thing(
-        ti_thing_t * thing,
-        ti_val_t * val,
-        ex_t * e)
+ti_raw_t *ti_type_spec_raw_from_thing(
+        ti_thing_t *thing,
+        ti_val_t *val,
+        ex_t *e)
 {
-    ti_raw_t * spec_raw = NULL;
+    ti_raw_t *spec_raw = NULL;
     msgpack_sbuffer buffer;
     ti_vp_t vp = {
         .query=NULL,
@@ -554,13 +554,13 @@ fail0:
     return spec_raw;
 }
 
-ti_raw_t * ti__type_nested_from_val(ti_type_t * type, ti_val_t * val, ex_t * e)
+ti_raw_t *ti__type_nested_from_val(ti_type_t *type, ti_val_t *val, ex_t *e)
 {
-    ti_thing_t * thing;
+    ti_thing_t *thing;
 
     if (ti_val_is_array(val))
     {
-        ti_varr_t * varr = (ti_varr_t *) val;
+        ti_varr_t *varr = (ti_varr_t *) val;
         if (varr->vec->n != 1)
         {
             ex_set(e, EX_VALUE_ERROR,
@@ -597,7 +597,7 @@ ti_raw_t * ti__type_nested_from_val(ti_type_t * type, ti_val_t * val, ex_t * e)
     return ti_type_spec_raw_from_thing(thing, val, e);
 }
 
-_Bool ti_type_has_dependencies(ti_type_t * type)
+_Bool ti_type_has_dependencies(ti_type_t *type)
 {
     if (type->dependencies->n)
         return true;
@@ -609,12 +609,12 @@ _Bool ti_type_has_dependencies(ti_type_t * type)
 }
 
 static inline int type__assign(
-        ti_type_t * type,
-        ti_name_t * name,
-        ti_val_t * val,
-        ex_t * e)
+        ti_type_t *type,
+        ti_name_t *name,
+        ti_val_t *val,
+        ex_t *e)
 {
-    ti_raw_t * spec_raw = ti_type_nested_from_val(type, val, e);
+    ti_raw_t *spec_raw = ti_type_nested_from_val(type, val, e);
     if (spec_raw)
     {
         (void) ti_field_create(name, spec_raw, type, e);
@@ -670,11 +670,11 @@ static inline int type__assign(
 
 typedef struct
 {
-    ti_type_t * type;
-    ex_t * e;
+    ti_type_t *type;
+    ex_t *e;
 } type__init_t;
 
-static int type__init_cb(ti_item_t * item, type__init_t * w)
+static int type__init_cb(ti_item_t *item, type__init_t *w)
 {
     if (!ti_raw_is_name(item->key))
         ex_set(w->e, EX_VALUE_ERROR,
@@ -688,7 +688,7 @@ static int type__init_cb(ti_item_t * item, type__init_t * w)
     return w->e->nr;
 }
 
-static int type__init_thing_o(ti_type_t * type, ti_thing_t * thing, ex_t * e)
+static int type__init_thing_o(ti_type_t *type, ti_thing_t *thing, ex_t *e)
 {
     if (ti_thing_is_dict(thing))
     {
@@ -705,17 +705,17 @@ static int type__init_thing_o(ti_type_t * type, ti_thing_t * thing, ex_t * e)
     return 0;
 }
 
-static int type__init_thing_t(ti_type_t * type, ti_thing_t * thing, ex_t * e)
+static int type__init_thing_t(ti_type_t *type, ti_thing_t *thing, ex_t *e)
 {
-    ti_name_t * name;
-    ti_val_t * val;
+    ti_name_t *name;
+    ti_val_t *val;
     for (thing_t_each(thing, name, val))
         if (type__assign(type, name, val, e))
             return e->nr;
     return 0;
 }
 
-int ti_type_init_from_thing(ti_type_t * type, ti_thing_t * thing, ex_t * e)
+int ti_type_init_from_thing(ti_type_t *type, ti_thing_t *thing, ex_t *e)
 {
     assert(thing->collection);  /* type are only created within a collection
                                     scope and all things inside a collection
@@ -729,7 +729,7 @@ int ti_type_init_from_thing(ti_type_t * type, ti_thing_t * thing, ex_t * e)
     if (enr)
     {
         /* cleanup fields on error */
-        ti_field_t * field;
+        ti_field_t *field;
         while ((field = vec_last(type->fields)))
             ti_field_remove(field);
     }
@@ -746,13 +746,13 @@ int ti_type_init_from_thing(ti_type_t * type, ti_thing_t * thing, ex_t * e)
  * version has failed, so has zero impact on performance.
  */
 static int type__deprecated_init_map(
-        ti_type_t * type,
-        mp_unp_t * up,
-        mp_obj_t * obj,
-        ex_t * e)
+        ti_type_t *type,
+        mp_unp_t *up,
+        mp_obj_t *obj,
+        ex_t *e)
 {
-    ti_name_t * name;
-    ti_raw_t * spec_raw;
+    ti_name_t *name;
+    ti_raw_t *spec_raw;
     mp_obj_t mp_field, mp_spec;
     size_t i;
 
@@ -821,18 +821,18 @@ failed:
  * version has failed, so has zero impact on performance.
  */
 static int type__deprecated_init_arr(
-        ti_type_t * type,
-        mp_unp_t * up,
-        mp_obj_t * arr,
-        ex_t * e,
+        ti_type_t *type,
+        mp_unp_t *up,
+        mp_obj_t *arr,
+        ex_t *e,
         _Bool with_methods,
         _Bool with_wrap_only)
 {
-    ti_name_t * name;
+    ti_name_t *name;
     mp_obj_t obj, mp_name, mp_spec;
     size_t i;
-    ti_val_t * val = NULL;
-    ti_raw_t * spec_raw = NULL;
+    ti_val_t *val = NULL;
+    ti_raw_t *spec_raw = NULL;
     ti_vup_t vup = {
             .isclient = false,
             .collection = type->types->collection,
@@ -842,7 +842,7 @@ static int type__deprecated_init_arr(
     if (with_wrap_only)
     {
         /* Ugly fix for bug #120 */
-        const char * keep = up->pt;
+        const char *keep = up->pt;
         mp_obj_t mp_wpo;
 
         for (i = arr->via.sz; i--;)
@@ -975,19 +975,19 @@ failed:
 }
 
 int ti_type_init_from_unp(
-        ti_type_t * type,
-        mp_unp_t * up,
-        ex_t * e,
+        ti_type_t *type,
+        mp_unp_t *up,
+        ex_t *e,
         _Bool with_methods,
         _Bool with_wrap_only,
         _Bool with_hide_id,
         _Bool with_index)
 {
-    ti_name_t * name;
+    ti_name_t *name;
     mp_obj_t obj, mp_name, mp_spec;
     size_t i;
-    ti_val_t * val = NULL;
-    ti_raw_t * spec_raw = NULL;
+    ti_val_t *val = NULL;
+    ti_raw_t *spec_raw = NULL;
     ti_vup_t vup = {
             .isclient = false,
             .collection = type->types->collection,
@@ -1177,7 +1177,7 @@ failed:
 }
 
 /* adds a map with key/value pairs */
-int ti_type_fields_to_pk(ti_type_t * type, msgpack_packer * pk)
+int ti_type_fields_to_pk(ti_type_t *type, msgpack_packer *pk)
 {
     if (msgpack_pack_array(pk, type->fields->n + !!type->idname))
         return -1;
@@ -1204,7 +1204,7 @@ int ti_type_fields_to_pk(ti_type_t * type, msgpack_packer * pk)
     return 0;
 }
 
-static int type__fields_to_pk(ti_type_t * type, msgpack_packer * pk)
+static int type__fields_to_pk(ti_type_t *type, msgpack_packer *pk)
 {
     if (msgpack_pack_array(pk, type->fields->n + !!type->idname))
         return -1;
@@ -1234,7 +1234,7 @@ static int type__fields_to_pk(ti_type_t * type, msgpack_packer * pk)
 
 
 /* adds a map with key/value pairs */
-int ti_type_methods_to_pk(ti_type_t * type, msgpack_packer * pk)
+int ti_type_methods_to_pk(ti_type_t *type, msgpack_packer *pk)
 {
     if (msgpack_pack_map(pk, type->methods->n))
         return -1;
@@ -1250,7 +1250,7 @@ int ti_type_methods_to_pk(ti_type_t * type, msgpack_packer * pk)
 }
 
 /* adds a map with key/value pairs */
-int ti_type_relations_to_pk(ti_type_t * type, msgpack_packer * pk)
+int ti_type_relations_to_pk(ti_type_t *type, msgpack_packer *pk)
 {
     size_t n = 0;
     for (vec_each(type->fields, ti_field_t, field))
@@ -1264,7 +1264,7 @@ int ti_type_relations_to_pk(ti_type_t * type, msgpack_packer * pk)
     {
         if (ti_field_has_relation(field))
         {
-            ti_field_t * ofield = field->condition.rel->field;
+            ti_field_t *ofield = field->condition.rel->field;
 
             if (mp_pack_strn(pk, field->name->str, field->name->n) ||
                 msgpack_pack_map(pk, 3) ||
@@ -1288,8 +1288,8 @@ int ti_type_relations_to_pk(ti_type_t * type, msgpack_packer * pk)
 
 /* adds a map with key/value pairs */
 int ti_type_methods_info_to_pk(
-        ti_type_t * type,
-        msgpack_packer * pk,
+        ti_type_t *type,
+        msgpack_packer *pk,
         _Bool with_definition)
 {
     if (msgpack_pack_map(pk, type->methods->n))
@@ -1297,8 +1297,8 @@ int ti_type_methods_info_to_pk(
 
     for (vec_each(type->methods, ti_method_t, method))
     {
-        ti_raw_t * doc = ti_method_doc(method);
-        ti_raw_t * def = ti_method_def(method);  /* def calculates only once
+        ti_raw_t *doc = ti_method_doc(method);
+        ti_raw_t *def = ti_method_def(method);  /* def calculates only once
                                                     so not a problem to do
                                                     if not with_definition */
 
@@ -1329,9 +1329,9 @@ int ti_type_methods_info_to_pk(
     return 0;
 }
 
-ti_val_t * ti_type_as_mpval(ti_type_t * type, _Bool with_definition)
+ti_val_t *ti_type_as_mpval(ti_type_t *type, _Bool with_definition)
 {
-    ti_raw_t * raw;
+    ti_raw_t *raw;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -1389,12 +1389,12 @@ ti_val_t * ti_type_as_mpval(ti_type_t * type, _Bool with_definition)
  * found and compatible with a `to` type.
  * The return is NULL when a memory allocation has occurred.
  */
-ti_map_t * ti_type_map(ti_type_t * t_type, ti_type_t * f_type)
+ti_map_t *ti_type_map(ti_type_t *t_type, ti_type_t *f_type)
 {
-    ti_field_t * f_field;
-    ti_mapping_t * mapping;
-    vec_t * mappings;
-    ti_map_t * map = imap_get(t_type->t_mappings, f_type->type_id);
+    ti_field_t *f_field;
+    ti_mapping_t *mapping;
+    vec_t *mappings;
+    ti_map_t *map = imap_get(t_type->t_mappings, f_type->type_id);
     if (map)
         return map;
 
@@ -1433,9 +1433,9 @@ ti_map_t * ti_type_map(ti_type_t * t_type, ti_type_t * f_type)
  * Type must have been checked for not having `wrap_only` mode before calling
  * this function.
  */
-ti_val_t * ti_type_dval(ti_type_t * type)
+ti_val_t *ti_type_dval(ti_type_t *type)
 {
-    ti_thing_t * thing = ti_thing_t_create(0, type, type->types->collection);
+    ti_thing_t *thing = ti_thing_t_create(0, type, type->types->collection);
     if (!thing)
         return NULL;
 
@@ -1443,7 +1443,7 @@ ti_val_t * ti_type_dval(ti_type_t * type)
 
     for (vec_each(type->fields, ti_field_t, field))
     {
-        ti_val_t * val = field->dval_cb(field);
+        ti_val_t *val = field->dval_cb(field);
         if (!val)
         {
             ti_thing_destroy(thing);
@@ -1459,19 +1459,19 @@ ti_val_t * ti_type_dval(ti_type_t * type)
 
 typedef struct
 {
-    vec_t * vec;
-    ex_t * e;
-    ti_type_t * type;
-    ti_thing_t * thing;
+    vec_t *vec;
+    ex_t *e;
+    ti_type_t *type;
+    ti_thing_t *thing;
 } type__convert_t;
 
 /*
  * Note: prop may be of ti_item_t. Therefore be careful with using the name
  * as name->str might not be null terminated.
  */
-int type__convert_cb(ti_prop_t * prop, type__convert_t * w)
+int type__convert_cb(ti_prop_t *prop, type__convert_t *w)
 {
-    ti_field_t * field = ti_field_by_name(w->type, prop->name);
+    ti_field_t *field = ti_field_by_name(w->type, prop->name);
     ti_val_t ** vaddr;
     int rc, flags;
 
@@ -1519,10 +1519,10 @@ int type__convert_cb(ti_prop_t * prop, type__convert_t * w)
 }
 
 int ti_type_convert(
-        ti_type_t * type,
-        ti_thing_t * thing,
-        ti_change_t * change,   /* might be NULL */
-        ex_t * e)
+        ti_type_t *type,
+        ti_thing_t *thing,
+        ti_change_t *change,   /* might be NULL */
+        ex_t *e)
 {
     type__convert_t w = {
             .vec = vec_new(type->fields->n),
@@ -1572,7 +1572,7 @@ int ti_type_convert(
             ti_val_attach(*val, thing, field);
             if (change && thing->id)
             {
-                ti_task_t * task = ti_task_get_task(change, thing);
+                ti_task_t *task = ti_task_get_task(change, thing);
                 if (!task || ti_task_add_set(
                         task,
                         (ti_raw_t *) field->name,
@@ -1604,9 +1604,9 @@ fail0:
  * Type must have been checked for not having `wrap_only` mode before calling
  * this function.
  */
-ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
+ti_thing_t *ti_type_from_thing(ti_type_t *type, ti_thing_t *from, ex_t *e)
 {
-    ti_thing_t * thing = ti_thing_t_create(0, type, type->types->collection);
+    ti_thing_t *thing = ti_thing_t_create(0, type, type->types->collection);
     if (!thing)
     {
         ex_set_mem(e);
@@ -1617,8 +1617,8 @@ ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
 
     if (ti_thing_is_object(from))
     {
-        ti_prop_t * prop;
-        ti_val_t * val;
+        ti_prop_t *prop;
+        ti_val_t *val;
         for (vec_each(type->fields, ti_field_t, field))
         {
             prop = ti_thing_o_prop_weak_get(from, field->name);
@@ -1661,7 +1661,7 @@ ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
 
         for (vec_each(type->fields, ti_field_t, field))
         {
-            ti_val_t * val = VEC_get(from->items.vec, field->idx);
+            ti_val_t *val = VEC_get(from->items.vec, field->idx);
             ti_incref(val);
             if (ti_val_make_assignable(&val, thing, field, e))
             {
@@ -1680,7 +1680,7 @@ failed:
     return NULL;
 }
 
-static inline int type__test_wpo_cb(ti_type_t * haystack, ti_type_t * needle)
+static inline int type__test_wpo_cb(ti_type_t *haystack, ti_type_t *needle)
 {
     if (ti_type_is_wrap_only(haystack))
         return 0;
@@ -1692,7 +1692,7 @@ static inline int type__test_wpo_cb(ti_type_t * haystack, ti_type_t * needle)
     return 0;
 }
 
-int ti_type_required_by_non_wpo(ti_type_t * type, ex_t * e)
+int ti_type_required_by_non_wpo(ti_type_t *type, ex_t *e)
 {
     if (type->refcount &&
         imap_walk(type->types->imap, (imap_cb) type__test_wpo_cb, type))
@@ -1704,7 +1704,7 @@ int ti_type_required_by_non_wpo(ti_type_t * type, ex_t * e)
     return e->nr;
 }
 
-int ti_type_requires_wpo(ti_type_t * type, ex_t * e)
+int ti_type_requires_wpo(ti_type_t *type, ex_t *e)
 {
     for (vec_each(type->fields, ti_field_t, field))
     {
@@ -1719,7 +1719,7 @@ int ti_type_requires_wpo(ti_type_t * type, ex_t * e)
 
         if (field->spec < TI_SPEC_ANY)
         {
-            ti_type_t * dep = ti_types_by_id(type->types, field->spec);
+            ti_type_t *dep = ti_types_by_id(type->types, field->spec);
 
             if (dep == type)
             {

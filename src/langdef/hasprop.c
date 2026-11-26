@@ -8,11 +8,11 @@
 #include <assert.h>
 #include <string.h>
 
-static inline _Bool hasprop__return_statement(cleri_node_t * nd,
-                                              const char * str,
+static inline _Bool hasprop__return_statement(cleri_node_t *nd,
+                                              const char *str,
                                               const size_t n)
 {
-    cleri_node_t * node = nd->children->next->children;
+    cleri_node_t *node = nd->children->next->children;
     if (!node)
         return false;
 
@@ -31,8 +31,8 @@ static inline _Bool hasprop__return_statement(cleri_node_t * nd,
     return false;
 }
 
-static inline _Bool hasprop__if_statement(cleri_node_t * nd,
-                                          const char * str,
+static inline _Bool hasprop__if_statement(cleri_node_t *nd,
+                                          const char *str,
                                           const size_t n)
 {
     if (langdef_hasprop(nd->children->next->next, str, n) ||
@@ -45,11 +45,11 @@ static inline _Bool hasprop__if_statement(cleri_node_t * nd,
     return false;
 }
 
-static inline _Bool hasprop__for_statement(cleri_node_t * nd,
-                                           const char * str,
+static inline _Bool hasprop__for_statement(cleri_node_t *nd,
+                                           const char *str,
                                            const size_t n)
 {
-    cleri_node_t * child = nd->
+    cleri_node_t *child = nd->
             children->              /* for  */
             next->                  /* (    */
             next;                   /* List(variable) */
@@ -60,14 +60,14 @@ static inline _Bool hasprop__for_statement(cleri_node_t * nd,
     );
 }
 
-static _Bool hasprop__index(cleri_node_t * nd,
-                            const char * str,
+static _Bool hasprop__index(cleri_node_t *nd,
+                            const char *str,
                             const size_t n)
 {
-    cleri_node_t * child = nd->children;
+    cleri_node_t *child = nd->children;
     do
     {
-        cleri_node_t * c = child        /* sequence */
+        cleri_node_t *c = child        /* sequence */
                 ->children->next        /* slice */
                 ->children;
 
@@ -86,12 +86,12 @@ static _Bool hasprop__index(cleri_node_t * nd,
     return false;
 }
 
-static _Bool hasprop__closure(cleri_node_t * nd,
-                                     const char * str,
+static _Bool hasprop__closure(cleri_node_t *nd,
+                                     const char *str,
                                      const size_t n)
 {
 
-    cleri_node_t * child = nd           /* sequence */
+    cleri_node_t *child = nd           /* sequence */
             ->children->next            /* list */
             ->children;                 /* first child */
     for (; child; child = child->next->next)
@@ -101,11 +101,11 @@ static _Bool hasprop__closure(cleri_node_t * nd,
     return langdef_hasprop(nd->children->next->next->next, str, n);
 }
 
-static inline _Bool hasprop__thing(cleri_node_t * nd,
-                                   const char * str,
+static inline _Bool hasprop__thing(cleri_node_t *nd,
+                                   const char *str,
                                    const size_t n)
 {
-    cleri_node_t * child = nd           /* sequence */
+    cleri_node_t *child = nd           /* sequence */
             ->children->next            /* list */
             ->children;
     for (; child; child = child->next->next)
@@ -114,14 +114,14 @@ static inline _Bool hasprop__thing(cleri_node_t * nd,
     return false;
 }
 
-static inline _Bool hasprop__function(cleri_node_t * nd,
-                                      const char * str,
+static inline _Bool hasprop__function(cleri_node_t *nd,
+                                      const char *str,
                                       const size_t n)
 {
     /* list (arguments) */
     nd = nd->children->next->children->next;
 
-    for(cleri_node_t * child = nd->children;
+    for(cleri_node_t *child = nd->children;
         child;
         child = child->next ? child->next->next : NULL)
     {
@@ -131,8 +131,8 @@ static inline _Bool hasprop__function(cleri_node_t * nd,
     return false;
 }
 
-static inline _Bool hasprop__name_opt_fa(cleri_node_t * nd,
-                                         const char * str,
+static inline _Bool hasprop__name_opt_fa(cleri_node_t *nd,
+                                         const char *str,
                                          const size_t n)
 {
     if (nd->children->next)
@@ -151,16 +151,16 @@ static inline _Bool hasprop__name_opt_fa(cleri_node_t * nd,
     return false;
 }
 
-static inline _Bool hasprop__enum(cleri_node_t * nd,
-                                  const char * str,
+static inline _Bool hasprop__enum(cleri_node_t *nd,
+                                  const char *str,
                                   const size_t n)
 {
     return ((nd = nd->children->next)->cl_obj->gid == CLERI_GID_CLOSURE &&
             hasprop__closure(nd, str, n));
 }
 
-static _Bool hasprop__var_opt_fa(cleri_node_t * nd,
-                                 const char * str,
+static _Bool hasprop__var_opt_fa(cleri_node_t *nd,
+                                 const char *str,
                                  const size_t n)
 {
     if (nd->children->next)
@@ -189,11 +189,11 @@ static _Bool hasprop__var_opt_fa(cleri_node_t * nd,
     return nd->children->len == n && memcmp(nd->children->str, str, n) == 0;
 }
 
-static inline _Bool hasprop__chain(cleri_node_t * nd,
-                                   const char * str,
+static inline _Bool hasprop__chain(cleri_node_t *nd,
+                                   const char *str,
                                    const size_t n)
 {
-    cleri_node_t * child = nd->children->next;
+    cleri_node_t *child = nd->children->next;
 
     if (hasprop__name_opt_fa(child, str, n))
         return true;
@@ -208,11 +208,11 @@ static inline _Bool hasprop__chain(cleri_node_t * nd,
     return false;
 }
 
-static inline _Bool hasprop__expression(cleri_node_t * nd,
-                                        const char * str,
+static inline _Bool hasprop__expression(cleri_node_t *nd,
+                                        const char *str,
                                         const size_t n)
 {
-    cleri_node_t * node = nd->children->next;
+    cleri_node_t *node = nd->children->next;
 
     switch (node->cl_obj->gid)
     {
@@ -231,7 +231,7 @@ static inline _Bool hasprop__expression(cleri_node_t * nd,
         break;
     case CLERI_GID_TEMPLATE:
     {
-        cleri_node_t * child = node         /* sequence */
+        cleri_node_t *child = node         /* sequence */
                 ->children->next            /* repeat */
                 ->children;
         for (; child; child = child->next)
@@ -252,7 +252,7 @@ static inline _Bool hasprop__expression(cleri_node_t * nd,
         break;
     case CLERI_GID_ARRAY:
     {
-        cleri_node_t * child = node     /* sequence */
+        cleri_node_t *child = node     /* sequence */
                 ->children->next        /* list */
                 ->children;
         for (; child; child = child->next ? child->next->next : NULL)
@@ -276,11 +276,11 @@ static inline _Bool hasprop__expression(cleri_node_t * nd,
     return false;
 }
 
-static inline _Bool hasprop__block(cleri_node_t * nd,
-                                   const char * str,
+static inline _Bool hasprop__block(cleri_node_t *nd,
+                                   const char *str,
                                    const size_t n)
 {
-    cleri_node_t * child = nd       /* seq<token({), list, }> */
+    cleri_node_t *child = nd       /* seq<token({), list, }> */
             ->children->next        /* list statements */
             ->children;             /* first child, not empty */
     do
@@ -294,12 +294,12 @@ static inline _Bool hasprop__block(cleri_node_t * nd,
     return false;
 }
 
-static _Bool hasprop__operations(cleri_node_t * nd,
-                                 const char * str,
+static _Bool hasprop__operations(cleri_node_t *nd,
+                                 const char *str,
                                  const size_t n)
 {
     uint32_t gid = nd->children->next->cl_obj->gid;
-    cleri_node_t * childb = nd->children->next->next;
+    cleri_node_t *childb = nd->children->next->next;
 
     if (langdef_hasprop(nd->children, str, n))
         return true;
@@ -315,7 +315,7 @@ static _Bool hasprop__operations(cleri_node_t * nd,
     return false;
 }
 
-_Bool langdef_hasprop(cleri_node_t * nd, const char * str, const size_t n)
+_Bool langdef_hasprop(cleri_node_t *nd, const char *str, const size_t n)
 {
     assert(nd->cl_obj->gid == CLERI_GID_STATEMENT);
 

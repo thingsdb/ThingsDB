@@ -24,7 +24,7 @@ static ALWAYS_INLINE void umap__set_nibble(uint8_t uuid[16],
         uuid[byte_idx] = (uuid[byte_idx] & 0x0F) | ((nibble & 0x0F) << 4);
 }
 
-static ALWAYS_INLINE umap_node_t * umap__get_child(umap_node_t * node,
+static ALWAYS_INLINE umap_node_t *umap__get_child(umap_node_t *node,
                                                    uint8_t nibble)
 {
     if (node->key == UMAP_NODE_SZ)
@@ -32,9 +32,9 @@ static ALWAYS_INLINE umap_node_t * umap__get_child(umap_node_t * node,
     return (node->key == nibble) ? node->nodes : NULL;
 }
 
-static inline int umap__node_grow(umap_node_t * node)
+static inline int umap__node_grow(umap_node_t *node)
 {
-    umap_node_t * tmp = calloc(UMAP_NODE_SZ, sizeof(umap_node_t));
+    umap_node_t *tmp = calloc(UMAP_NODE_SZ, sizeof(umap_node_t));
     if (!tmp)
         return -1;
 
@@ -48,12 +48,12 @@ static inline int umap__node_grow(umap_node_t * node)
     return 0;
 }
 
-umap_t * umap_create(void)
+umap_t *umap_create(void)
 {
     return calloc(1, sizeof(umap_t));
 }
 
-static void umap__node_destroy(umap_node_t * node, umap_destroy_cb cb)
+static void umap__node_destroy(umap_node_t *node, umap_destroy_cb cb)
 {
     if (node->suffix)
     {
@@ -79,7 +79,7 @@ static void umap__node_destroy(umap_node_t * node, umap_destroy_cb cb)
     }
 }
 
-void umap_destroy(umap_t * map, umap_destroy_cb cb)
+void umap_destroy(umap_t *map, umap_destroy_cb cb)
 {
     if (!map)
         return;
@@ -87,7 +87,7 @@ void umap_destroy(umap_t * map, umap_destroy_cb cb)
     free(map);
 }
 
-void umap_clear(umap_t * map, umap_destroy_cb cb)
+void umap_clear(umap_t *map, umap_destroy_cb cb)
 {
     if (!map)
         return;
@@ -96,12 +96,12 @@ void umap_clear(umap_t * map, umap_destroy_cb cb)
     map->n = 0;
 }
 
-void * umap_get(umap_t * map, const uint8_t uuid[16])
+void *umap_get(umap_t *map, const uint8_t uuid[16])
 {
     if (!map)
         return NULL;
 
-    umap_node_t * nd = &map->root;
+    umap_node_t *nd = &map->root;
     size_t pos = 0;
 
     while (nd)
@@ -132,22 +132,22 @@ void * umap_get(umap_t * map, const uint8_t uuid[16])
     return NULL;
 }
 
-static void * umap__set(umap_node_t * node,
+static void *umap__set(umap_node_t *node,
                         const uint8_t uuid[16],
                         size_t pos,
-                        void * data,
-                        int * new)
+                        void *data,
+                        int *new)
 {
     if (pos == 32)
     {
-        void * ret = node->data ? node->data : data;
+        void *ret = node->data ? node->data : data;
         *new = node->data != data;
         node->data = data;
         return ret;
     }
 
     uint8_t nibble = umap__get_nibble(uuid, pos);
-    umap_node_t * nd;
+    umap_node_t *nd;
 
     if (!node->sz)
     {
@@ -189,24 +189,24 @@ static void * umap__set(umap_node_t * node,
  * be overwritten and if this happens the old data is returned. In case of an
  * allocation error the return value is NULL.
  */
-void * umap_set(umap_t * map, const uint8_t uuid[16], void * data, int * new)
+void *umap_set(umap_t *map, const uint8_t uuid[16], void *data, int *new)
 {
     assert(map != NULL);
     assert(data != NULL);
     assert(!*new);
 
-    void * ret = umap__set(&map->root, uuid, 0, data, new);
+    void *ret = umap__set(&map->root, uuid, 0, data, new);
     if (ret == data && *new)
         map->n++;
 
     return ret;
 }
 
-static void * umap__pop(umap_node_t * node, const uint8_t uuid[16], size_t pos)
+static void *umap__pop(umap_node_t *node, const uint8_t uuid[16], size_t pos)
 {
     if (pos == 32)
     {
-        void * data = node->data;
+        void *data = node->data;
         node->data = NULL;
         return data;
     }
@@ -215,11 +215,11 @@ static void * umap__pop(umap_node_t * node, const uint8_t uuid[16], size_t pos)
         return NULL;
 
     uint8_t nibble = umap__get_nibble(uuid, pos);
-    umap_node_t * child = umap__get_child(node, nibble);
+    umap_node_t *child = umap__get_child(node, nibble);
     if (!child)
         return NULL;
 
-    void * data = umap__pop(child, uuid, pos + 1);
+    void *data = umap__pop(child, uuid, pos + 1);
 
     if (data && !child->data && !child->nodes)
     {
@@ -243,21 +243,21 @@ static void * umap__pop(umap_node_t * node, const uint8_t uuid[16], size_t pos)
     return data;
 }
 
-void * umap_pop(umap_t * map, const uint8_t uuid[16])
+void *umap_pop(umap_t *map, const uint8_t uuid[16])
 {
     if (map->n == 0)
         return NULL;
 
-    void * data = umap__pop(&map->root, uuid, 0);
+    void *data = umap__pop(&map->root, uuid, 0);
     if (data)
         map->n--;
 
     return data;
 }
 
-static int umap__item(umap_node_t * node,
+static int umap__item(umap_node_t *node,
                       umap_item_cb cb,
-                      void * arg,
+                      void *arg,
                       uint8_t current_uuid[16],
                       size_t pos)
 {
@@ -288,7 +288,7 @@ static int umap__item(umap_node_t * node,
         {
             for (uint8_t nibble = 0; nibble < UMAP_NODE_SZ; nibble++)
             {
-                umap_node_t * child = node->nodes + nibble;
+                umap_node_t *child = node->nodes + nibble;
                 if (child->nodes || child->data || child->suffix_len)
                 {
                     umap__set_nibble(current_uuid, pos, nibble);
@@ -317,7 +317,7 @@ static int umap__item(umap_node_t * node,
  * The return value is the last callback result. A return value of 0 means that
  * the callback function is called on all items in the map.
  */
-int umap_items(umap_t * map, umap_item_cb cb, void * arg)
+int umap_items(umap_t *map, umap_item_cb cb, void *arg)
 {
     if (map->n == 0)
         return 0;
@@ -326,7 +326,7 @@ int umap_items(umap_t * map, umap_item_cb cb, void * arg)
     return umap__item(&map->root, cb, arg, current_uuid, 0);
 }
 
-static int umap__walk(umap_node_t * node, umap_cb cb, void * arg)
+static int umap__walk(umap_node_t *node, umap_cb cb, void *arg)
 {
     int rc;
     if (node->data && (rc = cb(node->data, arg)) != 0)
@@ -338,7 +338,7 @@ static int umap__walk(umap_node_t * node, umap_cb cb, void * arg)
         {
             for (uint8_t nibble = 0; nibble < UMAP_NODE_SZ; nibble++)
             {
-                umap_node_t * child = node->nodes + nibble;
+                umap_node_t *child = node->nodes + nibble;
                 if (child->nodes || child->data || child->suffix_len)
                 {
                     if ((rc = umap__walk(child, cb, arg)) != 0)
@@ -363,7 +363,7 @@ static int umap__walk(umap_node_t * node, umap_cb cb, void * arg)
  * The return value is the last callback result. A return value of 0 means that
  * the callback function was called on all items in the map.
  */
-int umap_walk(umap_t * map, umap_cb cb, void * arg)
+int umap_walk(umap_t *map, umap_cb cb, void *arg)
 {
     if (map->n == 0)
         return 0;

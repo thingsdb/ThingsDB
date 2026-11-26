@@ -1,9 +1,9 @@
 #include <ti/fn/fn.h>
 
-static int do__f_then(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_then(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_future_t * future;
+    ti_future_t *future;
 
     if (!ti_val_is_future(query->rval))
         return fn_call_try("then", query, nd, e);

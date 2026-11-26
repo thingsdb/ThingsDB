@@ -7,6 +7,6 @@
 #include <ti/raw.h>
 #include <ti/collection.h>
 
-ti_raw_t * ti_export_collection(ti_collection_t * collection);
+ti_raw_t *ti_export_collection(ti_collection_t *collection);
 
 #endif  /* TI_EXPORT_H_ */

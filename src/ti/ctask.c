@@ -39,11 +39,11 @@
  * Returns 0 on success
  * - for example: {'prop': [new_count, values...]}
  */
-static int ctask__set_add(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__set_add(ti_thing_t *thing, mp_unp_t *up)
 {
     ex_t e = {0};
-    ti_val_t * val;
-    ti_val_t * v;
+    ti_val_t *val;
+    ti_val_t *v;
     size_t i;
     mp_obj_t obj, mp_prop;
     ti_vup_t vup = {
@@ -106,7 +106,7 @@ static int ctask__set_add(ti_thing_t * thing, mp_unp_t * up)
  * Returns 0 on success
  * - for example: ``
  */
-static int ctask__thing_clear(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__thing_clear(ti_thing_t *thing, mp_unp_t *up)
 {
     if (mp_skip(up) != MP_NIL)
     {
@@ -128,9 +128,9 @@ static int ctask__thing_clear(ti_thing_t * thing, mp_unp_t * up)
     return 0;
 }
 
-static int ctask__room_set_name(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__room_set_name(ti_thing_t *thing, mp_unp_t *up)
 {
-    ti_room_t * room;
+    ti_room_t *room;
     mp_obj_t obj, mp_id, mp_name;
 
     if (mp_next(up, &obj) != MP_ARR || obj.via.sz != 2 ||
@@ -153,7 +153,7 @@ static int ctask__room_set_name(ti_thing_t * thing, mp_unp_t * up)
     }
     else
     {
-        ti_name_t * name = ti_names_get(
+        ti_name_t *name = ti_names_get(
             mp_name.via.str.data,
             mp_name.via.str.n);
         if (!name || ti_room_set_name(room, name))
@@ -171,9 +171,9 @@ static int ctask__room_set_name(ti_thing_t * thing, mp_unp_t * up)
  * Returns 0 on success
  * - for example: `prop`
  */
-static int ctask__arr_clear(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__arr_clear(ti_thing_t *thing, mp_unp_t *up)
 {
-    ti_val_t * val;
+    ti_val_t *val;
     mp_obj_t mp_prop;
 
     if (mp_next(up, &mp_prop) != MP_STR)
@@ -214,9 +214,9 @@ static int ctask__arr_clear(ti_thing_t * thing, mp_unp_t * up)
  * Returns 0 on success
  * - for example: `prop`
  */
-static int ctask__set_clear(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__set_clear(ti_thing_t *thing, mp_unp_t *up)
 {
-    ti_val_t * val;
+    ti_val_t *val;
     mp_obj_t mp_prop;
 
     if (mp_next(up, &mp_prop) != MP_STR)
@@ -257,11 +257,11 @@ static int ctask__set_clear(ti_thing_t * thing, mp_unp_t * up)
  * Returns 0 on success
  * - for example: {'prop':value}
  */
-static int ctask__set(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__set(ti_thing_t *thing, mp_unp_t *up)
 {
     ex_t e = {0};
-    ti_val_t * val;
-    ti_raw_t * key;
+    ti_val_t *val;
+    ti_raw_t *key;
     mp_obj_t obj, mp_prop;
     ti_vup_t vup = {
             .isclient = false,
@@ -322,7 +322,7 @@ static int ctask__set(ti_thing_t * thing, mp_unp_t * up)
     }
     else
     {
-        ti_field_t * field = \
+        ti_field_t *field = \
                 ti_field_by_name(thing->via.type, (ti_name_t *) key);
         if (!field)
         {
@@ -362,10 +362,10 @@ fail:
  * Note: decided to `panic` in case of failures since it might mess up
  *       the database in case of failure.
  */
-static int ctask__new_type(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__new_type(ti_thing_t *thing, mp_unp_t *up)
 {
-    ti_collection_t * collection = thing->collection;
-    ti_type_t * type;
+    ti_collection_t *collection = thing->collection;
+    ti_type_t *type;
     mp_obj_t obj, mp_id, mp_name, mp_created;
     uint8_t flags = 0;
 
@@ -471,11 +471,11 @@ static int ctask__new_type(ti_thing_t * thing, mp_unp_t * up)
  * and methods. This creates place-holders for members to they can be used
  * while unpacking data.
  */
-static int ctask__new_enum(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__new_enum(ti_thing_t *thing, mp_unp_t *up)
 {
     ex_t e = {0};
-    ti_collection_t * collection = thing->collection;
-    ti_enum_t * enum_;
+    ti_collection_t *collection = thing->collection;
+    ti_enum_t *enum_;
     mp_obj_t obj, mp_id, mp_name, mp_created, mp_size;
 
     if (mp_next(up, &obj) != MP_MAP ||
@@ -528,7 +528,7 @@ static int ctask__new_enum(ti_thing_t * thing, mp_unp_t * up)
     else
     {
         size_t ii;
-        ti_name_t * name;
+        ti_name_t *name;
         if (mp_skip(up) != MP_STR ||
             mp_next(up, &obj) != MP_ARR || obj.via.sz != mp_size.via.u64)
         {
@@ -570,11 +570,11 @@ fail0:
     return -1;
 }
 
-static int ctask__set_enum_data(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__set_enum_data(ti_thing_t *thing, mp_unp_t *up)
 {
     ex_t e = {0};
-    ti_collection_t * collection = thing->collection;
-    ti_enum_t * enum_;
+    ti_collection_t *collection = thing->collection;
+    ti_enum_t *enum_;
     mp_obj_t obj, mp_id;
     ti_vup_t vup = {
             .isclient = false,
@@ -613,12 +613,12 @@ static int ctask__set_enum_data(ti_thing_t * thing, mp_unp_t * up)
     return 0;
 }
 
-static int ctask__import(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__import(ti_thing_t *thing, mp_unp_t *up)
 {
     int rc = 0;
     ex_t e = {0};
     mp_obj_t obj, mp_import_tasks;
-    ti_collection_t * collection = thing->collection;
+    ti_collection_t *collection = thing->collection;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
         mp_skip(up) != MP_STR ||
@@ -643,11 +643,11 @@ static int ctask__import(ti_thing_t * thing, mp_unp_t * up)
     return rc;
 }
 
-static int ctask__replace_root(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__replace_root(ti_thing_t *thing, mp_unp_t *up)
 {
     _Bool changed;
-    ti_val_t * val;
-    ti_collection_t * collection = thing->collection;
+    ti_val_t *val;
+    ti_collection_t *collection = thing->collection;
     ti_vup_t vup = {
             .isclient = false,
             .collection = collection,
@@ -691,11 +691,11 @@ static int ctask__replace_root(ti_thing_t * thing, mp_unp_t * up)
  * Note: decided to `panic` in case of failures since it might mess up
  *       the database in case of failure.
  */
-static int ctask__set_enum(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__set_enum(ti_thing_t *thing, mp_unp_t *up)
 {
     ex_t e = {0};
-    ti_collection_t * collection = thing->collection;
-    ti_enum_t * enum_;
+    ti_collection_t *collection = thing->collection;
+    ti_enum_t *enum_;
     mp_obj_t obj, mp_id, mp_name, mp_created;
     ti_vup_t vup = {
             .isclient = false,
@@ -771,11 +771,11 @@ fail0:
  * Note: decided to `panic` in case of failures since it might mess up
  *       the database in case of failure.
  */
-static int ctask__set_type(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__set_type(ti_thing_t *thing, mp_unp_t *up)
 {
     ex_t e = {0};
-    ti_collection_t * collection = thing->collection;
-    ti_type_t * type;
+    ti_collection_t *collection = thing->collection;
+    ti_type_t *type;
     mp_obj_t obj, mp_id, mp_modified;
 
     /* TODO: (COMPAT) For compatibility with versions before v0.9.6 */
@@ -840,9 +840,9 @@ static int ctask__set_type(ti_thing_t * thing, mp_unp_t * up)
 /*
  * Returns 0 on success
  */
-static int ctask__to_thing(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__to_thing(ti_thing_t *thing, mp_unp_t *up)
 {
-    ti_collection_t * collection = thing->collection;
+    ti_collection_t *collection = thing->collection;
 
     if (mp_skip(up) != MP_BOOL)
     {
@@ -863,11 +863,11 @@ static int ctask__to_thing(ti_thing_t * thing, mp_unp_t * up)
 /*
  * Returns 0 on success
  */
-static int ctask__to_type(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__to_type(ti_thing_t *thing, mp_unp_t *up)
 {
     ex_t e = {0};
-    ti_collection_t * collection = thing->collection;
-    ti_type_t * type;
+    ti_collection_t *collection = thing->collection;
+    ti_type_t *type;
     mp_obj_t mp_type_id;
 
     if (mp_next(up, &mp_type_id) != MP_U64)
@@ -902,9 +902,9 @@ static int ctask__to_type(ti_thing_t * thing, mp_unp_t * up)
 /*
  * Returns 0 on success
  */
-static int ctask__thing_restrict(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__thing_restrict(ti_thing_t *thing, mp_unp_t *up)
 {
-    ti_collection_t * collection = thing->collection;
+    ti_collection_t *collection = thing->collection;
     uint16_t spec;
     mp_obj_t mp_spec;
 
@@ -924,9 +924,9 @@ static int ctask__thing_restrict(ti_thing_t * thing, mp_unp_t * up)
 /*
  * Returns 0 on success
  */
-static int ctask__thing_remove(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__thing_remove(ti_thing_t *thing, mp_unp_t *up)
 {
-    ti_collection_t * collection = thing->collection;
+    ti_collection_t *collection = thing->collection;
     mp_obj_t obj, mp_key;
     size_t i;
 
@@ -956,12 +956,12 @@ static int ctask__thing_remove(ti_thing_t * thing, mp_unp_t * up)
 /*
  * Returns 0 on success
  */
-static int ctask__mod_enum_add(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__mod_enum_add(ti_thing_t *thing, mp_unp_t *up)
 {
     ex_t e = {0};
-    ti_enum_t * enum_;
-    ti_name_t * name;
-    ti_val_t * val = NULL;
+    ti_enum_t *enum_;
+    ti_name_t *name;
+    ti_val_t *val = NULL;
     mp_obj_t obj, mp_id, mp_name, mp_modified;
     int rc = -1;
     ti_vup_t vup = {
@@ -1034,11 +1034,11 @@ fail0:
 /*
  * Returns 0 on success
  */
-static int ctask__mod_enum_def(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__mod_enum_def(ti_thing_t *thing, mp_unp_t *up)
 {
-    ti_collection_t * collection = thing->collection;
-    ti_enum_t * enum_;
-    ti_member_t * member;
+    ti_collection_t *collection = thing->collection;
+    ti_enum_t *enum_;
+    ti_member_t *member;
     mp_obj_t obj, mp_id, mp_index, mp_modified;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
@@ -1086,11 +1086,11 @@ static int ctask__mod_enum_def(ti_thing_t * thing, mp_unp_t * up)
 /*
  * Returns 0 on success
  */
-static int ctask__mod_enum_del(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__mod_enum_del(ti_thing_t *thing, mp_unp_t *up)
 {
-    ti_collection_t * collection = thing->collection;
-    ti_enum_t * enum_;
-    ti_member_t * member;
+    ti_collection_t *collection = thing->collection;
+    ti_enum_t *enum_;
+    ti_member_t *member;
     mp_obj_t obj, mp_id, mp_name, mp_modified;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
@@ -1139,7 +1139,7 @@ static int ctask__mod_enum_del(ti_thing_t * thing, mp_unp_t * up)
         }
         else
         {
-            ti_name_t * name = ti_names_weak_get_strn(
+            ti_name_t *name = ti_names_weak_get_strn(
                     mp_name.via.str.data,
                     mp_name.via.str.n);
 
@@ -1166,12 +1166,12 @@ not_found:
 /*
  * Returns 0 on success
  */
-static int ctask__mod_enum_mod(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__mod_enum_mod(ti_thing_t *thing, mp_unp_t *up)
 {
     ex_t e = {0};
-    ti_collection_t * collection = thing->collection;
-    ti_enum_t * enum_;
-    ti_val_t * val;
+    ti_collection_t *collection = thing->collection;
+    ti_enum_t *enum_;
+    ti_val_t *val;
     mp_obj_t obj, mp_id, mp_name, mp_modified;
     ti_vup_t vup = {
             .isclient = false,
@@ -1211,8 +1211,8 @@ static int ctask__mod_enum_mod(ti_thing_t * thing, mp_unp_t * up)
 
     if (ti_val_is_closure(val))
     {
-        ti_method_t * method;
-        ti_name_t * name;
+        ti_method_t *method;
+        ti_name_t *name;
 
         if (mp_name.tp == MP_U64)
         {
@@ -1246,7 +1246,7 @@ static int ctask__mod_enum_mod(ti_thing_t * thing, mp_unp_t * up)
     }
     else
     {
-        ti_member_t * member = mp_name.tp == MP_U64
+        ti_member_t *member = mp_name.tp == MP_U64
                 ? ti_enum_member_by_idx(enum_, mp_name.via.u64)
                 : ti_enum_member_by_strn(
                     enum_,
@@ -1277,12 +1277,12 @@ static int ctask__mod_enum_mod(ti_thing_t * thing, mp_unp_t * up)
 /*
  * Returns 0 on success
  */
-static int ctask__mod_enum_ren(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__mod_enum_ren(ti_thing_t *thing, mp_unp_t *up)
 {
     ex_t e = {0};
-    ti_collection_t * collection = thing->collection;
-    ti_enum_t * enum_;
-    ti_member_t * member;
+    ti_collection_t *collection = thing->collection;
+    ti_enum_t *enum_;
+    ti_member_t *member;
 
     mp_obj_t obj, mp_id, mp_name, mp_modified, mp_to;
 
@@ -1335,8 +1335,8 @@ static int ctask__mod_enum_ren(ti_thing_t * thing, mp_unp_t * up)
         goto set_member;
     else
     {
-        ti_method_t * method;
-        ti_name_t * name = ti_names_weak_get_strn(
+        ti_method_t *method;
+        ti_name_t *name = ti_names_weak_get_strn(
                 mp_name.via.str.data,
                 mp_name.via.str.n);
 
@@ -1395,14 +1395,14 @@ done:
 /*
  * Returns 0 on success
  */
-static int ctask__mod_type_add(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__mod_type_add(ti_thing_t *thing, mp_unp_t *up)
 {
     ex_t e = {0};
-    ti_type_t * type;
-    ti_name_t * name;
-    ti_raw_t * spec_raw;
-    ti_field_t * field;
-    ti_val_t * val = NULL;
+    ti_type_t *type;
+    ti_name_t *name;
+    ti_raw_t *spec_raw;
+    ti_field_t *field;
+    ti_val_t *val = NULL;
     mp_obj_t obj, mp_id, mp_name, mp_target, mp_spec, mp_modified;
     int rc = -1;
     ti_vup_t vup = {
@@ -1574,13 +1574,13 @@ fail0:
 /*
  * Returns 0 on success
  */
-static int ctask__mod_type_del(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__mod_type_del(ti_thing_t *thing, mp_unp_t *up)
 {
-    ti_collection_t * collection = thing->collection;
-    ti_type_t * type;
-    ti_name_t * name;
-    ti_field_t * field;
-    ti_method_t * method;
+    ti_collection_t *collection = thing->collection;
+    ti_type_t *type;
+    ti_name_t *name;
+    ti_field_t *field;
+    ti_method_t *method;
     mp_obj_t obj, mp_id, mp_name, mp_modified;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
@@ -1667,15 +1667,15 @@ static int ctask__mod_type_del(ti_thing_t * thing, mp_unp_t * up)
 /*
  * Returns 0 on success
  */
-static int ctask__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__mod_type_mod(ti_thing_t *thing, mp_unp_t *up)
 {
     ex_t e = {0};
-    ti_collection_t * collection = thing->collection;
-    ti_type_t * type;
-    ti_name_t * name;
+    ti_collection_t *collection = thing->collection;
+    ti_type_t *type;
+    ti_name_t *name;
 
-    ti_raw_t * spec_raw;
-    ti_val_t * val = NULL;
+    ti_raw_t *spec_raw;
+    ti_val_t *val = NULL;
     mp_obj_t obj, mp_id, mp_name, mp_target, mp_modified;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 4 ||
@@ -1716,7 +1716,7 @@ static int ctask__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
     if (mp_str_eq(&mp_target, "spec"))
     {
         mp_obj_t mp_spec;
-        ti_field_t * field = ti_field_by_name(type, name);
+        ti_field_t *field = ti_field_by_name(type, name);
 
         if (!field)
         {
@@ -1776,7 +1776,7 @@ static int ctask__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
                 .collection = collection,
                 .up = up,
         };
-        ti_method_t * method = ti_type_get_method(type, name);
+        ti_method_t *method = ti_type_get_method(type, name);
 
         if (!method)
         {
@@ -1827,14 +1827,14 @@ static int ctask__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
 /*
  * Returns 0 on success
  */
-static int ctask__mod_type_rel_add(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__mod_type_rel_add(ti_thing_t *thing, mp_unp_t *up)
 {
     int rc = -1;
     ex_t e = {0};
-    ti_collection_t * collection = thing->collection;
-    ti_type_t * type, * otype;
-    ti_name_t * name, * oname;
-    ti_field_t * field, * ofield;
+    ti_collection_t *collection = thing->collection;
+    ti_type_t *type, *otype;
+    ti_name_t *name, *oname;
+    ti_field_t *field, *ofield;
     mp_obj_t obj, mp_modified, mp_id1, mp_name1, mp_id2, mp_name2;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 5 ||
@@ -1937,13 +1937,13 @@ static int ctask__mod_type_rel_add(ti_thing_t * thing, mp_unp_t * up)
 /*
  * Returns 0 on success
  */
-static int ctask__mod_type_rel_del(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__mod_type_rel_del(ti_thing_t *thing, mp_unp_t *up)
 {
     int rc = -1;
-    ti_collection_t * collection = thing->collection;
-    ti_type_t * type;
-    ti_name_t * name;
-    ti_field_t * field, * ofield;
+    ti_collection_t *collection = thing->collection;
+    ti_type_t *type;
+    ti_name_t *name;
+    ti_field_t *field, *ofield;
     mp_obj_t obj, mp_modified, mp_id, mp_name;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
@@ -2016,15 +2016,15 @@ static int ctask__mod_type_rel_del(ti_thing_t * thing, mp_unp_t * up)
 /*
  * Returns 0 on success
  */
-static int ctask__mod_type_ren(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__mod_type_ren(ti_thing_t *thing, mp_unp_t *up)
 {
     int rc = -1;
     ex_t e = {0};
-    ti_collection_t * collection = thing->collection;
-    ti_type_t * type;
-    ti_name_t * name;
-    ti_field_t * field;
-    ti_method_t * method;
+    ti_collection_t *collection = thing->collection;
+    ti_type_t *type;
+    ti_name_t *name;
+    ti_field_t *field;
+    ti_method_t *method;
     mp_obj_t obj, mp_id, mp_name, mp_to, mp_modified;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 4 ||
@@ -2125,10 +2125,10 @@ static int ctask__mod_type_ren(ti_thing_t * thing, mp_unp_t * up)
 /*
  * Returns 0 on success
  */
-static int ctask__mod_type_wpo(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__mod_type_wpo(ti_thing_t *thing, mp_unp_t *up)
 {
-    ti_collection_t * collection = thing->collection;
-    ti_type_t * type;
+    ti_collection_t *collection = thing->collection;
+    ti_type_t *type;
     mp_obj_t obj, mp_id, mp_modified, mp_wpo;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
@@ -2165,10 +2165,10 @@ static int ctask__mod_type_wpo(ti_thing_t * thing, mp_unp_t * up)
 /*
  * Returns 0 on success
  */
-static int ctask__mod_type_hid(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__mod_type_hid(ti_thing_t *thing, mp_unp_t *up)
 {
-    ti_collection_t * collection = thing->collection;
-    ti_type_t * type;
+    ti_collection_t *collection = thing->collection;
+    ti_type_t *type;
     mp_obj_t obj, mp_id, mp_modified, mp_hid;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
@@ -2205,10 +2205,10 @@ static int ctask__mod_type_hid(ti_thing_t * thing, mp_unp_t * up)
 /*
  * Returns 0 on success
  */
-static int ctask__mod_type_idx(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__mod_type_idx(ti_thing_t *thing, mp_unp_t *up)
 {
-    ti_collection_t * collection = thing->collection;
-    ti_type_t * type;
+    ti_collection_t *collection = thing->collection;
+    ti_type_t *type;
     mp_obj_t obj, mp_id, mp_modified, mp_idx;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
@@ -2245,11 +2245,11 @@ static int ctask__mod_type_idx(ti_thing_t * thing, mp_unp_t * up)
 /*
  * Returns 0 on success
  */
-static int ctask__mod_type_row(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__mod_type_row(ti_thing_t *thing, mp_unp_t *up)
 {
     ex_t e = {0};
-    ti_collection_t * collection = thing->collection;
-    ti_type_t * type;
+    ti_collection_t *collection = thing->collection;
+    ti_type_t *type;
     size_t i;
     mp_obj_t obj, mp_id, mp_modified, mp_column;
 
@@ -2316,7 +2316,7 @@ static int ctask__mod_type_row(ti_thing_t * thing, mp_unp_t * up)
  * Returns 0 on success
  * - for example: 'prop'
  */
-static int ctask__del(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__del(ti_thing_t *thing, mp_unp_t *up)
 {
     assert(ti_thing_is_object(thing));
 
@@ -2339,7 +2339,7 @@ static int ctask__del(ti_thing_t * thing, mp_unp_t * up)
  * Returns 0 on success
  * - for example: '{key: nkey}'
  */
-static int ctask__ren(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__ren(ti_thing_t *thing, mp_unp_t *up)
 {
     ex_t e = {0};
     mp_obj_t obj, mp_okey, mp_nkey;
@@ -2375,10 +2375,10 @@ static int ctask__ren(ti_thing_t * thing, mp_unp_t * up)
  * Returns 0 on success
  * - for example: 'name'
  */
-static int ctask__del_procedure(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__del_procedure(ti_thing_t *thing, mp_unp_t *up)
 {
-    ti_collection_t * collection = thing->collection;
-    ti_procedure_t * procedure;
+    ti_collection_t *collection = thing->collection;
+    ti_procedure_t *procedure;
     mp_obj_t mp_name;
 
     if (mp_next(up, &mp_name) != MP_STR)
@@ -2414,13 +2414,13 @@ static int ctask__del_procedure(ti_thing_t * thing, mp_unp_t * up)
  * Returns 0 on success
  * - for example: '{name: closure}'
  */
-static int ctask__new_procedure(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__new_procedure(ti_thing_t *thing, mp_unp_t *up)
 {
     int rc;
     mp_obj_t obj, mp_name, mp_created;
-    ti_collection_t * collection = thing->collection;
-    ti_procedure_t * procedure;
-    ti_closure_t * closure;
+    ti_collection_t *collection = thing->collection;
+    ti_procedure_t *procedure;
+    ti_closure_t *closure;
     ti_vup_t vup = {
             .isclient = false,
             .collection = collection,
@@ -2478,12 +2478,12 @@ failed:
  * Returns 0 on success
  * - for example: '{name: closure}'
  */
-static int ctask__mod_procedure(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__mod_procedure(ti_thing_t *thing, mp_unp_t *up)
 {
     mp_obj_t obj, mp_name, mp_created;
-    ti_collection_t * collection = thing->collection;
-    ti_procedure_t * procedure;
-    ti_closure_t * closure;
+    ti_collection_t *collection = thing->collection;
+    ti_procedure_t *procedure;
+    ti_closure_t *closure;
     ti_vup_t vup = {
             .isclient = false,
             .collection = collection,
@@ -2536,14 +2536,14 @@ static int ctask__mod_procedure(ti_thing_t * thing, mp_unp_t * up)
  * Returns 0 on success
  * - for example: '{id: 123, run_at: ...}'
  */
-static int ctask__vtask_new(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__vtask_new(ti_thing_t *thing, mp_unp_t *up)
 {
     mp_obj_t obj, mp_id, mp_run_at, mp_user_id;
-    ti_collection_t * collection = thing->collection;
-    ti_vtask_t * vtask = NULL;
-    ti_varr_t * varr = NULL;
-    ti_closure_t * closure;
-    ti_user_t * user;
+    ti_collection_t *collection = thing->collection;
+    ti_vtask_t *vtask = NULL;
+    ti_varr_t *varr = NULL;
+    ti_closure_t *closure;
+    ti_user_t *user;
     ti_vup_t vup = {
             .isclient = false,
             .collection = collection,
@@ -2610,10 +2610,10 @@ fail0:
  * Returns 0 on success
  * - for example: '{id: 123}'
  */
-static int ctask__vtask_del(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__vtask_del(ti_thing_t *thing, mp_unp_t *up)
 {
     mp_obj_t obj, mp_id;
-    ti_collection_t * collection = thing->collection;
+    ti_collection_t *collection = thing->collection;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 1 ||
         mp_skip(up) != MP_STR ||
@@ -2634,11 +2634,11 @@ static int ctask__vtask_del(ti_thing_t * thing, mp_unp_t * up)
  * Returns 0 on success
  * - for example: '{id: 123}'
  */
-static int ctask__vtask_cancel(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__vtask_cancel(ti_thing_t *thing, mp_unp_t *up)
 {
     mp_obj_t obj, mp_id;
-    ti_collection_t * collection = thing->collection;
-    ti_vtask_t * vtask;
+    ti_collection_t *collection = thing->collection;
+    ti_vtask_t *vtask;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 1 ||
         mp_skip(up) != MP_STR ||
@@ -2657,12 +2657,12 @@ static int ctask__vtask_cancel(ti_thing_t * thing, mp_unp_t * up)
     return 0;
 }
 
-static int ctask__vtask_finish(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__vtask_finish(ti_thing_t *thing, mp_unp_t *up)
 {
     mp_obj_t obj, mp_id, mp_run_at;
-    ti_collection_t * collection = thing->collection;
-    ti_val_t * val;
-    ti_vtask_t * vtask;
+    ti_collection_t *collection = thing->collection;
+    ti_val_t *val;
+    ti_vtask_t *vtask;
     ti_vup_t vup = {
             .isclient = false,
             .collection = collection,
@@ -2714,12 +2714,12 @@ fail0:
     return -1;
 }
 
-static int ctask__vtask_set_args(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__vtask_set_args(ti_thing_t *thing, mp_unp_t *up)
 {
     mp_obj_t obj, mp_id;
-    ti_collection_t * collection = thing->collection;
-    ti_varr_t * varr;
-    ti_vtask_t * vtask;
+    ti_collection_t *collection = thing->collection;
+    ti_varr_t *varr;
+    ti_vtask_t *vtask;
     ti_vup_t vup = {
             .isclient = false,
             .collection = collection,
@@ -2745,7 +2745,7 @@ static int ctask__vtask_set_args(ti_thing_t * thing, mp_unp_t * up)
     vtask = ti_vtask_by_id(collection->vtasks, mp_id.via.u64);
     if (vtask)
     {
-        vec_t * tmp = vtask->args;
+        vec_t *tmp = vtask->args;
         vtask->args = varr->vec;
         varr->vec = tmp;
     }
@@ -2761,12 +2761,12 @@ fail0:
     return -1;
 }
 
-static int ctask__vtask_set_owner(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__vtask_set_owner(ti_thing_t *thing, mp_unp_t *up)
 {
     mp_obj_t obj, mp_id, mp_user_id;
-    ti_collection_t * collection = thing->collection;
-    ti_user_t * user;
-    ti_vtask_t * vtask;
+    ti_collection_t *collection = thing->collection;
+    ti_user_t *user;
+    ti_vtask_t *vtask;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
         mp_skip(up) != MP_STR ||
@@ -2793,12 +2793,12 @@ static int ctask__vtask_set_owner(ti_thing_t * thing, mp_unp_t * up)
     return 0;
 }
 
-static int ctask__vtask_set_closure(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__vtask_set_closure(ti_thing_t *thing, mp_unp_t *up)
 {
     mp_obj_t obj, mp_id;
-    ti_collection_t * collection = thing->collection;
-    ti_closure_t * closure;
-    ti_vtask_t * vtask;
+    ti_collection_t *collection = thing->collection;
+    ti_closure_t *closure;
+    ti_vtask_t *vtask;
     ti_vup_t vup = {
             .isclient = false,
             .collection = collection,
@@ -2840,7 +2840,7 @@ fail0:
 }
 
 /* TODO (COMPAT): Obsolete task */
-static int ctask__del_timer(mp_unp_t * up)
+static int ctask__del_timer(mp_unp_t *up)
 {
     log_warning("task `del_timer` is obsolete");
     mp_skip(up);
@@ -2848,7 +2848,7 @@ static int ctask__del_timer(mp_unp_t * up)
 }
 
 /* TODO (COMPAT): Obsolete task */
-static int ctask__new_timer(mp_unp_t * up)
+static int ctask__new_timer(mp_unp_t *up)
 {
     log_warning("task `new_timer` is obsolete");
     mp_skip(up);
@@ -2856,7 +2856,7 @@ static int ctask__new_timer(mp_unp_t * up)
 }
 
 /* TODO (COMPAT): Obsolete task */
-static int ctask__set_timer_args(mp_unp_t * up)
+static int ctask__set_timer_args(mp_unp_t *up)
 {
     log_warning("task `set_timer_args` is obsolete");
     mp_skip(up);
@@ -2867,11 +2867,11 @@ static int ctask__set_timer_args(mp_unp_t * up)
  * Returns 0 on success
  * - for example: enum_id
  */
-static int ctask__del_enum(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__del_enum(ti_thing_t *thing, mp_unp_t *up)
 {
-    ti_collection_t * collection = thing->collection;
+    ti_collection_t *collection = thing->collection;
     mp_obj_t mp_id;
-    ti_enum_t * enum_;
+    ti_enum_t *enum_;
 
     if (mp_next(up, &mp_id) != MP_U64)
     {
@@ -2917,11 +2917,11 @@ static int ctask__del_enum(ti_thing_t * thing, mp_unp_t * up)
  * Returns 0 on success
  * - for example: type_id
  */
-static int ctask__del_type(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__del_type(ti_thing_t *thing, mp_unp_t *up)
 {
-    ti_collection_t * collection = thing->collection;
+    ti_collection_t *collection = thing->collection;
     mp_obj_t mp_id;
-    ti_type_t * type;
+    ti_type_t *type;
 
     if (mp_next(up, &mp_id) != MP_U64)
     {
@@ -2960,14 +2960,14 @@ static int ctask__del_type(ti_thing_t * thing, mp_unp_t * up)
  * Returns 0 on success
  * - for example: {'prop': [del_count, thing_ids...]}
  */
-static int ctask__set_remove(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__set_remove(ti_thing_t *thing, mp_unp_t *up)
 {
-    ti_collection_t * collection = thing->collection;
-    ti_val_t * val;
+    ti_collection_t *collection = thing->collection;
+    ti_val_t *val;
     mp_obj_t obj, mp_prop, mp_id;
-    ti_thing_t * t;
+    ti_thing_t *t;
     size_t i;
-    ti_field_t * field, * ofield = NULL;
+    ti_field_t *field, *ofield = NULL;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 1 ||
         mp_next(up, &mp_prop) != MP_STR ||
@@ -3043,12 +3043,12 @@ static int ctask__set_remove(ti_thing_t * thing, mp_unp_t * up)
  * Returns 0 on success
  * - for example: {'id':id, 'name':name}
  */
-static int ctask__rename_enum(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__rename_enum(ti_thing_t *thing, mp_unp_t *up)
 {
     int rc = 0;
-    ti_enum_t * enum_;
+    ti_enum_t *enum_;
     mp_obj_t obj, mp_id, mp_name;
-    ti_raw_t * rname;
+    ti_raw_t *rname;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
         mp_skip(up) != MP_STR ||
@@ -3084,10 +3084,10 @@ static int ctask__rename_enum(ti_thing_t * thing, mp_unp_t * up)
  * Returns 0 on success
  * - for example: {'old':name, 'name':name}
  */
-static int ctask__rename_procedure(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__rename_procedure(ti_thing_t *thing, mp_unp_t *up)
 {
-    ti_collection_t * collection = thing->collection;
-    ti_procedure_t * procedure;
+    ti_collection_t *collection = thing->collection;
+    ti_procedure_t *procedure;
     mp_obj_t obj, mp_old, mp_name;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
@@ -3124,12 +3124,12 @@ static int ctask__rename_procedure(ti_thing_t * thing, mp_unp_t * up)
  * Returns 0 on success
  * - for example: {'id':id, 'name':name}
  */
-static int ctask__rename_type(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__rename_type(ti_thing_t *thing, mp_unp_t *up)
 {
     int rc = 0;
-    ti_type_t * type;
+    ti_type_t *type;
     mp_obj_t obj, mp_id, mp_name;
-    ti_raw_t * rname;
+    ti_raw_t *rname;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
         mp_skip(up) != MP_STR ||
@@ -3165,11 +3165,11 @@ static int ctask__rename_type(ti_thing_t * thing, mp_unp_t * up)
  * Returns 0 on success
  * - for example: {'prop': value}
  */
-static int ctask__fill(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__fill(ti_thing_t *thing, mp_unp_t *up)
 {
     ex_t e = {0};
-    ti_val_t * val;
-    ti_varr_t * varr;
+    ti_val_t *val;
+    ti_varr_t *varr;
     ti_vup_t vup = {
             .isclient = false,
             .collection = thing->collection,
@@ -3238,11 +3238,11 @@ static int ctask__fill(ti_thing_t * thing, mp_unp_t * up)
  * Returns 0 on success
  * - for example: {'prop': [index, del_count, new_count, values...]}
  */
-static int ctask__splice(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__splice(ti_thing_t *thing, mp_unp_t *up)
 {
     ex_t e = {0};
     size_t n, i, c, cur_n, new_n;
-    ti_varr_t * varr;
+    ti_varr_t *varr;
     ti_vup_t vup = {
             .isclient = false,
             .collection = thing->collection,
@@ -3320,7 +3320,7 @@ static int ctask__splice(ti_thing_t * thing, mp_unp_t * up)
 
     while(n--)
     {
-        ti_val_t * val = ti_val_from_vup(&vup);
+        ti_val_t *val = ti_val_from_vup(&vup);
 
         if (!val)  /* both <0 and >0 are not correct since we should have n values */
         {
@@ -3353,10 +3353,10 @@ static int ctask__splice(ti_thing_t * thing, mp_unp_t * up)
  * Returns 0 on success
  * - for example: {'prop': {'key': value}}
  */
-static int ctask__dict_set(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__dict_set(ti_thing_t *thing, mp_unp_t *up)
 {
     ex_t e = {0};
-    ti_dict_t * dict;
+    ti_dict_t *dict;
     ti_vup_t vup = {
             .isclient = false,
             .collection = thing->collection,
@@ -3399,8 +3399,8 @@ static int ctask__dict_set(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    ti_val_t * key = ti_val_from_vup(&vup);
-    ti_val_t * val = ti_val_from_vup(&vup);
+    ti_val_t *key = ti_val_from_vup(&vup);
+    ti_val_t *val = ti_val_from_vup(&vup);
 
     if (!key || !val)
     {
@@ -3431,9 +3431,9 @@ static int ctask__dict_set(ti_thing_t * thing, mp_unp_t * up)
  * Returns 0 on success
  * - for example: {'prop': 'key'}
  */
-static int ctask__dict_del(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__dict_del(ti_thing_t *thing, mp_unp_t *up)
 {
-    ti_dict_t * dict;
+    ti_dict_t *dict;
     ti_vup_t vup = {
             .isclient = false,
             .collection = thing->collection,
@@ -3475,7 +3475,7 @@ static int ctask__dict_del(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    ti_val_t * key = ti_val_from_vup(&vup);
+    ti_val_t *key = ti_val_from_vup(&vup);
     if (!key)
     {
         log_critical(
@@ -3494,9 +3494,9 @@ static int ctask__dict_del(ti_thing_t * thing, mp_unp_t * up)
  * Returns 0 on success
  * - for example: 'prop'
  */
-static int ctask__dict_clear(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__dict_clear(ti_thing_t *thing, mp_unp_t *up)
 {
-    ti_dict_t * dict;
+    ti_dict_t *dict;
     mp_obj_t mp_prop;
 
     if (mp_next(up, &mp_prop) != MP_STR)
@@ -3540,9 +3540,9 @@ static int ctask__dict_clear(ti_thing_t * thing, mp_unp_t * up)
  * Returns 0 on success (index are written from high to low values)
  * - for example: {'prop': [index, index, ...]}
  */
-int ctask__arr_remove(ti_thing_t * thing, mp_unp_t * up)
+int ctask__arr_remove(ti_thing_t *thing, mp_unp_t *up)
 {
-    ti_varr_t * varr;
+    ti_varr_t *varr;
     mp_obj_t obj, mp_prop, mp_idx;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 1 ||
@@ -3600,10 +3600,10 @@ int ctask__arr_remove(ti_thing_t * thing, mp_unp_t * up)
  * Returns 0 on success
  * - for example: '{name: closure}'
  */
-static int ctask__commit(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__commit(ti_thing_t *thing, mp_unp_t *up)
 {
     vec_t ** commits = &thing->collection->commits;
-    ti_commit_t * commit = ti_commit_from_up(up);
+    ti_commit_t *commit = ti_commit_from_up(up);
     if (!commit)
     {
         log_critical(
@@ -3635,7 +3635,7 @@ fail:
 /*
  * Unpacker should be at point 'task': ...
  */
-int ti_ctask_run(ti_thing_t * thing, mp_unp_t * up)
+int ti_ctask_run(ti_thing_t *thing, mp_unp_t *up)
 {
     mp_obj_t obj, mp_task;
     if (mp_next(up, &obj) != MP_ARR || obj.via.sz != 2 ||

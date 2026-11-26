@@ -19,15 +19,15 @@
  */
 #include <ti/fn/fn.h>
 
-static int do__f_timeit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_timeit(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     static const double d = 1000000000.0;
     const int nargs = fn_get_nargs(nd);
     struct timespec start;
     struct timespec end;
     double timeit;
-    ti_val_t * f;
-    ti_thing_t * t;
+    ti_val_t *f;
+    ti_thing_t *t;
 
     if (fn_nargs("timeit", DOC_TIMEIT, 1, nargs, e))
         return e->nr;

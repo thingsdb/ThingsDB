@@ -3,7 +3,7 @@
 
 
 static const unsigned int num_entries = 8;
-static char * entries[] = {
+static char *entries[] = {
     "Zero",
     "First entry",
     "Second entry",
@@ -28,7 +28,7 @@ int main()
 {
     test_start("vec");
 
-    vec_t * v = vec_new(0);
+    vec_t *v = vec_new(0);
 
     _assert (v);
 
@@ -65,7 +65,7 @@ int main()
 
     /* test dup */
     {
-        vec_t * cp;
+        vec_t *cp;
         _assert ((cp = vec_dup(v)) != NULL);
         _assert (cp->n == num_entries);
         _assert (cp->sz == num_entries);

@@ -11,20 +11,20 @@ typedef struct ti_write_s ti_write_t;
 #include <ti/pkg.h>
 #include <ex.h>
 
-typedef void (*ti_write_cb)(ti_write_t * req, ex_enum status);
+typedef void (*ti_write_cb)(ti_write_t *req, ex_enum status);
 
 int ti_write(
-        ti_stream_t * stream,
-        ti_pkg_t * pkg,
-        void * data,
+        ti_stream_t *stream,
+        ti_pkg_t *pkg,
+        void *data,
         ti_write_cb cb);
-void ti_write_destroy(ti_write_t * req);
+void ti_write_destroy(ti_write_t *req);
 
 struct ti_write_s
 {
-    ti_stream_t * stream;
-    ti_pkg_t * pkg;
-    void * data;
+    ti_stream_t *stream;
+    ti_pkg_t *pkg;
+    void *data;
     ti_write_cb cb_;
     uv_write_t req_;
 };

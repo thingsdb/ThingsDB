@@ -14,7 +14,7 @@
 #define TI_FUTURE_DEEP_MASK 0x7f
 #define TI_FUTURE_LOAD_FLAG 0x80
 
-static inline void ti_future_forget_cb(ti_closure_t * cb)
+static inline void ti_future_forget_cb(ti_closure_t *cb)
 {
     if (!cb)
         return;
@@ -22,17 +22,17 @@ static inline void ti_future_forget_cb(ti_closure_t * cb)
     ti_val_unsafe_drop((ti_val_t *) cb);
 }
 
-static inline uint8_t ti_future_deep(ti_future_t * future)
+static inline uint8_t ti_future_deep(ti_future_t *future)
 {
     return future->options & TI_FUTURE_DEEP_MASK;
 }
 
-static inline uint8_t ti_future_should_load(ti_future_t * future)
+static inline uint8_t ti_future_should_load(ti_future_t *future)
 {
     return future->options & TI_FUTURE_LOAD_FLAG;
 }
 
-static inline _Bool ti_future_own_mpdata(ti_future_t * future)
+static inline _Bool ti_future_own_mpdata(ti_future_t *future)
 {
     return (future->rval &&
             future->rval->ref == 1 &&

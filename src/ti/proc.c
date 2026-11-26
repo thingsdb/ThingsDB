@@ -8,12 +8,12 @@
 
 
 static void proc__alloc_buf(
-        uv_handle_t * handle,
+        uv_handle_t *handle,
         size_t sugsz,
-        uv_buf_t * uv_buf)
+        uv_buf_t *uv_buf)
 {
-    ti_proc_t * proc = handle->data;
-    buf_t * buf = &proc->buf;
+    ti_proc_t *proc = handle->data;
+    buf_t *buf = &proc->buf;
 
     if (!buf->len && buf->cap != sugsz)
     {
@@ -34,11 +34,11 @@ static void proc__alloc_buf(
     uv_buf->len = buf->cap - buf->len;
 }
 
-void proc__on_data(uv_stream_t * uvstream, ssize_t n, const uv_buf_t * uv_buf)
+void proc__on_data(uv_stream_t *uvstream, ssize_t n, const uv_buf_t *uv_buf)
 {
-    ti_proc_t * proc = uvstream->data;
-    buf_t * buf = &proc->buf;
-    ti_pkg_t * pkg;
+    ti_proc_t *proc = uvstream->data;
+    buf_t *buf = &proc->buf;
+    ti_pkg_t *pkg;
     size_t total_sz;
 
     if (n < 0)
@@ -76,7 +76,7 @@ void proc__on_data(uv_stream_t * uvstream, ssize_t n, const uv_buf_t * uv_buf)
     {
         if (buf->cap < total_sz)
         {
-            char * tmp = realloc(buf->data, total_sz);
+            char *tmp = realloc(buf->data, total_sz);
             if (!tmp)
             {
                 log_error(EX_MEMORY_S);
@@ -99,9 +99,9 @@ void proc__on_data(uv_stream_t * uvstream, ssize_t n, const uv_buf_t * uv_buf)
     }
 }
 
-static void proc__on_child_stdout_close(uv_handle_t * handle)
+static void proc__on_child_stdout_close(uv_handle_t *handle)
 {
-    ti_proc_t * proc = handle->data;
+    ti_proc_t *proc = handle->data;
 
     /* clear buffer */
     free(proc->buf.data);
@@ -110,24 +110,24 @@ static void proc__on_child_stdout_close(uv_handle_t * handle)
     ti_module_on_exit(proc->module);
 }
 
-static void proc__on_child_stdin_close(uv_handle_t * handle)
+static void proc__on_child_stdin_close(uv_handle_t *handle)
 {
-    ti_proc_t * proc = handle->data;
+    ti_proc_t *proc = handle->data;
     uv_close((uv_handle_t *) &proc->child_stdout, proc__on_child_stdout_close);
 }
 
-static void proc__on_process_close(uv_process_t * process)
+static void proc__on_process_close(uv_process_t *process)
 {
-    ti_proc_t * proc = process->data;
+    ti_proc_t *proc = process->data;
     uv_close((uv_handle_t *) &proc->child_stdin, proc__on_child_stdin_close);
 }
 
 static void proc__on_exit(
-        uv_process_t * process,
+        uv_process_t *process,
         int64_t exit_status,
         int term_signal)
 {
-    ti_proc_t * proc = process->data;
+    ti_proc_t *proc = process->data;
 
     process->pid = 0;
 
@@ -147,7 +147,7 @@ static void proc__on_exit(
     uv_close((uv_handle_t *) process, (uv_close_cb) proc__on_process_close);
 }
 
-void ti_proc_init(ti_proc_t * proc, ti_module_t * module)
+void ti_proc_init(ti_proc_t *proc, ti_module_t *module)
 {
     memset(proc, 0, sizeof(ti_proc_t));
 
@@ -182,7 +182,7 @@ void ti_proc_init(ti_proc_t * proc, ti_module_t * module)
  * this is a Python module and the Python interpreter is not found. In that
  * last case, TI_MODULE_STAT_PY_INTERPRETER_NOT_FOUND is returned.
  */
-int ti_proc_load(ti_proc_t * proc)
+int ti_proc_load(ti_proc_t *proc)
 {
     int rc;
 

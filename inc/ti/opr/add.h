@@ -1,6 +1,6 @@
 #include <ti/opr/oprinc.h>
 
-static int opr__add(ti_val_t * a, ti_val_t ** b, ex_t * e)
+static int opr__add(ti_val_t *a, ti_val_t ** b, ex_t *e)
 {
     int64_t int_ = 0;       /* set to 0 only to prevent warning */
     double float_ = 0.0;    /* set to 0 only to prevent warning */
@@ -66,7 +66,7 @@ static int opr__add(ti_val_t * a, ti_val_t ** b, ex_t * e)
     case OPR_BYTES_STR:
     case OPR_BYTES_BYTES:
     {
-        ti_raw_t * raw = NULL;  /* set to 0 only to prevent warning */
+        ti_raw_t *raw = NULL;  /* set to 0 only to prevent warning */
         raw = ti_raw_cat((ti_raw_t *) a, (ti_raw_t *) *b);
         if (raw)
         {

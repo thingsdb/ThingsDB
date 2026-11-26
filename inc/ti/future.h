@@ -8,15 +8,15 @@
 #include <ti/future.t.h>
 #include <ti/query.t.h>
 
-ti_future_t * ti_future_create(
-        ti_query_t * query,
-        ti_module_t * module,
+ti_future_t *ti_future_create(
+        ti_query_t *query,
+        ti_module_t *module,
         size_t nargs,
         uint8_t deep,
         _Bool load);
-int ti_future_register(ti_future_t * future);
-void ti_future_destroy(ti_future_t * future);
-void ti_future_cancel(ti_future_t * future);
-void ti_future_stop(ti_future_t * future);
+int ti_future_register(ti_future_t *future);
+void ti_future_destroy(ti_future_t *future);
+void ti_future_cancel(ti_future_t *future);
+void ti_future_stop(ti_future_t *future);
 
 #endif  /* TI_FUTURE_H_ */

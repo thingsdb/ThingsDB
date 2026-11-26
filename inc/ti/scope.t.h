@@ -18,7 +18,7 @@ typedef enum
 
 struct ti_scope_name_s
 {
-    const char * name;
+    const char *name;
     size_t sz;
 };
 

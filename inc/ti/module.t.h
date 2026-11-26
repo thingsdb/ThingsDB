@@ -5,7 +5,7 @@
 #define TI_MODULE_T_H_
 
 typedef struct ti_module_s ti_module_t;
-typedef void (*ti_module_cb)(void * future);
+typedef void (*ti_module_cb)(void *future);
 
 #define TI_MODULE_MAX_ERR 255
 #define TI_MODULE_DEFAULT_LOAD false
@@ -57,8 +57,8 @@ typedef enum
 
 typedef union
 {
-    char * file;                    /* just a pointer to module->orig */
-    ti_mod_github_t * github;       /* unpacked GitHub module */
+    char *file;                    /* just a pointer to module->orig */
+    ti_mod_github_t *github;       /* unpacked GitHub module */
 } ti_module_source_via_t;
 
 struct ti_module_s
@@ -73,18 +73,18 @@ struct ti_module_s
                                restarted */
     uint16_t next_pid;      /* next package id  */
     ti_module_cb cb;        /* module callback */
-    ti_name_t * name;       /* name of the module */
-    char * orig;            /* original source of the module */
-    char * path;            /* path with the module, without tailing `/` */
-    char * file;            /* file (full path) to start */
-    char * fn;              /* just the file name (using a pointer to file) */
-    char * conf_error;      /* node configuration error */
+    ti_name_t *name;       /* name of the module */
+    char *orig;            /* original source of the module */
+    char *path;            /* path with the module, without tailing `/` */
+    char *file;            /* file (full path) to start */
+    char *fn;              /* just the file name (using a pointer to file) */
+    char *conf_error;      /* node configuration error */
     char ** args;           /* process arguments (main file etc.) */
-    ti_pkg_t * conf_pkg;    /* configuration package */
+    ti_pkg_t *conf_pkg;    /* configuration package */
     uint64_t started_at;    /* module started at this time-stamp */
     uint64_t created_at;    /* module started at this time-stamp */
-    uint64_t * scope_id;    /* bound to a scope, may be NULL for all scopes */
-    omap_t * futures;       /* ti_future_t (no reference, parent query holds
+    uint64_t *scope_id;    /* bound to a scope, may be NULL for all scopes */
+    omap_t *futures;       /* ti_future_t (no reference, parent query holds
                                a reference so no extra is needed) */
     ti_mod_manifest_t manifest;             /* manifest from module.json */
     ti_proc_t proc;                         /* process */
@@ -96,7 +96,7 @@ struct ti_module_s
                                                the module is *not* installing,
                                                thus not being written by
                                                an installation thread;  */
-    uv_timer_t * wait_deploy;
+    uv_timer_t *wait_deploy;
 };
 
 

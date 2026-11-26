@@ -1,11 +1,11 @@
 #include <ti/fn/fn.h>
 
-static int do__f_rename_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_rename_enum(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_enum_t * enum_;
-    ti_task_t * task;
-    ti_raw_t * oname, * nname;
+    ti_enum_t *enum_;
+    ti_task_t *task;
+    ti_raw_t *oname, *nname;
 
     if (fn_not_collection_scope("rename_enum", query, e) ||
         fn_commit("rename_enum", query, e) ||

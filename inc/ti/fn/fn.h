@@ -102,36 +102,36 @@ static int fn_call_try_n(
     fn_call_try_n(__name, strlen(__name), __q, __nd, __e)
 
 int fn_arg_str_slow(
-        const char * name,
-        const char * doc,
+        const char *name,
+        const char *doc,
         int argn,
-        ti_val_t * val,
-        ex_t * e);
+        ti_val_t *val,
+        ex_t *e);
 int fn_arg_int_slow(
-        const char * name,
-        const char * doc,
+        const char *name,
+        const char *doc,
         int argn,
-        ti_val_t * val,
-        ex_t * e);
+        ti_val_t *val,
+        ex_t *e);
 int fn_arg_bool_slow(
-        const char * name,
-        const char * doc,
+        const char *name,
+        const char *doc,
         int argn,
-        ti_val_t * val,
-        ex_t * e);
+        ti_val_t *val,
+        ex_t *e);
 
-static inline int fn_get_nargs(cleri_node_t * nd)
+static inline int fn_get_nargs(cleri_node_t *nd)
 {
     return (int) ((intptr_t) nd->data);
 }
 
-static inline int fn_is_not_node_scope(ti_query_t * query)
+static inline int fn_is_not_node_scope(ti_query_t *query)
 {
     return \
         query->qbind.flags & (TI_QBIND_FLAG_THINGSDB|TI_QBIND_FLAG_COLLECTION);
 }
 
-static inline ti_tz_t * fn_default_tz(ti_query_t * query)
+static inline ti_tz_t *fn_default_tz(ti_query_t *query)
 {
     return query->collection
             ? query->collection->tz
@@ -141,9 +141,9 @@ static inline ti_tz_t * fn_default_tz(ti_query_t * query)
 }
 
 static inline int fn_not_node_scope(
-        const char * name,
-        ti_query_t * query,
-        ex_t * e)
+        const char *name,
+        ti_query_t *query,
+        ex_t *e)
 {
     if (fn_is_not_node_scope(query))
         ex_set(e, EX_LOOKUP_ERROR,
@@ -155,9 +155,9 @@ static inline int fn_not_node_scope(
 }
 
 static inline int fn_not_thingsdb_scope(
-        const char * name,
-        ti_query_t * query,
-        ex_t * e)
+        const char *name,
+        ti_query_t *query,
+        ex_t *e)
 {
     if (~query->qbind.flags & TI_QBIND_FLAG_THINGSDB)
         ex_set(e, EX_LOOKUP_ERROR,
@@ -169,11 +169,11 @@ static inline int fn_not_thingsdb_scope(
 }
 
 static inline int fn_nargs(
-        const char * name,
-        const char * doc,
+        const char *name,
+        const char *doc,
         const int n,
         const int nargs,
-        ex_t * e)
+        ex_t *e)
 {
     if (nargs != n)
         ex_set(e, EX_NUM_ARGUMENTS,
@@ -183,11 +183,11 @@ static inline int fn_nargs(
 }
 
 static inline int fn_nargs_max(
-        const char * name,
-        const char * doc,
+        const char *name,
+        const char *doc,
         const int ma,
         const int nargs,
-        ex_t * e)
+        ex_t *e)
 {
     if (nargs > ma)
         ex_set(e, EX_NUM_ARGUMENTS,
@@ -197,11 +197,11 @@ static inline int fn_nargs_max(
 }
 
 static inline int fn_nargs_min(
-        const char * name,
-        const char * doc,
+        const char *name,
+        const char *doc,
         const int mi,
         const int nargs,
-        ex_t * e)
+        ex_t *e)
 {
     if (nargs < mi)
         ex_set(e, EX_NUM_ARGUMENTS,
@@ -211,12 +211,12 @@ static inline int fn_nargs_min(
 }
 
 static inline int fn_nargs_range(
-        const char * name,
-        const char * doc,
+        const char *name,
+        const char *doc,
         const int mi,
         const int ma,
         const int nargs,
-        ex_t * e)
+        ex_t *e)
 {
     return (
             fn_nargs_min(name, doc, mi, nargs, e) ||
@@ -225,11 +225,11 @@ static inline int fn_nargs_range(
 }
 
 static inline int fn_arg_number(
-        const char * name,
-        const char * doc,
+        const char *name,
+        const char *doc,
         int argn,
-        ti_val_t * val,
-        ex_t * e)
+        ti_val_t *val,
+        ex_t *e)
 {
     if (!ti_val_is_number(val))
         ex_set(e, EX_TYPE_ERROR,
@@ -241,11 +241,11 @@ static inline int fn_arg_number(
 }
 
 static inline int fn_arg_str(
-        const char * name,
-        const char * doc,
+        const char *name,
+        const char *doc,
         int argn,
-        ti_val_t * val,
-        ex_t * e)
+        ti_val_t *val,
+        ex_t *e)
 {
     if (!ti_val_is_str(val))
         ex_set(e, EX_TYPE_ERROR,
@@ -256,11 +256,11 @@ static inline int fn_arg_str(
 }
 
 static inline int fn_arg_str_ano(
-        const char * name,
-        const char * doc,
+        const char *name,
+        const char *doc,
         int argn,
-        ti_val_t * val,
-        ex_t * e)
+        ti_val_t *val,
+        ex_t *e)
 {
     if (!ti_val_is_str_ano(val))
         ex_set(e, EX_TYPE_ERROR,
@@ -273,11 +273,11 @@ static inline int fn_arg_str_ano(
 
 
 static inline int fn_arg_bytes(
-        const char * name,
-        const char * doc,
+        const char *name,
+        const char *doc,
         int argn,
-        ti_val_t * val,
-        ex_t * e)
+        ti_val_t *val,
+        ex_t *e)
 {
     if (!ti_val_is_bytes(val))
         ex_set(e, EX_TYPE_ERROR,
@@ -288,11 +288,11 @@ static inline int fn_arg_bytes(
 }
 
 static inline int fn_arg_str_nil(
-        const char * name,
-        const char * doc,
+        const char *name,
+        const char *doc,
         int argn,
-        ti_val_t * val,
-        ex_t * e)
+        ti_val_t *val,
+        ex_t *e)
 {
     if (!ti_val_is_str_nil(val))
         ex_set(e, EX_TYPE_ERROR,
@@ -304,11 +304,11 @@ static inline int fn_arg_str_nil(
 }
 
 static inline int fn_arg_str_bytes_nil(
-        const char * name,
-        const char * doc,
+        const char *name,
+        const char *doc,
         int argn,
-        ti_val_t * val,
-        ex_t * e)
+        ti_val_t *val,
+        ex_t *e)
 {
     if (!ti_val_is_str_bytes_nil(val))
         ex_set(e, EX_TYPE_ERROR,
@@ -320,11 +320,11 @@ static inline int fn_arg_str_bytes_nil(
 }
 
 static inline int fn_arg_int(
-        const char * name,
-        const char * doc,
+        const char *name,
+        const char *doc,
         int argn,
-        ti_val_t * val,
-        ex_t * e)
+        ti_val_t *val,
+        ex_t *e)
 {
     if (!ti_val_is_int(val))
         ex_set(e, EX_TYPE_ERROR,
@@ -335,11 +335,11 @@ static inline int fn_arg_int(
 }
 
 static inline int fn_arg_float(
-        const char * name,
-        const char * doc,
+        const char *name,
+        const char *doc,
         int argn,
-        ti_val_t * val,
-        ex_t * e)
+        ti_val_t *val,
+        ex_t *e)
 {
     if (!ti_val_is_float(val))
         ex_set(e, EX_TYPE_ERROR,
@@ -350,11 +350,11 @@ static inline int fn_arg_float(
 }
 
 static inline int fn_arg_thing(
-        const char * name,
-        const char * doc,
+        const char *name,
+        const char *doc,
         int argn,
-        ti_val_t * val,
-        ex_t * e)
+        ti_val_t *val,
+        ex_t *e)
 {
     if (!ti_val_is_thing(val))
         ex_set(e, EX_TYPE_ERROR,
@@ -366,11 +366,11 @@ static inline int fn_arg_thing(
 
 
 static inline int fn_arg_closure(
-        const char * name,
-        const char * doc,
+        const char *name,
+        const char *doc,
         int argn,
-        ti_val_t * val,
-        ex_t * e)
+        ti_val_t *val,
+        ex_t *e)
 {
     if (!ti_val_is_closure(val))
         ex_set(e, EX_TYPE_ERROR,
@@ -381,11 +381,11 @@ static inline int fn_arg_closure(
 }
 
 static inline int fn_arg_bool(
-        const char * name,
-        const char * doc,
+        const char *name,
+        const char *doc,
         int argn,
-        ti_val_t * val,
-        ex_t * e)
+        ti_val_t *val,
+        ex_t *e)
 {
     if (!ti_val_is_bool(val))
         ex_set(e, EX_TYPE_ERROR,
@@ -396,11 +396,11 @@ static inline int fn_arg_bool(
 }
 
 static inline int fn_arg_datetime(
-        const char * name,
-        const char * doc,
+        const char *name,
+        const char *doc,
         int argn,
-        ti_val_t * val,
-        ex_t * e)
+        ti_val_t *val,
+        ex_t *e)
 {
     if (!ti_val_is_datetime(val))
         ex_set(e, EX_TYPE_ERROR,
@@ -412,11 +412,11 @@ static inline int fn_arg_datetime(
 }
 
 static inline int fn_arg_str_regex(
-        const char * name,
-        const char * doc,
+        const char *name,
+        const char *doc,
         int argn,
-        ti_val_t * val,
-        ex_t * e)
+        ti_val_t *val,
+        ex_t *e)
 {
     if (!ti_val_is_str_regex(val))
         ex_set(e, EX_TYPE_ERROR,
@@ -428,11 +428,11 @@ static inline int fn_arg_str_regex(
 }
 
 static inline int fn_arg_str_closure(
-        const char * name,
-        const char * doc,
+        const char *name,
+        const char *doc,
         int argn,
-        ti_val_t * val,
-        ex_t * e)
+        ti_val_t *val,
+        ex_t *e)
 {
     if (!ti_val_is_str_closure(val))
         ex_set(e, EX_TYPE_ERROR,
@@ -444,11 +444,11 @@ static inline int fn_arg_str_closure(
 }
 
 static inline int fn_arg_array(
-        const char * name,
-        const char * doc,
+        const char *name,
+        const char *doc,
         int argn,
-        ti_val_t * val,
-        ex_t * e)
+        ti_val_t *val,
+        ex_t *e)
 {
     if (!ti_val_is_array(val))
         ex_set(e, EX_TYPE_ERROR,
@@ -460,11 +460,11 @@ static inline int fn_arg_array(
 }
 
 static inline int fn_arg_array_or_nil(
-        const char * name,
-        const char * doc,
+        const char *name,
+        const char *doc,
         int argn,
-        ti_val_t * val,
-        ex_t * e)
+        ti_val_t *val,
+        ex_t *e)
 {
     if (!ti_val_is_array(val) && !ti_val_is_nil(val))
         ex_set(e, EX_TYPE_ERROR,
@@ -476,11 +476,11 @@ static inline int fn_arg_array_or_nil(
 }
 
 static inline int fn_arg_name_check(
-        const char * name,
-        const char * doc,
+        const char *name,
+        const char *doc,
         int argn,
-        ti_val_t * val,
-        ex_t * e)
+        ti_val_t *val,
+        ex_t *e)
 {
     if (fn_arg_str(name, doc, argn, val, e))
         return e->nr;
@@ -494,9 +494,9 @@ static inline int fn_arg_name_check(
 }
 
 static inline int fn_not_collection_scope(
-        const char * name,
-        ti_query_t * query,
-        ex_t * e)
+        const char *name,
+        ti_query_t *query,
+        ex_t *e)
 {
     if (~query->qbind.flags & TI_QBIND_FLAG_COLLECTION)
         ex_set(e, EX_LOOKUP_ERROR,
@@ -508,9 +508,9 @@ static inline int fn_not_collection_scope(
 }
 
 static inline int fn_not_thingsdb_or_collection_scope(
-        const char * name,
-        ti_query_t * query,
-        ex_t * e)
+        const char *name,
+        ti_query_t *query,
+        ex_t *e)
 {
     if (!(query->qbind.flags &
             (TI_QBIND_FLAG_THINGSDB|TI_QBIND_FLAG_COLLECTION)))
@@ -524,7 +524,7 @@ static inline int fn_not_thingsdb_or_collection_scope(
     return e->nr;
 }
 
-static inline int fn_commit(const char * name, ti_query_t * query, ex_t * e)
+static inline int fn_commit(const char *name, ti_query_t *query, ex_t *e)
 {
     if (*ti_query_commits(query) && !query->commit)
         ex_set(e, EX_OPERATION,
@@ -535,11 +535,11 @@ static inline int fn_commit(const char * name, ti_query_t * query, ex_t * e)
     return e->nr;
 }
 
-static int fn_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int fn_call(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
-    cleri_node_t * child = nd->children;    /* first in argument list */
-    ti_closure_t * closure;
-    vec_t * args = NULL;
+    cleri_node_t *child = nd->children;    /* first in argument list */
+    ti_closure_t *closure;
+    vec_t *args = NULL;
 
     if (!ti_val_is_closure(query->rval))
         return fn_call_try("call", query, nd, e);
@@ -588,14 +588,14 @@ fail0:
 }
 
 static int fn_call_o_try_n(
-        const char * name,
+        const char *name,
         size_t n,
-        ti_query_t * query,
-        cleri_node_t * nd,
-        ex_t * e)
+        ti_query_t *query,
+        cleri_node_t *nd,
+        ex_t *e)
 {
-    ti_thing_t * thing = (ti_thing_t *) query->rval;
-    ti_val_t * val = ti_thing_val_by_strn(thing, name, n);
+    ti_thing_t *thing = (ti_thing_t *) query->rval;
+    ti_val_t *val = ti_thing_val_by_strn(thing, name, n);
 
     if (!val)
     {
@@ -621,16 +621,16 @@ static int fn_call_o_try_n(
 }
 
 static int fn_call_t_try_n(
-        const char * name,
+        const char *name,
         size_t n,
-        ti_query_t * query,
-        cleri_node_t * nd,
-        ex_t * e)
+        ti_query_t *query,
+        cleri_node_t *nd,
+        ex_t *e)
 {
-    ti_name_t * name_ = ti_names_weak_get_strn(name, n);
-    ti_thing_t * thing = (ti_thing_t *) query->rval;
-    ti_method_t * method;
-    ti_val_t * val;
+    ti_name_t *name_ = ti_names_weak_get_strn(name, n);
+    ti_thing_t *thing = (ti_thing_t *) query->rval;
+    ti_method_t *method;
+    ti_val_t *val;
 
     if (!name_)
         goto no_prop_err;
@@ -663,17 +663,17 @@ no_prop_err:
 }
 
 static int fn_call_w_try_n(
-        const char * name,
+        const char *name,
         size_t n,
-        ti_query_t * query,
-        cleri_node_t * nd,
-        ex_t * e)
+        ti_query_t *query,
+        cleri_node_t *nd,
+        ex_t *e)
 {
-    ti_name_t * name_;
-    ti_method_t * method;
-    ti_wrap_t * wrap = (ti_wrap_t *) query->rval;
-    ti_thing_t * thing = wrap->thing;
-    ti_type_t * type = ti_wrap_maybe_type(wrap);
+    ti_name_t *name_;
+    ti_method_t *method;
+    ti_wrap_t *wrap = (ti_wrap_t *) query->rval;
+    ti_thing_t *thing = wrap->thing;
+    ti_type_t *type = ti_wrap_maybe_type(wrap);
 
     if (!type)
     {
@@ -705,16 +705,16 @@ no_method_err:
 }
 
 static int fn_call_wa_try_n(
-        const char * name,
+        const char *name,
         size_t n,
-        ti_query_t * query,
-        cleri_node_t * nd,
-        ex_t * e)
+        ti_query_t *query,
+        cleri_node_t *nd,
+        ex_t *e)
 {
-    ti_name_t * name_;
-    ti_method_t * method;
-    ti_wano_t * wano = (ti_wano_t *) query->rval;
-    ti_thing_t * thing = wano->thing;
+    ti_name_t *name_;
+    ti_method_t *method;
+    ti_wano_t *wano = (ti_wano_t *) query->rval;
+    ti_thing_t *thing = wano->thing;
 
     name_ = ti_names_weak_get_strn(name, n);
     if (!name_)
@@ -738,15 +738,15 @@ no_method_err:
 }
 
 static int fn_call_a_try_n(
-        const char * name,
+        const char *name,
         size_t n,
-        ti_query_t * query,
-        cleri_node_t * nd,
-        ex_t * e)
+        ti_query_t *query,
+        cleri_node_t *nd,
+        ex_t *e)
 {
-    ti_name_t * name_;
-    ti_method_t * method;
-    ti_ano_t * ano = (ti_ano_t *) query->rval;
+    ti_name_t *name_;
+    ti_method_t *method;
+    ti_ano_t *ano = (ti_ano_t *) query->rval;
 
     name_ = ti_names_weak_get_strn(name, n);
     if (!name_)
@@ -770,14 +770,14 @@ no_method_err:
 }
 
 static int fn_call_f_try_n(
-        const char * name,
+        const char *name,
         size_t n,
-        ti_query_t * query,
-        cleri_node_t * nd,
-        ex_t * e)
+        ti_query_t *query,
+        cleri_node_t *nd,
+        ex_t *e)
 {
-    ti_module_t * module = (ti_module_t *) query->rval;
-    ti_mod_expose_t * expose = ti_mod_expose_by_strn(module, name, n);
+    ti_module_t *module = (ti_module_t *) query->rval;
+    ti_mod_expose_t *expose = ti_mod_expose_by_strn(module, name, n);
 
     if (expose)
         return expose->closure
@@ -791,14 +791,14 @@ static int fn_call_f_try_n(
 }
 
 static int fn_call_m_try_n(
-        const char * name,
+        const char *name,
         size_t n,
-        ti_query_t * query,
-        cleri_node_t * nd,
-        ex_t * e)
+        ti_query_t *query,
+        cleri_node_t *nd,
+        ex_t *e)
 {
-    ti_member_t * member = (ti_member_t *) query->rval;
-    ti_name_t * needle = ti_names_weak_get_strn(name, n);
+    ti_member_t *member = (ti_member_t *) query->rval;
+    ti_name_t *needle = ti_names_weak_get_strn(name, n);
 
     if (needle)
     {
@@ -806,7 +806,7 @@ static int fn_call_m_try_n(
         {
             if (method->name == needle)
             {
-                ti_type_t * type = (ti_type_t *) member->enum_;
+                ti_type_t *type = (ti_type_t *) member->enum_;
                 return ti_method_call(method, type, query, nd, e);
             }
         }
@@ -822,11 +822,11 @@ static int fn_call_m_try_n(
     fn_call_try_n(__name, strlen(__name), __q, __nd, __e)
 
 static int fn_call_try_n(
-        const char * name,
+        const char *name,
         size_t n,
-        ti_query_t * query,
-        cleri_node_t * nd,
-        ex_t * e)
+        ti_query_t *query,
+        cleri_node_t *nd,
+        ex_t *e)
 {
     if (ti_val_is_thing(query->rval))
         return ti_thing_is_object((ti_thing_t *) query->rval)

@@ -15,34 +15,34 @@
 #include <ti/raw.t.h>
 #include <ti/type.t.h>
 
-ti_method_t * ti_method_create(ti_name_t * name, ti_closure_t * closure);
-void ti_method_destroy(ti_method_t * method);
-ti_raw_t * ti_method_doc(ti_method_t * method);
-ti_raw_t * ti_method_def(ti_method_t * method);
+ti_method_t *ti_method_create(ti_name_t *name, ti_closure_t *closure);
+void ti_method_destroy(ti_method_t *method);
+ti_raw_t *ti_method_doc(ti_method_t *method);
+ti_raw_t *ti_method_def(ti_method_t *method);
 int ti_method_call(
-        ti_method_t * method,
-        ti_type_t * type_or_enum,
-        ti_query_t * query,
-        cleri_node_t * nd,
-        ex_t * e);
+        ti_method_t *method,
+        ti_type_t *type_or_enum,
+        ti_query_t *query,
+        cleri_node_t *nd,
+        ex_t *e);
 int ti_method_call_on_member(
-        ti_method_t * method,
-        ti_member_t * member,
-        ti_query_t * query,
-        cleri_node_t * nd,
-        ex_t * e);
+        ti_method_t *method,
+        ti_member_t *member,
+        ti_query_t *query,
+        cleri_node_t *nd,
+        ex_t *e);
 int ti_method_set_name_t(
-        ti_method_t * method,
-        ti_type_t * type,
-        const char * s,
+        ti_method_t *method,
+        ti_type_t *type,
+        const char *s,
         size_t n,
-        ex_t * e);
+        ex_t *e);
 int ti_method_set_name_e(
-        ti_method_t * method,
-        ti_enum_t * enum_,
-        const char * s,
+        ti_method_t *method,
+        ti_enum_t *enum_,
+        const char *s,
         size_t n,
-        ex_t * e);
-void ti_method_set_closure(ti_method_t * method, ti_closure_t * closure);
+        ex_t *e);
+void ti_method_set_closure(ti_method_t *method, ti_closure_t *closure);
 
 #endif  /* TI_METHOD_H_ */

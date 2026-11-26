@@ -15,7 +15,7 @@ typedef struct ti_field_s ti_field_t;
 #include <ti/type.t.h>
 #include <ti/val.t.h>
 
-typedef ti_val_t *  (*ti_field_dval_cb) (ti_field_t *);
+typedef ti_val_t *(*ti_field_dval_cb) (ti_field_t *);
 
 enum
 {
@@ -46,9 +46,9 @@ struct ti_field_map_s
 
 struct ti_field_s
 {
-    ti_name_t * name;
-    ti_raw_t * spec_raw;
-    ti_type_t * type;           /* parent type */
+    ti_name_t *name;
+    ti_raw_t *spec_raw;
+    ti_type_t *type;            /* parent type */
     uint16_t spec;
     uint16_t nested_spec;       /* array/set have a nested definition */
     uint32_t idx;               /* index of the field within the type */

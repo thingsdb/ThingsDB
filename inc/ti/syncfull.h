@@ -8,7 +8,7 @@
 #include <ti/stream.h>
 #include <ti/pkg.h>
 
-int ti_syncfull_start(ti_stream_t * stream);
-ti_pkg_t * ti_syncfull_on_part(ti_pkg_t * pkg, ex_t * e);
+int ti_syncfull_start(ti_stream_t *stream);
+ti_pkg_t *ti_syncfull_on_part(ti_pkg_t *pkg, ex_t *e);
 
 #endif  /* TI_FSYNC_H_ */

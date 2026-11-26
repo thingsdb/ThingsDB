@@ -17,7 +17,7 @@ struct ti_proc_s
     uv_stdio_container_t child_stdio[3];
     uv_pipe_t child_stdin;
     uv_pipe_t child_stdout;
-    ti_module_t * module;
+    ti_module_t *module;
     buf_t buf;
 };
 

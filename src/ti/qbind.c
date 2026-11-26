@@ -295,7 +295,7 @@
 #define qbind__set_collection_soft_change(__f) \
     (__f) |= (((__f) & TI_QBIND_FLAG_COLLECTION) && (~(__f) & TI_QBIND_FLAG_NSE)) << TI_QBIND_BIT_WSE
 
-static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
+static void qbind__statement(ti_qbind_t *qbind, cleri_node_t *nd);
 
 
 /*
@@ -325,7 +325,7 @@ enum
  * Hash function, created with `pcregrep`. (see documentation above)
  */
 static inline unsigned int qbind__hash(
-        register const char * s,
+        register const char *s,
         register size_t n)
 {
     static unsigned short asso_values[] =
@@ -789,7 +789,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="zone",              .fn=do__f_zone,                 CHAIN_NE},
 };
 
-static qbind__fmap_t * qbind__fn_map[MAX_HASH_VALUE+1];
+static qbind__fmap_t *qbind__fn_map[MAX_HASH_VALUE+1];
 
 /*
  * Initializes ThingsDB function mapping.
@@ -801,7 +801,7 @@ void ti_qbind_init(void)
     for (size_t i = 0, n = TOTAL_KEYWORDS; i < n; ++i)
     {
         uint32_t key;
-        qbind__fmap_t * fmap = &qbind__fn_mapping[i];
+        qbind__fmap_t *fmap = &qbind__fn_mapping[i];
 
         fmap->n = strlen(fmap->name);
         key = qbind__hash(fmap->name, fmap->n);
@@ -825,14 +825,14 @@ void ti_qbind_init(void)
 static _Bool qbind__swap(cleri_node_t ** parent, uint32_t parent_gid)
 {
     uint32_t gid = (*parent)->children->next->cl_obj->gid;
-    cleri_node_t * childb = (*parent)->children->next->next;
+    cleri_node_t *childb = (*parent)->children->next->next;
 
     if (childb->children->cl_obj->gid == CLERI_GID_OPERATIONS &&
         qbind__swap(&childb->children, gid))
     {
         /* Swap operations */
         cleri_node_t ** syntax_childa;
-        cleri_node_t * tmp = *parent;  /* operations */
+        cleri_node_t *tmp = *parent;  /* operations */
         *parent = childb->children;  /* operations */
 
         gid = (*parent)->children->next->cl_obj->gid;
@@ -851,7 +851,7 @@ static _Bool qbind__swap(cleri_node_t ** parent, uint32_t parent_gid)
             gid == parent_gid && gid != CLERI_GID_OPR9_TERNARY);
 }
 
-static inline ti_do_cb qbind__find_operation(cleri_node_t * nd)
+static inline ti_do_cb qbind__find_operation(cleri_node_t *nd)
 {
     switch(nd->cl_obj->gid)
     {
@@ -893,12 +893,12 @@ static inline ti_do_cb qbind__find_operation(cleri_node_t * nd)
  *  The keys are numbered so the corresponding ID's can be used as order.
  */
 static _Bool qbind__operations(
-        ti_qbind_t * qbind,
+        ti_qbind_t *qbind,
         cleri_node_t ** parent,
         uint32_t parent_gid)
 {
     uint32_t gid = (*parent)->children->next->cl_obj->gid;
-    cleri_node_t * childb = (*parent)->children->next->next;
+    cleri_node_t *childb = (*parent)->children->next->next;
 
     (*parent)->data = qbind__find_operation((*parent)->children->next);
 
@@ -920,7 +920,7 @@ static _Bool qbind__operations(
     {
         /* Swap operations */
         cleri_node_t ** syntax_childa;
-        cleri_node_t * tmp = (*parent);  /* operations */
+        cleri_node_t *tmp = (*parent);  /* operations */
         *parent = childb->children;  /* operations */
 
         gid = (*parent)->children->next->cl_obj->gid;
@@ -960,10 +960,10 @@ static _Bool qbind__operations(
  * and change (if required).
  */
 static void qbind__peek_statement_for_closure(
-        ti_qbind_t * q,
-        cleri_node_t * nd)
+        ti_qbind_t *q,
+        cleri_node_t *nd)
 {
-    cleri_node_t * node;
+    cleri_node_t *node;
 
     if ((node = nd->children)->cl_obj->gid == CLERI_GID_CLOSURE)
     {
@@ -984,16 +984,16 @@ static void qbind__peek_statement_for_closure(
  *   - Immutable counter will increase for no-build-in functions
  */
 static void qbind__function(
-        ti_qbind_t * q,
-        cleri_node_t * nd,
+        ti_qbind_t *q,
+        cleri_node_t *nd,
         int flags)
 {
-    cleri_node_t * child;
-    cleri_node_t * fnname = nd->children;
+    cleri_node_t *child;
+    cleri_node_t *fnname = nd->children;
     register intptr_t nargs = 0;
     register size_t n = fnname->len;
     register uint32_t key = qbind__hash(fnname->str, n);
-    register qbind__fmap_t * fmap = key <= MAX_HASH_VALUE
+    register qbind__fmap_t *fmap = key <= MAX_HASH_VALUE
             ? qbind__fn_map[key]
             : NULL;
     register qbind__fn_flag_t fmflags = (
@@ -1064,13 +1064,13 @@ static void qbind__function(
  * Note: This function also is capable of analyzing slices like:
  *    array[0:10:2]
  */
-static void qbind__index(ti_qbind_t * qbind, cleri_node_t * nd)
+static void qbind__index(ti_qbind_t *qbind, cleri_node_t *nd)
 {
-    cleri_node_t * child = nd->children;
+    cleri_node_t *child = nd->children;
     assert(child);
     do
     {
-        cleri_node_t * c = child        /* sequence */
+        cleri_node_t *c = child        /* sequence */
                 ->children->next        /* slice */
                 ->children;
 
@@ -1095,10 +1095,10 @@ static void qbind__index(ti_qbind_t * qbind, cleri_node_t * nd)
  * Note: a thing consists of keys and values, where each value is a statement
  *       which will be analyzed as well.
  */
-static inline void qbind__thing(ti_qbind_t * qbind, cleri_node_t * nd)
+static inline void qbind__thing(ti_qbind_t *qbind, cleri_node_t *nd)
 {
     uintptr_t sz = 0;
-    cleri_node_t * child = nd           /* sequence */
+    cleri_node_t *child = nd           /* sequence */
             ->children->next            /* list */
             ->children;
     for (; child; child = child->next->next)
@@ -1120,7 +1120,7 @@ static inline void qbind__thing(ti_qbind_t * qbind, cleri_node_t * nd)
     nd->data = (void *) sz;
 }
 
-static inline void qbind__closure(ti_qbind_t * qbind, cleri_node_t * nd)
+static inline void qbind__closure(ti_qbind_t *qbind, cleri_node_t *nd)
 {
     intptr_t closure_wse;
     uint8_t flags = qbind->flags & (TI_QBIND_FLAG_FOR_LOOP|TI_QBIND_FLAG_WSE);
@@ -1154,7 +1154,7 @@ static inline void qbind__closure(ti_qbind_t * qbind, cleri_node_t * nd)
  * no analyzing is required in case of a fixed key like:
  *   MyEnum{KEY}
  */
-static inline void qbind__enum(ti_qbind_t * qbind, cleri_node_t * nd)
+static inline void qbind__enum(ti_qbind_t *qbind, cleri_node_t *nd)
 {
     if ((nd = nd->children->next)->cl_obj->gid == CLERI_GID_CLOSURE)
         qbind__closure(qbind, nd);
@@ -1170,7 +1170,7 @@ static inline void qbind__enum(ti_qbind_t * qbind, cleri_node_t * nd)
  *   - MyEnum{...}
  *   - some_variable...
  */
-static void qbind__var_opt_fa(ti_qbind_t * qbind, cleri_node_t * nd)
+static void qbind__var_opt_fa(ti_qbind_t *qbind, cleri_node_t *nd)
 {
     if (nd->children->next)
     {
@@ -1211,7 +1211,7 @@ static void qbind__var_opt_fa(ti_qbind_t * qbind, cleri_node_t * nd)
  * - .my_prop = ...
  * - .my_prop
  */
-static void qbind__name_opt_fa(ti_qbind_t * qbind, cleri_node_t * nd)
+static void qbind__name_opt_fa(ti_qbind_t *qbind, cleri_node_t *nd)
 {
     if (nd->children->next)
     {
@@ -1245,9 +1245,9 @@ static void qbind__name_opt_fa(ti_qbind_t * qbind, cleri_node_t * nd)
  * .something[...]
  * .something.other();
  */
-static inline void qbind__chain(ti_qbind_t * qbind, cleri_node_t * nd)
+static inline void qbind__chain(ti_qbind_t *qbind, cleri_node_t *nd)
 {
-    cleri_node_t * child = nd->children->next;
+    cleri_node_t *child = nd->children->next;
 
     qbind__name_opt_fa(qbind, child);
 
@@ -1267,7 +1267,7 @@ static inline void qbind__chain(ti_qbind_t * qbind, cleri_node_t * nd)
  *
  * This function analyzes things, enumerators, immutable values and more.
  */
-static void qbind__expr_choice(ti_qbind_t * qbind, cleri_node_t * nd)
+static void qbind__expr_choice(ti_qbind_t *qbind, cleri_node_t *nd)
 {
     switch (nd->cl_obj->gid)
     {
@@ -1288,7 +1288,7 @@ static void qbind__expr_choice(ti_qbind_t * qbind, cleri_node_t * nd)
         return;
     case CLERI_GID_TEMPLATE:
     {
-        cleri_node_t * child = nd           /* sequence */
+        cleri_node_t *child = nd           /* sequence */
                 ->children->next            /* repeat */
                 ->children;
 
@@ -1314,7 +1314,7 @@ static void qbind__expr_choice(ti_qbind_t * qbind, cleri_node_t * nd)
     case CLERI_GID_ARRAY:
     {
         uintptr_t sz = 0;
-        cleri_node_t * child = nd       /* sequence */
+        cleri_node_t *child = nd       /* sequence */
                 ->children->next        /* list */
                 ->children;
         for (; child; child = child->next ? child->next->next : NULL, ++sz)
@@ -1337,9 +1337,9 @@ static void qbind__expr_choice(ti_qbind_t * qbind, cleri_node_t * nd)
  * -x;
  * my_var[idx].func();
  */
-static inline void qbind__expression(ti_qbind_t * qbind, cleri_node_t * nd)
+static inline void qbind__expression(ti_qbind_t *qbind, cleri_node_t *nd)
 {
-    cleri_node_t * node = nd->children;
+    cleri_node_t *node = nd->children;
     intptr_t preopr = (intptr_t) ti_preopr_bind(node->str, node->len);
 
     nd->data = ti_do_expression;
@@ -1429,7 +1429,7 @@ static inline void qbind__expression(ti_qbind_t * qbind, cleri_node_t * nd)
     }
 }
 
-static inline void qbind__if_statement(ti_qbind_t * qbind, cleri_node_t * nd)
+static inline void qbind__if_statement(ti_qbind_t *qbind, cleri_node_t *nd)
 {
     qbind__statement(qbind, nd->children->next->next);
 
@@ -1450,10 +1450,10 @@ static inline void qbind__if_statement(ti_qbind_t * qbind, cleri_node_t * nd)
 }
 
 static inline void qbind__return_statement(
-        ti_qbind_t * qbind,
-        cleri_node_t * nd)
+        ti_qbind_t *qbind,
+        cleri_node_t *nd)
 {
-    cleri_node_t * node = nd->children->next->children;
+    cleri_node_t *node = nd->children->next->children;
     if (!node)
     {
         nd->data = ti_do_return_nil;
@@ -1483,10 +1483,10 @@ static inline void qbind__return_statement(
     }
 }
 
-static inline void qbind__for_statement(ti_qbind_t * q, cleri_node_t * nd)
+static inline void qbind__for_statement(ti_qbind_t *q, cleri_node_t *nd)
 {
     register uint8_t no_for_loop = ~q->flags & TI_QBIND_FLAG_FOR_LOOP;
-    cleri_node_t * tmp, * child = nd->
+    cleri_node_t *tmp, *child = nd->
             children->              /* for  */
             next->                  /* (    */
             next;                   /* List(variable) */
@@ -1506,9 +1506,9 @@ static inline void qbind__for_statement(ti_qbind_t * q, cleri_node_t * nd)
     q->flags &= ~no_for_loop;
 }
 
-static inline void qbind__block(ti_qbind_t * qbind, cleri_node_t * nd)
+static inline void qbind__block(ti_qbind_t *qbind, cleri_node_t *nd)
 {
-    cleri_node_t * child = nd       /* seq<token({), list, }> */
+    cleri_node_t *child = nd       /* seq<token({), list, }> */
             ->children->next        /* list statements */
             ->children;             /* first child, not empty */
 
@@ -1532,7 +1532,7 @@ static inline void qbind__block(ti_qbind_t * qbind, cleri_node_t * nd)
  * Almost anything in the grammar may call this function since statements
  * can exist on may places in the ThingsDB language.
  */
-static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd)
+static void qbind__statement(ti_qbind_t *qbind, cleri_node_t *nd)
 {
     assert(nd->cl_obj->gid == CLERI_GID_STATEMENT);
 
@@ -1583,7 +1583,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd)
  * - re-arrange operations to honor compare order
  * - count immutable cache requirements
  */
-void ti_qbind_probe(ti_qbind_t * qbind, cleri_node_t * nd)
+void ti_qbind_probe(ti_qbind_t *qbind, cleri_node_t *nd)
 {
     if (nd->cl_obj->gid == CLERI_GID_STATEMENT)
         return qbind__statement(qbind, nd);

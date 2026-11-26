@@ -15,17 +15,17 @@
 #define TEMPLACE_CMP(pt__, end__, s__, sz__) \
 *(pt__) == *(s__) && (pt__ + sz__) <= end__ && memcmp(pt__, s__, sz__) == 0
 
-ti_backup_t * ti_backup_create(
+ti_backup_t *ti_backup_create(
         uint64_t id,
-        const char * fn_template,
+        const char *fn_template,
         size_t fn_templare_n,
         uint64_t next_run,
         uint64_t repeat,
         uint64_t max_files,
         uint64_t created_at,
-        queue_t * files)
+        queue_t *files)
 {
-    ti_backup_t * backup = malloc(sizeof(ti_backup_t));
+    ti_backup_t *backup = malloc(sizeof(ti_backup_t));
     if (!backup)
         return NULL;
 
@@ -54,7 +54,7 @@ ti_backup_t * ti_backup_create(
     return backup;
 }
 
-void ti_backup_destroy(ti_backup_t * backup)
+void ti_backup_destroy(ti_backup_t *backup)
 {
     if (!backup)
         return;
@@ -65,7 +65,7 @@ void ti_backup_destroy(ti_backup_t * backup)
     free(backup);
 }
 
-char * backup__next_run(ti_backup_t * backup)
+char *backup__next_run(ti_backup_t *backup)
 {
     /* length 27 =  "2000-00-00 00:00:00+01.00Z" + 1 */
     static char buf[27];
@@ -81,7 +81,7 @@ char * backup__next_run(ti_backup_t * backup)
     return buf;
 }
 
-int ti_backup_info_to_pk(ti_backup_t * backup, msgpack_packer * pk)
+int ti_backup_info_to_pk(ti_backup_t *backup, msgpack_packer *pk)
 {
     size_t n = 4;
     if (backup->scheduled)
@@ -134,9 +134,9 @@ int ti_backup_info_to_pk(ti_backup_t * backup, msgpack_packer * pk)
     return 0;
 }
 
-ti_val_t * ti_backup_as_mpval(ti_backup_t * backup)
+ti_val_t *ti_backup_as_mpval(ti_backup_t *backup)
 {
-    ti_raw_t * raw;
+    ti_raw_t *raw;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -155,9 +155,9 @@ ti_val_t * ti_backup_as_mpval(ti_backup_t * backup)
     return (ti_val_t *) raw;
 }
 
-_Bool ti_backup_is_gcloud(ti_backup_t * backup)
+_Bool ti_backup_is_gcloud(ti_backup_t *backup)
 {
-    char * s = backup->fn_template;
+    char *s = backup->fn_template;
     /*
      * This check depends on the test that each backup file ends
      * with ".tar.gz" and therefore must have a length of at least seven;
@@ -169,7 +169,7 @@ _Bool ti_backup_is_gcloud(ti_backup_t * backup)
             s[4] == '/';
 }
 
-char * ti_backup_gcloud_task(ti_backup_t * backup)
+char *ti_backup_gcloud_task(ti_backup_t *backup)
 {
     struct tm * tm_info;
     uint64_t now = util_now_usec();
@@ -180,9 +180,9 @@ char * ti_backup_gcloud_task(ti_backup_t * backup)
     buf_t buf;
     buf_t fnbuf;
     buf_t gsbuf;
-    char * pv = backup->fn_template;
-    char * pt = backup->fn_template;
-    char * end = pt + strlen(backup->fn_template);
+    char *pv = backup->fn_template;
+    char *pt = backup->fn_template;
+    char *end = pt + strlen(backup->fn_template);
 
     buf_init(&buf);
     buf_init(&fnbuf);
@@ -281,7 +281,7 @@ char * ti_backup_gcloud_task(ti_backup_t * backup)
     return buf.data;
 }
 
-char * ti_backup_file_task(ti_backup_t * backup)
+char *ti_backup_file_task(ti_backup_t *backup)
 {
     struct tm * tm_info;
     uint64_t now = util_now_usec();
@@ -290,9 +290,9 @@ char * ti_backup_file_task(ti_backup_t * backup)
     const size_t time_sz = strlen("{TIME}");
     char buffer[512];
     buf_t buf;
-    char * pv = backup->fn_template;
-    char * pt = backup->fn_template;
-    char * end = pt + strlen(backup->fn_template);
+    char *pv = backup->fn_template;
+    char *pt = backup->fn_template;
+    char *end = pt + strlen(backup->fn_template);
     size_t offset, path_n = 0;
 
     buf_init(&buf);

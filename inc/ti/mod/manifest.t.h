@@ -18,15 +18,15 @@ struct ti_mod_manifest_s
 {
     _Bool is_py;                        /* true/false */
     uint8_t schema;                     /* schema version */
-    char * main;                        /* required */
-    char * version;                     /* required */
-    char * doc;                         /* NULL or string */
+    char *main;                        /* required */
+    char *version;                     /* required */
+    char *doc;                         /* NULL or string */
     _Bool * load;                       /* NULL or true/false */
-    uint8_t * deep;                     /* NULL or 0..127 */
-    vec_t * defaults;                   /* ti_item_t */
-    vec_t * includes;                   /* char *, only for installation */
-    vec_t * requirements;               /* char *, pip requirements */
-    smap_t * exposes;                   /* ti_mod_expose_t */
+    uint8_t *deep;                     /* NULL or 0..127 */
+    vec_t *defaults;                   /* ti_item_t */
+    vec_t *includes;                   /* char *, only for installation */
+    vec_t *requirements;               /* char *, pip requirements */
+    smap_t *exposes;                   /* ti_mod_expose_t */
 };
 
 #endif  /* TI_MOD_MANIFEST_T_H_ */

@@ -16,19 +16,19 @@
 #define dump__key(pk__, comment__) \
     mp_pack_strn(pk__, "", 0)
 
-static int dump__mark_new(ti_thing_t * thing, void * UNUSED(arg))
+static int dump__mark_new(ti_thing_t *thing, void *UNUSED(arg))
 {
     ti_thing_mark_new(thing);
     return 0;
 }
 
-static int dump__unmark_new(ti_thing_t * thing, void * UNUSED(arg))
+static int dump__unmark_new(ti_thing_t *thing, void *UNUSED(arg))
 {
     ti_thing_unmark_new(thing);
     return 0;
 }
 
-static int dump__new_enum_cb(ti_enum_t * enum_, msgpack_packer * pk)
+static int dump__new_enum_cb(ti_enum_t *enum_, msgpack_packer *pk)
 {
     if (
         msgpack_pack_array(pk, 2) ||
@@ -58,7 +58,7 @@ static int dump__new_enum_cb(ti_enum_t * enum_, msgpack_packer * pk)
     return 0;
 }
 
-static int dump__new_type_cb(ti_type_t * type, msgpack_packer * pk)
+static int dump__new_type_cb(ti_type_t *type, msgpack_packer *pk)
 {
     return (
         msgpack_pack_array(pk, 2) ||
@@ -86,7 +86,7 @@ static int dump__new_type_cb(ti_type_t * type, msgpack_packer * pk)
     );
 }
 
-static int dump__set_type_cb(ti_type_t * type, msgpack_packer * pk)
+static int dump__set_type_cb(ti_type_t *type, msgpack_packer *pk)
 {
     return (
         msgpack_pack_array(pk, 2) ||
@@ -117,7 +117,7 @@ static int dump__set_type_cb(ti_type_t * type, msgpack_packer * pk)
     );
 }
 
-static int dump__relation(ti_field_t * a, ti_field_t * b, msgpack_packer * pk)
+static int dump__relation(ti_field_t *a, ti_field_t *b, msgpack_packer *pk)
 {
     return (
         msgpack_pack_array(pk, 2) ||
@@ -142,13 +142,13 @@ static int dump__relation(ti_field_t * a, ti_field_t * b, msgpack_packer * pk)
     );
 }
 
-static int dump__relation_cb(ti_type_t * type, msgpack_packer * pk)
+static int dump__relation_cb(ti_type_t *type, msgpack_packer *pk)
 {
     for (vec_each(type->fields, ti_field_t, field))
     {
         if (ti_field_has_relation(field))
         {
-            ti_field_t * other = field->condition.rel->field;
+            ti_field_t *other = field->condition.rel->field;
             if ((   field == other ||
                     field->type->type_id < other->type->type_id ||
                     (   field->type->type_id == other->type->type_id &&
@@ -161,7 +161,7 @@ static int dump__relation_cb(ti_type_t * type, msgpack_packer * pk)
 }
 
 
-static int dump__row_cb(ti_type_t * type, msgpack_packer * pk)
+static int dump__row_cb(ti_type_t *type, msgpack_packer *pk)
 {
     return type->row ? (
         msgpack_pack_array(pk, 2) ||
@@ -180,7 +180,7 @@ static int dump__row_cb(ti_type_t * type, msgpack_packer * pk)
     ) : 0;
 }
 
-static int dump__type_count_cb(ti_type_t * type, size_t * n)
+static int dump__type_count_cb(ti_type_t *type, size_t *n)
 {
     if (type->row)
         *n += 1;
@@ -189,7 +189,7 @@ static int dump__type_count_cb(ti_type_t * type, size_t * n)
     {
         if (ti_field_has_relation(field))
         {
-            ti_field_t * other = field->condition.rel->field;
+            ti_field_t *other = field->condition.rel->field;
             if ((   field == other ||
                     field->type->type_id < other->type->type_id ||
                     (   field->type->type_id == other->type->type_id &&
@@ -200,7 +200,7 @@ static int dump__type_count_cb(ti_type_t * type, size_t * n)
     return 0;
 }
 
-static int dump__procedure_cb(ti_procedure_t * procedure, msgpack_packer * pk)
+static int dump__procedure_cb(ti_procedure_t *procedure, msgpack_packer *pk)
 {
     return (
         msgpack_pack_array(pk, 2) ||
@@ -219,7 +219,7 @@ static int dump__procedure_cb(ti_procedure_t * procedure, msgpack_packer * pk)
     );
 }
 
-static int dump__named_rooms_cb(ti_room_t * room,  msgpack_packer * pk)
+static int dump__named_rooms_cb(ti_room_t *room,  msgpack_packer *pk)
 {
     return (
         msgpack_pack_array(pk, 2) ||
@@ -232,7 +232,7 @@ static int dump__named_rooms_cb(ti_room_t * room,  msgpack_packer * pk)
     );
 }
 
-static int dump__enum_data_cb(ti_enum_t * enum_, msgpack_packer * pk)
+static int dump__enum_data_cb(ti_enum_t *enum_, msgpack_packer *pk)
 {
     return (
         msgpack_pack_array(pk, 2) ||
@@ -251,12 +251,12 @@ static int dump__enum_data_cb(ti_enum_t * enum_, msgpack_packer * pk)
     );
 }
 
-static int dump__write_new_enums(ti_enums_t * enums, msgpack_packer * pk)
+static int dump__write_new_enums(ti_enums_t *enums, msgpack_packer *pk)
 {
     return smap_values(enums->smap, (smap_val_cb) dump__new_enum_cb, pk);
 }
 
-static int dump__write_types(ti_types_t * types, msgpack_packer * pk)
+static int dump__write_types(ti_types_t *types, msgpack_packer *pk)
 {
     return (
             smap_values(types->smap, (smap_val_cb) dump__new_type_cb, pk) ||
@@ -264,7 +264,7 @@ static int dump__write_types(ti_types_t * types, msgpack_packer * pk)
     );
 }
 
-static int dump__write_tasks(vec_t * vtasks, msgpack_packer * pk)
+static int dump__write_tasks(vec_t *vtasks, msgpack_packer *pk)
 {
     for (vec_each(vtasks, ti_vtask_t, vtask))
     {
@@ -297,7 +297,7 @@ static int dump__write_tasks(vec_t * vtasks, msgpack_packer * pk)
  * Must write root before anything else as the replace root task removes
  * the existing root which otherwise might conflict with existing Id's.
  */
-static int dump__write_root(ti_thing_t * root, msgpack_packer * pk)
+static int dump__write_root(ti_thing_t *root, msgpack_packer *pk)
 {
     return (
         msgpack_pack_array(pk, 2) ||
@@ -307,12 +307,12 @@ static int dump__write_root(ti_thing_t * root, msgpack_packer * pk)
     );
 }
 
-static int dump__write_enums_data(ti_enums_t * enums, msgpack_packer * pk)
+static int dump__write_enums_data(ti_enums_t *enums, msgpack_packer *pk)
 {
     return smap_values(enums->smap, (smap_val_cb) dump__enum_data_cb, pk);
 }
 
-static int dump__write_tasks_args(vec_t * vtasks, msgpack_packer * pk)
+static int dump__write_tasks_args(vec_t *vtasks, msgpack_packer *pk)
 {
     for (vec_each(vtasks, ti_vtask_t, vtask))
     {
@@ -344,7 +344,7 @@ static int dump__write_tasks_args(vec_t * vtasks, msgpack_packer * pk)
 
 }
 
-static int dump__write_relations(ti_types_t * types, msgpack_packer * pk)
+static int dump__write_relations(ti_types_t *types, msgpack_packer *pk)
 {
     /* It is very important that relations are being restored after all the
      * values are imported as otherwise relations will be created while
@@ -353,22 +353,22 @@ static int dump__write_relations(ti_types_t * types, msgpack_packer * pk)
     return smap_values(types->smap, (smap_val_cb) dump__relation_cb, pk);
 }
 
-static int dump__write_rows(ti_types_t * types, msgpack_packer * pk)
+static int dump__write_rows(ti_types_t *types, msgpack_packer *pk)
 {
     return smap_values(types->smap, (smap_val_cb) dump__row_cb, pk);
 }
 
-static int dump__write_procedures(smap_t * procedures, msgpack_packer * pk)
+static int dump__write_procedures(smap_t *procedures, msgpack_packer *pk)
 {
     return smap_values(procedures, (smap_val_cb) dump__procedure_cb, pk);
 }
 
-static int dump__write_named_rooms(smap_t * named_rooms, msgpack_packer * pk)
+static int dump__write_named_rooms(smap_t *named_rooms, msgpack_packer *pk)
 {
     return smap_values(named_rooms, (smap_val_cb) dump__named_rooms_cb, pk);
 }
 
-static size_t dump__count_tasks(ti_collection_t * collection)
+static size_t dump__count_tasks(ti_collection_t *collection)
 {
     size_t n = 1;  /* first is the root */
     n += collection->enums->smap->n * 2;
@@ -389,11 +389,11 @@ static size_t dump__count_tasks(ti_collection_t * collection)
  * Must not be called when things can be marked as new.
  * Check if no futures or change is used before calling this function.
  */
-ti_raw_t * ti_dump_collection(ti_collection_t * collection)
+ti_raw_t *ti_dump_collection(ti_collection_t *collection)
 {
     msgpack_packer pk;
     msgpack_sbuffer buffer;
-    ti_raw_t * raw;
+    ti_raw_t *raw;
     size_t n = dump__count_tasks(collection);
 
     if (mp_sbuffer_alloc_init(&buffer, 65536, sizeof(ti_raw_t)))

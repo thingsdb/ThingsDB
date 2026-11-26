@@ -14,49 +14,49 @@
 #include <ti/vp.t.h>
 #include <ti/vup.t.h>
 
-ti_enum_t * ti_enum_create(
+ti_enum_t *ti_enum_create(
         uint16_t enum_id,
-        const char * name,
+        const char *name,
         size_t name_n,
         uint64_t created_at,
         uint64_t modified_at);
-void ti_enum_destroy(ti_enum_t * enum_);
-int ti_enum_prealloc(ti_enum_t * enum_, size_t sz, ex_t * e);
-int ti_enum_set_enum_tp(ti_enum_t * enum_, ti_val_t * val, ex_t * e);
-_Bool ti_enum_check_tp(ti_enum_t * enum_, ti_val_t * val);
-int ti_enum_check_val(ti_enum_t * enum_, ti_val_t * val, ex_t * e);
-int ti_enum_add_member(ti_enum_t * enum_, ti_member_t * member, ex_t * e);
-void ti_enum_del_member(ti_enum_t * enum_, ti_member_t * member);
+void ti_enum_destroy(ti_enum_t *enum_);
+int ti_enum_prealloc(ti_enum_t *enum_, size_t sz, ex_t *e);
+int ti_enum_set_enum_tp(ti_enum_t *enum_, ti_val_t *val, ex_t *e);
+_Bool ti_enum_check_tp(ti_enum_t *enum_, ti_val_t *val);
+int ti_enum_check_val(ti_enum_t *enum_, ti_val_t *val, ex_t *e);
+int ti_enum_add_member(ti_enum_t *enum_, ti_member_t *member, ex_t *e);
+void ti_enum_del_member(ti_enum_t *enum_, ti_member_t *member);
 int ti_enum_add_method(
-        ti_enum_t * enum_,
-        ti_name_t * name,
-        ti_closure_t * closure,
-        ex_t * e);
-void ti_enum_remove_method(ti_enum_t * enum_, ti_name_t * name);
-int ti_enum_init_from_thing(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e);
-int ti_enum_set_members_from_vup(ti_enum_t * enum_, ti_vup_t * vup, ex_t * e);
-int ti_enum_init_members_from_vup(ti_enum_t * enum_, ti_vup_t * vup, ex_t * e);
-int ti_enum_init_methods_from_vup(ti_enum_t * enum_, ti_vup_t * vup, ex_t * e);
+        ti_enum_t *enum_,
+        ti_name_t *name,
+        ti_closure_t *closure,
+        ex_t *e);
+void ti_enum_remove_method(ti_enum_t *enum_, ti_name_t *name);
+int ti_enum_init_from_thing(ti_enum_t *enum_, ti_thing_t *thing, ex_t *e);
+int ti_enum_set_members_from_vup(ti_enum_t *enum_, ti_vup_t *vup, ex_t *e);
+int ti_enum_init_members_from_vup(ti_enum_t *enum_, ti_vup_t *vup, ex_t *e);
+int ti_enum_init_methods_from_vup(ti_enum_t *enum_, ti_vup_t *vup, ex_t *e);
 int ti_enum_members_to_client_pk(
-        ti_enum_t * enum_,
-        ti_vp_t * vp,
+        ti_enum_t *enum_,
+        ti_vp_t *vp,
         int deep,
         int flags);
-int ti_enum_members_to_store_pk(ti_enum_t * enum_, msgpack_packer * pk);
-int ti_enum_methods_to_store_pk(ti_enum_t * enum_, msgpack_packer * pk);
-ti_member_t * ti_enum_member_by_val(ti_enum_t * enum_, ti_val_t * val);
-ti_member_t * ti_enum_member_by_val_e(
-        ti_enum_t * enum_,
-        ti_val_t * val,
-        ex_t * e);
-ti_val_t * ti_enum_as_mpval(ti_enum_t * enum_);
-int ti_enum_to_pk(ti_enum_t * enum_, ti_vp_t * vp);
-int ti_enum_members_check(ti_enum_t * enum_, ex_t * e);
+int ti_enum_members_to_store_pk(ti_enum_t *enum_, msgpack_packer *pk);
+int ti_enum_methods_to_store_pk(ti_enum_t *enum_, msgpack_packer *pk);
+ti_member_t *ti_enum_member_by_val(ti_enum_t *enum_, ti_val_t *val);
+ti_member_t *ti_enum_member_by_val_e(
+        ti_enum_t *enum_,
+        ti_val_t *val,
+        ex_t *e);
+ti_val_t *ti_enum_as_mpval(ti_enum_t *enum_);
+int ti_enum_to_pk(ti_enum_t *enum_, ti_vp_t *vp);
+int ti_enum_members_check(ti_enum_t *enum_, ex_t *e);
 
 
 /*
  * TODO (COMPAT) For compatibility with ThingsDB < v1.7.0
  */
-int ti_enum_create_placeholders(ti_enum_t * enum_, size_t n, ex_t * e);
+int ti_enum_create_placeholders(ti_enum_t *enum_, size_t n, ex_t *e);
 
 #endif  /* TI_MEMBER_H_ */

@@ -14,14 +14,14 @@ static cleri_node_t CLERI__EMPTY_NODE = {
         .ref=1,
 };
 
-cleri_node_t * CLERI_EMPTY_NODE = &CLERI__EMPTY_NODE;
+cleri_node_t *CLERI_EMPTY_NODE = &CLERI__EMPTY_NODE;
 
 /*
  * Returns NULL in case an error has occurred.
  */
-cleri_node_t * cleri__node_new(cleri_t * cl_obj, const char * str, size_t len)
+cleri_node_t *cleri__node_new(cleri_t *cl_obj, const char *str, size_t len)
 {
-    cleri_node_t * node = cleri__malloc(cleri_node_t);
+    cleri_node_t *node = cleri__malloc(cleri_node_t);
 
     if (node != NULL)
     {
@@ -37,9 +37,9 @@ cleri_node_t * cleri__node_new(cleri_t * cl_obj, const char * str, size_t len)
     return node;
 }
 
-cleri_node_t * cleri__node_dup(cleri_node_t * node)
+cleri_node_t *cleri__node_dup(cleri_node_t *node)
 {
-    cleri_node_t * dup = cleri__malloc(cleri_node_t);
+    cleri_node_t *dup = cleri__malloc(cleri_node_t);
     if (dup != NULL)
     {
         dup->cl_obj = node->cl_obj;
@@ -63,9 +63,9 @@ cleri_node_t * cleri__node_dup(cleri_node_t * node)
     return dup;
 }
 
-void cleri__node_free(cleri_node_t * node)
+void cleri__node_free(cleri_node_t *node)
 {
-    cleri_node_t * next;
+    cleri_node_t *next;
 
     /* node can be NULL or this could be an CLERI_EMPTY_NODE */
     if (node == NULL || --node->ref)
@@ -77,7 +77,7 @@ void cleri__node_free(cleri_node_t * node)
 
     while (next != NULL)
     {
-        cleri_node_t * tmp = next->next;
+        cleri_node_t *tmp = next->next;
         next->next = NULL;
         cleri__node_free(next);
         next = tmp;

@@ -16,7 +16,7 @@
 #include <util/fx.h>
 #include <util/mpack.h>
 
-static int mkenum_cb(ti_enum_t * enum_, msgpack_packer * pk)
+static int mkenum_cb(ti_enum_t *enum_, msgpack_packer *pk)
 {
     uintptr_t p;
     if (msgpack_pack_array(pk, 6) ||
@@ -49,7 +49,7 @@ static int mkenum_cb(ti_enum_t * enum_, msgpack_packer * pk)
     return 0;
 }
 
-int ti_store_enums_store(ti_enums_t * enums, const char * fn)
+int ti_store_enums_store(ti_enums_t *enums, const char *fn)
 {
     msgpack_packer pk;
     FILE * f = fopen(fn, "w");
@@ -85,7 +85,7 @@ done:
 /*
  * Restore enums without values so they can be referenced to by types
  */
-int ti_store_enums_restore(ti_enums_t * enums, imap_t * names, const char * fn)
+int ti_store_enums_restore(ti_enums_t *enums, imap_t *names, const char *fn)
 {
     int rc = -1;
     fx_mmap_t fmap;
@@ -123,7 +123,7 @@ int ti_store_enums_restore(ti_enums_t * enums, imap_t * names, const char * fn)
 
     for (i = obj.via.sz; i--;)
     {
-        ti_enum_t * enum_;
+        ti_enum_t *enum_;
 
         if (mp_next(&up, &obj) != MP_ARR ||
                 (obj.via.sz != 5 && obj.via.sz != 6) ||
@@ -156,7 +156,7 @@ int ti_store_enums_restore(ti_enums_t * enums, imap_t * names, const char * fn)
 
         if (obj.via.sz == 6)
         {
-            ti_name_t * name;
+            ti_name_t *name;
 
             if (mp_next(&up, &obj) != MP_MAP)
                 goto fail1;
@@ -195,17 +195,17 @@ fail0:
  * Restore enum data without values so they can be referenced to by types
  */
 int ti_store_enums_restore_members(
-        ti_enums_t * enums,
-        imap_t * names,
-        const char * fn)
+        ti_enums_t *enums,
+        imap_t *names,
+        const char *fn)
 {
     int rc = -1;
     fx_mmap_t fmap;
     ex_t e = {0};
-    ti_name_t * name;
-    ti_enum_t * enum_;
-    ti_member_t * member;
-    ti_val_t * val;
+    ti_name_t *name;
+    ti_enum_t *enum_;
+    ti_member_t *member;
+    ti_val_t *val;
     size_t i, ii;
     mp_obj_t obj, mp_id;
     mp_unp_t up;

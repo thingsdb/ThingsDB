@@ -1,6 +1,6 @@
 #include <ti/fn/fn.h>
 
-static int do__f_raise(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_raise(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
 
@@ -19,7 +19,7 @@ static int do__f_raise(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_val_is_raw(query->rval))
     {
-        ti_raw_t * msg;
+        ti_raw_t *msg;
         msg = (ti_raw_t *) query->rval;
 
         if (ti_verror_check_msg((const char *) msg->data, msg->n, e))

@@ -12,9 +12,9 @@
 #include <ti/query.h>
 
 static inline int ti_closure_do_statement(
-        ti_closure_t * closure,
-        ti_query_t * query,
-        ex_t * e)
+        ti_closure_t *closure,
+        ti_query_t *query,
+        ex_t *e)
 {
     uint32_t prev_local_stack = query->local_stack;
     uint32_t n = query->vars->n;
@@ -48,9 +48,9 @@ static inline int ti_closure_do_statement(
 }
 
 static inline int ti_closure_try_wse(
-        ti_closure_t * closure,
-        ti_query_t * query,
-        ex_t * e)
+        ti_closure_t *closure,
+        ti_query_t *query,
+        ex_t *e)
 {
     if (!query->change && (closure->flags & TI_CLOSURE_FLAG_WSE))
     {
@@ -62,7 +62,7 @@ static inline int ti_closure_try_wse(
     return 0;
 }
 
-static inline int ti_closure_inc_future(ti_closure_t * closure, ex_t * e)
+static inline int ti_closure_inc_future(ti_closure_t *closure, ex_t *e)
 {
     if (closure->future_count == TI_CLOSURE_MAX_FUTURE_COUNT)
         ex_set(e, EX_OPERATION,
@@ -72,19 +72,19 @@ static inline int ti_closure_inc_future(ti_closure_t * closure, ex_t * e)
     return e->nr;
 }
 
-static inline void ti_closure_dec_future(ti_closure_t * closure)
+static inline void ti_closure_dec_future(ti_closure_t *closure)
 {
     assert(closure->future_count);
     --closure->future_count;
 }
 
-static inline void ti_closure_unsafe_drop(ti_closure_t * closure)
+static inline void ti_closure_unsafe_drop(ti_closure_t *closure)
 {
     if (!--closure->ref)
         ti_closure_destroy(closure);
 }
 
-static inline void ti_closure_drop(ti_closure_t * closure)
+static inline void ti_closure_drop(ti_closure_t *closure)
 {
     if (closure && !--closure->ref)
         ti_closure_destroy(closure);

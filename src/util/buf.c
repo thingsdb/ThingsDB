@@ -7,20 +7,20 @@
 #include <string.h>
 #include <stdarg.h>
 
-void buf_init(buf_t * buf)
+void buf_init(buf_t *buf)
 {
     buf->cap = 0;
     buf->len = 0;
     buf->data = NULL;
 }
 
-int buf_append(buf_t * buf, const char * s, size_t n)
+int buf_append(buf_t *buf, const char *s, size_t n)
 {
     size_t rsize = buf->len + n;
 
     if (rsize > buf->cap)
     {
-        char * tmp;
+        char *tmp;
         size_t nsize = buf->cap ? buf->cap << 1 : 8192;
 
         while(rsize > nsize)
@@ -40,11 +40,11 @@ int buf_append(buf_t * buf, const char * s, size_t n)
     return 0;
 }
 
-int buf_write(buf_t * buf, const char c)
+int buf_write(buf_t *buf, const char c)
 {
     if (buf->len == buf->cap)
     {
-        char * tmp;
+        char *tmp;
         size_t nsize = buf->cap ? buf->cap << 1 : 8192;
 
         tmp = realloc(buf->data, nsize);
@@ -59,7 +59,7 @@ int buf_write(buf_t * buf, const char c)
     return 0;
 }
 
-int buf_append_fmt(buf_t * buf, const char * fmt, ...)
+int buf_append_fmt(buf_t *buf, const char *fmt, ...)
 {
     int rc;
     int nchars;
@@ -81,7 +81,7 @@ int buf_append_fmt(buf_t * buf, const char * fmt, ...)
 
     if (rc)
     {
-        char * tmp;
+        char *tmp;
         size_t nsize = buf->cap ? buf->cap << 1 : 8192;
 
         while(buf->len + (size_t) nchars > nsize)

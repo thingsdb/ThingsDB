@@ -20,7 +20,7 @@ int main()
     test_start("lookup");
 
     /* setup nodes */
-    vec_t * nodes = vec_new(num_entries);
+    vec_t *nodes = vec_new(num_entries);
     for (uint32_t i = 0; i < num_entries; i++)
     {
         _assert (vec_push(&nodes, &entries[i]) == 0);
@@ -34,7 +34,7 @@ int main()
             {
                 size_t m = (n < r) ? n : r;
                 size_t sz = n * m;
-                ti_lookup_t * lookup = ti_lookup_create(n, r, nodes);
+                ti_lookup_t *lookup = ti_lookup_create(n, r, nodes);
                 _assert (lookup->nodes_->sz == sz);
                 for (size_t i = 0; i < sz; i++)
                 {
@@ -51,7 +51,7 @@ int main()
         uint8_t r = 3;
         size_t nids = 1000;
         size_t expected = (size_t) (((float) r / n) * nids);
-        ti_lookup_t * lookup = ti_lookup_create(n, r, nodes);
+        ti_lookup_t *lookup = ti_lookup_create(n, r, nodes);
         for (uint8_t i = 0; i < n; i++)
         {
             size_t a = 0;

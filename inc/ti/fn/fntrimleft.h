@@ -1,9 +1,9 @@
 #include <ti/fn/fn.h>
 
-static int do__f_trim_left(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_trim_left(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_raw_t * raw;
+    ti_raw_t *raw;
 
     if (!ti_val_is_str(query->rval))
         return fn_call_try("trim_left", query, nd, e);

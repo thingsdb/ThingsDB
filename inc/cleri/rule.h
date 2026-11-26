@@ -27,30 +27,30 @@ typedef enum cleri_rule_test_e
 } cleri_rule_test_t;
 
 /* private functions */
-cleri_t * cleri__rule(uint32_t gid, cleri_t * cl_obj);
+cleri_t *cleri__rule(uint32_t gid, cleri_t *cl_obj);
 cleri_rule_test_t cleri__rule_init(
         cleri_rule_tested_t ** target,
-        cleri_rule_tested_t * tested,
-        const char * str);
+        cleri_rule_tested_t *tested,
+        const char *str);
 
 /* structs */
 struct cleri_rule_tested_s
 {
-    const char * str;
-    cleri_node_t * node;
-    cleri_rule_tested_t * next;
+    const char *str;
+    cleri_node_t *node;
+    cleri_rule_tested_t *next;
 };
 
 struct cleri_rule_store_s
 {
     cleri_rule_tested_t tested;
-    cleri_t * root_obj;
+    cleri_t *root_obj;
     size_t depth;
 };
 
 struct cleri_rule_s
 {
-    cleri_t * cl_obj;
+    cleri_t *cl_obj;
 };
 
 #endif /* CLERI_RULE_H_ */

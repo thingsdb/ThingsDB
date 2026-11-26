@@ -10,7 +10,7 @@
 #include <util/logger.h>
 #include <uv.h>
 
-void ex_setv(ex_t * e, ex_enum errnr, const char * errmsg, va_list args)
+void ex_setv(ex_t *e, ex_enum errnr, const char *errmsg, va_list args)
 {
     int n;
     e->nr = errnr;
@@ -18,7 +18,7 @@ void ex_setv(ex_t * e, ex_enum errnr, const char * errmsg, va_list args)
     e->n = n < EX_MAX_SZ ? n : EX_MAX_SZ;
 }
 
-void ex_set(ex_t * e, ex_enum errnr, const char * errmsg, ...)
+void ex_set(ex_t *e, ex_enum errnr, const char *errmsg, ...)
 {
     va_list args;
     va_start(args, errmsg);
@@ -26,12 +26,12 @@ void ex_set(ex_t * e, ex_enum errnr, const char * errmsg, ...)
     va_end(args);
 }
 
-void ex_sets(ex_t * e, ex_enum errnr, const char * errmsg)
+void ex_sets(ex_t *e, ex_enum errnr, const char *errmsg)
 {
     ex_setn(e, errnr, errmsg, strlen(errmsg));
 }
 
-void ex_setn(ex_t * e, ex_enum errnr, const char * errmsg, size_t n)
+void ex_setn(ex_t *e, ex_enum errnr, const char *errmsg, size_t n)
 {
     e->nr = errnr;
     e->n = n < EX_MAX_SZ ? n : EX_MAX_SZ;
@@ -39,7 +39,7 @@ void ex_setn(ex_t * e, ex_enum errnr, const char * errmsg, size_t n)
     e->msg[e->n] = '\0';
 }
 
-void ex_append(ex_t * e, const char * errmsg, ...)
+void ex_append(ex_t *e, const char *errmsg, ...)
 {
     va_list args;
     int n;
@@ -50,7 +50,7 @@ void ex_append(ex_t * e, const char * errmsg, ...)
     va_end(args);
 }
 
-const char * ex_str(ex_enum errnr)
+const char *ex_str(ex_enum errnr)
 {
     switch (errnr)
     {

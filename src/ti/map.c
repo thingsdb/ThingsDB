@@ -7,9 +7,9 @@
 #include <ti/field.t.h>
 #include <ti/mapping.h>
 
-ti_map_t * ti_map_new(vec_t * mappings)
+ti_map_t *ti_map_new(vec_t *mappings)
 {
-    ti_map_t * map = malloc(sizeof(ti_map_t));
+    ti_map_t *map = malloc(sizeof(ti_map_t));
     if (!map)
         return NULL;
 
@@ -27,7 +27,7 @@ ti_map_t * ti_map_new(vec_t * mappings)
     return map;
 }
 
-void ti_map_destroy(ti_map_t * map)
+void ti_map_destroy(ti_map_t *map)
 {
     if (map)
         vec_destroy(map->mappings, free);

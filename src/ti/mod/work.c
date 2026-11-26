@@ -5,7 +5,7 @@
 #include <ti/mod/work.h>
 #include <ti/module.h>
 
-void ti_mod_work_destroy(ti_mod_work_t * data)
+void ti_mod_work_destroy(ti_mod_work_t *data)
 {
     ti_mod_manifest_clear(&data->manifest);
     ti_module_drop(data->module);

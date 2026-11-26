@@ -1,11 +1,11 @@
 #include <ti/fn/fn.h>
 
-static int do__f_floor(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_floor(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     double d;
     int64_t i;
-    ti_val_t * v;
+    ti_val_t *v;
 
     if (fn_nargs("floor", DOC_MATH_FLOOR, 1, nargs, e) ||
         ti_do_statement(query, nd->children, e) ||

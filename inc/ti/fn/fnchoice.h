@@ -1,9 +1,9 @@
 #include <ti/fn/fn.h>
 
-static int do__f_choice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_choice(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_varr_t * arr;
+    ti_varr_t *arr;
     size_t n;
 
     if (!ti_val_is_array(query->rval))

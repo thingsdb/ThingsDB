@@ -13,20 +13,20 @@
 #include <util/mpack.h>
 #include <util/smap.h>
 
-ti_varr_t * ti_modules_info(uint8_t flags);
+ti_varr_t *ti_modules_info(uint8_t flags);
 void ti_modules_init(void);
 void ti_modules_load(void);
 void ti_modules_cancel_futures(void);
 _Bool ti_modules_ready(void);
 void ti_modules_stop_and_destroy(void);
-int ti_modules_rename(ti_module_t * module, const char * s, size_t n);
+int ti_modules_rename(ti_module_t *module, const char *s, size_t n);
 
-static inline ti_module_t * ti_modules_by_raw(ti_raw_t * raw)
+static inline ti_module_t *ti_modules_by_raw(ti_raw_t *raw)
 {
     return smap_getn(ti.modules, (const char *) raw->data, raw->n);
 }
 
-static inline ti_module_t * ti_modules_by_strn(const char * s, size_t n)
+static inline ti_module_t *ti_modules_by_strn(const char *s, size_t n)
 {
     return smap_getn(ti.modules, s, n);
 }

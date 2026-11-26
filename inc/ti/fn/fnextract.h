@@ -1,13 +1,13 @@
 #include <ti/fn/fn.h>
 
-static int do__f_extract(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_extract(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_datetime_t * dt;
-    ti_name_t * name;
-    ti_vint_t * vint;
+    ti_datetime_t *dt;
+    ti_name_t *name;
+    ti_vint_t *vint;
     struct tm tm;
-    ti_thing_t * as_thing;
+    ti_thing_t *as_thing;
 
     if (!ti_val_is_datetime(query->rval))
         return fn_call_try("extract", query, nd, e);
@@ -25,8 +25,8 @@ static int do__f_extract(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs == 1)
     {
-        ti_raw_t * key;
-        ti_vint_t * vint = NULL;
+        ti_raw_t *key;
+        ti_vint_t *vint = NULL;
         ti_val_unsafe_drop(query->rval);
         query->rval = NULL;
 

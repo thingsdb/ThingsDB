@@ -14,7 +14,7 @@
 
 int ti_varr_to_tuple(ti_varr_t ** varr)
 {
-    ti_tuple_t * tuple = *((ti_tuple_t **) varr);
+    ti_tuple_t *tuple = *((ti_tuple_t **) varr);
 
     if (tuple->flags & TI_VARR_FLAG_TUPLE)
         return 0;  /* tuples cannot change so we do not require a copy */
@@ -55,9 +55,9 @@ int ti_varr_to_tuple(ti_varr_t ** varr)
     return 0;
 }
 
-ti_varr_t * ti_varr_create(size_t sz)
+ti_varr_t *ti_varr_create(size_t sz)
 {
-    ti_varr_t * varr = malloc(sizeof(ti_varr_t));
+    ti_varr_t *varr = malloc(sizeof(ti_varr_t));
     if (!varr)
         return NULL;
 
@@ -76,9 +76,9 @@ ti_varr_t * ti_varr_create(size_t sz)
     return varr;
 }
 
-ti_varr_t * ti_tuple_from_vec_unsafe(vec_t * vec)
+ti_varr_t *ti_tuple_from_vec_unsafe(vec_t *vec)
 {
-    ti_varr_t * varr = malloc(sizeof(ti_varr_t));
+    ti_varr_t *varr = malloc(sizeof(ti_varr_t));
     if (!varr)
         return NULL;
 
@@ -97,9 +97,9 @@ ti_varr_t * ti_tuple_from_vec_unsafe(vec_t * vec)
  * conversion because the result of a future can only be used in combination
  * with `then` or `else`.
  */
-ti_varr_t * ti_varr_from_vec_unsafe(vec_t * vec)
+ti_varr_t *ti_varr_from_vec_unsafe(vec_t *vec)
 {
-    ti_varr_t * varr = malloc(sizeof(ti_varr_t));
+    ti_varr_t *varr = malloc(sizeof(ti_varr_t));
     if (!varr)
         return NULL;
 
@@ -115,10 +115,10 @@ ti_varr_t * ti_varr_from_vec_unsafe(vec_t * vec)
  * Should only be used when it is `ti_val_to_nested()` should succeed in normal
  * conditions.
  */
-ti_varr_t * ti_varr_from_vec(vec_t * vec)
+ti_varr_t *ti_varr_from_vec(vec_t *vec)
 {
     ex_t e = {0};
-    ti_varr_t * varr = malloc(sizeof(ti_varr_t));
+    ti_varr_t *varr = malloc(sizeof(ti_varr_t));
     if (!varr)
         return NULL;
 
@@ -139,15 +139,15 @@ ti_varr_t * ti_varr_from_vec(vec_t * vec)
     return varr;
 }
 
-ti_varr_t * ti_varr_from_slice(
-        ti_varr_t * source,
+ti_varr_t *ti_varr_from_slice(
+        ti_varr_t *source,
         ssize_t start,
         ssize_t stop,
         ssize_t step)
 {
     ssize_t n = stop - start;
     uint32_t sz;
-    ti_varr_t * varr = malloc(sizeof(ti_varr_t));
+    ti_varr_t *varr = malloc(sizeof(ti_varr_t));
     if (!varr)
         return NULL;
 
@@ -172,7 +172,7 @@ ti_varr_t * ti_varr_from_slice(
 
     for (n = start; sz--; n += step)
     {
-        ti_val_t * val = VEC_get(source->vec, n);
+        ti_val_t *val = VEC_get(source->vec, n);
         ti_incref(val);
         VEC_push(varr->vec, val);
     }
@@ -180,13 +180,13 @@ ti_varr_t * ti_varr_from_slice(
     return varr;
 }
 
-void ti_varr_destroy(ti_varr_t * varr)
+void ti_varr_destroy(ti_varr_t *varr)
 {
     vec_destroy(varr->vec, (vec_destroy_cb) ti_val_unsafe_gc_drop);
     free(varr);
 }
 
-_Bool ti_varr_has_val(ti_varr_t * varr, ti_val_t * val)
+_Bool ti_varr_has_val(ti_varr_t *varr, ti_val_t *val)
 {
     for (vec_each(varr->vec, ti_val_t, v))
         if (ti_opr_eq(v, val))
@@ -194,7 +194,7 @@ _Bool ti_varr_has_val(ti_varr_t * varr, ti_val_t * val)
     return false;
 }
 
-int ti_varr_nested_spec_err(ti_varr_t * varr, ti_val_t * val, ex_t * e)
+int ti_varr_nested_spec_err(ti_varr_t *varr, ti_val_t *val, ex_t *e)
 {
     switch (ti_spec_check_nested_val(ti_varr_spec(varr), val))
     {
@@ -239,9 +239,9 @@ int ti_varr_nested_spec_err(ti_varr_t * varr, ti_val_t * val, ex_t * e)
     return 0;
 }
 
-ti_varr_t * ti_varr_cp(ti_varr_t * varr)
+ti_varr_t *ti_varr_cp(ti_varr_t *varr)
 {
-    ti_varr_t * list = malloc(sizeof(ti_varr_t));
+    ti_varr_t *list = malloc(sizeof(ti_varr_t));
     if (!list)
         return NULL;
 
@@ -265,7 +265,7 @@ ti_varr_t * ti_varr_cp(ti_varr_t * varr)
 
 static int varr__tuple_to_tuple(ti_tuple_t ** vtuple)
 {
-    ti_tuple_t * tuple = malloc(sizeof(ti_varr_t));
+    ti_tuple_t *tuple = malloc(sizeof(ti_varr_t));
     if (!tuple)
         return -1;
 
@@ -291,7 +291,7 @@ static int varr__tuple_to_tuple(ti_tuple_t ** vtuple)
 
 int ti_varr_to_list(ti_varr_t ** varr)
 {
-    ti_varr_t * list = *varr;
+    ti_varr_t *list = *varr;
 
     if (list->ref == 1)
         return 0;
@@ -325,7 +325,7 @@ int ti_varr_copy(ti_varr_t ** varr, uint8_t deep)
 {
     assert(deep);
     int rc = 0;
-    ti_varr_t * list = malloc(sizeof(ti_varr_t));
+    ti_varr_t *list = malloc(sizeof(ti_varr_t));
     if (!list)
         return -1;
 
@@ -385,7 +385,7 @@ int ti_varr_dup(ti_varr_t ** varr, uint8_t deep)
 {
     assert(deep);
     int rc = 0;
-    ti_varr_t * list = malloc(sizeof(ti_varr_t));
+    ti_varr_t *list = malloc(sizeof(ti_varr_t));
     if (!list)
         return -1;
 
@@ -425,7 +425,7 @@ int ti_varr_dup(ti_varr_t ** varr, uint8_t deep)
  * this functions already takes the assumption that `a` and `b` are different
  * arrays but of equal size.
  */
-_Bool ti__varr_eq(ti_varr_t * varra, ti_varr_t * varrb)
+_Bool ti__varr_eq(ti_varr_t *varra, ti_varr_t *varrb)
 {
     size_t i = 0;
 

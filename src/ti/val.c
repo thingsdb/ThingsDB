@@ -47,76 +47,76 @@
 
 #define VAL__CMP(__s) ti_raw_eq_strn((*(ti_raw_t **) val), __s, strlen(__s))
 
-static ti_val_t * val__empty_bin;
-static ti_val_t * val__empty_str;
-static ti_val_t * val__default_closure;
-static ti_val_t * val__default_re;
-static ti_val_t * val__sano;
-static ti_val_t * val__sbool;
-static ti_val_t * val__sbytes;
-static ti_val_t * val__sclosure;
-static ti_val_t * val__sdatetime;
-static ti_val_t * val__sdict;
-static ti_val_t * val__serror;
-static ti_val_t * val__sfloat;
-static ti_val_t * val__sfuture;
-static ti_val_t * val__sint;
-static ti_val_t * val__slist;
-static ti_val_t * val__smodule;
-static ti_val_t * val__smpdata;
-static ti_val_t * val__sregex;
-static ti_val_t * val__sroom;
-static ti_val_t * val__sset;
-static ti_val_t * val__sstr;
-static ti_val_t * val__stask;
-static ti_val_t * val__suuid;
-static ti_val_t * val__swano;
-static ti_val_t * val__sthing;
-static ti_val_t * val__stimeval;
-static ti_val_t * val__stuple;
-static ti_val_t * val__swthing;
-static ti_val_t * val__tar_gz_str;
-static ti_val_t * val__gs_str;
-static ti_val_t * val__charset_str;
+static ti_val_t *val__empty_bin;
+static ti_val_t *val__empty_str;
+static ti_val_t *val__default_closure;
+static ti_val_t *val__default_re;
+static ti_val_t *val__sano;
+static ti_val_t *val__sbool;
+static ti_val_t *val__sbytes;
+static ti_val_t *val__sclosure;
+static ti_val_t *val__sdatetime;
+static ti_val_t *val__sdict;
+static ti_val_t *val__serror;
+static ti_val_t *val__sfloat;
+static ti_val_t *val__sfuture;
+static ti_val_t *val__sint;
+static ti_val_t *val__slist;
+static ti_val_t *val__smodule;
+static ti_val_t *val__smpdata;
+static ti_val_t *val__sregex;
+static ti_val_t *val__sroom;
+static ti_val_t *val__sset;
+static ti_val_t *val__sstr;
+static ti_val_t *val__stask;
+static ti_val_t *val__suuid;
+static ti_val_t *val__swano;
+static ti_val_t *val__sthing;
+static ti_val_t *val__stimeval;
+static ti_val_t *val__stuple;
+static ti_val_t *val__swthing;
+static ti_val_t *val__tar_gz_str;
+static ti_val_t *val__gs_str;
+static ti_val_t *val__charset_str;
 
 /* name */
-ti_val_t * val__async_name;
-ti_val_t * val__data_name;
-ti_val_t * val__time_name;
-ti_val_t * val__year_name;
-ti_val_t * val__month_name;
-ti_val_t * val__day_name;
-ti_val_t * val__hour_name;
-ti_val_t * val__minute_name;
-ti_val_t * val__second_name;
-ti_val_t * val__gmt_offset_name;
-ti_val_t * val__module_name;
-ti_val_t * val__deep_name;
-ti_val_t * val__flags_name;
-ti_val_t * val__load_name;
-ti_val_t * val__beautify_name;
-ti_val_t * val__parent_name;
-ti_val_t * val__parent_type_name;
-ti_val_t * val__key_name;
-ti_val_t * val__key_type_name;
-ti_val_t * val__anonymous_name;
+ti_val_t *val__async_name;
+ti_val_t *val__data_name;
+ti_val_t *val__time_name;
+ti_val_t *val__year_name;
+ti_val_t *val__month_name;
+ti_val_t *val__day_name;
+ti_val_t *val__hour_name;
+ti_val_t *val__minute_name;
+ti_val_t *val__second_name;
+ti_val_t *val__gmt_offset_name;
+ti_val_t *val__module_name;
+ti_val_t *val__deep_name;
+ti_val_t *val__flags_name;
+ti_val_t *val__load_name;
+ti_val_t *val__beautify_name;
+ti_val_t *val__parent_name;
+ti_val_t *val__parent_type_name;
+ti_val_t *val__key_name;
+ti_val_t *val__key_type_name;
+ti_val_t *val__anonymous_name;
 
 /* string */
-ti_val_t * val__sany;
-ti_val_t * val__snil;
-ti_val_t * val__strue;
-ti_val_t * val__sfalse;
+ti_val_t *val__sany;
+ti_val_t *val__snil;
+ti_val_t *val__strue;
+ti_val_t *val__sfalse;
 
 /* regular expression */
-ti_val_t * val__re_email;
-ti_val_t * val__re_url;
-ti_val_t * val__re_tel;
+ti_val_t *val__re_email;
+ti_val_t *val__re_url;
+ti_val_t *val__re_tel;
 
 
 #define VAL__BUF_SZ 128
 static char val__buf[VAL__BUF_SZ];
 
-static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
+static ti_val_t *val__unp_map(ti_vup_t *vup, size_t sz, ex_t *e)
 {
     mp_obj_t mp_key, mp_val;
 
@@ -148,8 +148,8 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
 
     case TI_KIND_C_SET:
     {
-        ti_val_t * vthing;
-        ti_vset_t * vset;
+        ti_val_t *vthing;
+        ti_vset_t *vset;
         size_t i;
 
         if (sz != 1 || mp_next(vup->up, &mp_val) != MP_ARR)
@@ -181,8 +181,8 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
     }
     case TI_KIND_C_DICT:
     {
-        ti_val_t * key, * val;
-        ti_dict_t * dict;
+        ti_val_t *key, *val;
+        ti_dict_t *dict;
         size_t i;
 
         if (sz != 1 || mp_next(vup->up, &mp_val) != MP_MAP)
@@ -240,7 +240,7 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
     }
     case TI_KIND_C_ERROR:
     {
-        ti_verror_t * verror;
+        ti_verror_t *verror;
         mp_obj_t obj, mp_msg, mp_code;
 
         if (sz != 1 ||
@@ -287,8 +287,8 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
     case TI_KIND_C_WRAP:
     {
         mp_obj_t mp_type_id;
-        ti_val_t * vthing;
-        ti_wrap_t * wrap;
+        ti_val_t *vthing;
+        ti_wrap_t *wrap;
 
         if (sz != 1 ||
             mp_next(vup->up, &mp_val) != MP_ARR || mp_val.via.sz != 2 ||
@@ -322,9 +322,9 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
     case TI_KIND_C_WANO:
     {
         mp_obj_t mp_spec_raw;
-        ti_val_t * vthing;
-        ti_ano_t * ano;
-        ti_wano_t * wano;
+        ti_val_t *vthing;
+        ti_ano_t *ano;
+        ti_wano_t *wano;
 
         if (sz != 1 ||
             mp_next(vup->up, &mp_val) != MP_ARR || mp_val.via.sz != 2 ||
@@ -369,8 +369,8 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
     case TI_KIND_C_MEMBER:
     {
         mp_obj_t mp_enum_id, mp_idx;
-        ti_enum_t * enum_;
-        ti_member_t * member;
+        ti_enum_t *enum_;
+        ti_member_t *member;
 
         if (sz != 1 ||
             mp_next(vup->up, &mp_val) != MP_ARR || mp_val.via.sz != 2 ||
@@ -407,8 +407,8 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
     case TI_KIND_C_TIMEVAL:
     {
         mp_obj_t mp_ts, mp_offset, mp_tz;
-        ti_datetime_t * dt;
-        ti_tz_t * tz;
+        ti_datetime_t *dt;
+        ti_tz_t *tz;
 
         if (sz != 1 ||
             mp_next(vup->up, &mp_val) != MP_ARR || mp_val.via.sz != 3 ||
@@ -512,7 +512,7 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
 /*
  * Does not increment the `val` reference counter.
  */
-static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
+static int val__push(ti_varr_t *varr, ti_val_t *val, ex_t *e)
 {
     assert(ti_varr_is_list(varr));
     /*
@@ -552,7 +552,7 @@ static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
         /* Make sure the arr is converted to a `tuple` and copy the
          * may-have-* flags to the parent.
          */
-        ti_varr_t * arr = (ti_varr_t *) val;
+        ti_varr_t *arr = (ti_varr_t *) val;
         arr->flags |= TI_VARR_FLAG_TUPLE;
         ti_val_set_may_flags(varr, arr);
         break;
@@ -585,7 +585,7 @@ static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
 /*
  * Return NULL when failed and `e` is set to an appropriate error message
  */
-ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e)
+ti_val_t *ti_val_from_vup_e(ti_vup_t *vup, ex_t *e)
 {
     mp_obj_t obj;
     mp_enum_t tp = mp_next(vup->up, &obj);
@@ -601,7 +601,7 @@ ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e)
         return NULL;
     case MP_I64:
     {
-        ti_vint_t * vint = ti_vint_create(obj.via.i64);
+        ti_vint_t *vint = ti_vint_create(obj.via.i64);
         if (!vint)
             ex_set_mem(e);
         return (ti_val_t *) vint;
@@ -613,28 +613,28 @@ ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e)
             ex_set_integer_overflow(e);
             return NULL;
         }
-        ti_vint_t * vint = ti_vint_create((int64_t) obj.via.u64);
+        ti_vint_t *vint = ti_vint_create((int64_t) obj.via.u64);
         if (!vint)
             ex_set_mem(e);
         return (ti_val_t *) vint;
     }
     case MP_F64:
     {
-        ti_vfloat_t * vfloat = ti_vfloat_create(obj.via.f64);
+        ti_vfloat_t *vfloat = ti_vfloat_create(obj.via.f64);
         if (!vfloat)
             ex_set_mem(e);
         return (ti_val_t *) vfloat;
     }
     case MP_BIN:
     {
-        ti_raw_t * raw = ti_bin_create(obj.via.bin.data, obj.via.bin.n);
+        ti_raw_t *raw = ti_bin_create(obj.via.bin.data, obj.via.bin.n);
         if (!raw)
             ex_set_mem(e);
         return (ti_val_t *) raw;
     }
     case MP_STR:
     {
-        ti_raw_t * raw = ti_str_create(obj.via.str.data, obj.via.str.n);
+        ti_raw_t *raw = ti_str_create(obj.via.str.data, obj.via.str.n);
         if (!raw)
             ex_set_mem(e);
         return (ti_val_t *) raw;
@@ -646,8 +646,8 @@ ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e)
     case MP_ARR:
     {
         size_t n = obj.via.sz;
-        ti_val_t * v;
-        ti_varr_t * varr = ti_varr_create(n);
+        ti_val_t *v;
+        ti_varr_t *varr = ti_varr_create(n);
         if (!varr)
         {
             ex_set_mem(e);
@@ -675,7 +675,7 @@ ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e)
         {
         case MPACK_EXT_MPACK:
         {
-            ti_raw_t * raw = ti_mp_create(obj.via.ext.data, obj.via.ext.n);
+            ti_raw_t *raw = ti_mp_create(obj.via.ext.data, obj.via.ext.n);
             if (!raw)
                 ex_set_mem(e);
             return (ti_val_t *) raw;
@@ -701,7 +701,7 @@ ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e)
         }
         case MPACK_EXT_ROOM:
         {
-            ti_room_t * room;
+            ti_room_t *room;
             uint64_t room_id;
             if (!vup->collection)
             {
@@ -738,7 +738,7 @@ ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e)
         case MPACK_EXT_TASK:
         {
             uint64_t task_id;
-            vec_t * vtasks = vup->collection
+            vec_t *vtasks = vup->collection
                     ? vup->collection->vtasks
                     : ti.tasks->vtasks;
 
@@ -765,7 +765,7 @@ ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e)
         case MPACK_EXT_THING:
         {
             uint64_t thing_id;
-            ti_thing_t * thing;
+            ti_thing_t *thing;
 
             if (obj.via.ext.n != sizeof(uint64_t))
             {
@@ -796,7 +796,7 @@ ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e)
         }
         case MPACK_EXT_NAME:
         {
-            ti_name_t * name = ti_names_get(
+            ti_name_t *name = ti_names_get(
                 (const char *) obj.via.ext.data,
                 obj.via.ext.n);
             if (!name)
@@ -808,7 +808,7 @@ ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e)
         }
         case MPACK_EXT_ANO:
         {
-            ti_ano_t * ano;
+            ti_ano_t *ano;
             if (!vup->collection)
             {
                 ex_set(e, EX_BAD_DATA,
@@ -826,7 +826,7 @@ ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e)
         }
         case MPACK_EXT_UUID:
         {
-            ti_uuid_t * uuid;
+            ti_uuid_t *uuid;
             if (obj.via.ext.n != sizeof(uuid_t))
             {
                 ex_set(e, EX_BAD_DATA, "invalid UUID (expecting 16 bytes)");
@@ -991,7 +991,7 @@ void ti_val_drop_common(void)
 
 int ti_val_make_int(ti_val_t ** val, int64_t i)
 {
-    ti_val_t * v = (ti_val_t *) ti_vint_create(i);
+    ti_val_t *v = (ti_val_t *) ti_vint_create(i);
     if (!v)
         return -1;
 
@@ -1002,7 +1002,7 @@ int ti_val_make_int(ti_val_t ** val, int64_t i)
 
 int ti_val_make_float(ti_val_t ** val, double d)
 {
-    ti_val_t * v = (ti_val_t *) ti_vfloat_create(d);
+    ti_val_t *v = (ti_val_t *) ti_vfloat_create(d);
     if (!v)
         return -1;
 
@@ -1014,10 +1014,10 @@ int ti_val_make_float(ti_val_t ** val, double d)
 /*
  * Return NULL when failed. Otherwise a new value with a reference.
  */
-ti_val_t * ti_val_from_vup(ti_vup_t * vup)
+ti_val_t *ti_val_from_vup(ti_vup_t *vup)
 {
     ex_t e = {0};
-    ti_val_t * val;
+    ti_val_t *val;
 
     val = ti_val_from_vup_e(vup, &e);
     if (e.nr)
@@ -1025,52 +1025,52 @@ ti_val_t * ti_val_from_vup(ti_vup_t * vup)
     return val;
 }
 
-ti_val_t * ti_val_empty_str(void)
+ti_val_t *ti_val_empty_str(void)
 {
     ti_incref(val__empty_str);
     return val__empty_str;
 }
 
-ti_val_t * ti_val_default_re(void)
+ti_val_t *ti_val_default_re(void)
 {
     ti_incref(val__default_re);
     return val__default_re;
 }
 
-ti_val_t * ti_val_default_closure(void)
+ti_val_t *ti_val_default_closure(void)
 {
     ti_incref(val__default_closure);
     return val__default_closure;
 }
 
-ti_val_t * ti_val_charset_str(void)
+ti_val_t *ti_val_charset_str(void)
 {
     ti_incref(val__charset_str);
     return val__charset_str;
 }
 
-ti_val_t * ti_val_borrow_any_str(void)
+ti_val_t *ti_val_borrow_any_str(void)
 {
     return val__sany;
 }
 
-ti_val_t * ti_val_borrow_tar_gz_str(void)
+ti_val_t *ti_val_borrow_tar_gz_str(void)
 {
     return val__tar_gz_str;
 }
 
-ti_val_t * ti_val_borrow_gs_str(void)
+ti_val_t *ti_val_borrow_gs_str(void)
 {
     return val__gs_str;
 }
 
-ti_val_t * ti_val_empty_bin(void)
+ti_val_t *ti_val_empty_bin(void)
 {
     ti_incref(val__empty_bin);
     return val__empty_bin;
 }
 
-ti_val_t * ti_val_wrapped_thing_str(void)
+ti_val_t *ti_val_wrapped_thing_str(void)
 {
     ti_incref(val__swthing);
     return val__swthing;
@@ -1082,10 +1082,10 @@ ti_val_t * ti_val_wrapped_thing_str(void)
  * TI_SCOPE_NODE. If no valid scope is found, `e` will be set with an
  * appropriate error message.
  */
-vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * scope_id)
+vec_t ** ti_val_get_access(ti_val_t *val, ex_t *e, uint64_t *scope_id)
 {
-    ti_collection_t * collection;
-    ti_raw_t * raw = (ti_raw_t *) val;
+    ti_collection_t *collection;
+    ti_raw_t *raw = (ti_raw_t *) val;
     ti_scope_t scope;
 
     if (!ti_val_is_str(val))
@@ -1127,9 +1127,9 @@ vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * scope_id)
     return NULL;
 }
 
-int ti_val_convert_to_bytes(ti_val_t ** val, ex_t * e)
+int ti_val_convert_to_bytes(ti_val_t ** val, ex_t *e)
 {
-    ti_val_t * v = NULL;
+    ti_val_t *v = NULL;
 
     switch((ti_val_enum) (*val)->tp)
     {
@@ -1137,7 +1137,7 @@ int ti_val_convert_to_bytes(ti_val_t ** val, ex_t * e)
     case TI_VAL_STR:
     case TI_VAL_MPDATA:  /* allow mpdata, issue #427 */
     {
-        ti_raw_t * r = (ti_raw_t *) (*val);
+        ti_raw_t *r = (ti_raw_t *) (*val);
         if (r->ref == 1 && r->tp != TI_VAL_NAME)
         {
             /* only one reference left we can just change the type */
@@ -1154,7 +1154,7 @@ int ti_val_convert_to_bytes(ti_val_t ** val, ex_t * e)
     }
     case TI_VAL_UUID:
     {
-        ti_uuid_t * u = (ti_uuid_t *) (*val);
+        ti_uuid_t *u = (ti_uuid_t *) (*val);
         v = (ti_val_t *) ti_bin_create(u->id, sizeof(u->id));
         if (!v)
         {
@@ -1206,7 +1206,7 @@ int ti_val_convert_to_bytes(ti_val_t ** val, ex_t * e)
     return 0;
 }
 
-int ti_val_convert_to_int(ti_val_t ** val, ex_t * e)
+int ti_val_convert_to_int(ti_val_t ** val, ex_t *e)
 {
     int64_t i = 0;
     switch((ti_val_enum) (*val)->tp)
@@ -1228,14 +1228,14 @@ int ti_val_convert_to_int(ti_val_t ** val, ex_t * e)
     case TI_VAL_NAME:
     case TI_VAL_STR:
     {
-        ti_raw_t * raw = *((ti_raw_t **) val);
+        ti_raw_t *raw = *((ti_raw_t **) val);
 
         if (errno == ERANGE)
             errno = 0;
 
         if (raw->n >= VAL__BUF_SZ)
         {
-            char * dup = strndup((const char *) raw->data, raw->n);
+            char *dup = strndup((const char *) raw->data, raw->n);
             if (!dup)
             {
                 ex_set_mem(e);
@@ -1260,7 +1260,7 @@ int ti_val_convert_to_int(ti_val_t ** val, ex_t * e)
         break;
     case TI_VAL_MEMBER:
     {
-        ti_val_t * v = VMEMBER(*val);
+        ti_val_t *v = VMEMBER(*val);
         ti_incref(v);
         if (ti_val_convert_to_int(&v, e))
         {
@@ -1306,7 +1306,7 @@ overflow:
     return e->nr;
 }
 
-int ti_val_convert_to_float(ti_val_t ** val, ex_t * e)
+int ti_val_convert_to_float(ti_val_t ** val, ex_t *e)
 {
     double d = 0.0;
     switch((ti_val_enum) (*val)->tp)
@@ -1325,14 +1325,14 @@ int ti_val_convert_to_float(ti_val_t ** val, ex_t * e)
     case TI_VAL_NAME:
     case TI_VAL_STR:
     {
-        ti_raw_t * raw = *((ti_raw_t **) val);
+        ti_raw_t *raw = *((ti_raw_t **) val);
 
         if (errno == ERANGE)
             errno = 0;
 
         if (raw->n >= VAL__BUF_SZ)
         {
-            char * dup = strndup((const char *) raw->data, raw->n);
+            char *dup = strndup((const char *) raw->data, raw->n);
             if (!dup)
             {
                 ex_set_mem(e);
@@ -1361,7 +1361,7 @@ int ti_val_convert_to_float(ti_val_t ** val, ex_t * e)
         break;
     case TI_VAL_MEMBER:
     {
-        ti_val_t * v = VMEMBER(*val);
+        ti_val_t *v = VMEMBER(*val);
         ti_incref(v);
         if (ti_val_convert_to_float(&v, e))
         {
@@ -1403,7 +1403,7 @@ int ti_val_convert_to_float(ti_val_t ** val, ex_t * e)
     return e->nr;
 }
 
-int ti_val_convert_to_array(ti_val_t ** val, ex_t * e)
+int ti_val_convert_to_array(ti_val_t ** val, ex_t *e)
 {
     switch((ti_val_enum) (*val)->tp)
     {
@@ -1449,13 +1449,13 @@ int ti_val_convert_to_array(ti_val_t ** val, ex_t * e)
     return e->nr;
 }
 
-int ti_val_convert_to_set(ti_val_t ** val, ex_t * e)
+int ti_val_convert_to_set(ti_val_t ** val, ex_t *e)
 {
     switch((ti_val_enum) (*val)->tp)
     {
     case TI_VAL_THING:
     {
-        ti_vset_t * vset = ti_vset_create();
+        ti_vset_t *vset = ti_vset_create();
         if (!vset || ti_vset_add(vset, (ti_thing_t *) *val))
         {
             ti_vset_destroy(vset);
@@ -1468,8 +1468,8 @@ int ti_val_convert_to_set(ti_val_t ** val, ex_t * e)
     }
     case TI_VAL_ARR:
     {
-        vec_t * vec = VARR(*val);
-        ti_vset_t * vset = ti_vset_create();
+        vec_t *vec = VARR(*val);
+        ti_vset_t *vset = ti_vset_create();
         if (!vset)
         {
             ex_set_mem(e);
@@ -1527,7 +1527,7 @@ int ti_val_convert_to_set(ti_val_t ** val, ex_t * e)
  * Can only be called on values which have a length.
  * Enum types should have been checked on the value they contain.
  */
-size_t ti_val_get_len(ti_val_t * val)
+size_t ti_val_get_len(ti_val_t *val)
 {
     switch ((ti_val_enum) val->tp)
     {
@@ -1579,22 +1579,22 @@ size_t ti_val_get_len(ti_val_t * val)
     return 0;
 }
 
-static inline int val__walk_gen_id_dict(ti_val_t * val, void * UNUSED(_))
+static inline int val__walk_gen_id_dict(ti_val_t *val, void *UNUSED(_))
 {
     return ti_val_gen_ids(val);
 }
 
-static inline int val__walk_has_id_dict(ti_val_t * val, void * UNUSED(_))
+static inline int val__walk_has_id_dict(ti_val_t *val, void *UNUSED(_))
 {
     return ti_val_has_ids(val);
 }
 
-static inline int val__walk_gen_id_set(ti_thing_t * thing, void * UNUSED(_))
+static inline int val__walk_gen_id_set(ti_thing_t *thing, void *UNUSED(_))
 {
     return !thing->id && ti_thing_gen_id(thing);
 }
 
-static inline int val__walk_has_id_set(ti_thing_t * thing, void * UNUSED(_))
+static inline int val__walk_has_id_set(ti_thing_t *thing, void *UNUSED(_))
 {
     return (int) ti_thing_has_id(thing);
 }
@@ -1603,7 +1603,7 @@ static inline int val__walk_has_id_set(ti_thing_t * thing, void * UNUSED(_))
  * Must be called when, and only when generating a new `task`. New ID's must
  * also be present in a task so other nodes will consume the same ID's.
  */
-int ti_val_gen_ids(ti_val_t * val)
+int ti_val_gen_ids(ti_val_t *val)
 {
     switch ((ti_val_enum) val->tp)
     {
@@ -1688,7 +1688,7 @@ int ti_val_gen_ids(ti_val_t * val)
     return 0;
 }
 
-_Bool ti_val_has_ids(ti_val_t * val)
+_Bool ti_val_has_ids(ti_val_t *val)
 {
     switch ((ti_val_enum) val->tp)
     {
@@ -1743,7 +1743,7 @@ _Bool ti_val_has_ids(ti_val_t * val)
     return false;
 }
 
-size_t ti_val_alloc_size(ti_val_t * val)
+size_t ti_val_alloc_size(ti_val_t *val)
 {
     switch ((ti_val_enum) val->tp)
     {
@@ -1792,7 +1792,7 @@ size_t ti_val_alloc_size(ti_val_t * val)
     return 0;
 }
 
-ti_val_t * ti_val_strv(ti_val_t * val)
+ti_val_t *ti_val_strv(ti_val_t *val)
 {
     switch ((ti_val_enum) val->tp)
     {
@@ -1839,7 +1839,7 @@ ti_val_t * ti_val_strv(ti_val_t * val)
     return ti_val_empty_str();
 }
 
-int ti_val_copy(ti_val_t ** val, ti_thing_t * parent, void * key, uint8_t deep)
+int ti_val_copy(ti_val_t ** val, ti_thing_t *parent, void *key, uint8_t deep)
 {
     if (!deep)
     {
@@ -1890,7 +1890,7 @@ int ti_val_copy(ti_val_t ** val, ti_thing_t * parent, void * key, uint8_t deep)
     case TI_VAL_CLOSURE:
     {
         ex_t e = {0};
-        return ti_closure_unbound((ti_closure_t * ) *val, &e);
+        return ti_closure_unbound((ti_closure_t *) *val, &e);
     }
     case TI_VAL_ANO:
         return 0;
@@ -1954,7 +1954,7 @@ int ti_val_copy_nested(ti_val_t ** val, uint8_t deep)
     return -1;
 }
 
-int ti_val_dup(ti_val_t ** val, ti_thing_t * parent, void * key, uint8_t deep)
+int ti_val_dup(ti_val_t ** val, ti_thing_t *parent, void *key, uint8_t deep)
 {
     if (!deep)
     {
@@ -2005,7 +2005,7 @@ int ti_val_dup(ti_val_t ** val, ti_thing_t * parent, void * key, uint8_t deep)
     case TI_VAL_CLOSURE:
     {
         ex_t e = {0};
-        return ti_closure_unbound((ti_closure_t * ) *val, &e);
+        return ti_closure_unbound((ti_closure_t *) *val, &e);
     }
     case TI_VAL_ANO:
         return 0;
@@ -2072,18 +2072,18 @@ int ti_val_dup_nested(ti_val_t ** val, uint8_t deep)
 /*
  * `to_str` functions
  */
-int ti_val_nil_to_str(ti_val_t ** val, ex_t * UNUSED(e))
+int ti_val_nil_to_str(ti_val_t ** val, ex_t *UNUSED(e))
 {
     ti_decref(*val);
     ti_incref(val__snil);
     *val = val__snil;
     return 0;
 }
-int ti_val_int_to_str(ti_val_t ** val, ex_t * e)
+int ti_val_int_to_str(ti_val_t ** val, ex_t *e)
 {
     size_t n;
-    const char * s = strx_from_int64(VINT(*val), &n);
-    ti_val_t * v = (ti_val_t *) ti_str_create(s, n);
+    const char *s = strx_from_int64(VINT(*val), &n);
+    ti_val_t *v = (ti_val_t *) ti_str_create(s, n);
     if (!v)
     {
         ex_set_mem(e);
@@ -2093,11 +2093,11 @@ int ti_val_int_to_str(ti_val_t ** val, ex_t * e)
     *val = v;
     return 0;
 }
-int ti_val_float_to_str(ti_val_t ** val, ex_t * e)
+int ti_val_float_to_str(ti_val_t ** val, ex_t *e)
 {
     size_t n;
-    const char * s = strx_from_double(VFLOAT(*val), &n);
-    ti_val_t * v = (ti_val_t *) ti_str_create(s, n);
+    const char *s = strx_from_double(VFLOAT(*val), &n);
+    ti_val_t *v = (ti_val_t *) ti_str_create(s, n);
     if (!v)
     {
         ex_set_mem(e);
@@ -2107,26 +2107,26 @@ int ti_val_float_to_str(ti_val_t ** val, ex_t * e)
     *val = v;
     return 0;
 }
-int ti_val_bool_to_str(ti_val_t ** val, ex_t * UNUSED(e))
+int ti_val_bool_to_str(ti_val_t ** val, ex_t *UNUSED(e))
 {
-    ti_val_t * v = VBOOL(*val) ? val__strue : val__sfalse;
+    ti_val_t *v = VBOOL(*val) ? val__strue : val__sfalse;
     ti_decref(*val);
     ti_incref(v);
     *val = v;
     return 0;
 }
-int ti_val_datetime_to_str(ti_val_t ** val, ex_t * e)
+int ti_val_datetime_to_str(ti_val_t ** val, ex_t *e)
 {
-    ti_val_t * v = (ti_val_t *) ti_datetime_to_str((ti_datetime_t *) *val, e);
+    ti_val_t *v = (ti_val_t *) ti_datetime_to_str((ti_datetime_t *) *val, e);
     if (!v)
         return e->nr;
     ti_val_unsafe_drop(*val);
     *val = v;
     return 0;
 }
-int ti_val_bytes_to_str(ti_val_t ** val, ex_t * e)
+int ti_val_bytes_to_str(ti_val_t ** val, ex_t *e)
 {
-    ti_raw_t * r = (ti_raw_t *) (*val);
+    ti_raw_t *r = (ti_raw_t *) (*val);
     if (!strx_is_utf8n((const char *) r->data, r->n))
     {
         ex_set(e, EX_VALUE_ERROR,
@@ -2149,10 +2149,10 @@ int ti_val_bytes_to_str(ti_val_t ** val, ex_t * e)
     *val = (ti_val_t *) r;
     return 0;
 }
-int ti_val_bytes_to_uuid(ti_val_t ** val, ex_t * e)
+int ti_val_bytes_to_uuid(ti_val_t ** val, ex_t *e)
 {
-    ti_uuid_t * uuid;
-    ti_raw_t * r = (ti_raw_t *) (*val);
+    ti_uuid_t *uuid;
+    ti_raw_t *r = (ti_raw_t *) (*val);
     if (r->n != sizeof(uuid_t))
     {
         ex_set(e, EX_VALUE_ERROR,
@@ -2169,17 +2169,17 @@ int ti_val_bytes_to_uuid(ti_val_t ** val, ex_t * e)
     *val = (ti_val_t *) uuid;
     return 0;
 }
-int ti_val_regex_to_str(ti_val_t ** val, ex_t * UNUSED(e))
+int ti_val_regex_to_str(ti_val_t ** val, ex_t *UNUSED(e))
 {
-    ti_val_t * v = (ti_val_t *) (*(ti_regex_t **) val)->pattern;
+    ti_val_t *v = (ti_val_t *) (*(ti_regex_t **) val)->pattern;
     ti_val_unsafe_drop(*val);
     ti_incref(v);
     *val = v;
     return 0;
 }
-int ti_val_thing_to_str(ti_val_t ** val, ex_t * e)
+int ti_val_thing_to_str(ti_val_t ** val, ex_t *e)
 {
-    ti_val_t * v = (ti_val_t *) ti_thing_str((ti_thing_t *) *val);
+    ti_val_t *v = (ti_val_t *) ti_thing_str((ti_thing_t *) *val);
     if (!v)
     {
         ex_set_mem(e);
@@ -2189,9 +2189,9 @@ int ti_val_thing_to_str(ti_val_t ** val, ex_t * e)
     *val = v;
     return 0;
 }
-int ti_val_wrap_to_str(ti_val_t ** val, ex_t * e)
+int ti_val_wrap_to_str(ti_val_t ** val, ex_t *e)
 {
-    ti_val_t * v = (ti_val_t *) ti_wrap_str((ti_wrap_t *) *val);
+    ti_val_t *v = (ti_val_t *) ti_wrap_str((ti_wrap_t *) *val);
     if (!v)
     {
         ex_set_mem(e);
@@ -2201,9 +2201,9 @@ int ti_val_wrap_to_str(ti_val_t ** val, ex_t * e)
     *val = v;
     return 0;
 }
-int ti_val_wano_to_str(ti_val_t ** val, ex_t * e)
+int ti_val_wano_to_str(ti_val_t ** val, ex_t *e)
 {
-    ti_val_t * v = (ti_val_t *) ti_wano_str((ti_wano_t *) *val);
+    ti_val_t *v = (ti_val_t *) ti_wano_str((ti_wano_t *) *val);
     if (!v)
     {
         ex_set_mem(e);
@@ -2213,9 +2213,9 @@ int ti_val_wano_to_str(ti_val_t ** val, ex_t * e)
     *val = v;
     return 0;
 }
-int ti_val_uuid_to_str(ti_val_t ** val, ex_t * e)
+int ti_val_uuid_to_str(ti_val_t ** val, ex_t *e)
 {
-    ti_val_t * v = (ti_val_t *) ti_uuid_str((ti_uuid_t *) *val);
+    ti_val_t *v = (ti_val_t *) ti_uuid_str((ti_uuid_t *) *val);
     if (!v)
     {
         ex_set_mem(e);
@@ -2225,9 +2225,9 @@ int ti_val_uuid_to_str(ti_val_t ** val, ex_t * e)
     *val = v;
     return 0;
 }
-int ti_val_room_to_str(ti_val_t ** val, ex_t * e)
+int ti_val_room_to_str(ti_val_t ** val, ex_t *e)
 {
-    ti_val_t * v = (ti_val_t *) ti_room_str((ti_room_t *) *val);
+    ti_val_t *v = (ti_val_t *) ti_room_str((ti_room_t *) *val);
     if (!v)
     {
         ex_set_mem(e);
@@ -2237,9 +2237,9 @@ int ti_val_room_to_str(ti_val_t ** val, ex_t * e)
     *val = v;
     return 0;
 }
-int ti_val_vtask_to_str(ti_val_t ** val, ex_t * e)
+int ti_val_vtask_to_str(ti_val_t ** val, ex_t *e)
 {
-    ti_val_t * v = (ti_val_t *) ti_vtask_str((ti_vtask_t *) *val);
+    ti_val_t *v = (ti_val_t *) ti_vtask_str((ti_vtask_t *) *val);
     if (!v)
     {
         ex_set_mem(e);
@@ -2249,9 +2249,9 @@ int ti_val_vtask_to_str(ti_val_t ** val, ex_t * e)
     *val = v;
     return 0;
 }
-int ti_val_error_to_str(ti_val_t ** val, ex_t * e)
+int ti_val_error_to_str(ti_val_t ** val, ex_t *e)
 {
-    ti_val_t * v = (ti_val_t *) ti_str_create(
+    ti_val_t *v = (ti_val_t *) ti_str_create(
             (*(ti_verror_t **) val)->msg,
             (*(ti_verror_t **) val)->msg_n);
     if (!v)
@@ -2263,9 +2263,9 @@ int ti_val_error_to_str(ti_val_t ** val, ex_t * e)
     *val = v;
     return 0;
 }
-int ti_val_member_to_str(ti_val_t ** val, ex_t * e)
+int ti_val_member_to_str(ti_val_t ** val, ex_t *e)
 {
-    ti_val_t * v = VMEMBER(*val);
+    ti_val_t *v = VMEMBER(*val);
     ti_incref(v);
     if (ti_val(v)->to_str(&v, e))  /* bug #344 */
     {
@@ -2276,9 +2276,9 @@ int ti_val_member_to_str(ti_val_t ** val, ex_t * e)
     *val = v;
     return 0;
 }
-int ti_val_closure_to_str(ti_val_t ** val, ex_t * e)
+int ti_val_closure_to_str(ti_val_t ** val, ex_t *e)
 {
-    ti_val_t * v = (ti_val_t *) ti_closure_def((ti_closure_t *) *val);
+    ti_val_t *v = (ti_val_t *) ti_closure_def((ti_closure_t *) *val);
     if (!v)
     {
         ex_set_mem(e);
@@ -2288,7 +2288,7 @@ int ti_val_closure_to_str(ti_val_t ** val, ex_t * e)
     *val = v;
     return 0;
 }
-int ti_val_ano_to_str(ti_val_t ** val, ex_t * UNUSED(e))
+int ti_val_ano_to_str(ti_val_t ** val, ex_t *UNUSED(e))
 {
     ti_val_unsafe_drop(*val);
     *val = ti_val_anonymous_name();

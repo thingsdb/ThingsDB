@@ -9,21 +9,21 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-static void prio__free(cleri_t * cl_obj);
+static void prio__free(cleri_t *cl_obj);
 
-static cleri_node_t *  prio__parse(
-        cleri_parse_t * pr,
-        cleri_node_t * parent,
-        cleri_t * cl_obj,
-        cleri_rule_store_t * rule);
+static cleri_node_t *prio__parse(
+        cleri_parse_t *pr,
+        cleri_node_t *parent,
+        cleri_t *cl_obj,
+        cleri_rule_store_t *rule);
 
 /*
  * Returns NULL in case an error has occurred.
  */
-cleri_t * cleri_prio(uint32_t gid, size_t len, ...)
+cleri_t *cleri_prio(uint32_t gid, size_t len, ...)
 {
     va_list ap;
-    cleri_t * cl_object = cleri_new(
+    cleri_t *cl_object = cleri_new(
             0,
             CLERI_TP_PRIO,
             &prio__free,
@@ -70,7 +70,7 @@ cleri_t * cleri_prio(uint32_t gid, size_t len, ...)
 /*
  * Destroy prio object.
  */
-static void prio__free(cleri_t * cl_object)
+static void prio__free(cleri_t *cl_object)
 {
     cleri__olist_free(cl_object->via.prio->olist);
     free(cl_object->via.prio);
@@ -79,17 +79,17 @@ static void prio__free(cleri_t * cl_object)
 /*
  * Returns a node or NULL. In case of an error pr->is_valid is set to -1.
  */
-static cleri_node_t *  prio__parse(
-        cleri_parse_t * pr,
-        cleri_node_t * parent,
-        cleri_t * cl_obj,
-        cleri_rule_store_t * rule)
+static cleri_node_t *prio__parse(
+        cleri_parse_t *pr,
+        cleri_node_t *parent,
+        cleri_t *cl_obj,
+        cleri_rule_store_t *rule)
 {
-    cleri_olist_t * olist;
-    cleri_node_t * node;
-    cleri_node_t * rnode;
-    cleri_rule_tested_t * tested;
-    const char * str = parent->str + parent->len;
+    cleri_olist_t *olist;
+    cleri_node_t *node;
+    cleri_node_t *rnode;
+    cleri_rule_tested_t *tested;
+    const char *str = parent->str + parent->len;
 
     /* initialize and return rule test, or return an existing test
      * if *str is already in tested */

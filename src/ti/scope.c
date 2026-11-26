@@ -12,7 +12,7 @@
 #include <util/mpack.h>
 #include <util/strx.h>
 
-static _Bool scope__is_ascii(const char * str, size_t n, ex_t * e)
+static _Bool scope__is_ascii(const char *str, size_t n, ex_t *e)
 {
     if (!strx_is_asciin(str, n))
     {
@@ -24,7 +24,7 @@ static _Bool scope__is_ascii(const char * str, size_t n, ex_t * e)
     return true;
 }
 
-static int64_t scope__read_id(const char * str, size_t n)
+static int64_t scope__read_id(const char *str, size_t n)
 {
     uint64_t result = 0;
 
@@ -48,10 +48,10 @@ static int64_t scope__read_id(const char * str, size_t n)
 }
 
 static int scope__collection(
-        ti_scope_t * scope,
-        const char * str,
+        ti_scope_t *scope,
+        const char *str,
         size_t n,
-        ex_t * e)
+        ex_t *e)
 {
     assert(n);
 
@@ -71,7 +71,7 @@ static int scope__collection(
     return 0;  /* success */
 }
 
-int ti_scope_init(ti_scope_t * scope, const char * str, size_t n, ex_t * e)
+int ti_scope_init(ti_scope_t *scope, const char *str, size_t n, ex_t *e)
 {
     char sep_char;
 
@@ -212,10 +212,10 @@ invalid_scope:
  * expecting the `data` to contain an array like: [scope, ...]
  */
 int ti_scope_init_packed(
-        ti_scope_t * scope,
-        const unsigned char * data,
+        ti_scope_t *scope,
+        const unsigned char *data,
         size_t n,
-        ex_t * e)
+        ex_t *e)
 {
     mp_unp_t up;
     mp_obj_t obj, mp_scope;
@@ -234,7 +234,7 @@ int ti_scope_init_packed(
     return ti_scope_init(scope, mp_scope.via.str.data, mp_scope.via.str.n, e);
 }
 
-int ti_scope_init_from_up(ti_scope_t * scope, mp_unp_t * up, ex_t * e)
+int ti_scope_init_from_up(ti_scope_t *scope, mp_unp_t *up, ex_t *e)
 {
     mp_obj_t obj, mp_scope;
     if (mp_next(up, &obj) != MP_ARR || !obj.via.sz ||
@@ -251,9 +251,9 @@ int ti_scope_init_from_up(ti_scope_t * scope, mp_unp_t * up, ex_t * e)
 
 static char scope__name_buf[TI_NAME_MAX+13];
 
-const char * ti_scope_name_from_id(uint64_t scope_id)
+const char *ti_scope_name_from_id(uint64_t scope_id)
 {
-    ti_collection_t * collection;
+    ti_collection_t *collection;
 
     switch(scope_id)
     {
@@ -278,9 +278,9 @@ const char * ti_scope_name_from_id(uint64_t scope_id)
     return scope__name_buf;
 }
 
-int ti_scope_id(ti_scope_t * scope, uint64_t * scope_id, ex_t * e)
+int ti_scope_id(ti_scope_t *scope, uint64_t *scope_id, ex_t *e)
 {
-    ti_collection_t * collection;
+    ti_collection_t *collection;
     switch (scope->tp)
     {
     case TI_SCOPE_THINGSDB:
@@ -304,9 +304,9 @@ int ti_scope_id(ti_scope_t * scope, uint64_t * scope_id, ex_t * e)
     return e->nr;
 }
 
-ti_collection_t * ti_scope_get_collection(ti_scope_t * scope, ex_t * e)
+ti_collection_t *ti_scope_get_collection(ti_scope_t *scope, ex_t *e)
 {
-    ti_collection_t * collection;
+    ti_collection_t *collection;
 
     switch (scope->tp)
     {
@@ -329,9 +329,9 @@ ti_collection_t * ti_scope_get_collection(ti_scope_t * scope, ex_t * e)
     return NULL;
 }
 
-void ti_scope_set_tz(uint64_t scope_id, ti_tz_t * tz)
+void ti_scope_set_tz(uint64_t scope_id, ti_tz_t *tz)
 {
-    ti_collection_t * collection;
+    ti_collection_t *collection;
     switch (scope_id)
     {
     case TI_SCOPE_THINGSDB:
@@ -351,7 +351,7 @@ void ti_scope_set_tz(uint64_t scope_id, ti_tz_t * tz)
 
 void ti_scope_set_deep(uint64_t scope_id, uint8_t deep)
 {
-    ti_collection_t * collection;
+    ti_collection_t *collection;
     switch (scope_id)
     {
     case TI_SCOPE_THINGSDB:

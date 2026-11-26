@@ -9,25 +9,25 @@
 
 #define INDENT_THRESHOLD 40
 
-static int fmt__statement(ti_fmt_t * fmt, cleri_node_t * nd);
+static int fmt__statement(ti_fmt_t *fmt, cleri_node_t *nd);
 
-static inline int fmt__indent_str(ti_fmt_t * fmt, const char * str)
+static inline int fmt__indent_str(ti_fmt_t *fmt, const char *str)
 {
     return ti_fmt_indent(fmt) || buf_append_str(&fmt->buf, str);
 }
 
-static inline _Bool fmt__has_next_chain(cleri_node_t * nd)
+static inline _Bool fmt__has_next_chain(cleri_node_t *nd)
 {
-    cleri_node_t * child = nd->children->next->next->next;
+    cleri_node_t *child = nd->children->next->next->next;
     return  child && child->children->next->children->next;
 }
 
-static int fmt__index(ti_fmt_t * fmt, cleri_node_t * nd)
+static int fmt__index(ti_fmt_t *fmt, cleri_node_t *nd)
 {
-    cleri_node_t * child = nd->children;
+    cleri_node_t *child = nd->children;
     do
     {
-        cleri_node_t * c = child        /* sequence */
+        cleri_node_t *c = child        /* sequence */
                 ->children->next        /* slice */
                 ->children;
 
@@ -61,9 +61,9 @@ static int fmt__index(ti_fmt_t * fmt, cleri_node_t * nd)
     return 0;
 }
 
-static int fmt__closure(ti_fmt_t * fmt, cleri_node_t * nd)
+static int fmt__closure(ti_fmt_t *fmt, cleri_node_t *nd)
 {
-    cleri_node_t * first, * child;
+    cleri_node_t *first, *child;
 
     if (buf_write(&fmt->buf, '|'))
         return -1;
@@ -88,9 +88,9 @@ static int fmt__closure(ti_fmt_t * fmt, cleri_node_t * nd)
     return fmt__statement(fmt, nd->children->next->next->next);
 }
 
-static int fmt__function(ti_fmt_t * fmt, cleri_node_t * nd)
+static int fmt__function(ti_fmt_t *fmt, cleri_node_t *nd)
 {
-    cleri_node_t * child = nd->children;
+    cleri_node_t *child = nd->children;
     int has_wse = child->next->children->next->next->len == 2;
 
     /* function name */
@@ -118,9 +118,9 @@ static int fmt__function(ti_fmt_t * fmt, cleri_node_t * nd)
     );
 }
 
-static int fmt__enum(ti_fmt_t * fmt, cleri_node_t * nd)
+static int fmt__enum(ti_fmt_t *fmt, cleri_node_t *nd)
 {
-    cleri_node_t * name_nd = nd             /* sequence */
+    cleri_node_t *name_nd = nd             /* sequence */
             ->children;                     /* name */
     nd = nd                                 /* sequence */
             ->children->next                /* enum node */
@@ -148,12 +148,12 @@ static int fmt__enum(ti_fmt_t * fmt, cleri_node_t * nd)
 }
 
 
-static int fmt__thing(ti_fmt_t * fmt, cleri_node_t * nd)
+static int fmt__thing(ti_fmt_t *fmt, cleri_node_t *nd)
 {
-    cleri_node_t * child = nd           /* sequence */
+    cleri_node_t *child = nd           /* sequence */
             ->children->next            /* list */
             ->children;
-    cleri_node_t * key, * val;
+    cleri_node_t *key, *val;
 
     /* Use indentation if more than 1 element */
     _Bool with_indent = child && child->next && child->next->next;
@@ -202,9 +202,9 @@ static int fmt__thing(ti_fmt_t * fmt, cleri_node_t * nd)
     return 0;
 }
 
-static int fmt__var_opt_fa(ti_fmt_t * fmt, cleri_node_t * nd)
+static int fmt__var_opt_fa(ti_fmt_t *fmt, cleri_node_t *nd)
 {
-    cleri_node_t * child = nd->children;
+    cleri_node_t *child = nd->children;
 
     if (child->next)
     {
@@ -235,9 +235,9 @@ static int fmt__var_opt_fa(ti_fmt_t * fmt, cleri_node_t * nd)
     return buf_append(&fmt->buf, child->str, child->len);
 }
 
-static int fmt__name_opt_fa(ti_fmt_t * fmt, cleri_node_t * nd)
+static int fmt__name_opt_fa(ti_fmt_t *fmt, cleri_node_t *nd)
 {
-    cleri_node_t * child = nd->children;
+    cleri_node_t *child = nd->children;
 
     if (child->next)
     {
@@ -262,9 +262,9 @@ static int fmt__name_opt_fa(ti_fmt_t * fmt, cleri_node_t * nd)
 }
 
 
-static int fmt__chain(ti_fmt_t * fmt, cleri_node_t * nd, _Bool with_indent)
+static int fmt__chain(ti_fmt_t *fmt, cleri_node_t *nd, _Bool with_indent)
 {
-    cleri_node_t * child = nd->children->next;
+    cleri_node_t *child = nd->children->next;
     _Bool opt = nd->children->len == 2;
     _Bool set_indent = false;
 
@@ -303,9 +303,9 @@ static int fmt__chain(ti_fmt_t * fmt, cleri_node_t * nd, _Bool with_indent)
     return 0;
 }
 
-static int fmt__array(ti_fmt_t * fmt, cleri_node_t * nd)
+static int fmt__array(ti_fmt_t *fmt, cleri_node_t *nd)
 {
-    cleri_node_t * child = nd           /* sequence */
+    cleri_node_t *child = nd           /* sequence */
             ->children->next            /* list */
             ->children;
     /* Use indentation if more than 1 element */
@@ -338,9 +338,9 @@ static int fmt__array(ti_fmt_t * fmt, cleri_node_t * nd)
     return 0;
 }
 
-static int fmt__block(ti_fmt_t * fmt, cleri_node_t * nd)
+static int fmt__block(ti_fmt_t *fmt, cleri_node_t *nd)
 {
-    cleri_node_t * child = nd           /* seq<token({), list, }> */
+    cleri_node_t *child = nd           /* seq<token({), list, }> */
             ->children->next            /* list statements */
             ->children;                 /* first child, not empty */
 
@@ -366,7 +366,7 @@ static int fmt__block(ti_fmt_t * fmt, cleri_node_t * nd)
     return fmt__indent_str(fmt, "}");
 }
 
-static int fmt__parenthesis(ti_fmt_t * fmt, cleri_node_t * nd)
+static int fmt__parenthesis(ti_fmt_t *fmt, cleri_node_t *nd)
 {
     if (buf_write(&fmt->buf, '(') ||
         fmt__statement(fmt, nd->children->next) ||
@@ -375,7 +375,7 @@ static int fmt__parenthesis(ti_fmt_t * fmt, cleri_node_t * nd)
     return 0;
 }
 
-static int fmt__expr_choice(ti_fmt_t * fmt, cleri_node_t * nd)
+static int fmt__expr_choice(ti_fmt_t *fmt, cleri_node_t *nd)
 {
     switch (nd->cl_obj->gid)
     {
@@ -409,17 +409,17 @@ static int fmt__expr_choice(ti_fmt_t * fmt, cleri_node_t * nd)
     return -1;
 }
 
-static int fmt__preopr(ti_fmt_t * fmt, cleri_node_t * nd)
+static int fmt__preopr(ti_fmt_t *fmt, cleri_node_t *nd)
 {
     size_t n = nd->len;
-    const char * s = nd->str;
+    const char *s = nd->str;
     for(; n; --n, ++s)
         if (!isspace(*s) && buf_write(&fmt->buf, *s))
             return -1;
     return 0;
 }
 
-static int fmt__expression(ti_fmt_t * fmt, cleri_node_t * nd)
+static int fmt__expression(ti_fmt_t *fmt, cleri_node_t *nd)
 {
     if (fmt__preopr(fmt, nd->children))
         return -1;
@@ -440,9 +440,9 @@ static int fmt__expression(ti_fmt_t * fmt, cleri_node_t * nd)
     return 0;
 }
 
-static int fmt__operations(ti_fmt_t * fmt, cleri_node_t * nd)
+static int fmt__operations(ti_fmt_t *fmt, cleri_node_t *nd)
 {
-    cleri_node_t * node;
+    cleri_node_t *node;
 
     if (nd->children->next->cl_obj->gid == CLERI_GID_OPR9_TERNARY)
     {
@@ -487,7 +487,7 @@ static int fmt__operations(ti_fmt_t * fmt, cleri_node_t * nd)
     return 0;
 }
 
-static int fmt__if_statement(ti_fmt_t * fmt, cleri_node_t * nd)
+static int fmt__if_statement(ti_fmt_t *fmt, cleri_node_t *nd)
 {
     assert(nd->cl_obj->gid == CLERI_GID_IF_STATEMENT);
 
@@ -503,7 +503,7 @@ static int fmt__if_statement(ti_fmt_t * fmt, cleri_node_t * nd)
         : 0;
 }
 
-static int fmt__return_statement(ti_fmt_t * fmt, cleri_node_t * nd)
+static int fmt__return_statement(ti_fmt_t *fmt, cleri_node_t *nd)
 {
     if (!nd->children->next->children)
         return buf_append_str(&fmt->buf, "return");
@@ -526,9 +526,9 @@ static int fmt__return_statement(ti_fmt_t * fmt, cleri_node_t * nd)
         : 0;
 }
 
-static int fmt__for_statement(ti_fmt_t * fmt, cleri_node_t * nd)
+static int fmt__for_statement(ti_fmt_t *fmt, cleri_node_t *nd)
 {
-    cleri_node_t * tmp, * child = nd->
+    cleri_node_t *tmp, *child = nd->
             children->              /* for  */
             next->                  /* (    */
             next;                   /* List(variable) */
@@ -559,7 +559,7 @@ static int fmt__for_statement(ti_fmt_t * fmt, cleri_node_t * nd)
     return 0;
 }
 
-static int fmt__statement(ti_fmt_t * fmt, cleri_node_t * nd)
+static int fmt__statement(ti_fmt_t *fmt, cleri_node_t *nd)
 {
     assert(nd->cl_obj->gid == CLERI_GID_STATEMENT);
 
@@ -589,14 +589,14 @@ static int fmt__statement(ti_fmt_t * fmt, cleri_node_t * nd)
     return -1;
 }
 
-void ti_fmt_init(ti_fmt_t * fmt, int spaces)
+void ti_fmt_init(ti_fmt_t *fmt, int spaces)
 {
     buf_init(&fmt->buf);
     fmt->spaces = spaces;
     fmt->indent = 0;
 }
 
-void ti_fmt_clear(ti_fmt_t * fmt)
+void ti_fmt_clear(ti_fmt_t *fmt)
 {
     free(fmt->buf.data);
 }
@@ -604,7 +604,7 @@ void ti_fmt_clear(ti_fmt_t * fmt)
 /*
  * Only `closure` nodes are supported but may be extend to other type
  */
-int ti_fmt_nd(ti_fmt_t * fmt, cleri_node_t * nd)
+int ti_fmt_nd(ti_fmt_t *fmt, cleri_node_t *nd)
 {
     switch(nd->cl_obj->gid)
     {
@@ -615,10 +615,10 @@ int ti_fmt_nd(ti_fmt_t * fmt, cleri_node_t * nd)
     return -1;
 }
 
-int ti_fmt_strn(ti_fmt_t * fmt, const char * str, size_t n)
+int ti_fmt_strn(ti_fmt_t *fmt, const char *str, size_t n)
 {
     int sq = 0, dq= 0;
-    const char * c, * e, * data = str;
+    const char *c, *e, *data = str;
 
     for (c = data, e = data + n; c < e; ++c)
         if (*c == '\'')

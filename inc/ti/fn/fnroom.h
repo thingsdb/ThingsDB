@@ -1,6 +1,6 @@
 #include <ti/fn/fn.h>
 
-static int do__f_room(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_room(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     /* Rooms can be created in every scope, but they have no effect in
      * any scope other than a collection scope. This is because they must get
@@ -15,7 +15,7 @@ static int do__f_room(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (nargs == 1)
     {
 
-        ti_room_t * room;
+        ti_room_t *room;
 
         if (ti_do_statement(query, nd->children, e) ||
             ti_val_is_room(query->rval))
@@ -29,7 +29,7 @@ static int do__f_room(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         }
         else if (ti_val_is_str(query->rval))
         {
-            ti_str_t * str = (ti_str_t *) query->rval;
+            ti_str_t *str = (ti_str_t *) query->rval;
             room = ti_query_room_from_strn(query, str->str, str->n, e);
         }
         else

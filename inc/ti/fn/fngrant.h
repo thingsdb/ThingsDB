@@ -1,12 +1,12 @@
 #include <ti/fn/fn.h>
 
-static int do__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_grant(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    cleri_node_t * child = nd->children;
-    ti_user_t * user;
-    ti_task_t * task;
-    ti_raw_t * ruser;
+    cleri_node_t *child = nd->children;
+    ti_user_t *user;
+    ti_task_t *task;
+    ti_raw_t *ruser;
     uint64_t mask, scope_id;
     vec_t ** access_;
 

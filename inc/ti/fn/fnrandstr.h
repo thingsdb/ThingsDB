@@ -2,12 +2,12 @@
 
 #define TI_RANDSTR_MAX 1024
 
-static int do__f_randstr(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_randstr(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     int64_t n;
-    ti_raw_t * charset;
-    unsigned char * buffer;
+    ti_raw_t *charset;
+    unsigned char *buffer;
 
     if (fn_nargs_range("randstr", DOC_RANDSTR, 1, 2, nargs, e) ||
         ti_do_statement(query, nd->children, e))

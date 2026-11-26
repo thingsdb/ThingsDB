@@ -45,11 +45,11 @@ struct ti_enum_s
     uint64_t created_at;    /* UNIX time-stamp in seconds */
     uint64_t modified_at;   /* UNIX time-stamp in seconds */
     enum_conv_cb conv_cb;   /* conversion callback */
-    char * name;            /* name (null terminated) */
-    ti_raw_t * rname;       /* name as raw type */
-    vec_t * members;        /* members stored by index */
-    vec_t * methods;        /* ti_method_t */
-    smap_t * smap;          /* member lookup by name */
+    char *name;            /* name (null terminated) */
+    ti_raw_t *rname;       /* name as raw type */
+    vec_t *members;        /* members stored by index */
+    vec_t *methods;        /* ti_method_t */
+    smap_t *smap;          /* member lookup by name */
 };
 
 #endif  /* TI_MEMBER_T_H_ */

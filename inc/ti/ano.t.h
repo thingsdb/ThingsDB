@@ -14,8 +14,8 @@ struct ti_ano_s
     uint32_t ref;
     uint8_t tp;
     int:24;
-    ti_raw_t * spec_raw;  /* mpdata, in log use <anonymous> */
-    ti_type_t * type;
+    ti_raw_t *spec_raw;  /* mpdata, in log use <anonymous> */
+    ti_type_t *type;
 };
 
 #endif /* TI_ANO_T_H_ */

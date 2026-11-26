@@ -125,7 +125,7 @@ enum
     TI_FLAG_NO_SLEEP        =1<<4,
 };
 
-static inline _Bool ti_is_reserved_key_strn(const char * str, size_t n)
+static inline _Bool ti_is_reserved_key_strn(const char *str, size_t n)
 {
     return n == 1 && (*str >> 4 == 2);
 }

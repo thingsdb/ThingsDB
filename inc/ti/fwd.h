@@ -11,14 +11,14 @@ typedef struct ti_fwd_s ti_fwd_t;
 #include <ti/stream.h>
 
 
-ti_fwd_t * ti_fwd_create(uint16_t orig_pkg_id, ti_stream_t * src_stream);
-void ti_fwd_destroy(ti_fwd_t * fwd);
+ti_fwd_t *ti_fwd_create(uint16_t orig_pkg_id, ti_stream_t *src_stream);
+void ti_fwd_destroy(ti_fwd_t *fwd);
 
 struct ti_fwd_s
 {
     uint16_t orig_pkg_id;
     uint16_t dummy;  /* must exist for casting */
-    ti_stream_t * stream;
+    ti_stream_t *stream;
 };
 
 #endif  /* TI_FWD_H_ */

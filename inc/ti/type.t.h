@@ -35,22 +35,22 @@ struct ti_type_s
     uint8_t selfref;        /* self reference counter */
     uint64_t created_at;    /* UNIX time-stamp in seconds */
     uint64_t modified_at;   /* UNIX time-stamp in seconds */
-    char * name;            /* name (null terminated) */
-    char * wname;           /* wrapped name (null terminated) */
-    ti_raw_t * rname;       /* name as raw type */
-    ti_raw_t * rwname;      /* wrapped name as raw type */
-    ti_name_t * idname;     /* use this as the id field */
-    ti_types_t * types;
-    ti_row_t * row;
-    vec_t * dependencies;   /* ti_type_t/ti_enum_t; contains type and enum
+    char *name;            /* name (null terminated) */
+    char *wname;           /* wrapped name (null terminated) */
+    ti_raw_t *rname;       /* name as raw type */
+    ti_raw_t *rwname;      /* wrapped name as raw type */
+    ti_name_t *idname;     /* use this as the id field */
+    ti_types_t *types;
+    ti_row_t *row;
+    vec_t *dependencies;   /* ti_type_t/ti_enum_t; contains type and enum
                                where this type is depended on. A type or enum
                                may be more than once inside this vector
                                but a self dependency is not included,
                                order is not important */
-    vec_t * fields;         /* ti_field_t */
-    vec_t * methods;        /* ti_method_t */
-    imap_t * t_mappings;    /* from_type_id / ti_map_t */
-    imap_t * t_cache;       /* cache with things of this type (borrowed ref) */
+    vec_t *fields;         /* ti_field_t */
+    vec_t *methods;        /* ti_method_t */
+    imap_t *t_mappings;    /* from_type_id / ti_map_t */
+    imap_t *t_cache;       /* cache with things of this type (borrowed ref) */
 };
 
 #endif  /* TI_TYPE_T_H_ */

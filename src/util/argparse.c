@@ -16,28 +16,28 @@
 #define ARGPARSE_HELP_SIZE 512  /* buffer size for building help */
 
 /* static function definitions */
-static void print_usage(argparse_t * parser, const char * bname);
-static void print_help(argparse_t * parser, const char * bname);
+static void print_usage(argparse_t *parser, const char *bname);
+static void print_help(argparse_t *parser, const char *bname);
 static void print_error(
-        argparse_t * parser,
-        char * err_msg,
-        const char * bname);
+        argparse_t *parser,
+        char *err_msg,
+        const char *bname);
 static int process_arg(
-        argparse_t * parser,
+        argparse_t *parser,
         argparse_args_t ** arg,
-        int * argn,
+        int *argn,
         int argc,
         char *argv[]);
 static uint16_t get_argument(
         argparse_args_t ** target,
-        argparse_t * parser,
-        char * argument);
-static _Bool match_choice(char * choices, char * choice);
-static void fill_defaults(argparse_t * parser);
+        argparse_t *parser,
+        char *argument);
+static _Bool match_choice(char *choices, char *choice);
+static void fill_defaults(argparse_t *parser);
 
-argparse_t * argparse_create(void)
+argparse_t *argparse_create(void)
 {
-    argparse_t * parser = malloc(sizeof(argparse_t));
+    argparse_t *parser = malloc(sizeof(argparse_t));
     if (!parser)
         return NULL;
 
@@ -65,13 +65,13 @@ argparse_t * argparse_create(void)
     return parser;
 }
 
-void argparse_destroy(argparse_t * parser)
+void argparse_destroy(argparse_t *parser)
 {
     if (!parser)
         return;
 
-    argparse_args_t * current;
-    argparse_args_t * next;
+    argparse_args_t *current;
+    argparse_args_t *next;
 
     for (current = parser->args; current; current = next)
     {
@@ -83,10 +83,10 @@ void argparse_destroy(argparse_t * parser)
 }
 
 int argparse_add_argument(
-        argparse_t * parser,
-        argparse_argument_t * argument)
+        argparse_t *parser,
+        argparse_argument_t *argument)
 {
-    argparse_args_t * current = parser->args;
+    argparse_args_t *current = parser->args;
 
     while (current->next)
     {
@@ -101,13 +101,13 @@ int argparse_add_argument(
     return 0;
 }
 
-int argparse_parse(argparse_t * parser, int argc, char *argv[])
+int argparse_parse(argparse_t *parser, int argc, char *argv[])
 {
     int argn;
     int rc = 0;
     char buffer[ARGPARSE_ERR_SIZE];
-    const char * bname = basename(argv[0]);
-    argparse_args_t * current = NULL;
+    const char *bname = basename(argv[0]);
+    argparse_args_t *current = NULL;
     for (argn = 1; argn < argc; argn++)
     {
         rc = process_arg(parser, &current, &argn, argc, argv);
@@ -184,9 +184,9 @@ int argparse_parse(argparse_t * parser, int argc, char *argv[])
     return rc;
 }
 
-static void fill_defaults(argparse_t * parser)
+static void fill_defaults(argparse_t *parser)
 {
-    argparse_args_t * current;
+    argparse_args_t *current;
     for (current = parser->args; current != NULL; current = current->next)
     {
         switch (current->argument->action)
@@ -214,21 +214,21 @@ static void fill_defaults(argparse_t * parser)
 }
 
 static void print_error(
-        argparse_t * parser,
-        char * err_msg,
-        const char * bname)
+        argparse_t *parser,
+        char *err_msg,
+        const char *bname)
 {
     print_usage(parser, bname);
     printf("%s: error: %s\n", bname, err_msg);
 }
 
-static void print_usage(argparse_t * parser, const char * bname)
+static void print_usage(argparse_t *parser, const char *bname)
 {
     char buffer[ARGPARSE_HELP_SIZE];
     char uname[ARGPARSE_MAX_LEN_ARG];
     size_t line_size;
     size_t ident;
-    argparse_args_t * current;
+    argparse_args_t *current;
 
     buffer[ARGPARSE_HELP_SIZE - 1] = '\0';
     snprintf(buffer, ARGPARSE_HELP_SIZE-1, "usage: %s ", bname);
@@ -292,11 +292,11 @@ static void print_usage(argparse_t * parser, const char * bname)
     printf("\n");
 }
 
-static void print_help(argparse_t * parser, const char * bname)
+static void print_help(argparse_t *parser, const char *bname)
 {
     char buffer[ARGPARSE_HELP_SIZE];
     char uname[ARGPARSE_MAX_LEN_ARG];
-    argparse_args_t * current;
+    argparse_args_t *current;
     size_t line_size;
 
     buffer[ARGPARSE_HELP_SIZE - 1] = '\0';
@@ -364,12 +364,12 @@ static void print_help(argparse_t * parser, const char * bname)
 
 static uint16_t get_argument(
         argparse_args_t ** target,
-        argparse_t * parser,
-        char * argument)
+        argparse_t *parser,
+        char *argument)
 {
     char buffer[ARGPARSE_MAX_LEN_ARG];
     uint16_t nfound = 0;
-    argparse_args_t * current;
+    argparse_args_t *current;
     for (current = parser->args; current != NULL; current = current->next)
     {
         if (current->argument->shortcut)
@@ -393,11 +393,11 @@ static uint16_t get_argument(
 }
 
 static int process_arg(
-        argparse_t * parser,
+        argparse_t *parser,
         argparse_args_t ** arg,
-        int * argn,
+        int *argn,
         int argc,
-        char * argv[])
+        char *argv[])
 {
     char buffer[ARGPARSE_MAX_LEN_ARG];
     uint16_t num_matches;
@@ -453,12 +453,12 @@ static int process_arg(
     }
 }
 
-static _Bool match_choice(char * choices, char * choice)
+static _Bool match_choice(char *choices, char *choice)
 {
     size_t len_rest = strlen(choices);
     size_t len_choice = strlen(choice);
     _Bool check = true;
-    char * walk = choices;
+    char *walk = choices;
 
     for (; walk; len_rest--, walk++)
     {

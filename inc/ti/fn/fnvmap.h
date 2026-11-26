@@ -2,13 +2,13 @@
 
 typedef struct
 {
-    ex_t * e;
-    ti_closure_t * closure;
-    ti_query_t * query;
-    ti_thing_t * thing;
+    ex_t *e;
+    ti_closure_t *closure;
+    ti_query_t *query;
+    ti_thing_t *thing;
 } vmap__walk_i_t;
 
-static int vmap__walk_i(ti_item_t * item, vmap__walk_i_t * w)
+static int vmap__walk_i(ti_item_t *item, vmap__walk_i_t *w)
 {
     ti_closure_vars_val(w->closure, item->val);
     if (ti_closure_do_statement(w->closure, w->query, w->e) ||
@@ -23,13 +23,13 @@ static int vmap__walk_i(ti_item_t * item, vmap__walk_i_t * w)
 
 typedef struct
 {
-    ex_t * e;
-    ti_closure_t * closure;
-    ti_query_t * query;
-    ti_dict_t * dict;
+    ex_t *e;
+    ti_closure_t *closure;
+    ti_query_t *query;
+    ti_dict_t *dict;
 } vmap__pair_t;
 
-static int vmap__pair(ti_dict_key_t * key, ti_val_t * val, vmap__pair_t * w)
+static int vmap__pair(ti_dict_key_t *key, ti_val_t *val, vmap__pair_t *w)
 {
     ti_closure_vars_val(w->closure, val);
     if (ti_closure_do_statement(w->closure, w->query, w->e) ||
@@ -45,11 +45,11 @@ static int vmap__pair(ti_dict_key_t * key, ti_val_t * val, vmap__pair_t * w)
     return 0;
 }
 
-static int do__f_vmap_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_vmap_thing(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_thing_t * othing, * nthing;
-    ti_closure_t * closure;
+    ti_thing_t *othing, *nthing;
+    ti_closure_t *closure;
     int lock_was_set;
 
     if (fn_nargs("vmap", DOC_THING_VMAP, 1, nargs, e))
@@ -111,8 +111,8 @@ static int do__f_vmap_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         else
         {
             /* the original thing is an instance */
-            ti_name_t * name;
-            ti_val_t * val;
+            ti_name_t *name;
+            ti_val_t *val;
             for (thing_t_each(othing, name, val))
             {
                 ti_closure_vars_val(closure, val);
@@ -147,11 +147,11 @@ fail0:
     return e->nr;
 }
 
-static int do__f_vmap_dict(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_vmap_dict(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_dict_t * odict;
-    ti_closure_t * closure;
+    ti_dict_t *odict;
+    ti_closure_t *closure;
     int lock_was_set;
 
     if (fn_nargs("vmap", DOC_DICT_VMAP, 1, nargs, e))
@@ -205,7 +205,7 @@ fail0:
     return e->nr;
 }
 
-static int do__f_vmap(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_vmap(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     return ti_val_is_thing(query->rval)
             ? do__f_vmap_thing(query, nd, e)

@@ -9,9 +9,9 @@
 #include <util/mpack.h>
 #include <util/logger.h>
 
-ti_pkg_t * ti_pkg_new(uint16_t id, uint8_t tp, const void * data, uint32_t n)
+ti_pkg_t *ti_pkg_new(uint16_t id, uint8_t tp, const void *data, uint32_t n)
 {
-    ti_pkg_t * pkg = malloc(sizeof(ti_pkg_t) + n);
+    ti_pkg_t *pkg = malloc(sizeof(ti_pkg_t) + n);
 
     if (!pkg)
         return NULL;
@@ -31,7 +31,7 @@ ti_pkg_t * ti_pkg_new(uint16_t id, uint8_t tp, const void * data, uint32_t n)
  * `total_n` is the total pkg size including the header, not `pkg->n` which is
  *  only the data size
  */
-void pkg_init(ti_pkg_t * pkg, uint16_t id, uint8_t tp, size_t total_n)
+void pkg_init(ti_pkg_t *pkg, uint16_t id, uint8_t tp, size_t total_n)
 {
     pkg->id = id;
     pkg->n = total_n-sizeof(ti_pkg_t);
@@ -39,19 +39,19 @@ void pkg_init(ti_pkg_t * pkg, uint16_t id, uint8_t tp, size_t total_n)
     pkg->ntp = tp^0xff;
 }
 
-ti_pkg_t * ti_pkg_dup(ti_pkg_t * pkg)
+ti_pkg_t *ti_pkg_dup(ti_pkg_t *pkg)
 {
     size_t sz = sizeof(ti_pkg_t) + pkg->n;
-    ti_pkg_t * dup = malloc(sz);
+    ti_pkg_t *dup = malloc(sz);
     if (!dup)
         return NULL;
     memcpy(dup, pkg, sz);
     return dup;
 }
 
-ti_pkg_t * ti_pkg_client_err(uint16_t id, ex_t * e)
+ti_pkg_t *ti_pkg_client_err(uint16_t id, ex_t *e)
 {
-    ti_pkg_t * pkg;
+    ti_pkg_t *pkg;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
@@ -76,7 +76,7 @@ ti_pkg_t * ti_pkg_client_err(uint16_t id, ex_t * e)
     return pkg;
 }
 
-void ti_pkg_client_err_to_e(ex_t * e, ti_pkg_t * pkg)
+void ti_pkg_client_err_to_e(ex_t *e, ti_pkg_t *pkg)
 {
     mp_unp_t up;
     mp_obj_t obj, mp_code, mp_msg;
@@ -102,7 +102,7 @@ void ti_pkg_client_err_to_e(ex_t * e, ti_pkg_t * pkg)
     memcpy(e->msg,  mp_msg.via.str.data, e->n);
 }
 
-ti_pkg_t * ti_pkg_node_err(uint16_t id, ex_t * e)
+ti_pkg_t *ti_pkg_node_err(uint16_t id, ex_t *e)
 {
     return ti_pkg_new(
             id,
@@ -111,7 +111,7 @@ ti_pkg_t * ti_pkg_node_err(uint16_t id, ex_t * e)
             e->n);
 }
 
-void ti_pkg_log(ti_pkg_t * pkg)
+void ti_pkg_log(ti_pkg_t *pkg)
 {
     switch (pkg->tp)
     {
@@ -124,7 +124,7 @@ void ti_pkg_log(ti_pkg_t * pkg)
     }
 }
 
-void ti_pkg_set_tp(ti_pkg_t * pkg, uint8_t tp)
+void ti_pkg_set_tp(ti_pkg_t *pkg, uint8_t tp)
 {
     pkg->tp = tp;
     pkg->ntp = tp ^ 0xff;

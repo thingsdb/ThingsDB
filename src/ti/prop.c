@@ -7,9 +7,9 @@
 #include <ti/prop.h>
 #include <ti/val.inline.h>
 
-ti_prop_t * ti_prop_create(ti_name_t * name, ti_val_t * val)
+ti_prop_t *ti_prop_create(ti_name_t *name, ti_val_t *val)
 {
-    ti_prop_t * prop = malloc(sizeof(ti_prop_t));
+    ti_prop_t *prop = malloc(sizeof(ti_prop_t));
     if (!prop)
         return NULL;
 
@@ -22,9 +22,9 @@ ti_prop_t * ti_prop_create(ti_name_t * name, ti_val_t * val)
 /*
  * Returns a duplicate of the prop with a new reference for the name and value.
  */
-ti_prop_t * ti_prop_dup(ti_prop_t * prop)
+ti_prop_t *ti_prop_dup(ti_prop_t *prop)
 {
-    ti_prop_t * dup = malloc(sizeof(ti_prop_t));
+    ti_prop_t *dup = malloc(sizeof(ti_prop_t));
     if (!prop)
         return NULL;
 
@@ -35,7 +35,7 @@ ti_prop_t * ti_prop_dup(ti_prop_t * prop)
     return dup;
 }
 
-void ti_prop_destroy(ti_prop_t * prop)
+void ti_prop_destroy(ti_prop_t *prop)
 {
     if (!prop)
         return;
@@ -44,7 +44,7 @@ void ti_prop_destroy(ti_prop_t * prop)
     free(prop);
 }
 
-void ti_prop_unassign_destroy(ti_prop_t * prop)
+void ti_prop_unassign_destroy(ti_prop_t *prop)
 {
     if (!prop)
         return;
@@ -53,7 +53,7 @@ void ti_prop_unassign_destroy(ti_prop_t * prop)
     free(prop);
 }
 
-void ti_prop_unsafe_vdestroy(ti_prop_t * prop)
+void ti_prop_unsafe_vdestroy(ti_prop_t *prop)
 {
     ti_name_unsafe_drop(prop->name);
     free(prop);

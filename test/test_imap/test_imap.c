@@ -5,7 +5,7 @@ int main()
 {
     test_start("imap");
 
-    imap_t * imap = imap_create();
+    imap_t *imap = imap_create();
     uint64_t id = 0;
     uint64_t t = 0x1fff;
 

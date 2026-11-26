@@ -8,23 +8,23 @@
 #include <string.h>
 #include <ctype.h>
 
-static void cfgparser__free_sections(cfgparser_section_t * root);
-static void cfgparser__free_options(cfgparser_option_t * root);
-static cfgparser_option_t * cfgparser__new_option(
-        cfgparser_section_t * section,
-        const char * name,
+static void cfgparser__free_sections(cfgparser_section_t *root);
+static void cfgparser__free_options(cfgparser_option_t *root);
+static cfgparser_option_t *cfgparser__new_option(
+        cfgparser_section_t *section,
+        const char *name,
         cfgparser_tp_t tp,
-        cfgparser_via_t * val,
-        cfgparser_via_t * def);
+        cfgparser_via_t *val,
+        cfgparser_via_t *def);
 
 #define MAXLINE 255
 
 /*
  * Returns a new cfgparser or NULL in case of an allocation error.
  */
-cfgparser_t * cfgparser_create(void)
+cfgparser_t *cfgparser_create(void)
 {
-    cfgparser_t * cfgparser = malloc(sizeof(cfgparser_t));
+    cfgparser_t *cfgparser = malloc(sizeof(cfgparser_t));
     if (!cfgparser)
         return NULL;
 
@@ -40,14 +40,14 @@ cfgparser_t * cfgparser_create(void)
  * Warning: in case of an allocation error we return an error but possible
  *          the error is not correct.
  */
-cfgparser_return_t cfgparser_read(cfgparser_t * cfgparser, const char * fn)
+cfgparser_return_t cfgparser_read(cfgparser_t *cfgparser, const char *fn)
 {
     FILE * fp;
     char line[MAXLINE];
-    char * pt;
-    const char * name;
-    cfgparser_section_t * section = NULL;
-    cfgparser_option_t * option = NULL;
+    char *pt;
+    const char *name;
+    cfgparser_section_t *section = NULL;
+    cfgparser_option_t *option = NULL;
     int found = 0;
     double d;
 
@@ -149,7 +149,7 @@ cfgparser_return_t cfgparser_read(cfgparser_t * cfgparser, const char * fn)
 /*
  * Destroy cfgparser. (parsing NULL is not allowed)
  */
-void cfgparser_destroy(cfgparser_t * cfgparser)
+void cfgparser_destroy(cfgparser_t *cfgparser)
 {
     cfgparser__free_sections(cfgparser->sections);
     free(cfgparser);
@@ -161,11 +161,11 @@ void cfgparser_destroy(cfgparser_t * cfgparser)
  *
  * In case of an allocation error NULL is returned.
  */
-cfgparser_section_t * cfgparser_section(
-        cfgparser_t * cfgparser,
-        const char * name)
+cfgparser_section_t *cfgparser_section(
+        cfgparser_t *cfgparser,
+        const char *name)
 {
-    cfgparser_section_t * current = cfgparser->sections;
+    cfgparser_section_t *current = cfgparser->sections;
 
     if (!current)
     {
@@ -212,14 +212,14 @@ cfgparser_section_t * cfgparser_section(
  *
  * Warning: in case of an allocation error we also return NULL
  */
-cfgparser_option_t * cfgparser_string_option(
-        cfgparser_section_t * section,
-        const char * name,
-        const char * val,
-        const char * def)
+cfgparser_option_t *cfgparser_string_option(
+        cfgparser_section_t *section,
+        const char *name,
+        const char *val,
+        const char *def)
 {
-    cfgparser_via_t * val_u = malloc(sizeof(cfgparser_via_t));
-    cfgparser_via_t * def_u = malloc(sizeof(cfgparser_via_t));
+    cfgparser_via_t *val_u = malloc(sizeof(cfgparser_via_t));
+    cfgparser_via_t *def_u = malloc(sizeof(cfgparser_via_t));
 
     if (!val_u || !def_u)
     {
@@ -254,14 +254,14 @@ cfgparser_option_t * cfgparser_string_option(
  *
  * Warning: in case of an allocation error we also return NULL
  */
-cfgparser_option_t * cfgparser_integer_option(
-        cfgparser_section_t * section,
-        const char * name,
+cfgparser_option_t *cfgparser_integer_option(
+        cfgparser_section_t *section,
+        const char *name,
         int32_t val,
         int32_t def)
 {
-    cfgparser_via_t * val_u = malloc(sizeof(cfgparser_via_t));
-    cfgparser_via_t * def_u = malloc(sizeof(cfgparser_via_t));
+    cfgparser_via_t *val_u = malloc(sizeof(cfgparser_via_t));
+    cfgparser_via_t *def_u = malloc(sizeof(cfgparser_via_t));
     if (!val_u || !def_u)
     {
         free(val_u);
@@ -286,14 +286,14 @@ cfgparser_option_t * cfgparser_integer_option(
  *
  * Warning: in case of an allocation error we also return NULL
  */
-cfgparser_option_t * cfgparser_real_option(
-        cfgparser_section_t * section,
-        const char * name,
+cfgparser_option_t *cfgparser_real_option(
+        cfgparser_section_t *section,
+        const char *name,
         double val,
         double def)
 {
-    cfgparser_via_t * val_u = malloc(sizeof(cfgparser_via_t));
-    cfgparser_via_t * def_u = malloc(sizeof(cfgparser_via_t));
+    cfgparser_via_t *val_u = malloc(sizeof(cfgparser_via_t));
+    cfgparser_via_t *def_u = malloc(sizeof(cfgparser_via_t));
     if (!val_u|| !def_u)
     {
         free(val_u);
@@ -315,7 +315,7 @@ cfgparser_option_t * cfgparser_real_option(
 /*
  * Returns an error message for a cfgparser_return_t code.
  */
-const char * cfgparser_errmsg(cfgparser_return_t err)
+const char *cfgparser_errmsg(cfgparser_return_t err)
 {
     switch (err)
     {
@@ -344,10 +344,10 @@ const char * cfgparser_errmsg(cfgparser_return_t err)
  */
 cfgparser_return_t cfgparser_get_section(
         cfgparser_section_t ** section,
-        cfgparser_t * cfgparser,
-        const char * section_name)
+        cfgparser_t *cfgparser,
+        const char *section_name)
 {
-    cfgparser_section_t * current = cfgparser->sections;
+    cfgparser_section_t *current = cfgparser->sections;
     while (current != NULL)
     {
         if (strcmp(current->name, section_name) == 0)
@@ -367,12 +367,12 @@ cfgparser_return_t cfgparser_get_section(
  */
 cfgparser_return_t cfgparser_get_option(
         cfgparser_option_t ** option,
-        cfgparser_t * cfgparser,
-        const char * section_name,
-        const char * option_name)
+        cfgparser_t *cfgparser,
+        const char *section_name,
+        const char *option_name)
 {
-    cfgparser_option_t * current;
-    cfgparser_section_t * section;
+    cfgparser_option_t *current;
+    cfgparser_section_t *section;
     cfgparser_return_t rc;
 
     rc = cfgparser_get_section(&section, cfgparser, section_name);
@@ -399,15 +399,15 @@ cfgparser_return_t cfgparser_get_option(
  *
  * Warning: in case of an allocation error we also return NULL
  */
-static cfgparser_option_t * cfgparser__new_option(
-        cfgparser_section_t * section,
-        const char * name,
+static cfgparser_option_t *cfgparser__new_option(
+        cfgparser_section_t *section,
+        const char *name,
         cfgparser_tp_t tp,
-        cfgparser_via_t * val,
-        cfgparser_via_t * def)
+        cfgparser_via_t *val,
+        cfgparser_via_t *def)
 {
-    cfgparser_option_t * current = section->options;
-    cfgparser_option_t * prev;
+    cfgparser_option_t *current = section->options;
+    cfgparser_option_t *prev;
 
     if (current == NULL)
     {
@@ -465,9 +465,9 @@ static cfgparser_option_t * cfgparser__new_option(
 /*
  * Destroy cfgparser_section_t. (parsing NULL is allowed)
  */
-static void cfgparser__free_sections(cfgparser_section_t * root)
+static void cfgparser__free_sections(cfgparser_section_t *root)
 {
-    cfgparser_section_t * next;
+    cfgparser_section_t *next;
 
     while (root)
     {
@@ -482,9 +482,9 @@ static void cfgparser__free_sections(cfgparser_section_t * root)
 /*
  * Destroy cfgparser_option_t. (parsing NULL is allowed)
  */
-static void cfgparser__free_options(cfgparser_option_t * root)
+static void cfgparser__free_options(cfgparser_option_t *root)
 {
-    cfgparser_option_t * next;
+    cfgparser_option_t *next;
 
     while (root)
     {

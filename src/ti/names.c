@@ -9,7 +9,7 @@
 #include <util/logger.h>
 #include <util/vec.h>
 
-smap_t * names;
+smap_t *names;
 uint32_t _common_names_n;
 
 int ti_names_create(void)
@@ -23,7 +23,7 @@ void ti_names_upd_common(void)
     _common_names_n = names->n;
 }
 
-static int names__no_ref_cb(ti_name_t * name, void * UNUSED(arg))
+static int names__no_ref_cb(ti_name_t *name, void *UNUSED(arg))
 {
     /* actually, only common variable should exist in here; */
     return name->ref == 1 ? 0 : -1;
@@ -139,9 +139,9 @@ void ti_names_inject_common(void)
 /*
  * returns a name with a new reference or NULL in case of an error
  */
-ti_name_t * ti_names_new(const char * str, size_t n)
+ti_name_t *ti_names_new(const char *str, size_t n)
 {
-    ti_name_t * name = ti_name_create(str, n);
+    ti_name_t *name = ti_name_create(str, n);
     if (!name || smap_add(names, name->str, name))
     {
         free(name);
@@ -150,9 +150,9 @@ ti_name_t * ti_names_new(const char * str, size_t n)
     return name;
 }
 
-ti_name_t * ti_names_get_slow(const char * str, size_t n)
+ti_name_t *ti_names_get_slow(const char *str, size_t n)
 {
-    ti_name_t * name = smap_getn(names, str, n);
+    ti_name_t *name = smap_getn(names, str, n);
     if (name)
     {
         ti_incref(name);

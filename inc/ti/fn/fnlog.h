@@ -1,10 +1,10 @@
 #include <ti/fn/fn.h>
 
-static int do__f_log(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_log(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     int rc;
-    ti_raw_t * data;
+    ti_raw_t *data;
 
     if (fn_nargs("log", DOC_LOG, 1, nargs, e) ||
         ti_do_statement(query, nd->children, e) ||

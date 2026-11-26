@@ -8,9 +8,9 @@
 #include <util/vec.h>
 
 
-ti_row_t * ti_row_create(size_t n)
+ti_row_t *ti_row_create(size_t n)
 {
-    ti_row_t * row = malloc(sizeof(ti_row_t));
+    ti_row_t *row = malloc(sizeof(ti_row_t));
     if (!row)
         return NULL;
 
@@ -23,7 +23,7 @@ ti_row_t * ti_row_create(size_t n)
     return row;
 }
 
-void ti_row_destroy(ti_row_t * row)
+void ti_row_destroy(ti_row_t *row)
 {
     if (!row)
         return;
@@ -31,7 +31,7 @@ void ti_row_destroy(ti_row_t * row)
     free(row);
 }
 
-int ti_row_to_pk(ti_row_t * row, msgpack_packer * pk)
+int ti_row_to_pk(ti_row_t *row, msgpack_packer *pk)
 {
     if (!row)
         return msgpack_pack_nil(pk);
@@ -41,14 +41,14 @@ int ti_row_to_pk(ti_row_t * row, msgpack_packer * pk)
 
     for (vec_each(row->columns, ti_column_t, column))
     {
-        ti_name_t * name = ti_column_name(column);
+        ti_name_t *name = ti_column_name(column);
         if (mp_pack_strn(pk, name->str, name->n))
             return -1;
     }
     return 0;
 }
 
-ti_column_t * ti_row_column_by_name(ti_row_t * row, ti_name_t * name)
+ti_column_t *ti_row_column_by_name(ti_row_t *row, ti_name_t *name)
 {
     if (!row)
         return NULL;

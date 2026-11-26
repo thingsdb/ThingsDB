@@ -12,9 +12,9 @@
 #include <ti/stream.t.h>
 #include <ti/watch.t.h>
 
-ti_watch_t * ti_watch_create(ti_stream_t * stream);
+ti_watch_t *ti_watch_create(ti_stream_t *stream);
 
-static inline void ti_watch_drop(ti_watch_t * watch)
+static inline void ti_watch_drop(ti_watch_t *watch)
 {
     if (watch && watch->stream)
         watch->stream = NULL;

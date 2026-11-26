@@ -9,27 +9,27 @@
 #include <ctype.h>
 #include <assert.h>
 
-static void tokens__free(cleri_t * cl_object);
-static cleri_node_t * tokens__parse(
-        cleri_parse_t * pr,
-        cleri_node_t * parent,
-        cleri_t * cl_obj,
-        cleri_rule_store_t * rule);
+static void tokens__free(cleri_t *cl_object);
+static cleri_node_t *tokens__parse(
+        cleri_parse_t *pr,
+        cleri_node_t *parent,
+        cleri_t *cl_obj,
+        cleri_rule_store_t *rule);
 static int tokens__list_add(
         cleri_tlist_t ** tlist,
-        const char * token,
+        const char *token,
         size_t len);
-static void tokens__list_str(cleri_tlist_t * tlist, char * s);
-static void tokens__list_free(cleri_tlist_t * tlist);
+static void tokens__list_str(cleri_tlist_t *tlist, char *s);
+static void tokens__list_free(cleri_tlist_t *tlist);
 
 /*
  * Returns NULL in case an error has occurred.
  */
-cleri_t * cleri_tokens(uint32_t gid, const char * tokens)
+cleri_t *cleri_tokens(uint32_t gid, const char *tokens)
 {
     size_t len;
-    char * pt;
-    cleri_t * cl_object;
+    char *pt;
+    cleri_t *cl_object;
 
     cl_object = cleri_new(
             gid,
@@ -115,7 +115,7 @@ cleri_t * cleri_tokens(uint32_t gid, const char * tokens)
 /*
  * Destroy token object.
  */
-static void tokens__free(cleri_t * cl_object)
+static void tokens__free(cleri_t *cl_object)
 {
     tokens__list_free(cl_object->via.tokens->tlist);
     free(cl_object->via.tokens->tokens);
@@ -126,15 +126,15 @@ static void tokens__free(cleri_t * cl_object)
 /*
  * Returns a node or NULL. In case of an error pr->is_valid is set to -1.
  */
-static cleri_node_t * tokens__parse(
-        cleri_parse_t * pr,
-        cleri_node_t * parent,
-        cleri_t * cl_obj,
-        cleri_rule_store_t * rule __attribute__((unused)))
+static cleri_node_t *tokens__parse(
+        cleri_parse_t *pr,
+        cleri_node_t *parent,
+        cleri_t *cl_obj,
+        cleri_rule_store_t *rule __attribute__((unused)))
 {
-    cleri_node_t * node = NULL;
-    const char * str = parent->str + parent->len;
-    cleri_tlist_t * tlist = cl_obj->via.tokens->tlist;
+    cleri_node_t *node = NULL;
+    const char *str = parent->str + parent->len;
+    cleri_tlist_t *tlist = cl_obj->via.tokens->tlist;
 
     /* we can trust that at least one token is in the list */
     for (; tlist != NULL; tlist = tlist->next)
@@ -169,10 +169,10 @@ static cleri_node_t * tokens__parse(
  */
 static int tokens__list_add(
         cleri_tlist_t ** tlist,
-        const char * token,
+        const char *token,
         size_t len)
 {
-    cleri_tlist_t * tmp, * prev, * current;
+    cleri_tlist_t *tmp, *prev, *current;
     current = prev = *tlist;
 
     if (current->token == NULL)
@@ -213,7 +213,7 @@ static int tokens__list_add(
  * Copies tokens to spaced. This is the input tokes orders by their length.
  * No errors can occur since in any case enough space is allocated for *s.
  */
-static void tokens__list_str(cleri_tlist_t * tlist, char * s)
+static void tokens__list_str(cleri_tlist_t *tlist, char *s)
 {
     assert (tlist->token != NULL);
     memcpy(s, tlist->token, tlist->len);
@@ -231,9 +231,9 @@ static void tokens__list_str(cleri_tlist_t * tlist, char * s)
 /*
  * Destroy token list. (NULL can be parsed tlist argument)
  */
-static void tokens__list_free(cleri_tlist_t * tlist)
+static void tokens__list_free(cleri_tlist_t *tlist)
 {
-    cleri_tlist_t * next;
+    cleri_tlist_t *next;
     while (tlist != NULL)
     {
         next = tlist->next;

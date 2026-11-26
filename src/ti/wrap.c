@@ -33,16 +33,16 @@
 #include <util/logger.h>
 
 static int wrap__field_val(
-        ti_field_t * t_field,
-        uint16_t * spec,
-        ti_val_t * val,
-        ti_vp_t * vp,
+        ti_field_t *t_field,
+        uint16_t *spec,
+        ti_val_t *val,
+        ti_vp_t *vp,
         int deep,
         int flags);
 
-ti_wrap_t * ti_wrap_create(ti_thing_t * thing, uint16_t type_id)
+ti_wrap_t *ti_wrap_create(ti_thing_t *thing, uint16_t type_id)
 {
-    ti_wrap_t * wrap = malloc(sizeof(ti_wrap_t));
+    ti_wrap_t *wrap = malloc(sizeof(ti_wrap_t));
     if (!wrap)
         return NULL;
 
@@ -56,7 +56,7 @@ ti_wrap_t * ti_wrap_create(ti_thing_t * thing, uint16_t type_id)
     return wrap;
 }
 
-void ti_wrap_destroy(ti_wrap_t * wrap)
+void ti_wrap_destroy(ti_wrap_t *wrap)
 {
     ti_val_unsafe_gc_drop((ti_val_t *) wrap->thing);
     free(wrap);
@@ -64,36 +64,36 @@ void ti_wrap_destroy(ti_wrap_t * wrap)
 
 typedef struct
 {
-    ti_vp_t * vp;
+    ti_vp_t *vp;
     uint16_t spec;
     long:48;
     int deep;
     int flags;
 } wrap__walk_t;
 
-static int wrap__walk(ti_thing_t * thing, wrap__walk_t * w)
+static int wrap__walk(ti_thing_t *thing, wrap__walk_t *w)
 {
     return ti__wrap_field_thing(thing, w->vp, w->spec, w->deep, w->flags);
 }
 
 typedef struct
 {
-    ti_vp_t * vp;
-    ti_type_t * t_type;
+    ti_vp_t *vp;
+    ti_type_t *t_type;
     long:48;
     int deep;
     int flags;
 } wrap__walk_with_type_t;
 
-static int wrap__walk_with_type(ti_thing_t * thing, wrap__walk_with_type_t * w)
+static int wrap__walk_with_type(ti_thing_t *thing, wrap__walk_with_type_t *w)
 {
     return ti_wrap_field_thing_type(thing, w->vp, w->t_type, w->deep, w->flags);
 }
 
 static int wrap__set(
-        ti_vset_t * vset,
-        ti_vp_t * vp,
-        ti_field_t * t_field,
+        ti_vset_t *vset,
+        ti_vp_t *vp,
+        ti_field_t *t_field,
         int deep,
         int flags)
 {
@@ -117,7 +117,7 @@ static int wrap__set(
         vp->query->collection)
     {
         /* optimization for set's with multiple values */
-        ti_type_t * t_type = ti_types_by_id(
+        ti_type_t *t_type = ti_types_by_id(
                 vp->query->collection->types,
                 t_field->nested_spec);
 
@@ -150,9 +150,9 @@ static int wrap__set(
     );
 }
 
-static int wrap__pair_with_type(ti_dict_key_t * key,
-                                ti_val_t * val,
-                                wrap__walk_with_type_t * w)
+static int wrap__pair_with_type(ti_dict_key_t *key,
+                                ti_val_t *val,
+                                wrap__walk_with_type_t *w)
 {
     return (
         msgpack_pack_array(&w->vp->pk, 2) ||
@@ -165,7 +165,7 @@ static int wrap__pair_with_type(ti_dict_key_t * key,
     );
 }
 
-static int wrap__dict_walk_with_type(ti_val_t * val, wrap__walk_with_type_t * w)
+static int wrap__dict_walk_with_type(ti_val_t *val, wrap__walk_with_type_t *w)
 {
     return ti_wrap_field_thing_type((ti_thing_t *) val,
                                     w->vp,
@@ -176,15 +176,15 @@ static int wrap__dict_walk_with_type(ti_val_t * val, wrap__walk_with_type_t * w)
 
 typedef struct
 {
-    ti_field_t * t_field;
-    ti_vp_t * vp;
+    ti_field_t *t_field;
+    ti_vp_t *vp;
     int deep;
     int flags;
 } wrap__pair_t;
 
-static int wrap__pair(ti_dict_key_t * key,
-                      ti_val_t * val,
-                      wrap__pair_t * w)
+static int wrap__pair(ti_dict_key_t *key,
+                      ti_val_t *val,
+                      wrap__pair_t *w)
 {
     return (
         msgpack_pack_array(&w->vp->pk, 2) ||
@@ -198,7 +198,7 @@ static int wrap__pair(ti_dict_key_t * key,
     );
 }
 
-static int wrap__dict_walk(ti_val_t * val, wrap__pair_t * w)
+static int wrap__dict_walk(ti_val_t *val, wrap__pair_t *w)
 {
     return wrap__field_val(w->t_field,
                            &w->t_field->nested_spec,
@@ -209,9 +209,9 @@ static int wrap__dict_walk(ti_val_t * val, wrap__pair_t * w)
 }
 
 static int wrap__dict(
-        ti_dict_t * dict,
-        ti_vp_t * vp,
-        ti_field_t * t_field,
+        ti_dict_t *dict,
+        ti_vp_t *vp,
+        ti_field_t *t_field,
         int deep,
         int flags)
 {
@@ -223,7 +223,7 @@ static int wrap__dict(
     {
         /* optimization for dict with multiple values when we know all source
            is of type thing */
-        ti_type_t * t_type = ti_types_by_id(
+        ti_type_t *t_type = ti_types_by_id(
                 vp->query->collection->types,
                 t_field->nested_spec);
 
@@ -266,10 +266,10 @@ static int wrap__dict(
 }
 
 static int wrap__field_val(
-        ti_field_t * t_field,
-        uint16_t * spec,    /* points to t_field->spec or t_field->nested */
-        ti_val_t * val,
-        ti_vp_t * vp,
+        ti_field_t *t_field,
+        uint16_t *spec,    /* points to t_field->spec or t_field->nested */
+        ti_val_t *val,
+        ti_vp_t *vp,
         int deep,
         int flags)
 {
@@ -335,7 +335,7 @@ static int wrap__field_val(
         return ti_vtask_to_client_pk((ti_vtask_t *) val, &vp->pk);
     case TI_VAL_ARR:
     {
-        ti_varr_t * varr = (ti_varr_t *) val;
+        ti_varr_t *varr = (ti_varr_t *) val;
 
         if (msgpack_pack_array(&vp->pk, varr->vec->n))
             return -1;
@@ -346,7 +346,7 @@ static int wrap__field_val(
             vp->query->collection &&
             ti_spec_is_thing(ti_varr_spec(varr)))
         {
-            ti_type_t * t_type = ti_types_by_id(
+            ti_type_t *t_type = ti_types_by_id(
                     vp->query->collection->types,
                     t_field->nested_spec);
             if (t_type)
@@ -409,7 +409,7 @@ static int wrap__field_val(
     case TI_VAL_CLOSURE:
         return ti_closure_to_client_pk((ti_closure_t *) val, &vp->pk);
     case TI_VAL_ANO:
-        return ti_ano_to_client_pk((ti_ano_t * ) val, &vp->pk);
+        return ti_ano_to_client_pk((ti_ano_t *) val, &vp->pk);
     case TI_VAL_WANO:
         return ti_wrap_field_thing_type(
                 ((ti_wano_t *) val)->thing,
@@ -439,9 +439,9 @@ static int wrap__field_val(
 }
 
 static inline int wrap__id_to_pk(
-        ti_thing_t * thing,
-        ti_type_t * type,
-        msgpack_packer * pk,
+        ti_thing_t *thing,
+        ti_type_t *type,
+        msgpack_packer *pk,
         size_t n,
         int flags)
 {
@@ -449,7 +449,7 @@ static inline int wrap__id_to_pk(
             (~flags & TI_FLAGS_NO_IDS) &&
             (~type->flags & TI_TYPE_FLAG_HIDE_ID))
     {
-        register const ti_name_t * name = type->idname;
+        register const ti_name_t *name = type->idname;
         return -(
             msgpack_pack_map(pk, 1 + n) || (name
                 ? mp_pack_strn(pk, name->str, name->n)
@@ -461,9 +461,9 @@ static inline int wrap__id_to_pk(
 }
 
 static void wrap__calc_method(
-        ti_method_t * method,
-        ti_thing_t * thing,
-        ti_vp_t * vp,
+        ti_method_t *method,
+        ti_thing_t *thing,
+        ti_vp_t *vp,
         int flags,
         bool * call_dec)
 {
@@ -509,11 +509,11 @@ static void wrap__calc_method(
     }
 }
 
-int ti__wrap_methods_to_pk_no_query(ti_type_t * t_type, ti_vp_t * vp)
+int ti__wrap_methods_to_pk_no_query(ti_type_t *t_type, ti_vp_t *vp)
 {
     int rc = 0;
     ex_t e = {0};
-    ti_val_t * val;
+    ti_val_t *val;
 
     ex_set(&e, EX_BAD_DATA,
             "failed to compute property; "
@@ -540,16 +540,16 @@ int ti__wrap_methods_to_pk_no_query(ti_type_t * t_type, ti_vp_t * vp)
 }
 
 int ti__wrap_methods_to_pk(
-        ti_type_t * t_type,
-        ti_thing_t * thing,
-        ti_vp_t * vp,
+        ti_type_t *t_type,
+        ti_thing_t *thing,
+        ti_vp_t *vp,
         int flags)
 {
     int rc = 0;
-    ti_val_t * rval = vp->query->rval;
+    ti_val_t *rval = vp->query->rval;
     register const uint8_t deep_ = vp->query->qbind.deep;
     register const uint8_t flags_ = vp->query->flags;
-    register ti_change_t * change_ = vp->query->change;
+    register ti_change_t *change_ = vp->query->change;
 
     vp->query->change = NULL;
 
@@ -584,19 +584,19 @@ int ti__wrap_methods_to_pk(
 }
 
 static int wrap__as_row(
-        ti_thing_t * thing,
-        ti_vp_t * vp,
-        ti_type_t * t_type,
+        ti_thing_t *thing,
+        ti_vp_t *vp,
+        ti_type_t *t_type,
         int deep,
         int flags)
 {
-    ti_row_t * row = t_type->row;
+    ti_row_t *row = t_type->row;
     int rc = -1;
-    ti_val_t * rval = vp->query->rval;
+    ti_val_t *rval = vp->query->rval;
     register const uint8_t deep_ = vp->query->qbind.deep;
     register const uint8_t flags_ = vp->query->flags;
-    register ti_change_t * change_ = vp->query->change;
-    register const ti_map_t * map = ti_thing_is_instance(thing)
+    register ti_change_t *change_ = vp->query->change;
+    register const ti_map_t *map = ti_thing_is_instance(thing)
             ? ti_type_map(t_type, thing->via.type)
             : NULL;
 
@@ -621,10 +621,10 @@ static int wrap__as_row(
             break;
         case TI_COLUMN_FIELD:
         {
-            ti_field_t * t_field = column->via.field;
+            ti_field_t *t_field = column->via.field;
             if (map)
             {
-                ti_mapping_t * mapping = VEC_get(map->mappings, t_field->idx);
+                ti_mapping_t *mapping = VEC_get(map->mappings, t_field->idx);
                 assert(!mapping || mapping->t_field == t_field);
                 if (mapping
                         ? wrap__field_val(
@@ -639,7 +639,7 @@ static int wrap__as_row(
             }
             else if (ti_thing_is_object(thing))
             {
-                ti_prop_t * prop = ti_thing_o_prop_weak_get(thing,
+                ti_prop_t *prop = ti_thing_o_prop_weak_get(thing,
                                                             t_field->name);
                 if (prop && ti_field_maps_to_val(t_field, prop->val)
                         ? wrap__field_val(
@@ -658,7 +658,7 @@ static int wrap__as_row(
         case TI_COLUMN_METHOD:
         {
             _Bool call_dec = true;
-            ti_method_t * method = column->via.method;
+            ti_method_t *method = column->via.method;
             wrap__calc_method(method, thing, vp, flags, &call_dec);
 
             rc = ti_val_to_client_pk(
@@ -690,9 +690,9 @@ fail:
 }
 
 static int wrap__field_thing(
-        ti_thing_t * thing,
-        ti_vp_t * vp,
-        ti_type_t * t_type,
+        ti_thing_t *thing,
+        ti_vp_t *vp,
+        ti_type_t *t_type,
         int deep,
         int flags)
 {
@@ -715,13 +715,13 @@ static int wrap__field_thing(
          */
         typedef struct
         {
-            ti_field_t * field;
-            ti_prop_t * prop;
+            ti_field_t *field;
+            ti_prop_t *prop;
         } map_prop_t;
         size_t n = ti_min(t_type->fields->n, ti_thing_n(thing));
-        map_prop_t * map_props = malloc(sizeof(map_prop_t) * n);
-        map_prop_t * map_set = map_props;
-        map_prop_t * map_get = map_props;
+        map_prop_t *map_props = malloc(sizeof(map_prop_t) * n);
+        map_prop_t *map_set = map_props;
+        map_prop_t *map_get = map_props;
         if (!map_props)
             goto fail;
 
@@ -733,7 +733,7 @@ static int wrap__field_thing(
          */
         for (vec_each(t_type->fields, ti_field_t, t_field))
         {
-            ti_prop_t * prop;
+            ti_prop_t *prop;
             prop = ti_thing_o_prop_weak_get(thing, t_field->name);
             if (!prop || !ti_field_maps_to_val(t_field, prop->val))
                 continue;
@@ -784,14 +784,14 @@ static int wrap__field_thing(
          * `to_type` -> `from_type` is asked so most likely the mappings are
          * returned from cache.
          */
-        register const ti_map_t * map = ti_type_map(t_type, thing->via.type);
+        register const ti_map_t *map = ti_type_map(t_type, thing->via.type);
         if (!map)
             goto fail;
 
         if (map->can_skip)
         {
             size_t skip = 0;
-            ti_val_t * val;
+            ti_val_t *val;
 
             for (vec_each(map->mappings, ti_mapping_t, mapping))
                 skip += (
@@ -886,9 +886,9 @@ fail:
 }
 
 int ti_wrap_field_thing_type(
-        ti_thing_t * thing,
-        ti_vp_t * vp,
-        ti_type_t * t_type,
+        ti_thing_t *thing,
+        ti_vp_t *vp,
+        ti_type_t *t_type,
         int deep,
         int flags)
 {
@@ -897,7 +897,7 @@ int ti_wrap_field_thing_type(
      */
     if ((thing->flags & TI_VFLAG_LOCK) || !deep)
     {
-        register const ti_name_t * name = t_type->idname;
+        register const ti_name_t *name = t_type->idname;
 
         /* Here, we ignore TI_TYPE_FLAG_HIDE_ID intentionally as the behavior
          * is defined as to return the Id when no other info is returned */
@@ -921,13 +921,13 @@ int ti_wrap_field_thing_type(
  * Do not use directly, use ti_wrap_to_pk() instead
  */
 int ti__wrap_field_thing(
-        ti_thing_t * thing,
-        ti_vp_t * vp,
+        ti_thing_t *thing,
+        ti_vp_t *vp,
         uint16_t spec,
         int deep,
         int flags)
 {
-    ti_type_t * t_type;
+    ti_type_t *t_type;
     spec &= TI_SPEC_MASK_NILLABLE;
 
     /*
@@ -943,7 +943,7 @@ int ti__wrap_field_thing(
             t_type = ti_types_by_id(thing->collection->types, spec);
             if (t_type)
             {
-                register const ti_name_t * name = t_type->idname;
+                register const ti_name_t *name = t_type->idname;
 
                 /* Here, we ignore TI_TYPE_FLAG_HIDE_ID intentionally as the
                  * behavior is defined as to return the Id when no other info
@@ -977,9 +977,9 @@ int ti__wrap_field_thing(
 }
 
 /* Works with both ti_wrap_t and ti_wano_t */
-int ti_wrap_cp(ti_query_t * query, uint8_t deep, ex_t * e)
+int ti_wrap_cp(ti_query_t *query, uint8_t deep, ex_t *e)
 {
-    ti_val_t * val;
+    ti_val_t *val;
     mp_unp_t up;
     msgpack_sbuffer buffer;
     ti_vp_t vp = {
@@ -1025,8 +1025,8 @@ fail0:
 
 int ti_wrap_copy(ti_wrap_t ** wrap, uint8_t deep)
 {
-    ti_thing_t * thing = (*wrap)->thing;
-    ti_wrap_t * _wrap = ti_wrap_create(thing, (*wrap)->type_id);
+    ti_thing_t *thing = (*wrap)->thing;
+    ti_wrap_t *_wrap = ti_wrap_create(thing, (*wrap)->type_id);
     if (!_wrap)
         return -1;
 
@@ -1043,7 +1043,7 @@ int ti_wrap_copy(ti_wrap_t ** wrap, uint8_t deep)
 int ti_wrap_dup(ti_wrap_t ** wrap, uint8_t deep)
 {
     assert(deep);
-    ti_wrap_t * _wrap = ti_wrap_create((*wrap)->thing, (*wrap)->type_id);
+    ti_wrap_t *_wrap = ti_wrap_create((*wrap)->thing, (*wrap)->type_id);
     if (!_wrap)
         return -1;
 

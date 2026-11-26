@@ -1,6 +1,6 @@
 #include <ti/fn/fn.h>
 
-static int do__f_has_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_has_node(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     int64_t node_id;
     const int nargs = fn_get_nargs(nd);

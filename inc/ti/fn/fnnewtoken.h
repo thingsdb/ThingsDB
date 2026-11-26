@@ -2,17 +2,17 @@
 
 #define MAX_USER_TOKENS 128U
 
-static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_new_token(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_raw_t * uname;
-    ti_user_t * user;
-    ti_task_t * task;
-    cleri_node_t * child = nd->children;
+    ti_raw_t *uname;
+    ti_user_t *user;
+    ti_task_t *task;
+    cleri_node_t *child = nd->children;
     uint64_t exp_time = 0;
-    ti_token_t * token;
+    ti_token_t *token;
     size_t description_sz = 0;
-    char * description = NULL;
+    char *description = NULL;
 
     if (fn_not_thingsdb_scope("new_token", query, e) ||
         fn_nargs_range("new_token", DOC_NEW_TOKEN, 1, 3, nargs, e) ||
@@ -72,7 +72,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs > 2)
     {
-        ti_raw_t * raw;
+        ti_raw_t *raw;
 
         ti_val_unsafe_drop(query->rval);
         query->rval = NULL;

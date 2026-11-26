@@ -17,11 +17,11 @@ static struct timeval end;
 static int status__ = TEST_OK;
 static int count__ = 0;
 
-const char * padding =
+const char *padding =
         ".............................."
         "..............................";
 
-static void test_start(char * test_name)
+static void test_start(char *test_name)
 {
     count__ = 0;
     int padlen = 60 - strlen(test_name);

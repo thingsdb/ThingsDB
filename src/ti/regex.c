@@ -10,13 +10,13 @@
 #include <ti/val.inline.h>
 #include <util/logger.h>
 
-ti_regex_t * ti_regex_from_raw(ti_raw_t * re, ex_t * e)
+ti_regex_t *ti_regex_from_raw(ti_raw_t *re, ex_t *e)
 {
-    ti_regex_t * regex;
+    ti_regex_t *regex;
     size_t n = re->n;
     int options = 0;
     int pcre_error_num;
-    char * str = (char *) re->data;
+    char *str = (char *) re->data;
     PCRE2_SIZE pcre_error_offset;
 
     regex = malloc(sizeof(ti_regex_t));
@@ -109,11 +109,11 @@ fail0:
     return NULL;
 }
 
-ti_regex_t * ti_regex_create(ti_raw_t * pattern, ti_raw_t * flags, ex_t * e)
+ti_regex_t *ti_regex_create(ti_raw_t *pattern, ti_raw_t *flags, ex_t *e)
 {
     size_t sz = sizeof(ti_raw_t) + pattern->n + flags->n + 2;
-    ti_raw_t * re = malloc(sz);
-    unsigned char * ptr;
+    ti_raw_t *re = malloc(sz);
+    unsigned char *ptr;
     if (!re)
     {
         ex_set_mem(e);
@@ -146,9 +146,9 @@ ti_regex_t * ti_regex_create(ti_raw_t * pattern, ti_raw_t * flags, ex_t * e)
     return ti_regex_from_raw(re, e);
 }
 
-ti_regex_t * ti_regex_from_strn(const char * str, size_t n, ex_t * e)
+ti_regex_t *ti_regex_from_strn(const char *str, size_t n, ex_t *e)
 {
-    ti_raw_t * re = ti_str_create(str, n);
+    ti_raw_t *re = ti_str_create(str, n);
     if (!re)
     {
         ex_set_mem(e);
@@ -157,10 +157,10 @@ ti_regex_t * ti_regex_from_strn(const char * str, size_t n, ex_t * e)
     return ti_regex_from_raw(re, e);
 }
 
-ti_regex_t * ti_regex_from_str(const char * str)
+ti_regex_t *ti_regex_from_str(const char *str)
 {
     ex_t e = {0};
-    ti_raw_t * re = ti_str_create(str, strlen(str));
+    ti_raw_t *re = ti_str_create(str, strlen(str));
     if (!re)
     {
         return NULL;
@@ -168,7 +168,7 @@ ti_regex_t * ti_regex_from_str(const char * str)
     return ti_regex_from_raw(re, &e);
 }
 
-void ti_regex_destroy(ti_regex_t * regex)
+void ti_regex_destroy(ti_regex_t *regex)
 {
     pcre2_match_data_free(regex->match_data);
     pcre2_code_free(regex->code);

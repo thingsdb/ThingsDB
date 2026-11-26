@@ -32,12 +32,12 @@
 #define MODULE__TOO_MANY_RESTARTS 3
 #define MODULE__MAX_ERROR_SZ 16383
 
-static void module__write_req_cb(uv_write_t * req, int status)
+static void module__write_req_cb(uv_write_t *req, int status)
 {
     if (status)
     {
         ex_t e;
-        ti_future_t * future = req->data;
+        ti_future_t *future = req->data;
 
         /* remove the future from the module */
         (void) omap_rm(future->module->futures, future->pid);
@@ -49,14 +49,14 @@ static void module__write_req_cb(uv_write_t * req, int status)
     free(req);
 }
 
-static int module__write_req(ti_future_t * future)
+static int module__write_req(ti_future_t *future)
 {
     int uv_err = 0;
-    ti_module_t * module = future->module;
-    ti_proc_t * proc = &module->proc;
+    ti_module_t *module = future->module;
+    ti_proc_t *proc = &module->proc;
     uv_buf_t wrbuf;
-    ti_future_t * prev;
-    uv_write_t * req;
+    ti_future_t *prev;
+    uv_write_t *req;
 
     req = malloc(sizeof(uv_write_t));
     if (!req)
@@ -97,7 +97,7 @@ static int module__write_req(ti_future_t * future)
     return 0;
 }
 
-static void module__write_conf_cb(uv_write_t * req, int status)
+static void module__write_conf_cb(uv_write_t *req, int status)
 {
     if (status)
     {
@@ -108,12 +108,12 @@ static void module__write_conf_cb(uv_write_t * req, int status)
     free(req);
 }
 
-static int module__write_conf(ti_module_t * module)
+static int module__write_conf(ti_module_t *module)
 {
     int uv_err;
-    ti_proc_t * proc = &module->proc;
+    ti_proc_t *proc = &module->proc;
     uv_buf_t wrbuf;
-    uv_write_t * req;
+    uv_write_t *req;
 
     req = malloc(sizeof(uv_write_t));
     if (!req)
@@ -140,10 +140,10 @@ static int module__write_conf(ti_module_t * module)
     return 0;
 }
 
-static void module__cb(ti_future_t * future)
+static void module__cb(ti_future_t *future)
 {
     int uv_err;
-    ti_thing_t * thing = VEC_get(future->args, 0);
+    ti_thing_t *thing = VEC_get(future->args, 0);
     ti_vp_t vp = {
             .query=future->query,   /* bug # #351 */
             .size_limit=ti.cfg->result_size_limit,
@@ -218,13 +218,13 @@ mem_error0:
     }
 }
 
-static void module__clear_conf_error(ti_module_t * module)
+static void module__clear_conf_error(ti_module_t *module)
 {
     free(module->conf_error);
     module->conf_error = NULL;
 }
 
-static void module__set_conf_error(ti_module_t * module, ti_pkg_t * pkg)
+static void module__set_conf_error(ti_module_t *module, ti_pkg_t *pkg)
 {
     mp_unp_t up;
     mp_obj_t mp_err;
@@ -240,9 +240,9 @@ static void module__set_conf_error(ti_module_t * module, ti_pkg_t * pkg)
         module->conf_error = NULL;
 }
 
-ti_pkg_t * ti_module_conf_pkg(ti_val_t * val, ti_query_t * query)
+ti_pkg_t *ti_module_conf_pkg(ti_val_t *val, ti_query_t *query)
 {
-    ti_pkg_t * pkg;
+    ti_pkg_t *pkg;
     ti_vp_t vp = {
             .query=query,
             .size_limit=ti.cfg->result_size_limit,
@@ -270,16 +270,16 @@ ti_pkg_t * ti_module_conf_pkg(ti_val_t * val, ti_query_t * query)
     return pkg;
 }
 
-_Bool ti_module_file_is_py(const char * file, size_t n)
+_Bool ti_module_file_is_py(const char *file, size_t n)
 {
     return file[n-3] == '.' &&
            file[n-2] == 'p' &&
            file[n-1] == 'y';
 }
 
-static int module__validate_source(const char * file, size_t file_n, ex_t * e)
+static int module__validate_source(const char *file, size_t file_n, ex_t *e)
 {
-    const char * pt = file;
+    const char *pt = file;
 
     if (!file_n)
     {
@@ -317,16 +317,16 @@ static int module__validate_source(const char * file, size_t file_n, ex_t * e)
 }
 
 ti_module_t* ti_module_create(
-        const char * name,
+        const char *name,
         size_t name_n,
-        const char * source,
+        const char *source,
         size_t source_n,
         uint64_t created_at,
-        ti_pkg_t * conf_pkg,    /* may be NULL */
-        uint64_t * scope_id,    /* may be NULL */
-        ex_t * e)
+        ti_pkg_t *conf_pkg,    /* may be NULL */
+        uint64_t *scope_id,    /* may be NULL */
+        ex_t *e)
 {
-    ti_module_t * module = calloc(1, sizeof(ti_module_t));
+    ti_module_t *module = calloc(1, sizeof(ti_module_t));
     if (!module)
     {
         ex_set_mem(e);
@@ -408,9 +408,9 @@ fail0:
     return NULL;
 }
 
-int ti_module_set_file(ti_module_t * module, const char * file, size_t n)
+int ti_module_set_file(ti_module_t *module, const char *file, size_t n)
 {
-    char * str_file, ** args;
+    char *str_file, ** args;
     args = malloc(sizeof(char*) * (module->manifest.is_py ? 3 : 2));
     str_file = fx_path_join_strn(module->path, strlen(module->path), file, n);
 
@@ -445,7 +445,7 @@ int ti_module_set_file(ti_module_t * module, const char * file, size_t n)
     return 0;
 }
 
-static void module__conf(ti_module_t * module)
+static void module__conf(ti_module_t *module)
 {
     if (!module->conf_pkg)
     {
@@ -466,9 +466,9 @@ static void module__conf(ti_module_t * module)
                 ti_module_status_str(module));
 }
 
-static void module__install_finish(ti_mod_work_t * data)
+static void module__install_finish(ti_mod_work_t *data)
 {
-    ti_module_t * module = data->module;
+    ti_module_t *module = data->module;
 
     /* move the manifest */
     ti_mod_manifest_clear(&module->manifest);
@@ -496,10 +496,10 @@ static void module__install_finish(ti_mod_work_t * data)
 /*
  * Main thread
  */
-static void module__py_requirements_finish(uv_work_t * work, int status)
+static void module__py_requirements_finish(uv_work_t *work, int status)
 {
-    ti_mod_work_t * data = work->data;
-    ti_module_t * module = data->module;
+    ti_mod_work_t *data = work->data;
+    ti_module_t *module = data->module;
 
     if (status)
     {
@@ -527,10 +527,10 @@ done:
 /*
  * Work thread
  */
-static void module__py_requirements_work(uv_work_t * work)
+static void module__py_requirements_work(uv_work_t *work)
 {
-    ti_mod_work_t * data = work->data;
-    ti_module_t * module = data->module;
+    ti_mod_work_t *data = work->data;
+    ti_module_t *module = data->module;
 
     int rc = -1;
     char ch;
@@ -583,9 +583,9 @@ fail0:
 /*
  * Main thread
  */
-static void module__py_requirements(uv_work_t * work)
+static void module__py_requirements(uv_work_t *work)
 {
-    ti_mod_work_t * data = work->data;
+    ti_mod_work_t *data = work->data;
 
     if (uv_queue_work(
             ti.loop,
@@ -607,10 +607,10 @@ static void module__py_requirements(uv_work_t * work)
     free(work);
 }
 
-static void module__download_finish(uv_work_t * work, int status)
+static void module__download_finish(uv_work_t *work, int status)
 {
-    ti_mod_work_t * data = work->data;
-    ti_module_t * module = data->module;
+    ti_mod_work_t *data = work->data;
+    ti_module_t *module = data->module;
 
     if (module->source_err[0])
     {
@@ -652,9 +652,9 @@ done:
 /*
  * Main thread
  */
-static void module__download(uv_work_t * work)
+static void module__download(uv_work_t *work)
 {
-    ti_mod_work_t * data = work->data;
+    ti_mod_work_t *data = work->data;
 
     if (uv_queue_work(
             ti.loop,
@@ -671,10 +671,10 @@ static void module__download(uv_work_t * work)
     free(work);
 }
 
-static void module__manifest_finish(uv_work_t * work, int status)
+static void module__manifest_finish(uv_work_t *work, int status)
 {
-    ti_mod_work_t * data = work->data;
-    ti_module_t * module = data->module;
+    ti_mod_work_t *data = work->data;
+    ti_module_t *module = data->module;
 
     ti_mod_manifest_init(&data->manifest);
 
@@ -751,10 +751,10 @@ typedef struct
     void (*download_cb) (uv_work_t *);
 } module__install_t;
 
-static void module__install(ti_module_t * module, module__install_t install)
+static void module__install(ti_module_t *module, module__install_t install)
 {
-    uv_work_t * work;
-    ti_mod_work_t * data;
+    uv_work_t *work;
+    ti_mod_work_t *data;
     int prev_status = module->status;
 
     module->status = TI_MODULE_STAT_INSTALLER_BUSY;
@@ -789,7 +789,7 @@ fail:
     log_error("failed install module: `%s`", module->name->str);
 }
 
-void ti_module_load(ti_module_t * module)
+void ti_module_load(ti_module_t *module)
 {
     static const module__install_t module__gh_install = {
             .manifest_cb = ti_mod_github_manifest,
@@ -819,7 +819,7 @@ void ti_module_load(ti_module_t * module)
         case TI_MODULE_SOURCE_FILE:
             if (fx_is_dir(module->path))
             {
-                const char * file = module->source.file;
+                const char *file = module->source.file;
                 if (ti_module_set_file(module, file, strlen(file)))
                 {
                     log_error(EX_MEMORY_S);
@@ -866,14 +866,14 @@ void ti_module_load(ti_module_t * module)
     }
 }
 
-void ti_module_reset_status(ti_module_t * module)
+void ti_module_reset_status(ti_module_t *module)
 {
     module->restarts = 0;
     if (module->status == TI_MODULE_STAT_TOO_MANY_RESTARTS)
         module->status = TI_MODULE_STAT_NOT_LOADED;
 }
 
-void ti_module_restart(ti_module_t * module)
+void ti_module_restart(ti_module_t *module)
 {
     log_info("restarting module `%s`...", module->name->str);
     if (module->flags & TI_MODULE_FLAG_IN_USE)
@@ -889,8 +889,8 @@ void ti_module_restart(ti_module_t * module)
 
 typedef struct
 {
-    ti_module_t * module;
-    void * data;
+    ti_module_t *module;
+    void *data;
     size_t n;
 } module__wait_deploy_t;
 
@@ -898,7 +898,7 @@ typedef struct
  * Ready is not the same is running, a module is ready when not installing,
  * loading or restarting.
  */
-_Bool ti_module_is_ready(ti_module_t * module)
+_Bool ti_module_is_ready(ti_module_t *module)
 {
     return ((~module->flags & TI_MODULE_FLAG_RESTARTING) && (
           module->status == TI_MODULE_STAT_RUNNING ||
@@ -910,7 +910,7 @@ _Bool ti_module_is_ready(ti_module_t * module)
     );
 }
 
-static inline _Bool module__may_deploy(ti_module_t * module)
+static inline _Bool module__may_deploy(ti_module_t *module)
 {
     return !(
         module->status == TI_MODULE_STAT_INSTALLER_BUSY ||
@@ -918,19 +918,19 @@ static inline _Bool module__may_deploy(ti_module_t * module)
         (module->flags & TI_MODULE_FLAG_RESTARTING));
 }
 
-static void module__wait_close_cb(uv_timer_t * timer)
+static void module__wait_close_cb(uv_timer_t *timer)
 {
-    module__wait_deploy_t * wdeploy = timer->data;
+    module__wait_deploy_t *wdeploy = timer->data;
     ti_module_drop(wdeploy->module);
     free(wdeploy->data);
     free(wdeploy);
     free(timer);
 }
 
-static void module__wait_cb(uv_timer_t * timer)
+static void module__wait_cb(uv_timer_t *timer)
 {
-    module__wait_deploy_t * wdeploy = timer->data;
-    ti_module_t * module = wdeploy->module;
+    module__wait_deploy_t *wdeploy = timer->data;
+    ti_module_t *module = wdeploy->module;
 
     if (module__may_deploy(module))
     {
@@ -943,12 +943,12 @@ static void module__wait_cb(uv_timer_t * timer)
 }
 
 static int module__wait_deploy(
-        ti_module_t * module,
-        const void * data,
+        ti_module_t *module,
+        const void *data,
         size_t n)
 {
-    module__wait_deploy_t * wdeploy;
-    void * mdata = NULL;
+    module__wait_deploy_t *wdeploy;
+    void *mdata = NULL;
 
     log_debug("delay deployment for module `%s`", module->name->str);
 
@@ -1003,7 +1003,7 @@ fail0:
     return -1;
 }
 
-int ti_module_deploy(ti_module_t * module, const void * data, size_t n)
+int ti_module_deploy(ti_module_t *module, const void *data, size_t n)
 {
     if (!module__may_deploy(module))
         return module__wait_deploy(module, data, n);
@@ -1013,7 +1013,7 @@ int ti_module_deploy(ti_module_t * module, const void * data, size_t n)
     case TI_MODULE_SOURCE_FILE:
         if (!module->file)
         {
-            const char * file = module->source.file;
+            const char *file = module->source.file;
             if (ti_module_set_file(module, file, strlen(file)))
             {
                 log_error("failed to set module file");
@@ -1030,8 +1030,8 @@ int ti_module_deploy(ti_module_t * module, const void * data, size_t n)
         if (data)
         {
             ex_t e = {0};
-            ti_mod_github_t * github = ti_mod_github_create(data, n, &e);
-            char * orig = strndup(data, n);
+            ti_mod_github_t *github = ti_mod_github_create(data, n, &e);
+            char *orig = strndup(data, n);
 
             if (!github || !orig)
             {
@@ -1058,7 +1058,7 @@ int ti_module_deploy(ti_module_t * module, const void * data, size_t n)
     return 0;
 }
 
-void ti_module_update_conf(ti_module_t * module)
+void ti_module_update_conf(ti_module_t *module)
 {
     module__clear_conf_error(module);
 
@@ -1068,7 +1068,7 @@ void ti_module_update_conf(ti_module_t * module)
         ti_module_load(module);
 }
 
-void ti_module_on_exit(ti_module_t * module)
+void ti_module_on_exit(ti_module_t *module)
 {
     /* First cancel all open futures */
     ti_module_cancel_futures(module);
@@ -1129,7 +1129,7 @@ restart:
     ti_module_load(module);
 }
 
-int ti_module_stop(ti_module_t * module)
+int ti_module_stop(ti_module_t *module)
 {
     int rc, pid = module->proc.process.pid;
     if (!pid)
@@ -1148,7 +1148,7 @@ int ti_module_stop(ti_module_t * module)
     return rc;
 }
 
-void ti_module_stop_and_destroy(ti_module_t * module)
+void ti_module_stop_and_destroy(ti_module_t *module)
 {
     module->flags |= TI_MODULE_FLAG_DESTROY;
     if (module->flags & TI_MODULE_FLAG_IN_USE)
@@ -1157,16 +1157,16 @@ void ti_module_stop_and_destroy(ti_module_t * module)
         ti_module_drop(module);
 }
 
-void module__stop_cb(uv_async_t * task)
+void module__stop_cb(uv_async_t *task)
 {
-    ti_module_t * module = task->data;
+    ti_module_t *module = task->data;
     ti_module_stop_and_destroy(module);
     uv_close((uv_handle_t *) task, (uv_close_cb) free);
 }
 
-void ti_module_del(ti_module_t * module, _Bool delete_files)
+void ti_module_del(ti_module_t *module, _Bool delete_files)
 {
-    uv_async_t * task;
+    uv_async_t *task;
 
     if (delete_files)
         /* set the DELETE flag as the module needs to be removed */
@@ -1182,15 +1182,15 @@ void ti_module_del(ti_module_t * module, _Bool delete_files)
     }
 }
 
-void ti_module_cancel_futures(ti_module_t * module)
+void ti_module_cancel_futures(ti_module_t *module)
 {
     omap_clear(module->futures, (omap_destroy_cb) ti_future_cancel);
 }
 
-static void module__on_res(ti_future_t * future, ti_pkg_t * pkg)
+static void module__on_res(ti_future_t *future, ti_pkg_t *pkg)
 {
     ex_t e = {0};
-    ti_val_t * val;
+    ti_val_t *val;
 
     if (ti_future_should_load(future))
     {
@@ -1238,7 +1238,7 @@ static void module__on_res(ti_future_t * future, ti_pkg_t * pkg)
     ti_query_on_future_result(future, &e);
 }
 
-static void module__on_err(ti_future_t * future, ti_pkg_t * pkg)
+static void module__on_err(ti_future_t *future, ti_pkg_t *pkg)
 {
     ex_t e = {0};
     mp_unp_t up;
@@ -1278,9 +1278,9 @@ done:
     ti_query_on_future_result(future, &e);
 }
 
-void ti_module_on_pkg(ti_module_t * module, ti_pkg_t * pkg)
+void ti_module_on_pkg(ti_module_t *module, ti_pkg_t *pkg)
 {
-    ti_future_t * future;
+    ti_future_t *future;
 
     switch(pkg->tp)
     {
@@ -1331,7 +1331,7 @@ void ti_module_on_pkg(ti_module_t * module, ti_pkg_t * pkg)
     }
 }
 
-const char * ti_module_status_str(ti_module_t * module)
+const char *ti_module_status_str(ti_module_t *module)
 {
     switch ((ti_module_stat_t) module->status)
     {
@@ -1361,10 +1361,10 @@ const char * ti_module_status_str(ti_module_t * module)
     return uv_strerror(module->status);
 }
 
-static int module__info_to_vp(ti_module_t * module, ti_vp_t * vp, int flags)
+static int module__info_to_vp(ti_module_t *module, ti_vp_t *vp, int flags)
 {
-    msgpack_packer * pk = &vp->pk;
-    ti_mod_manifest_t * manifest = &module->manifest;
+    msgpack_packer *pk = &vp->pk;
+    ti_mod_manifest_t *manifest = &module->manifest;
     size_t defaults_n = \
             (manifest->defaults ? manifest->defaults->n : 0) + \
             !!manifest->deep + \
@@ -1477,7 +1477,7 @@ static int module__info_to_vp(ti_module_t * module, ti_vp_t * vp, int flags)
     if (manifest->exposes)
     {
         char namebuf[TI_NAME_MAX];
-        smap_t * exposes = manifest->exposes;
+        smap_t *exposes = manifest->exposes;
 
         if (mp_pack_str(pk, "exposes") ||
             msgpack_pack_map(pk, exposes->n) ||
@@ -1492,9 +1492,9 @@ static int module__info_to_vp(ti_module_t * module, ti_vp_t * vp, int flags)
     return 0;
 }
 
-ti_val_t * ti_module_as_mpval(ti_module_t * module, int flags)
+ti_val_t *ti_module_as_mpval(ti_module_t *module, int flags)
 {
-    ti_raw_t * raw;
+    ti_raw_t *raw;
     msgpack_sbuffer buffer;
     ti_vp_t vp = {
             .query=NULL,
@@ -1516,7 +1516,7 @@ ti_val_t * ti_module_as_mpval(ti_module_t * module, int flags)
     return (ti_val_t *) raw;
 }
 
-int ti_module_write(ti_module_t * module, const void * data, size_t n)
+int ti_module_write(ti_module_t *module, const void *data, size_t n)
 {
 
     if (fx_file_exist(module->file))
@@ -1552,16 +1552,16 @@ int ti_module_write(ti_module_t * module, const void * data, size_t n)
 }
 
 int ti_module_read_args(
-        ti_module_t * module,
-        ti_thing_t * thing,
+        ti_module_t *module,
+        ti_thing_t *thing,
         _Bool * load,       /* load may be undefined */
-        uint8_t * deep,     /* deep must have a default value */
-        ex_t * e)
+        uint8_t *deep,     /* deep must have a default value */
+        ex_t *e)
 {
-    ti_name_t * deep_name = (ti_name_t *) ti_val_borrow_deep_name();
-    ti_name_t * load_name = (ti_name_t *) ti_val_borrow_load_name();
-    ti_val_t * deep_val = ti_thing_val_weak_by_name(thing, deep_name);
-    ti_val_t * load_val = ti_thing_val_weak_by_name(thing, load_name);
+    ti_name_t *deep_name = (ti_name_t *) ti_val_borrow_deep_name();
+    ti_name_t *load_name = (ti_name_t *) ti_val_borrow_load_name();
+    ti_val_t *deep_val = ti_thing_val_weak_by_name(thing, deep_name);
+    ti_val_t *load_val = ti_thing_val_weak_by_name(thing, load_name);
 
     if (!deep_val)
         *deep = module->manifest.deep
@@ -1579,7 +1579,7 @@ int ti_module_read_args(
     return 0;
 }
 
-int ti_module_set_defaults(ti_thing_t ** thing, vec_t * defaults)
+int ti_module_set_defaults(ti_thing_t ** thing, vec_t *defaults)
 {
     if (!defaults || !defaults->n)
         return 0;
@@ -1603,18 +1603,18 @@ int ti_module_set_defaults(ti_thing_t ** thing, vec_t * defaults)
 }
 
 int ti_module_call(
-        ti_module_t * module,
-        ti_query_t * query,
-        cleri_node_t * nd,
-        ex_t * e)
+        ti_module_t *module,
+        ti_query_t *query,
+        cleri_node_t *nd,
+        ex_t *e)
 {
     assert(query->rval == NULL);
 
     const int nargs = fn_get_nargs(nd);
     _Bool load = false;
     uint8_t deep = query->qbind.deep;
-    cleri_node_t * child = nd->children;
-    ti_future_t * future;
+    cleri_node_t *child = nd->children;
+    ti_future_t *future;
 
     if (ti.futures_count >= TI_MAX_FUTURE_COUNT)
     {
@@ -1699,7 +1699,7 @@ fail0:
     return e->nr;
 }
 
-void ti_module_set_source_err(ti_module_t * module, const char * fmt, ...)
+void ti_module_set_source_err(ti_module_t *module, const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
@@ -1707,14 +1707,14 @@ void ti_module_set_source_err(ti_module_t * module, const char * fmt, ...)
     va_end(args);
 }
 
-void ti_module_destroy(ti_module_t * module)
+void ti_module_destroy(ti_module_t *module)
 {
     if (!module)
         return;
 
     if (module->wait_deploy)
     {
-        uv_timer_t * timer = module->wait_deploy;
+        uv_timer_t *timer = module->wait_deploy;
         module->wait_deploy = NULL;
         uv_timer_stop(timer);
         uv_close(

@@ -8,20 +8,20 @@
 #include <tiinc.h>
 #include <util/logger.h>
 
-ti_mod_expose_t * ti_mod_expose_create(void)
+ti_mod_expose_t *ti_mod_expose_create(void)
 {
-    ti_mod_expose_t * expose = calloc(1, sizeof(ti_mod_expose_t));
+    ti_mod_expose_t *expose = calloc(1, sizeof(ti_mod_expose_t));
     return expose;
 }
 
-static void expose__item_destroy(ti_item_t * item)
+static void expose__item_destroy(ti_item_t *item)
 {
     ti_val_drop((ti_val_t *) item->key);
     ti_val_drop(item->val);
     free(item);
 }
 
-void ti_mod_expose_destroy(ti_mod_expose_t * expose)
+void ti_mod_expose_destroy(ti_mod_expose_t *expose)
 {
     if (!expose)
         return;
@@ -36,16 +36,16 @@ void ti_mod_expose_destroy(ti_mod_expose_t * expose)
 }
 
 int ti_mod_closure_call(
-        ti_mod_expose_t * expose,
-        ti_query_t * query,
-        cleri_node_t * nd,
-        ex_t * e)
+        ti_mod_expose_t *expose,
+        ti_query_t *query,
+        cleri_node_t *nd,
+        ex_t *e)
 {
-    cleri_node_t * child = nd->children;        /* first in argument list */
-    ti_closure_t * closure = expose->closure;
-    vec_t * args = NULL;
+    cleri_node_t *child = nd->children;        /* first in argument list */
+    ti_closure_t *closure = expose->closure;
+    vec_t *args = NULL;
     uint32_t n = closure->vars->n;
-    ti_module_t * module = (ti_module_t *) query->rval;
+    ti_module_t *module = (ti_module_t *) query->rval;
 
     ti_incref(expose->closure);
 
@@ -96,19 +96,19 @@ fail0:
 }
 
 int ti_mod_expose_call(
-        ti_mod_expose_t * expose,
-        ti_query_t * query,
-        cleri_node_t * nd,
-        ex_t * e)
+        ti_mod_expose_t *expose,
+        ti_query_t *query,
+        cleri_node_t *nd,
+        ex_t *e)
 {
     unsigned int nargs = (unsigned int) fn_get_nargs(nd);
-    ti_module_t * module = (ti_module_t *) query->rval;
-    cleri_node_t * child = nd->children;
+    ti_module_t *module = (ti_module_t *) query->rval;
+    cleri_node_t *child = nd->children;
     size_t defaults_n = expose->defaults ? expose->defaults->n : 0;
-    ti_future_t * future;
-    ti_thing_t * thing;
-    ti_name_t * deep_name = (ti_name_t *) ti_val_borrow_deep_name();
-    ti_name_t * load_name = (ti_name_t *) ti_val_borrow_load_name();
+    ti_future_t *future;
+    ti_thing_t *thing;
+    ti_name_t *deep_name = (ti_name_t *) ti_val_borrow_deep_name();
+    ti_name_t *load_name = (ti_name_t *) ti_val_borrow_load_name();
     _Bool load = expose->load ? *expose->load : TI_MODULE_DEFAULT_LOAD;
     uint8_t deep = expose->deep ? *expose->deep : TI_MODULE_DEFAULT_DEEP;
 
@@ -150,8 +150,8 @@ int ti_mod_expose_call(
             {
                 if (child)
                 {
-                    ti_thing_t * tsrc;
-                    ti_val_t * deep_val, * load_val;
+                    ti_thing_t *tsrc;
+                    ti_val_t *deep_val, *load_val;
 
                     if (ti_do_statement(query, child, e))
                         goto fail1;
@@ -235,7 +235,7 @@ int ti_mod_expose_call(
     }
     else if (nargs)
     {
-        ti_val_t * deep_val, * load_val;
+        ti_val_t *deep_val, *load_val;
 
         if (ti_do_statement(query, child, e))
             goto fail0;
@@ -326,12 +326,12 @@ done:
 }
 
 int ti_mod_expose_info_to_vp(
-        const char * key,
+        const char *key,
         size_t n,
-        ti_mod_expose_t * expose,
-        ti_vp_t * vp)
+        ti_mod_expose_t *expose,
+        ti_vp_t *vp)
 {
-    msgpack_packer * pk = &vp->pk;
+    msgpack_packer *pk = &vp->pk;
     size_t defaults_n = (expose->defaults ? expose->defaults->n : 0) +\
             !!expose->deep +\
             !!expose->load;

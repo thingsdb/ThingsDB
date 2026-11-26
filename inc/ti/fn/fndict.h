@@ -1,9 +1,9 @@
 #include <ti/fn/fn.h>
 
-static int do__f_dict(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_dict(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_dict_t * dict;
+    ti_dict_t *dict;
 
     if (fn_nargs_max("dict", DOC_DICT, 1, nargs, e))
         return e->nr;
@@ -30,8 +30,8 @@ static int do__f_dict(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                     "list of [key, value] pairs"DOC_DICT);
                 goto fail0;
             }
-            ti_val_t * key = VEC_get(VARR(tuple), 0);
-            ti_val_t * val = VEC_get(VARR(tuple), 1);
+            ti_val_t *key = VEC_get(VARR(tuple), 0);
+            ti_val_t *val = VEC_get(VARR(tuple), 1);
             /*
              * It is safe here as val will not change (already inherited)
              */

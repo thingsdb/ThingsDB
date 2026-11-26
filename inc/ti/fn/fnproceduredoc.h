@@ -1,10 +1,10 @@
 #include <ti/fn/fn.h>
 
-static int do__f_procedure_doc(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_procedure_doc(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_procedure_t * procedure;
-    smap_t * procedures = ti_query_procedures(query);
+    ti_procedure_t *procedure;
+    smap_t *procedures = ti_query_procedures(query);
 
     if (fn_not_thingsdb_or_collection_scope("procedure_doc", query, e) ||
         fn_nargs("procedure_doc", DOC_PROCEDURE_DOC, 1, nargs, e) ||

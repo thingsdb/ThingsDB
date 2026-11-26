@@ -4,12 +4,12 @@
 #include <cleri/list.h>
 #include <stdlib.h>
 
-static void list__free(cleri_t * cl_object);
-static cleri_node_t * list__parse(
-        cleri_parse_t * pr,
-        cleri_node_t * parent,
-        cleri_t * cl_obj,
-        cleri_rule_store_t * rule);
+static void list__free(cleri_t *cl_object);
+static cleri_node_t *list__parse(
+        cleri_parse_t *pr,
+        cleri_node_t *parent,
+        cleri_t *cl_obj,
+        cleri_rule_store_t *rule);
 
 /*
  * Returns NULL in case an error has occurred.
@@ -22,10 +22,10 @@ static cleri_node_t * list__parse(
  * opt_closing  :   when set to true (1) the list can be closed with a
  *                  delimiter. when false (0) this is not allowed.
  */
-cleri_t * cleri_list(
+cleri_t *cleri_list(
         uint32_t gid,
-        cleri_t * cl_obj,
-        cleri_t * delimiter,
+        cleri_t *cl_obj,
+        cleri_t *delimiter,
         size_t min,
         size_t max,
         int opt_closing)
@@ -35,7 +35,7 @@ cleri_t * cleri_list(
         return NULL;
     }
 
-    cleri_t * cl_object = cleri_new(
+    cleri_t *cl_object = cleri_new(
             gid,
             CLERI_TP_LIST,
             &list__free,
@@ -69,7 +69,7 @@ cleri_t * cleri_list(
 /*
  * Destroy list object.
  */
-static void list__free(cleri_t * cl_object)
+static void list__free(cleri_t *cl_object)
 {
     cleri_free(cl_object->via.list->cl_obj);
     cleri_free(cl_object->via.list->delimiter);
@@ -79,15 +79,15 @@ static void list__free(cleri_t * cl_object)
 /*
  * Returns a node or NULL. In case of an error pr->is_valid is set to -1.
  */
-static cleri_node_t * list__parse(
-        cleri_parse_t * pr,
-        cleri_node_t * parent,
-        cleri_t * cl_obj,
-        cleri_rule_store_t * rule)
+static cleri_node_t *list__parse(
+        cleri_parse_t *pr,
+        cleri_node_t *parent,
+        cleri_t *cl_obj,
+        cleri_rule_store_t *rule)
 {
-    cleri_list_t * list = cl_obj->via.list;
-    cleri_node_t * node;
-    cleri_node_t * rnode;
+    cleri_list_t *list = cl_obj->via.list;
+    cleri_node_t *node;
+    cleri_node_t *rnode;
     size_t i = 0;
     size_t j = 0;
 

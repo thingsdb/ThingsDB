@@ -1,28 +1,28 @@
 #include <ti/fn/fn.h>
 
 /* Replace string with string num (reverse) times */
-ti_raw_t * replacessr(
-        ti_raw_t * vstr,
-        ti_raw_t * vold,
-        ti_raw_t * vnew,
+ti_raw_t *replacessr(
+        ti_raw_t *vstr,
+        ti_raw_t *vold,
+        ti_raw_t *vnew,
         size_t num)
 {
     assert(vold->n && vold->n <= vstr->n);
     assert(num);
 
-    ti_raw_t * raw;
+    ti_raw_t *raw;
     size_t strn = vstr->n;
     size_t oldn = vold->n;
     size_t newn = vnew->n;
     size_t mo = strn/oldn;
     size_t n = num < mo ? num : mo;
     size_t sz = newn <= oldn ? strn : n*newn + strn;
-    char * pt = (char *) vstr->data + strn;
-    char * old = (char *) vold->data;
-    char * start = (char *) vstr->data;
-    char * until = start + oldn;
-    char * tmp = malloc(sz);
-    char * wt = tmp + sz;
+    char *pt = (char *) vstr->data + strn;
+    char *old = (char *) vold->data;
+    char *start = (char *) vstr->data;
+    char *until = start + oldn;
+    char *tmp = malloc(sz);
+    char *wt = tmp + sz;
     if (!tmp)
         return NULL;
 
@@ -48,28 +48,28 @@ ti_raw_t * replacessr(
 }
 
 /* Replace string with string n times */
-ti_raw_t * replacessn(
-        ti_raw_t * vstr,
-        ti_raw_t * vold,
-        ti_raw_t * vnew,
-        ti_vint_t * vnum)
+ti_raw_t *replacessn(
+        ti_raw_t *vstr,
+        ti_raw_t *vold,
+        ti_raw_t *vnew,
+        ti_vint_t *vnum)
 {
     assert(!vnum || vnum->int_ > 0);
     assert(vold->n && vold->n <= vstr->n);
 
-    ti_raw_t * raw;
+    ti_raw_t *raw;
     size_t strn = vstr->n;
     size_t oldn = vold->n;
     size_t newn = vnew->n;
     size_t mo = strn/oldn;
     size_t n = vnum && (size_t) vnum->int_ < mo ? (size_t) vnum->int_: mo;
     size_t sz = newn <= oldn ? strn : n*newn + strn;
-    char * pt = (char *) vstr->data;
-    char * old = (char *) vold->data;
-    char * end = pt + strn;
-    char * until = end - oldn;
-    char * tmp = malloc(sz);
-    char * wt = tmp;
+    char *pt = (char *) vstr->data;
+    char *old = (char *) vold->data;
+    char *end = pt + strn;
+    char *until = end - oldn;
+    char *tmp = malloc(sz);
+    char *wt = tmp;
     if (!tmp)
         return NULL;
 
@@ -94,22 +94,22 @@ ti_raw_t * replacessn(
 }
 
 /* Replace string using closure n times */
-ti_raw_t * replacescr(
-        ti_raw_t * vstr,
-        ti_raw_t * vold,
-        ti_closure_t * closure,
+ti_raw_t *replacescr(
+        ti_raw_t *vstr,
+        ti_raw_t *vold,
+        ti_closure_t *closure,
         size_t n,
-        ti_query_t * query,
-        ex_t * e)
+        ti_query_t *query,
+        ex_t *e)
 {
-    ti_raw_t * raw = NULL;
+    ti_raw_t *raw = NULL;
     size_t strn = vstr->n;
     size_t oldn = vold->n;
-    char * s = (char *) vstr->data ;
-    char * pt = s + strn;
-    char * old = (char *) vold->data;
-    char * start = (char *) vstr->data;
-    char * until = start + oldn;
+    char *s = (char *) vstr->data ;
+    char *pt = s + strn;
+    char *old = (char *) vold->data;
+    char *start = (char *) vstr->data;
+    char *until = start + oldn;
     rbuf_t buf;
     rbuf_init(&buf);
 
@@ -121,7 +121,7 @@ ti_raw_t * replacescr(
     {
         if (n && pt >= until && memcmp(pt-oldn, old, oldn) == 0)
         {
-            ti_raw_t * new;
+            ti_raw_t *new;
 
             if (ti_closure_vars_replace_str(closure, pt - s, vold->n, vstr))
             {
@@ -182,26 +182,26 @@ fail0:
 
 /* Replace string using closure n times */
 int replacescn(
-        ti_raw_t * vstr,
-        ti_raw_t * vold,
-        ti_closure_t * closure,
-        ti_vint_t * vnum,
-        ti_query_t * query,
-        ex_t * e)
+        ti_raw_t *vstr,
+        ti_raw_t *vold,
+        ti_closure_t *closure,
+        ti_vint_t *vnum,
+        ti_query_t *query,
+        ex_t *e)
 {
     assert(!vnum || vnum->int_ > 0);
     assert(vold->n && vold->n <= vstr->n);
 
-    ti_raw_t * raw;
+    ti_raw_t *raw;
     size_t strn = vstr->n;
     size_t oldn = vold->n;
     size_t n = vnum ? (size_t) vnum->int_: SIZE_MAX;
-    char * s = (char *) vstr->data;
-    char * pt = s;
-    char * end = pt + strn;
-    char * old = (char *) vold->data;
+    char *s = (char *) vstr->data;
+    char *pt = s;
+    char *end = pt + strn;
+    char *old = (char *) vold->data;
 
-    char * until = end - oldn;
+    char *until = end - oldn;
     buf_t buf;
     buf_init(&buf);
 
@@ -213,7 +213,7 @@ int replacescn(
     {
         if (n && pt <= until && memcmp(pt, old, oldn) == 0)
         {
-            ti_raw_t * new;
+            ti_raw_t *new;
 
             if (ti_closure_vars_replace_str(closure, pt - s, vold->n, vstr))
             {
@@ -271,20 +271,20 @@ fail0:
 
 /* Replace string using closure n times */
 int replacersn(
-        ti_raw_t * vstr,
-        ti_regex_t * regex,
-        ti_raw_t * vnew,
-        ti_vint_t * vnum,
-        ti_query_t * query,
-        ex_t * e)
+        ti_raw_t *vstr,
+        ti_regex_t *regex,
+        ti_raw_t *vnew,
+        ti_vint_t *vnum,
+        ti_query_t *query,
+        ex_t *e)
 {
     assert(!vnum || vnum->int_ > 0);
 
-    ti_raw_t * raw;
+    ti_raw_t *raw;
     size_t n = vnum ? (size_t) vnum->int_: SIZE_MAX;
     size_t pos = 0;
     int rc;
-    const char * s = (const char *) vstr->data;
+    const char *s = (const char *) vstr->data;
 
     buf_t buf;
     buf_init(&buf);
@@ -327,20 +327,20 @@ fail0:
 
 /* Replace string using closure n times */
 int replacercn(
-        ti_raw_t * vstr,
-        ti_regex_t * regex,
-        ti_closure_t * closure,
-        ti_vint_t * vnum,
-        ti_query_t * query,
-        ex_t * e)
+        ti_raw_t *vstr,
+        ti_regex_t *regex,
+        ti_closure_t *closure,
+        ti_vint_t *vnum,
+        ti_query_t *query,
+        ex_t *e)
 {
     assert(!vnum || vnum->int_ > 0);
 
-    ti_raw_t * raw;
+    ti_raw_t *raw;
     size_t n = vnum ? (size_t) vnum->int_: SIZE_MAX;
     size_t pos = 0;
     int rc;
-    const char * s = (const char *) vstr->data;
+    const char *s = (const char *) vstr->data;
 
     buf_t buf;
     buf_init(&buf);
@@ -358,7 +358,7 @@ int replacercn(
             regex->match_data,
             NULL)) >= 0)
     {
-        ti_raw_t * new;
+        ti_raw_t *new;
         PCRE2_SIZE * ovector = pcre2_get_ovector_pointer(regex->match_data);
 
         if (buf_append(&buf, s + pos, ovector[0] - pos) ||
@@ -412,13 +412,13 @@ fail0:
     return e->nr;
 }
 
-static int do__replace_str(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__replace_str(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_raw_t * str;
-    ti_val_t * old, * new;
-    ti_vint_t * vnum = NULL;
-    cleri_node_t * child;
+    ti_raw_t *str;
+    ti_val_t *old, *new;
+    ti_vint_t *vnum = NULL;
+    cleri_node_t *child;
 
     if (fn_nargs_range("replace", DOC_STR_REPLACE, 2, 3, nargs, e))
         return e->nr;
@@ -467,7 +467,7 @@ static int do__replace_str(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_val_is_str(old))
     {
-        ti_raw_t * sold = (ti_raw_t *) old;
+        ti_raw_t *sold = (ti_raw_t *) old;
 
         if (sold->n == 0)
         {
@@ -484,7 +484,7 @@ static int do__replace_str(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         if(ti_val_is_str(new))
         {
-            ti_raw_t * res = (!vnum || vnum->int_ > 0)
+            ti_raw_t *res = (!vnum || vnum->int_ > 0)
                 ? replacessn(str, sold, (ti_raw_t *) new, vnum)
                 : replacessr(str, sold, (ti_raw_t *) new, llabs(vnum->int_));
             if (!res)
@@ -555,7 +555,7 @@ fail0:
 typedef struct
 {
     struct tm * tm;
-    ex_t * e;
+    ex_t *e;
 } replace__walk_t;
 
 /*
@@ -568,12 +568,12 @@ typedef struct
  *      - second
  */
 static int do__replace_value(
-        ti_raw_t * key,
-        ti_val_t * val,
-        replace__walk_t * w)
+        ti_raw_t *key,
+        ti_val_t *val,
+        replace__walk_t *w)
 {
     int64_t i;
-    ex_t * e = w->e;
+    ex_t *e = w->e;
     struct tm * tm = w->tm;
 
     if (key == (ti_raw_t *) ti_val_borrow_second_name())
@@ -729,13 +729,13 @@ static int do__replace_value(
     return 0;
 }
 
-static int do__replace_datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__replace_datetime(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     uint8_t flags;
-    ti_datetime_t * dt;
-    ti_tz_t * tz;
-    ti_thing_t * thing;
+    ti_datetime_t *dt;
+    ti_tz_t *tz;
+    ti_thing_t *thing;
     struct tm tm;
 
     if (fn_nargs("replace", DOC_DATETIME_REPLACE, 1, nargs, e))
@@ -778,7 +778,7 @@ static int do__replace_datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 }
 
 
-static inline int do__f_replace(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static inline int do__f_replace(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     return ti_val_is_str(query->rval)
             ? do__replace_str(query, nd, e)

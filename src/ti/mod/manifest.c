@@ -72,22 +72,22 @@ typedef enum
 typedef struct
 {
     manifest__ctx_mode_t mode;
-    ti_mod_manifest_t * manifest;
-    char * source_err;          /* pointer to module->source_err which is
+    ti_mod_manifest_t *manifest;
+    char *source_err;          /* pointer to module->source_err which is
                                    limited by (TI_MODULE_MAX_ERR */
-    void * data;                /* pointer to anything */
+    void *data;                /* pointer to anything */
 } manifest__ctx_t;
 
 typedef struct
 {
     mpjson_convert_t ctx;       /* pointer to unpack context */
     msgpack_sbuffer buffer;
-    void * data;
+    void *data;
 } manifest__up_t;
 
 static int manifest__set_err(
-        manifest__ctx_t * ctx,
-        const char * fmt,
+        manifest__ctx_t *ctx,
+        const char *fmt,
         ...)
 {
     va_list args;
@@ -98,7 +98,7 @@ static int manifest__set_err(
 }
 
 static inline int manifest__set_mode(
-        manifest__ctx_t * ctx,
+        manifest__ctx_t *ctx,
         manifest__ctx_mode_t mode)
 {
     ctx->mode = mode;
@@ -106,13 +106,13 @@ static inline int manifest__set_mode(
 }
 
 static inline _Bool manifest__key_equals(
-        const void * a, size_t an,
-        const void * b, size_t bn)
+        const void *a, size_t an,
+        const void *b, size_t bn)
 {
     return an == bn && memcmp(a, b, an) == 0;
 }
 
-static int manifest__check_reqm(const char * str, size_t n)
+static int manifest__check_reqm(const char *str, size_t n)
 {
     for (; n; --n, ++str)
         if (!isalnum(*str) &&
@@ -130,19 +130,19 @@ static int manifest__check_reqm(const char * str, size_t n)
     return 1;
 }
 
-static int manifest__default_item(manifest__ctx_t * ctx, void * val)
+static int manifest__default_item(manifest__ctx_t *ctx, void *val)
 {
-    ti_item_t * item = ctx->data;
+    ti_item_t *item = ctx->data;
     item->val = val;
     return val
             ? manifest__set_mode(ctx, MF__DEFAULTS_MAP)
             : manifest__set_err(ctx, manifest__err_alloc);
 }
 
-static int manifest__x_default_item(manifest__ctx_t * ctx, void * val)
+static int manifest__x_default_item(manifest__ctx_t *ctx, void *val)
 {
-    ti_mod_expose_t * expose = ctx->data;
-    ti_item_t * item = VEC_last(expose->defaults);
+    ti_mod_expose_t *expose = ctx->data;
+    ti_item_t *item = VEC_last(expose->defaults);
     item->val = val;
     return val
             ? manifest__set_mode(ctx, MF__X_DEFAULTS_MAP)
@@ -150,9 +150,9 @@ static int manifest__x_default_item(manifest__ctx_t * ctx, void * val)
 }
 
 static int manifest__set_main(
-        manifest__ctx_t * ctx,
+        manifest__ctx_t *ctx,
         manifest__ctx_mode_t mode,
-        const unsigned char * s,
+        const unsigned char *s,
         size_t n)
 {
     if (!ctx->manifest->main)
@@ -163,9 +163,9 @@ static int manifest__set_main(
     return manifest__set_mode(ctx, mode);
 }
 
-static int manifest__start_pack(manifest__ctx_t * ctx, manifest__ctx_mode_t mode)
+static int manifest__start_pack(manifest__ctx_t *ctx, manifest__ctx_mode_t mode)
 {
-    manifest__up_t * up = calloc(1, sizeof(manifest__up_t));
+    manifest__up_t *up = calloc(1, sizeof(manifest__up_t));
     if (!up || mp_sbuffer_alloc_init(&up->buffer, 8192, sizeof(ti_raw_t)))
     {
         free(up);
@@ -183,14 +183,14 @@ static int manifest__start_pack(manifest__ctx_t * ctx, manifest__ctx_mode_t mode
 
 typedef int (*manifest__pcb) (void *);
 
-static int manifest__end_pack(manifest__ctx_t * ctx, manifest__pcb cb)
+static int manifest__end_pack(manifest__ctx_t *ctx, manifest__pcb cb)
 {
-    manifest__up_t * up = ctx->data;
+    manifest__up_t *up = ctx->data;
     int ok = cb(&up->ctx);
     if (ok && up->ctx.deep == 0)
     {
-        ti_item_t * item = up->data;
-        ti_raw_t * raw;
+        ti_item_t *item = up->data;
+        ti_raw_t *raw;
         size_t dst_n;
 
         take_buffer(up->ctx.pk.data, (char **) &raw, &dst_n);
@@ -204,15 +204,15 @@ static int manifest__end_pack(manifest__ctx_t * ctx, manifest__pcb cb)
     return ok;
 }
 
-static int manifest__x_end_pack(manifest__ctx_t * ctx, manifest__pcb cb)
+static int manifest__x_end_pack(manifest__ctx_t *ctx, manifest__pcb cb)
 {
-    manifest__up_t * up = ctx->data;
+    manifest__up_t *up = ctx->data;
     int ok = cb(&up->ctx);
     if (ok && up->ctx.deep == 0)
     {
-        ti_mod_expose_t * expose = up->data;
-        ti_item_t * item = VEC_last(expose->defaults);
-        ti_raw_t * raw;
+        ti_mod_expose_t *expose = up->data;
+        ti_item_t *item = VEC_last(expose->defaults);
+        ti_raw_t *raw;
         size_t dst_n;
 
         take_buffer(up->ctx.pk.data, (char **) &raw, &dst_n);
@@ -226,13 +226,13 @@ static int manifest__x_end_pack(manifest__ctx_t * ctx, manifest__pcb cb)
     return ok;
 }
 
-static ti_item_t * manifest__make_item(
-        manifest__ctx_t * ctx,
-        const char * str,
+static ti_item_t *manifest__make_item(
+        manifest__ctx_t *ctx,
+        const char *str,
         size_t n,
         vec_t ** defaults)
 {
-    ti_item_t * item;
+    ti_item_t *item;
 
     if (!strx_is_utf8n(str, n))
         return manifest__set_err(ctx,
@@ -342,9 +342,9 @@ static ti_item_t * manifest__make_item(
 
 #define TI_NNULL "not null"
 
-static int manifest__json_null(void * data)
+static int manifest__json_null(void *data)
 {
-    manifest__ctx_t * ctx = data;
+    manifest__ctx_t *ctx = data;
     switch (ctx->mode)
     {
     case MF__ROOT:              return manifest__err_root(ctx, TI_NNULL);
@@ -386,9 +386,9 @@ static int manifest__json_null(void * data)
 
 #define TI_NBOOL "not a boolean"
 
-static int manifest__json_boolean(void * data, int boolean)
+static int manifest__json_boolean(void *data, int boolean)
 {
-    manifest__ctx_t * ctx = data;
+    manifest__ctx_t *ctx = data;
     switch (ctx->mode)
     {
     case MF__ROOT:              return manifest__err_root(ctx, TI_NBOOL);
@@ -424,7 +424,7 @@ static int manifest__json_boolean(void * data, int boolean)
     case MF__X_DEFAULTS_DEEP:   return manifest__err_deep(ctx, TI_NBOOL);
     case MF__X_DEFAULTS_LOAD:
     {
-        ti_mod_expose_t * expose = ctx->data;
+        ti_mod_expose_t *expose = ctx->data;
         if (!expose->load)
         {
             expose->load = malloc(sizeof(_Bool));
@@ -447,9 +447,9 @@ static int manifest__json_boolean(void * data, int boolean)
 
 #define TI_NNUM "not a number"
 
-static int manifest__json_integer(void * data, long long i)
+static int manifest__json_integer(void *data, long long i)
 {
-    manifest__ctx_t * ctx = data;
+    manifest__ctx_t *ctx = data;
     switch (ctx->mode)
     {
     case MF__ROOT:              return manifest__err_root(ctx, TI_NNUM);
@@ -503,7 +503,7 @@ static int manifest__json_integer(void * data, long long i)
     case MF__X_DEFAULTS:        return manifest__err_defaults(ctx, TI_NNUM);
     case MF__X_DEFAULTS_DEEP:
     {
-        ti_mod_expose_t * expose = ctx->data;
+        ti_mod_expose_t *expose = ctx->data;
         if (i < 0 || i > TI_MAX_DEEP)
             return manifest__set_err(
                     ctx,
@@ -531,9 +531,9 @@ static int manifest__json_integer(void * data, long long i)
     }
 }
 
-static int manifest__json_double(void * data, double d)
+static int manifest__json_double(void *data, double d)
 {
-    manifest__ctx_t * ctx = data;
+    manifest__ctx_t *ctx = data;
     switch (ctx->mode)
     {
     case MF__ROOT:              return manifest__err_root(ctx, TI_NNUM);
@@ -588,7 +588,7 @@ static int manifest__json_double(void * data, double d)
     case MF__X_DEFAULTS:        return manifest__err_defaults(ctx, TI_NNUM);
     case MF__X_DEFAULTS_DEEP:
     {
-        ti_mod_expose_t * expose = ctx->data;
+        ti_mod_expose_t *expose = ctx->data;
         if (!(d >= 0.0 && d <= TI_MAX_DEEP) || trunc(d) != d)
             return manifest__set_err(
                     ctx,
@@ -619,11 +619,11 @@ static int manifest__json_double(void * data, double d)
 #define TI_NSTR "not a string"
 
 static int manifest__json_string(
-        void * data,
-        const unsigned char * s,
+        void *data,
+        const unsigned char *s,
         size_t n)
 {
-    manifest__ctx_t * ctx = data;
+    manifest__ctx_t *ctx = data;
     switch (ctx->mode)
     {
     case MF__ROOT:              return manifest__err_root(ctx, TI_NSTR);
@@ -652,12 +652,12 @@ static int manifest__json_string(
     case MF__INCLUDES:          return manifest__err_includes(ctx, TI_NSTR);
     case MF__INCLUDES_ARR:
     {
-        char * str = strndup((const char *) s, n);
+        char *str = strndup((const char *) s, n);
         return str && vec_push_create(&ctx->manifest->includes, str) == 0;
     }
     case MF__INCLUDES_OSARCH:
     {
-        char * str = strndup((const char *) s, n);
+        char *str = strndup((const char *) s, n);
         return str && vec_push_create(&ctx->manifest->includes, str) == 0;
     }
     /* fall through */
@@ -667,8 +667,8 @@ static int manifest__json_string(
     case MF__X:
     {
         ex_t e = {0};
-        ti_raw_t * doc;
-        ti_mod_expose_t * expose = ctx->data;
+        ti_raw_t *doc;
+        ti_mod_expose_t *expose = ctx->data;
         ti_qbind_t syntax = {
                 .immutable_n = 0,
                 .flags = TI_QBIND_FLAG_COLLECTION|TI_QBIND_FLAG_THINGSDB,
@@ -696,7 +696,7 @@ static int manifest__json_string(
     }
     case MF__X_DOC:
     {
-        ti_mod_expose_t * expose = ctx->data;
+        ti_mod_expose_t *expose = ctx->data;
         if (!expose->doc)
             expose->doc = strndup((const char *) s, n);
         return manifest__set_mode(ctx, MF__X_MAP);
@@ -713,9 +713,9 @@ static int manifest__json_string(
     case MF__X_ARGMAP:          return manifest__err_argmap(ctx, TI_NSTR);
     case MF__X_ARGMAP_ARR:
     {
-        const char * str = (const char *) s;
-        ti_mod_expose_t * expose = ctx->data;
-        ti_item_t * item;
+        const char *str = (const char *) s;
+        ti_mod_expose_t *expose = ctx->data;
+        ti_item_t *item;
 
         if (!n)
             return manifest__set_err(ctx,
@@ -757,8 +757,8 @@ static int manifest__json_string(
     case MF__REQUIREMENTS:      return manifest__err_reqm(ctx, TI_NNUM);
     case MF__REQUIREMENTS_ARR:
     {
-        const char * str = (const char *) s;
-        char * reqm;
+        const char *str = (const char *) s;
+        char *reqm;
 
         if (!manifest__check_reqm(str, n))
             return manifest__set_err(ctx,
@@ -774,9 +774,9 @@ static int manifest__json_string(
 
 #define TI_NOMAP "not a map"
 
-static int manifest__json_start_map(void * data)
+static int manifest__json_start_map(void *data)
 {
-    manifest__ctx_t * ctx = data;
+    manifest__ctx_t *ctx = data;
     switch (ctx->mode)
     {
     case MF__ROOT:
@@ -826,11 +826,11 @@ static int manifest__json_start_map(void * data)
 }
 
 static int manifest__json_map_key(
-        void * data,
-        const unsigned char * s,
+        void *data,
+        const unsigned char *s,
         size_t n)
 {
-    manifest__ctx_t * ctx = data;
+    manifest__ctx_t *ctx = data;
     switch (ctx->mode)
     {
     case MF__ROOT_MAP:
@@ -856,7 +856,7 @@ static int manifest__json_map_key(
                 n, s);
     case MF__MAIN_MAP:
     {
-        const char * osarch = osarch_get();
+        const char *osarch = osarch_get();
         size_t sz = strlen(osarch);
         if (manifest__key_equals(s, n, osarch, sz))
             return manifest__set_mode(ctx, MF__MAIN_OSARCH);
@@ -868,7 +868,7 @@ static int manifest__json_map_key(
         if (manifest__key_equals(s, n, "load", 4))
             return manifest__set_mode(ctx, MF__DEFAULTS_LOAD);
         {
-            ti_item_t * item = manifest__make_item(
+            ti_item_t *item = manifest__make_item(
                     ctx,
                     (const char *) s,
                     n,
@@ -884,7 +884,7 @@ static int manifest__json_map_key(
         return reformat_map_key(&((manifest__up_t *) ctx->data)->ctx, s, n);
     case MF__INCLUDES_MAP:
     {
-        const char * osarch = osarch_get();
+        const char *osarch = osarch_get();
         size_t sz = strlen(osarch);
         if (manifest__key_equals(s, n, osarch, sz))
             return manifest__set_mode(ctx, MF__INCLUDES_OSARCH);
@@ -892,7 +892,7 @@ static int manifest__json_map_key(
     }
     case MF__EXPOSES_MAP:
     {
-        ti_mod_expose_t * expose = ti_mod_expose_create();
+        ti_mod_expose_t *expose = ti_mod_expose_create();
 
         if (!ti_name_is_valid_strn((const char *) s, n))
             return manifest__set_err(
@@ -925,8 +925,8 @@ static int manifest__json_map_key(
         if (manifest__key_equals(s, n, "load", 4))
             return manifest__set_mode(ctx, MF__X_DEFAULTS_LOAD);
         {
-            ti_mod_expose_t * expose = ctx->data;
-            ti_item_t * item = manifest__make_item(
+            ti_mod_expose_t *expose = ctx->data;
+            ti_item_t *item = manifest__make_item(
                     ctx,
                     (const char *) s,
                     n,
@@ -940,9 +940,9 @@ static int manifest__json_map_key(
     }
 }
 
-static int manifest__json_end_map(void * data)
+static int manifest__json_end_map(void *data)
 {
-    manifest__ctx_t * ctx = data;
+    manifest__ctx_t *ctx = data;
     switch (ctx->mode)
     {
     case MF__ROOT_MAP:      return manifest__set_mode(ctx, MF__ROOT);
@@ -962,9 +962,9 @@ static int manifest__json_end_map(void * data)
 
 #define NOARRAY "not an array"
 
-static int manifest__json_start_array(void * data)
+static int manifest__json_start_array(void *data)
 {
-    manifest__ctx_t * ctx = data;
+    manifest__ctx_t *ctx = data;
     switch (ctx->mode)
     {
     case MF__ROOT:              return manifest__err_root(ctx, NOARRAY);
@@ -1002,7 +1002,7 @@ static int manifest__json_start_array(void * data)
         return reformat_start_array(&((manifest__up_t *) ctx->data)->ctx);
     case MF__X_ARGMAP:
     {
-        ti_mod_expose_t * expose = ctx->data;
+        ti_mod_expose_t *expose = ctx->data;
         expose->argmap = vec_new(3);
         return expose->argmap
                 ? manifest__set_mode(ctx, MF__X_ARGMAP_ARR)
@@ -1022,9 +1022,9 @@ static int manifest__json_start_array(void * data)
     }
 }
 
-static int manifest__json_end_array(void * data)
+static int manifest__json_end_array(void *data)
 {
-    manifest__ctx_t * ctx = data;
+    manifest__ctx_t *ctx = data;
     switch (ctx->mode)
     {
     case MF__DEFAULTS_PACK: return manifest__end_pack(ctx, reformat_end_array);
@@ -1052,10 +1052,10 @@ static yajl_callbacks manifest__callbacks = {
     manifest__json_end_array
 };
 
-static int manifest__check_main(manifest__ctx_t * ctx)
+static int manifest__check_main(manifest__ctx_t *ctx)
 {
-    const char * pt = ctx->manifest->main;
-    const char * file = pt;
+    const char *pt = ctx->manifest->main;
+    const char *file = pt;
 
     if (!pt)
         return manifest__set_err(ctx,
@@ -1082,12 +1082,12 @@ static int manifest__check_main(manifest__ctx_t * ctx)
     return 1;  /* valid, success */
 }
 
-static int manifest__check_includes(manifest__ctx_t * ctx)
+static int manifest__check_includes(manifest__ctx_t *ctx)
 {
-    vec_t * vec = ctx->manifest->includes;
+    vec_t *vec = ctx->manifest->includes;
     if (vec) for (vec_each(vec, const char, str))
     {
-        const char * file = str;
+        const char *file = str;
 
         if (*str == '\0')
             return manifest__set_err(ctx,
@@ -1111,7 +1111,7 @@ static int manifest__check_includes(manifest__ctx_t * ctx)
     return 1;  /* valid, success */
 }
 
-static inline int manifest__has_key(vec_t * defaults, ti_raw_t * key)
+static inline int manifest__has_key(vec_t *defaults, ti_raw_t *key)
 {
     for (vec_each(defaults, ti_item_t, item))
         if (ti_raw_eq(key, item->key))
@@ -1119,7 +1119,7 @@ static inline int manifest__has_key(vec_t * defaults, ti_raw_t * key)
     return 0;
 }
 
-static void manifest__force_argmap(ti_mod_expose_t * expose)
+static void manifest__force_argmap(ti_mod_expose_t *expose)
 {
     /* argmap is not critical as the code works without argmap too;
      * However, no argmap is the same as ["*"] which is helpful information
@@ -1128,7 +1128,7 @@ static void manifest__force_argmap(ti_mod_expose_t * expose)
      * explicitly sending no arguments to the module; we must therefore
      * leave empty argmap alone;
      */
-    ti_item_t * item;
+    ti_item_t *item;
     if (expose->argmap || expose->closure)
         return;
 
@@ -1159,8 +1159,8 @@ fail0:
  * Return 0 on success, -1 allocation error
  */
 static int manifest__exposes_cb(
-        ti_mod_expose_t * expose,
-        ti_mod_manifest_t * manifest)
+        ti_mod_expose_t *expose,
+        ti_mod_manifest_t *manifest)
 {
     if (manifest->defaults)
     {
@@ -1173,7 +1173,7 @@ static int manifest__exposes_cb(
 
         for (vec_each(manifest->defaults, ti_item_t, item_def))
         {
-            ti_item_t * item;
+            ti_item_t *item;
             if (manifest__has_key(expose->defaults, item_def->key))
                 continue;
 
@@ -1227,7 +1227,7 @@ static int manifest__exposes_cb(
     return 0;
 }
 
-static int manifest__check_exposes(manifest__ctx_t * ctx)
+static int manifest__check_exposes(manifest__ctx_t *ctx)
 {
     return ctx->manifest->exposes && smap_values(
         ctx->manifest->exposes,
@@ -1237,7 +1237,7 @@ static int manifest__check_exposes(manifest__ctx_t * ctx)
             : 1;  /* success */
 }
 
-static int manifest__check_py(manifest__ctx_t * ctx)
+static int manifest__check_py(manifest__ctx_t *ctx)
 {
     return !ctx->manifest->is_py && ctx->manifest->requirements
             ? manifest__set_err(ctx,
@@ -1246,9 +1246,9 @@ static int manifest__check_py(manifest__ctx_t * ctx)
             : 1;  /* success */
 }
 
-static int manifest__check_version(manifest__ctx_t * ctx)
+static int manifest__check_version(manifest__ctx_t *ctx)
 {
-    const char * pt = ctx->manifest->version;
+    const char *pt = ctx->manifest->version;
     const size_t maxdigits = 5;
     size_t n, count = 3;
 
@@ -1284,9 +1284,9 @@ fail:
 }
 
 int ti_mod_manifest_read(
-        ti_mod_manifest_t * manifest,
-        char * source_err,
-        const void * data,
+        ti_mod_manifest_t *manifest,
+        char *source_err,
+        const void *data,
         size_t n)
 {
     yajl_handle hand;
@@ -1343,14 +1343,14 @@ int ti_mod_manifest_read(
     return stat;
 }
 
-int ti_mod_manifest_local(ti_mod_manifest_t * manifest, ti_module_t * module)
+int ti_mod_manifest_local(ti_mod_manifest_t *manifest, ti_module_t *module)
 {
     ssize_t n;
-    unsigned char * data = NULL;
+    unsigned char *data = NULL;
     char tmp_err[TI_MODULE_MAX_ERR];
     int rc = -1;
 
-    char * tmp_fn = fx_path_join(module->path, TI_MANIFEST);
+    char *tmp_fn = fx_path_join(module->path, TI_MANIFEST);
     if (!tmp_fn || !fx_file_exist(tmp_fn))
         goto fail;
 
@@ -1372,8 +1372,8 @@ fail:
  * On errors, this will return `true` which in turn will trigger a new install.
  */
 _Bool ti_mod_manifest_skip_install(
-        ti_mod_manifest_t * manifest,
-        ti_module_t * module)
+        ti_mod_manifest_t *manifest,
+        ti_module_t *module)
 {
     assert(manifest->main);
     assert(manifest->version);
@@ -1395,10 +1395,10 @@ _Bool ti_mod_manifest_skip_install(
     return ti_version_cmp(module->manifest.version, manifest->version) == 0;
 }
 
-int ti_mod_manifest_store(const char * module_path, void * data, size_t n)
+int ti_mod_manifest_store(const char *module_path, void *data, size_t n)
 {
     int rc;
-    char * tmp_fn = fx_path_join(module_path, TI_MANIFEST);
+    char *tmp_fn = fx_path_join(module_path, TI_MANIFEST);
     if (!tmp_fn)
         return -1;
     rc = fx_write(tmp_fn, data, n);
@@ -1406,14 +1406,14 @@ int ti_mod_manifest_store(const char * module_path, void * data, size_t n)
     return rc;
 }
 
-static void maifest__item_destroy(ti_item_t * item)
+static void maifest__item_destroy(ti_item_t *item)
 {
     ti_val_drop((ti_val_t *) item->key);
     ti_val_drop(item->val);
     free(item);
 }
 
-void ti_mod_manifest_clear(ti_mod_manifest_t * manifest)
+void ti_mod_manifest_clear(ti_mod_manifest_t *manifest)
 {
     free(manifest->main);
     free(manifest->version);

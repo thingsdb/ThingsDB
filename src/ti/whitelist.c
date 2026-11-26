@@ -11,7 +11,7 @@
 #include <util/strx.h>
 
 
-static void whitelist__err(const char * str, uint32_t n, const char * s, ex_t * e)
+static void whitelist__err(const char *str, uint32_t n, const char *s, ex_t *e)
 {
     if (n <= 99 && strx_is_printablen(str, n))
         ex_set(e, EX_LOOKUP_ERROR, "%.*s %s in whitelist", n, str, s);
@@ -19,13 +19,13 @@ static void whitelist__err(const char * str, uint32_t n, const char * s, ex_t * 
         ex_set(e, EX_LOOKUP_ERROR, "%s in whitelist", s);
 }
 
-static ti_val_t * whitelist__val(ti_val_t * val, ex_t * e)
+static ti_val_t *whitelist__val(ti_val_t *val, ex_t *e)
 {
     switch (val->tp)
     {
     case TI_VAL_STR:
     {
-        ti_str_t * s = (ti_str_t *) val;
+        ti_str_t *s = (ti_str_t *) val;
         if (!ti_name_is_valid_strn(s->str, s->n))
         {
             ex_set(e, EX_VALUE_ERROR,
@@ -53,7 +53,7 @@ static ti_val_t * whitelist__val(ti_val_t * val, ex_t * e)
 }
 
 /* Both the `whitelist` and `val` argument may be NULL */
-int ti_whitelist_add(vec_t ** whitelist, ti_val_t * val, ex_t * e)
+int ti_whitelist_add(vec_t ** whitelist, ti_val_t *val, ex_t *e)
 {
     if (!val)
     {
@@ -107,7 +107,7 @@ fail:
 }
 
 /* Both the `whitelist` and `val` argument may be NULL */
-int ti_whitelist_del(vec_t ** whitelist, ti_val_t * val, ex_t * e)
+int ti_whitelist_del(vec_t ** whitelist, ti_val_t *val, ex_t *e)
 {
     if (!val)
     {
@@ -152,7 +152,7 @@ done:
     return e->nr;
 }
 
-int ti_whitelist_from_strn(const char * str, size_t n, ex_t * e)
+int ti_whitelist_from_strn(const char *str, size_t n, ex_t *e)
 {
     if (n == strlen("rooms") && memcmp(str, "rooms", n) == 0)
         return TI_WHITELIST_ROOMS;
@@ -165,7 +165,7 @@ int ti_whitelist_from_strn(const char * str, size_t n, ex_t * e)
     return e->nr;
 }
 
-int ti_whitelist_test(vec_t * whitelist, ti_name_t * name, ex_t * e)
+int ti_whitelist_test(vec_t *whitelist, ti_name_t *name, ex_t *e)
 {
     if (!whitelist)
         return 0;   /* allow all if list is NULL */
@@ -184,7 +184,7 @@ int ti_whitelist_test(vec_t * whitelist, ti_name_t * name, ex_t * e)
     return e->nr;
 }
 
-int ti_whitelist_check(vec_t * whitelist, ti_name_t * name)
+int ti_whitelist_check(vec_t *whitelist, ti_name_t *name)
 {
     if (!whitelist)
         return 0;

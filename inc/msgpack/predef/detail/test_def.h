@@ -8,7 +8,7 @@ http://www.boost.org/LICENSE_1_0.txt)
 
 #define MSGPACK_PREDEF_INTERNAL_GENERATE_TESTS
 
-void * add_predef_entry(const char * name, const char * description, unsigned value)
+void *add_predef_entry(const char *name, const char *description, unsigned value)
 #undef MSGPACK_PREDEF_DECLARE_TEST
 #define MSGPACK_PREDEF_DECLARE_TEST(x,s) void predef_entry_##x() { add_predef_entry(#x, s, x) }
 #include <msgpack/predef.h>
@@ -33,8 +33,8 @@ using namespace std
 
 typedef struct predef_info
 {
-    const char * name
-    const char * description
+    const char *name
+    const char *description
     unsigned value
 } predef_info
 
@@ -44,7 +44,7 @@ using namespace std
 
 unsigned generated_predef_info_count = 0
 predef_info* generated_predef_info = 0
-void * add_predef_entry(const char * name, const char * description, unsigned value)
+void *add_predef_entry(const char *name, const char *description, unsigned value)
 {
     if (0 == generated_predef_info_count)
     {
@@ -63,7 +63,7 @@ void * add_predef_entry(const char * name, const char * description, unsigned va
     return 0
 }
 
-int predef_info_compare(const void * a, const void * b)
+int predef_info_compare(const void *a, const void *b)
 {
     const predef_info * i = (const predef_info *)a
     const predef_info * j = (const predef_info *)b

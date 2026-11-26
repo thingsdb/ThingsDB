@@ -18,24 +18,24 @@
 typedef struct
 {
     const int nargs;
-    ti_query_t * query;
-    cleri_node_t * vars_nd;
-    cleri_node_t * code_nd;
-    ex_t * e;
+    ti_query_t *query;
+    cleri_node_t *vars_nd;
+    cleri_node_t *code_nd;
+    ex_t *e;
 } forloop__walk_t;
 
 typedef struct
 {
-    ti_prop_t * prop0;
-    ti_prop_t * prop1;
+    ti_prop_t *prop0;
+    ti_prop_t *prop1;
 } forloop__props_t;
 
 static inline void forloop__set_prop(
         int nargs,
-        cleri_node_t * vars_nd,
-        ti_name_t * name,
-        ti_val_t * val,
-        forloop__props_t * props)
+        cleri_node_t *vars_nd,
+        ti_name_t *name,
+        ti_val_t *val,
+        forloop__props_t *props)
 {
     switch(nargs)
     {
@@ -59,8 +59,8 @@ static inline void forloop__set_prop(
 
 static inline void forloop__unset_prop(
         int nargs,
-        cleri_node_t * vars_nd,
-        forloop__props_t * props)
+        cleri_node_t *vars_nd,
+        forloop__props_t *props)
 {
     switch(nargs)
     {
@@ -76,7 +76,7 @@ static inline void forloop__unset_prop(
     }
 }
 
-static int forloop__walk_thing(ti_item_t * item, forloop__walk_t * w)
+static int forloop__walk_thing(ti_item_t *item, forloop__walk_t *w)
 {
     int rc;
     forloop__props_t props = {0};
@@ -108,11 +108,11 @@ static int forloop__walk_thing(ti_item_t * item, forloop__walk_t * w)
     return -1;  /* fail (or EX_RETURN), leave query->rval as-is */
 }
 
-static int forloop__walk_set(ti_thing_t * t, forloop__walk_t * w)
+static int forloop__walk_set(ti_thing_t *t, forloop__walk_t *w)
 {
     int rc;
-    ti_prop_t * prop0 = NULL;
-    ti_prop_t * prop1 = NULL;
+    ti_prop_t *prop0 = NULL;
+    ti_prop_t *prop1 = NULL;
 
     switch(w->nargs)
     {
@@ -169,13 +169,13 @@ static int forloop__walk_set(ti_thing_t * t, forloop__walk_t * w)
     return -1;  /* fail (or EX_RETURN), leave query->rval as-is */
 }
 
-static int forloop__walk_dict_items(ti_val_t * key,
-                                    ti_val_t * val,
-                                    forloop__walk_t * w)
+static int forloop__walk_dict_items(ti_val_t *key,
+                                    ti_val_t *val,
+                                    forloop__walk_t *w)
 {
     int rc;
-    ti_prop_t * prop0 = NULL;
-    ti_prop_t * prop1 = NULL;
+    ti_prop_t *prop0 = NULL;
+    ti_prop_t *prop1 = NULL;
 
     switch(w->nargs)
     {
@@ -229,12 +229,12 @@ static int forloop__walk_dict_items(ti_val_t * key,
     return -1;  /* fail (or EX_RETURN), leave query->rval as-is */
 }
 
-static int forloop__walk_dict_values(ti_val_t * val,
-                                     forloop__walk_t * w)
+static int forloop__walk_dict_values(ti_val_t *val,
+                                     forloop__walk_t *w)
 {
     int rc;
-    ti_prop_t * prop0 = NULL;
-    ti_prop_t * prop1 = NULL;
+    ti_prop_t *prop0 = NULL;
+    ti_prop_t *prop1 = NULL;
 
     switch(w->nargs)
     {
@@ -286,10 +286,10 @@ static int forloop__walk_dict_values(ti_val_t * val,
 }
 
 int ti_forloop_no_iter(
-        ti_query_t * query,
-        cleri_node_t * UNUSED(vars_nd),
-        cleri_node_t * UNUSED(code_nd),
-        ex_t * e)
+        ti_query_t *query,
+        cleri_node_t *UNUSED(vars_nd),
+        cleri_node_t *UNUSED(code_nd),
+        ex_t *e)
 {
     ex_set(e, EX_TYPE_ERROR,
             "type `%s` is not iterable", ti_val_str(query->rval));
@@ -297,14 +297,14 @@ int ti_forloop_no_iter(
 }
 
 int ti_forloop_arr(
-        ti_query_t * query,
-        cleri_node_t * vars_nd,
-        cleri_node_t * code_nd,
-        ex_t * e)
+        ti_query_t *query,
+        cleri_node_t *vars_nd,
+        cleri_node_t *code_nd,
+        ex_t *e)
 {
     int nargs = 0;
     int lock_was_set;
-    ti_varr_t * varr = (ti_varr_t *) query->rval;
+    ti_varr_t *varr = (ti_varr_t *) query->rval;
     int64_t idx = 0;
 
     if (!varr->vec->n)
@@ -319,8 +319,8 @@ int ti_forloop_arr(
     for (vec_each(varr->vec, ti_val_t, v), ++idx)
     {
         int rc;
-        ti_prop_t * prop0 = NULL;
-        ti_prop_t * prop1 = NULL;
+        ti_prop_t *prop0 = NULL;
+        ti_prop_t *prop1 = NULL;
 
         switch(nargs)
         {
@@ -386,15 +386,15 @@ fail0:
 }
 
 int ti_forloop_set(
-        ti_query_t * query,
-        cleri_node_t * vars_nd,
-        cleri_node_t * code_nd,
-        ex_t * e)
+        ti_query_t *query,
+        cleri_node_t *vars_nd,
+        cleri_node_t *code_nd,
+        ex_t *e)
 {
     int rc;
     int nargs = 0;
     int lock_was_set;
-    ti_vset_t * vset = (ti_vset_t *) query->rval;
+    ti_vset_t *vset = (ti_vset_t *) query->rval;
 
     if (!vset->imap->n)
         return 0;
@@ -433,15 +433,15 @@ int ti_forloop_set(
 }
 
 int ti_forloop_dict(
-        ti_query_t * query,
-        cleri_node_t * vars_nd,
-        cleri_node_t * code_nd,
-        ex_t * e)
+        ti_query_t *query,
+        cleri_node_t *vars_nd,
+        cleri_node_t *code_nd,
+        ex_t *e)
 {
     int rc;
     int nargs = 0;
     int lock_was_set;
-    ti_dict_t * dict = (ti_dict_t *) query->rval;
+    ti_dict_t *dict = (ti_dict_t *) query->rval;
 
     if (!ti_dict_n(dict))
         return 0;
@@ -481,15 +481,15 @@ int ti_forloop_dict(
 }
 
 int ti_forloop_thing(
-        ti_query_t * query,
-        cleri_node_t * vars_nd,
-        cleri_node_t * code_nd,
-        ex_t * e)
+        ti_query_t *query,
+        cleri_node_t *vars_nd,
+        cleri_node_t *code_nd,
+        ex_t *e)
 {
     int nargs = 0;
     int lock_was_set;
     forloop__props_t props = {0};
-    ti_thing_t * thing = (ti_thing_t *) query->rval;
+    ti_thing_t *thing = (ti_thing_t *) query->rval;
 
     if (!ti_thing_n(thing))
         return 0;
@@ -502,8 +502,8 @@ int ti_forloop_thing(
 
     if (!ti_thing_is_object(thing))
     {
-        ti_name_t * name;
-        ti_val_t * val;
+        ti_name_t *name;
+        ti_val_t *val;
         for (thing_t_each(thing, name, val))
         {
             int rc;

@@ -1,9 +1,9 @@
 #include <ti/fn/fn.h>
 
-static int do__f_err_task(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_err_task(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_vtask_t * vtask;
+    ti_vtask_t *vtask;
 
     if (!ti_val_is_task(query->rval))
         return fn_call_try("err", query, nd, e);
@@ -26,12 +26,12 @@ static int do__f_err_task(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 }
 
 
-static int do__f_err_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_err_new(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_raw_t * msg;
-    ti_verror_t * verror;
-    ti_vint_t * vcode;
+    ti_raw_t *msg;
+    ti_verror_t *verror;
+    ti_vint_t *vcode;
     int8_t code;
 
     if (fn_nargs_max("err", DOC_ERR, 2, nargs, e))
@@ -90,7 +90,7 @@ static int do__f_err_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
-static inline int do__f_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static inline int do__f_err(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     return query->rval
             ? do__f_err_task(query, nd, e)

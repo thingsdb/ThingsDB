@@ -15,11 +15,11 @@ typedef struct timespec util_time_t;
 double util_now(void);
 uint64_t util_now_usec(void);
 time_t util_now_tsec(void);
-void util_get_random(void * buf, size_t n);
-void util_random_key(char * buf, size_t n);
+void util_get_random(void *buf, size_t n);
+void util_random_key(char *buf, size_t n);
 
 /* Returns time difference in seconds */
-static inline double util_time_diff(util_time_t * start, util_time_t * end)
+static inline double util_time_diff(util_time_t *start, util_time_t *end)
 {
     return (end->tv_sec - start->tv_sec) +
             (end->tv_nsec - start->tv_nsec) / 1000000000.0;

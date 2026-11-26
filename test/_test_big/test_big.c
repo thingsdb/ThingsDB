@@ -10,11 +10,11 @@ int big__from_str2n(void)
 {
     test_start("big (from_str2n)");
 
-    big_t * big;
+    big_t *big;
 
     {
-        char * binary = "00101110";
-        char * expect = "2e";
+        char *binary = "00101110";
+        char *expect = "2e";
         big = big_from_str2n(binary, strlen(binary));
         _assert (big);
         _assert (big_to_str16n(big, str, big__sz) == (int) strlen(expect));
@@ -23,10 +23,10 @@ int big__from_str2n(void)
     }
 
     {
-        char * binary =
+        char *binary =
             "10001011101011100110110111110001"
             "000010101000101011001001111011010";
-        char * expect = "1175cdbe2151593da";
+        char *expect = "1175cdbe2151593da";
         big = big_from_str2n(binary, strlen(binary));
         _assert (big);
         _assert (big_to_str16n(big, str, big__sz) == (int) strlen(expect));
@@ -41,7 +41,7 @@ int big__fits_int64(void)
 {
     test_start("big (fits_int64)");
 
-    big_t * big = big_from_int64(LLONG_MIN);
+    big_t *big = big_from_int64(LLONG_MIN);
     _assert (big_fits_int64(big));
 
     big->negative_ = 0;
@@ -55,7 +55,7 @@ int big__mulbd(void)
 {
     test_start("big (mulbd)");
     double d, b;
-    big_t * a, * big;
+    big_t *a, *big;
 
     a = big_from_int64(0x7fffffffffffffff);
     big = big_mulbb(a, a);
@@ -75,7 +75,7 @@ int big__mulbi(void)
 {
     test_start("big (mulbi)");
     int64_t b;
-    big_t * a, * big;
+    big_t *a, *big;
 
     a = big_from_int64(0x7fffffffffffffff);
     b = 0x7fffffffffffffff;
@@ -111,7 +111,7 @@ int big__mulbi(void)
 int big__mulii(void)
 {
     test_start("big (mulii)");
-    big_t * big;
+    big_t *big;
     int64_t a, b;
 
     a = b = LLONG_MAX;

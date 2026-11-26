@@ -48,14 +48,14 @@
 #define CHANGES__INIT_DROPPED_SZ 128
 
 ti_changes_t changes_;
-static ti_changes_t * changes;
+static ti_changes_t *changes;
 
-static void changes__destroy(uv_handle_t * UNUSED(handle));
-static void changes__new_id(ti_change_t * change);
-static int changes__req_change_id(ti_change_t * change, ex_t * e);
-static void changes__on_req_change_id(ti_change_t * change, _Bool accepted);
-static int changes__push(ti_change_t * change);
-static void changes__loop(uv_async_t * handle);
+static void changes__destroy(uv_handle_t *UNUSED(handle));
+static void changes__new_id(ti_change_t *change);
+static int changes__req_change_id(ti_change_t *change, ex_t *e);
+static void changes__on_req_change_id(ti_change_t *change, _Bool accepted);
+static int changes__push(ti_change_t *change);
+static void changes__loop(uv_async_t *handle);
 
 static inline ssize_t changes__trigger(void)
 {
@@ -148,10 +148,10 @@ ssize_t ti_changes_trigger_loop(void)
     return changes__trigger();
 }
 
-int ti_changes_on_change(ti_node_t * from_node, ti_pkg_t * pkg)
+int ti_changes_on_change(ti_node_t *from_node, ti_pkg_t *pkg)
 {
     int rc;
-    ti_cpkg_t * cpkg = ti_cpkg_from_pkg(pkg);
+    ti_cpkg_t *cpkg = ti_cpkg_from_pkg(pkg);
     if (!cpkg)
         return -1;
 
@@ -162,9 +162,9 @@ int ti_changes_on_change(ti_node_t * from_node, ti_pkg_t * pkg)
     return rc;
 }
 
-int ti_changes_create_new_change(ti_query_t * query, ex_t * e)
+int ti_changes_create_new_change(ti_query_t *query, ex_t *e)
 {
-    ti_change_t * change;
+    ti_change_t *change;
 
     if (!ti_nodes_has_quorum())
     {
@@ -203,9 +203,9 @@ int ti_changes_create_new_change(ti_query_t * query, ex_t * e)
  * - `node` is required but only used for logging
  * - increments a reference for `cpkg` on success
  */
-int ti_changes_add_change(ti_node_t * node, ti_cpkg_t * cpkg)
+int ti_changes_add_change(ti_node_t *node, ti_cpkg_t *cpkg)
 {
-    ti_change_t * change = NULL;
+    ti_change_t *change = NULL;
 
     if (changes__max_id_gap(cpkg->change_id))
     {
@@ -287,9 +287,9 @@ int ti_changes_add_change(ti_node_t * node, ti_cpkg_t * cpkg)
 /* Returns true if the change is accepted, false if not. In case the change
  * is not accepted due to an error, logging is done.
  */
-ti_proto_enum_t ti_changes_accept_id(uint64_t change_id, uint8_t * n)
+ti_proto_enum_t ti_changes_accept_id(uint64_t change_id, uint8_t *n)
 {
-    uint64_t * ccid_p;
+    uint64_t *ccid_p;
     olist_iter_t iter;
 
     if (change_id == changes->next_change_id)
@@ -357,7 +357,7 @@ ti_proto_enum_t ti_changes_accept_id(uint64_t change_id, uint8_t * n)
 /* Sets the next missing change id, at least higher than the given change_id.
  *
  */
-void ti_changes_set_next_missing_id(uint64_t * change_id)
+void ti_changes_set_next_missing_id(uint64_t *change_id)
 {
     uint64_t ccid = ti.node->ccid;
 
@@ -380,7 +380,7 @@ void ti_changes_set_next_missing_id(uint64_t * change_id)
 
 void ti_changes_free_dropped(void)
 {
-    ti_thing_t * thing;
+    ti_thing_t *thing;
 
     changes->keep_dropped = false;
 
@@ -400,7 +400,7 @@ int ti_changes_resize_dropped(void)
             : vec_resize(&changes->dropped, CHANGES__INIT_DROPPED_SZ);
 }
 
-static void changes__destroy(uv_handle_t * UNUSED(handle))
+static void changes__destroy(uv_handle_t *UNUSED(handle))
 {
     if (!changes)
         return;
@@ -413,7 +413,7 @@ static void changes__destroy(uv_handle_t * UNUSED(handle))
     changes = ti.changes = NULL;
 }
 
-static void changes__new_id(ti_change_t * change)
+static void changes__new_id(ti_change_t *change)
 {
     ex_t e = {0};
 
@@ -449,15 +449,15 @@ fail:
     change->status = TI_CHANGE_STAT_CACNCEL;
 }
 
-static int changes__req_change_id(ti_change_t * change, ex_t * e)
+static int changes__req_change_id(ti_change_t *change, ex_t *e)
 {
     assert(queue_space(changes->queue) > 0);
 
     msgpack_packer pk;
     msgpack_sbuffer buffer;
-    vec_t * nodes_vec = ti.nodes->vec;
-    ti_quorum_t * quorum;
-    ti_pkg_t * pkg, * dup;
+    vec_t *nodes_vec = ti.nodes->vec;
+    ti_quorum_t *quorum;
+    ti_pkg_t *pkg, *dup;
 
     quorum = ti_quorum_new((ti_quorum_cb) changes__on_req_change_id, change);
     if (!quorum)
@@ -519,7 +519,7 @@ static int changes__req_change_id(ti_change_t * change, ex_t * e)
     return 0;
 }
 
-static void changes__on_req_change_id(ti_change_t * change, _Bool accepted)
+static void changes__on_req_change_id(ti_change_t *change, _Bool accepted)
 {
     if (!accepted)
     {
@@ -541,10 +541,10 @@ done:
     ti_change_drop(change);
 }
 
-static int changes__push(ti_change_t * change)
+static int changes__push(ti_change_t *change)
 {
     size_t idx = 0;
-    ti_change_t * last_change = queue_last(changes->queue);
+    ti_change_t *last_change = queue_last(changes->queue);
 
     if (!last_change || change->id > last_change->id)
         return queue_push(&changes->queue, change);
@@ -557,11 +557,11 @@ static int changes__push(ti_change_t * change)
     return queue_insert(&changes->queue, idx, change);
 }
 
-static void changes__loop(uv_async_t * UNUSED(handle))
+static void changes__loop(uv_async_t *UNUSED(handle))
 {
-    ti_change_t * change;
+    ti_change_t *change;
     util_time_t timing;
-    uint64_t * ccid_p = &ti.node->ccid;
+    uint64_t *ccid_p = &ti.node->ccid;
     int process_changes = 5;
 
     if (uv_mutex_trylock(changes->lock))

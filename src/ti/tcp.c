@@ -7,7 +7,7 @@
 
 static const size_t tcp__name_buf_sz = 56;
 
-const char * ti_tcp_ip_support_str(int ip_support)
+const char *ti_tcp_ip_support_str(int ip_support)
 {
     switch (ip_support)
     {
@@ -22,7 +22,7 @@ const char * ti_tcp_ip_support_str(int ip_support)
     }
 }
 
-int ti_tcp_ip_support_int(const char * str, int * ip_support)
+int ti_tcp_ip_support_int(const char *str, int *ip_support)
 {
     if (!str)
         return -1;
@@ -53,10 +53,10 @@ int ti_tcp_ip_support_int(const char * str, int * ip_support)
  *
  * The returned value is malloced and should be freed.
  */
-char * ti_tcp_name(const char * prefix, uv_tcp_t * client)
+char *ti_tcp_name(const char *prefix, uv_tcp_t *client)
 {
     size_t n = strlen(prefix);
-    char * buffer = malloc(tcp__name_buf_sz + n);
+    char *buffer = malloc(tcp__name_buf_sz + n);
     struct sockaddr_storage name;
     int len = sizeof(name);     /* len is used both for input and output */
 
@@ -112,7 +112,7 @@ failed:
     return NULL;
 }
 
-int ti_tcp_addrstr(char * addr, struct addrinfo * source)
+int ti_tcp_addrstr(char *addr, struct addrinfo * source)
 {
     switch (source->ai_family)
     {
@@ -127,7 +127,7 @@ int ti_tcp_addrstr(char * addr, struct addrinfo * source)
     return -1;
 }
 
-int ti_tcp_addr(char * addr, uv_tcp_t * client)
+int ti_tcp_addr(char *addr, uv_tcp_t *client)
 {
     struct sockaddr_storage name;
     int len = sizeof(name);     /* len is used both for input and output */

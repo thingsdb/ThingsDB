@@ -4,34 +4,34 @@ typedef struct
 {
     uint8_t deep;
     uint8_t limit;
-    ex_t * e;
-    ti_thing_t * needle;
-    ti_thing_t * parent;
-    vec_t * results;
+    ex_t *e;
+    ti_thing_t *needle;
+    ti_thing_t *parent;
+    vec_t *results;
 } search__walk_t;
 
 typedef struct
 {
-    ti_raw_t * key;
-    ti_val_t * root;
-    search__walk_t * search;
+    ti_raw_t *key;
+    ti_val_t *root;
+    search__walk_t *search;
 } search__parent_t;
 
 static int do__search_walk(
-        ti_raw_t * key,
-        ti_val_t * val,
-        search__walk_t * w);
+        ti_raw_t *key,
+        ti_val_t *val,
+        search__walk_t *w);
 
 static int do__search_thing(
-        ti_raw_t * key,
-        ti_val_t * root,
-        ti_val_t * val,
-        search__walk_t * w);
+        ti_raw_t *key,
+        ti_val_t *root,
+        ti_val_t *val,
+        search__walk_t *w);
 
 static int do__search_option(
-        ti_raw_t * key,
-        ti_val_t * val,
-        search__walk_t * w)
+        ti_raw_t *key,
+        ti_val_t *val,
+        search__walk_t *w)
 {
     if (ti_raw_eq_strn(key, "deep", 4))
         return ti_deep_from_val(val, &w->deep, w->e);
@@ -71,21 +71,21 @@ static int do__search_option(
 }
 
 static int search__add_result(
-        ti_thing_t * parent,
-        ti_raw_t * key,
-        ti_val_t * root,
-        search__walk_t * w)
+        ti_thing_t *parent,
+        ti_raw_t *key,
+        ti_val_t *root,
+        search__walk_t *w)
 {
-    ti_val_t * key_type, * parent_type;
-    ti_name_t * parent_name = \
+    ti_val_t *key_type, *parent_type;
+    ti_name_t *parent_name = \
             (ti_name_t *) ti_val_borrow_parent_name();
-    ti_name_t * parent_type_name = \
+    ti_name_t *parent_type_name = \
             (ti_name_t *) ti_val_borrow_parent_type_name();
-    ti_name_t * key_name = \
+    ti_name_t *key_name = \
             (ti_name_t *) ti_val_borrow_key_name();
-    ti_name_t * key_type_name = \
+    ti_name_t *key_type_name = \
             (ti_name_t *) ti_val_borrow_key_type_name();
-    ti_thing_t * thing = \
+    ti_thing_t *thing = \
             ti_thing_o_create(0, 4, w->parent->collection);
     if (!thing)
         return -1;
@@ -125,12 +125,12 @@ static int search__add_result(
 }
 
 static int search__do_thing(
-        ti_thing_t * thing,
-        ti_val_t * root,
-        ti_raw_t * key,
-        search__walk_t * w)
+        ti_thing_t *thing,
+        ti_val_t *root,
+        ti_raw_t *key,
+        search__walk_t *w)
 {
-    ti_thing_t * prev;
+    ti_thing_t *prev;
     int rc;
 
     if (thing->flags & TI_VFLAG_LOCK)
@@ -157,21 +157,21 @@ static int search__do_thing(
     return rc;
 }
 
-static inline int search__walk_set(ti_thing_t * thing, search__parent_t * w)
+static inline int search__walk_set(ti_thing_t *thing, search__parent_t *w)
 {
     return search__do_thing(thing, w->root, w->key, w->search);
 }
 
-static inline int search__walk_dict(ti_val_t * val, search__parent_t * w)
+static inline int search__walk_dict(ti_val_t *val, search__parent_t *w)
 {
     return do__search_thing(w->key, w->root, val, w->search);
 }
 
 static int do__search_thing(
-        ti_raw_t * key,
-        ti_val_t * root,
-        ti_val_t * val,
-        search__walk_t * w)
+        ti_raw_t *key,
+        ti_val_t *root,
+        ti_val_t *val,
+        search__walk_t *w)
 {
     switch ((ti_val_enum) val->tp)
     {
@@ -240,14 +240,14 @@ static int do__search_thing(
 }
 
 static int do__search_walk(
-        ti_raw_t * key,
-        ti_val_t * val,
-        search__walk_t * w)
+        ti_raw_t *key,
+        ti_val_t *val,
+        search__walk_t *w)
 {
     return do__search_thing(key, val, val, w);
 }
 
-static int do__f_search(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_search(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     search__walk_t search = {
@@ -274,7 +274,7 @@ static int do__f_search(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs == 2)
     {
-        ti_thing_t * to;
+        ti_thing_t *to;
 
         if (ti_do_statement(query, nd->children->next->next, e) ||
             fn_arg_thing("search", DOC_THING_SEARCH, 2, query->rval, e))

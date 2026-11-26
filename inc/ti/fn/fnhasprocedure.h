@@ -1,10 +1,10 @@
 #include <ti/fn/fn.h>
 
-static int do__f_has_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_has_procedure(ti_query_t *query, cleri_node_t *nd, ex_t *e)
 {
     const int nargs = fn_get_nargs(nd);
     _Bool has_procedure;
-    smap_t * procedures = ti_query_procedures(query);
+    smap_t *procedures = ti_query_procedures(query);
 
     if (fn_not_thingsdb_or_collection_scope("has_procedure", query, e) ||
         fn_nargs("has_procedure", DOC_HAS_PROCEDURE, 1, nargs, e) ||

@@ -22,17 +22,17 @@ typedef enum
 #include <stdarg.h>
 
 int ti_warn(
-        ti_stream_t * stream,
+        ti_stream_t *stream,
         uint16_t pid,
         ti_proto_enum_t proto,
         ti_warn_enum_t warn_code,
-        const void * data,
+        const void *data,
         size_t n);
 
 static inline int ti_warn_log_fwd(
-        ti_stream_t * stream,
+        ti_stream_t *stream,
         uint16_t pid,
-        const void * data,
+        const void *data,
         size_t n)
 {
     return ti_warn(
@@ -45,8 +45,8 @@ static inline int ti_warn_log_fwd(
 }
 
 static inline int ti_warn_log_client(
-        ti_stream_t * stream,
-        const void * data,
+        ti_stream_t *stream,
+        const void *data,
         size_t n)
 {
 
@@ -61,7 +61,7 @@ static inline int ti_warn_log_client(
 
 #define ti_warn_fmt(stream__, tp__, fmt__, ...) \
 do { \
-    ti_pkg_t * pkg; \
+    ti_pkg_t *pkg; \
     msgpack_packer pk; \
     msgpack_sbuffer buffer; \
     if (!ti_stream_is_client(stream__) && !ti_stream_is_closed(stream__)) \

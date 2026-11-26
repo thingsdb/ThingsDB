@@ -4,6 +4,7 @@
 #define _GNU_SOURCE
 #include <ex.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <ti.h>
 #include <ti/flags.h>
 #include <ti/fn/fn.h>

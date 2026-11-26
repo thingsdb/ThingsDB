@@ -47,6 +47,7 @@ static int do__f_encrypt(ti_query_t *query, cleri_node_t *nd, ex_t *e)
     if (!query->rval)
         ex_set_mem(e);
 
+    free(enc);
     ti_val_unsafe_drop((ti_val_t *) key);
 fail0:
     ti_val_drop((ti_val_t *) raw);

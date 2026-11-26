@@ -52,6 +52,7 @@ static int do__f_decrypt(ti_query_t *query, cleri_node_t *nd, ex_t *e)
     if (!query->rval)
         ex_set_mem(e);
 
+    free(dec);
     ti_val_unsafe_drop((ti_val_t *) key);
 fail0:
     ti_val_drop((ti_val_t *) raw);

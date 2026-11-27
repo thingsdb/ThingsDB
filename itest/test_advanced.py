@@ -2168,7 +2168,7 @@ new_procedure('multiply', |a, b| a * b);
         })
 
     async def test_reserved_lower_case(self, client):
-        # bug #294, pr #
+        # bug #294, pr #486
         with self.assertRaisesRegex(
                 ValueError,
                 r'name `enum` must not start with a '

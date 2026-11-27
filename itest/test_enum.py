@@ -48,8 +48,7 @@ class TestEnum(TestBase):
 
         with self.assertRaisesRegex(
                 ValueError,
-                'function `set_enum` expects '
-                'argument 1 to be a valid enum name'):
+                'name does not follow the naming rules'):
             await client.query(r'''set_enum('=invalid', {X: 0});''')
 
         with self.assertRaisesRegex(
@@ -77,7 +76,8 @@ class TestEnum(TestBase):
 
         with self.assertRaisesRegex(
                 ValueError,
-                'name `nil` is reserved'):
+                r"name `nil` must not start with a lowercase "
+                r"character \(a-z\)"):
             await client.query(r'''set_enum('nil', {X: 1});''')
 
         with self.assertRaisesRegex(

@@ -1,9 +1,10 @@
-# v1.13.0-alpha1
+# v1.13.0-alpha2
 
 * Standardized C pointer formatting across the codebase, pr #484.
 * Added authenticated encryption and decryption support for `bytes`, pr #485.
   - `bytes.encrypt()`: https://docs.thingsdb.io/v1/data-types/bytes/encrypt/
   - `bytes.decrypt()`: https://docs.thingsdb.io/v1/data-types/bytes/decrypt/
+* No longer accept type or enum names starting with lowercase (a-z) pr #.
 
 # v1.12.0
 

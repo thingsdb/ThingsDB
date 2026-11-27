@@ -1457,18 +1457,18 @@ class TestAdvanced(TestBase):
 
     async def test_order_types(self, client):
         res = await client.query(r'''
-            new_type('bike');
-            new_type('mtb');
-            new_type('banana');
-            new_type('bal');
-            new_type('atb');
-            new_type('bacteria');
+            new_type('Bike');
+            new_type('Mtb');
+            new_type('Banana');
+            new_type('Bal');
+            new_type('Atb');
+            new_type('Bacteria');
             types_info();
         ''')
         names = [t['name'] for t in res]
         self.assertEqual(
             names,
-            ['atb', 'bacteria', 'bal', 'banana', 'bike', 'mtb']
+            ['Atb', 'Bacteria', 'Bal', 'Banana', 'Bike', 'Mtb']
         )
 
     async def test_order_procedures(self, client):
@@ -1489,18 +1489,18 @@ class TestAdvanced(TestBase):
 
     async def test_order_enums(self, client):
         res = await client.query(r'''
-            set_enum('bike', {X:0});
-            set_enum('mtb', {X:0});
-            set_enum('banana', {X:0});
-            set_enum('bal', {X:0});
-            set_enum('atb', {X:0});
-            set_enum('bacteria', {X:0});
+            set_enum('Bike', {X:0});
+            set_enum('Mtb', {X:0});
+            set_enum('Banana', {X:0});
+            set_enum('Bal', {X:0});
+            set_enum('Atb', {X:0});
+            set_enum('Bacteria', {X:0});
             enums_info();
         ''')
         names = [e['name'] for e in res]
         self.assertEqual(
             names,
-            ['atb', 'bacteria', 'bal', 'banana', 'bike', 'mtb']
+            ['Atb', 'Bacteria', 'Bal', 'Banana', 'Bike', 'Mtb']
         )
 
     async def test_copy_set_to_list(self, client):
@@ -2167,17 +2167,14 @@ new_procedure('multiply', |a, b| a * b);
             "name": "AA"
         })
 
-    async def test_reserved_enum_union(self, client):
-        # bug #294
+    async def test_reserved_lower_case(self, client):
+        # bug #294, pr #
         with self.assertRaisesRegex(
                 ValueError,
-                'name `enum` is reserved'):
+                r'name `enum` must not start with a '
+                r'lowercase character \(a-z\)'):
             await client.query('new_type("enum");')
 
-        with self.assertRaisesRegex(
-                ValueError,
-                'name `union` is reserved'):
-            await client.query('new_type("union");')
 
     async def test_loop_set_relation_error(self, client):
         # bug 302

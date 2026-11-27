@@ -194,7 +194,7 @@ int ti_dict_items(ti_dict_t *dict, ti_dict_item_cb cb, void *arg)
  *
  * This function can return -1 in case not enough space for a string buffer
  * can be allocated. This can only happen with keys exceeding the
- * reserverd DICT__MAX_STACK_SIZE size.
+ * reserved DICT__MAX_STACK_SIZE size.
  */
 int ti_dict_pairs(ti_dict_t *dict, ti_dict_pair_cb cb, void *arg)
 {

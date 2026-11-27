@@ -3774,9 +3774,8 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 ValueError,
-                'function `new_type` expects argument 1 to be a '
-                'valid type name;'):
-            await client.query(r'new_type("123");')
+                r"name does not follow the naming rules"):
+            await client.query(r'new_type("");')
 
         with self.assertRaisesRegex(
                 LookupError,
@@ -3790,7 +3789,8 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 ValueError,
-                'name `int` is reserved'):
+                r"name `int` must not start with a lowercase "
+                r"character \(a-z\)"):
             await client.query(r'new_type("int");')
 
         with self.assertRaisesRegex(
@@ -3858,9 +3858,14 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 ValueError,
-                'function `set_type` expects argument 1 to be a '
-                'valid type name;'):
-            await client.query(r'set_type("123", {});')
+                r"name does not follow the naming rules"):
+            await client.query(r'set_type("", {});')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r"name `wpo` must not start with a lowercase "
+                r"character \(a-z\)"):
+            await client.query(r'set_type("wpo", {});')
 
         with self.assertRaisesRegex(
                 OperationError,
@@ -3889,7 +3894,8 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 ValueError,
-                'name `int` is reserved'):
+                r"name `int` must not start with a lowercase "
+                r"character \(a-z\)"):
             await client.query(r'set_type("int", {});')
 
         with self.assertRaisesRegex(

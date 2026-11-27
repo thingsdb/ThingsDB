@@ -38,16 +38,6 @@ class TestDatetime(TestBase):
         ''')
         self.assertAlmostEqual(res[0], res[1], delta=1)
 
-    async def test_datetime_err(self, client):
-        with self.assertRaisesRegex(
-                ValueError,
-                'name `timeval` is reserved'):
-            await client.query('new_type("timeval");')
-        with self.assertRaisesRegex(
-                ValueError,
-                'name `datetime` is reserved'):
-            await client.query('set_type("datetime", {});')
-
     async def test_is_datetime(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,

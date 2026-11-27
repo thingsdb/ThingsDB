@@ -30,6 +30,7 @@
 #define TI_VAL_ANO_S        "<anonymous>"
 #define TI_VAL_WANO_S       "<<anonymous>>"
 #define TI_VAL_UUID_S       "uuid"
+#define TI_VAL_UUID_S       "template"
 
 #define TI_KIND_S_THING     "#"     /* Externally, Thing */
 #define TI_KIND_S_INSTANCE  "."     /* Internally, New typed thing */
@@ -76,14 +77,10 @@ typedef enum
     TI_VAL_ANO,         /* anonymous wrap-only type */
     TI_VAL_WANO,        /* wrapped with anonymous type */
     TI_VAL_UUID,
+    TI_VAL_TEMPLATE,    /* template to generate TI_VAL_STR */
     /* future, module and template are never stored */
     TI_VAL_FUTURE,      /* future */
     TI_VAL_MODULE,      /* module */
-    TI_VAL_TEMPLATE,    /* template to generate TI_VAL_STR
-                           note that a template is never stored like a value,
-                           rather it may build from either a query or a stored
-                           closure; therefore template does not need to be
-                           handled like all other value type. */
 } ti_val_enum;
 
 enum

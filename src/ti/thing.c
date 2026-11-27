@@ -433,6 +433,7 @@ int ti_thing_p_prop_add_assign(
     case TI_VAL_ANO:
     case TI_VAL_WANO:
     case TI_VAL_UUID:
+    case TI_VAL_TEMPLATE:
         ti_incref(val);
         break;
     case TI_VAL_ARR:
@@ -476,9 +477,6 @@ int ti_thing_p_prop_add_assign(
     case TI_VAL_MODULE:
         ex_set(e, EX_TYPE_ERROR, TI_MODULE_NESTED_ERR);
         return e->nr;
-    case TI_VAL_TEMPLATE:
-        assert(0);
-        break;
     }
 
     prop = ti_prop_create(name, val);
@@ -549,6 +547,7 @@ int ti_thing_i_item_add_assign(
     case TI_VAL_ANO:
     case TI_VAL_WANO:
     case TI_VAL_UUID:
+    case TI_VAL_TEMPLATE:
         ti_incref(val);
         break;
     case TI_VAL_ARR:
@@ -592,9 +591,6 @@ int ti_thing_i_item_add_assign(
     case TI_VAL_MODULE:
         ex_set(e, EX_TYPE_ERROR, TI_MODULE_NESTED_ERR);
         return e->nr;
-    case TI_VAL_TEMPLATE:
-        assert(0);
-        break;
     }
 
     item = ti_item_create(key, val);

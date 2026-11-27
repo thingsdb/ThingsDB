@@ -24,7 +24,7 @@
  *
  * Command:
  *
- *    pcregrep -o1 ' :: `(\w+)' spec.c | gperf -E -k '*,1,$' -m 200
+ *    pcre2grep -o1 ' :: `(\w+)' spec.c | gperf -E -k '*,1,$' -m 200
 
   :: `ano`
   :: `any`
@@ -66,6 +66,7 @@
   :: `str`
   :: `task`
   :: `tel`
+  :: `template`
   :: `thing`
   :: `time`
   :: `timedelta`
@@ -86,7 +87,7 @@
 
 enum
 {
-    TOTAL_KEYWORDS = 55,
+    TOTAL_KEYWORDS = 56,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 9,
     MIN_HASH_VALUE = 7,
@@ -230,7 +231,9 @@ _Bool ti_spec_is_reserved(register const char *s, register size_t n)
         "timedelta",
         "", "", "",
         "interface",
-        "", "", "", "", "", "",
+        "", "", "", "",
+        "template",
+        "",
         "mpdata"
     };
 
@@ -425,6 +428,8 @@ ti_spec_rval_enum ti__spec_check_nested_val(uint16_t spec, ti_val_t *val)
         return ti_val_is_bool(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
     case TI_SPEC_UUID:
         return ti_val_is_uuid(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
+    case TI_SPEC_TEMPLATE:
+        return ti_val_is_template(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
     case TI_SPEC_ARR:
         return ti_val_is_array(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
     case TI_SPEC_SET:
@@ -531,6 +536,8 @@ _Bool ti__spec_maps_to_nested_val(ti_field_t *field, ti_val_t *val)
         return ti_val_is_bool(val);
     case TI_SPEC_UUID:
         return ti_val_is_uuid(val);
+    case TI_SPEC_TEMPLATE:
+        return ti_val_is_template(val);
     case TI_SPEC_ARR:
         /* we can map an arr, set and dict to an array */
         return ti_val_has_parent(val);
@@ -606,6 +613,7 @@ const char *ti_spec_approx_type_str(uint16_t spec)
     case TI_SPEC_NUMBER:        return "number";
     case TI_SPEC_BOOL:          return "bool";
     case TI_SPEC_UUID:          return "uuid";
+    case TI_SPEC_TEMPLATE:      return "template";
     case TI_SPEC_ARR:           return "list";
     case TI_SPEC_SET:           return "set";
     case TI_SPEC_DICT:          return "dict";
@@ -723,6 +731,7 @@ ti_spec_mod_enum ti_spec_check_mod(
         ) ? TI_SPEC_MOD_SUCCESS : TI_SPEC_MOD_ERR;
     case TI_SPEC_BOOL:
     case TI_SPEC_UUID:
+    case TI_SPEC_TEMPLATE:
         return ospec == nspec ? TI_SPEC_MOD_SUCCESS : TI_SPEC_MOD_ERR;
     case TI_SPEC_ARR:
     case TI_SPEC_SET:

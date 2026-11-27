@@ -23,9 +23,10 @@ static int ncache__statement(
         ex_t *e);
 
 /*
- * Assigned closures and procedures require to own a `query` string, and they
- * need to prepare all the `primitives` cached values since a query which is
- * using the closure or procedure does not have space to store these.
+ * Assigned closures, procedures and compiled templates require to own
+ * a `query` string, and they need to prepare all the `primitives` cached
+ * values since a query which is using the closure or procedure does not have
+ * space to store these.
  */
 ti_ncache_t *ti_ncache_create(char *query, size_t n)
 {

@@ -35,21 +35,8 @@ static int do__f_rename_type(ti_query_t *query, cleri_node_t *nd, ex_t *e)
     if (ti_type_try_lock(type, e))
         goto fail1;
 
-    if (!ti_name_is_valid_strn((const char *) nname->data, nname->n))
-    {
-        ex_set(e, EX_VALUE_ERROR,
-            "function `rename_type` expects "
-            "argument 2 to be a valid type name"DOC_NAMES);
+    if (ti_spec_check_name((const char *) nname->data, nname->n, e))
         goto fail2;
-    }
-
-    if (ti_spec_is_reserved((const char *) nname->data, nname->n))
-    {
-        ex_set(e, EX_VALUE_ERROR,
-                "name `%.*s` is reserved",
-                nname->n, (const char *) nname->data);
-        goto fail2;
-    }
 
     if (ti_types_by_raw(query->collection->types, nname))
     {

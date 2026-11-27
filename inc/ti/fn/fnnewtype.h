@@ -18,21 +18,8 @@ static int do__f_new_type(ti_query_t *query, cleri_node_t *nd, ex_t *e)
         return e->nr;
 
     rname = (ti_raw_t *) query->rval;
-    if (!ti_name_is_valid_strn((const char *) rname->data, rname->n))
-    {
-        ex_set(e, EX_VALUE_ERROR,
-            "function `new_type` expects "
-            "argument 1 to be a valid type name"DOC_NAMES);
+    if (ti_spec_check_name((const char *) rname->data, rname->n, e))
         return e->nr;
-    }
-
-    if (ti_spec_is_reserved((const char *) rname->data, rname->n))
-    {
-        ex_set(e, EX_VALUE_ERROR,
-                "name `%.*s` is reserved",
-                rname->n, (const char *) rname->data);
-        return e->nr;
-    }
 
     if (ti_types_by_raw(query->collection->types, rname))
     {

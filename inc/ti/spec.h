@@ -21,7 +21,7 @@ ti_spec_mod_enum ti_spec_check_mod(
         uint16_t nspec,
         ti_condition_via_t ocondition,
         ti_condition_via_t ncondition);
-_Bool ti_spec_is_reserved(register const char *s, register size_t n);
+int ti_spec_check_name(register const char *s, register size_t n, ex_t * e);
 int ti_spec_from_raw(
         uint16_t *spec,
         ti_raw_t *raw,

@@ -1,12 +1,12 @@
 #include <ti/fn/fn.h>
 
-static int do__f_set_enum(ti_query_t *query, cleri_node_t *nd, ex_t *e)
+static int do__f_set_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_enum_t *enum_;
-    ti_thing_t *thing;
-    ti_task_t *task;
-    ti_raw_t *rname;
+    ti_enum_t * enum_;
+    ti_thing_t * thing;
+    ti_task_t * task;
+    ti_raw_t * rname;
     uint16_t enum_id;
     uint64_t ts_now = util_now_usec();
 
@@ -18,21 +18,9 @@ static int do__f_set_enum(ti_query_t *query, cleri_node_t *nd, ex_t *e)
         return e->nr;
 
     rname = (ti_raw_t *) query->rval;
-    if (!ti_name_is_valid_strn((const char *) rname->data, rname->n))
-    {
-        ex_set(e, EX_VALUE_ERROR,
-            "function `set_enum` expects "
-            "argument 1 to be a valid enum name"DOC_NAMES);
-        return e->nr;
-    }
 
-    if (ti_spec_is_reserved((const char *) rname->data, rname->n))
-    {
-        ex_set(e, EX_VALUE_ERROR,
-                "name `%.*s` is reserved",
-                rname->n, (const char *) rname->data);
+    if (ti_spec_check_name((const char *) rname->data, rname->n, e))
         return e->nr;
-    }
 
     if (ti_enums_by_raw(query->collection->enums, rname))
     {

@@ -28,13 +28,8 @@ static int do__f_set_type(ti_query_t *query, cleri_node_t *nd, ex_t *e)
         uint16_t type_id;
         ti_raw_t *rname = (ti_raw_t *) query->rval;
 
-        if (ti_spec_is_reserved((const char *) rname->data, rname->n))
-        {
-            ex_set(e, EX_VALUE_ERROR,
-                    "name `%.*s` is reserved",
-                    rname->n, (const char *) rname->data);
+        if (ti_spec_check_name((const char *) rname->data, rname->n, e))
             return e->nr;
-        }
 
         if (ti_enums_by_raw(query->collection->enums, rname))
         {

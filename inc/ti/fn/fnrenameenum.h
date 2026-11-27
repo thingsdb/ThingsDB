@@ -34,21 +34,8 @@ static int do__f_rename_enum(ti_query_t *query, cleri_node_t *nd, ex_t *e)
     if (ti_enum_try_lock(enum_, e))
         goto fail1;
 
-    if (!ti_name_is_valid_strn((const char *) nname->data, nname->n))
-    {
-        ex_set(e, EX_VALUE_ERROR,
-            "function `rename_enum` expects "
-            "argument 2 to be a valid enum name"DOC_NAMES);
+    if (ti_spec_check_name((const char *) nname->data, nname->n, e))
         goto fail2;
-    }
-
-    if (ti_spec_is_reserved((const char *) nname->data, nname->n))
-    {
-        ex_set(e, EX_VALUE_ERROR,
-                "name `%.*s` is reserved",
-                nname->n, (const char *) nname->data);
-        goto fail2;
-    }
 
     if (ti_types_by_raw(query->collection->types, nname))
     {

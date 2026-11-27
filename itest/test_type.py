@@ -50,17 +50,17 @@ class TestType(TestBase):
     async def test_set_prop(self, client):
         await client.query(r'''
             set_type('Pet', {});
-            set_type('setPet', {animal: '{Pet}'});
+            set_type('SetPet', {animal: '{Pet}'});
             .t = {};
         ''')
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'mismatch in type `setPet`; '
+                r'mismatch in type `SetPet`; '
                 r'property `animal` has definition `{Pet}` but '
                 r'got a set with at least one thing of another type'):
             await client.query(r'''
-                .t.p = setPet{
+                .t.p = SetPet{
                     animal: set({})
                 };
             ''')
@@ -69,7 +69,7 @@ class TestType(TestBase):
                 TypeError,
                 r'type `thing` is not allowed in restricted set'):
             await client.query(r'''
-                .t.p = setPet{
+                .t.p = SetPet{
                     animal: set()
                 };
                 .t.p.animal.add({});
@@ -136,12 +136,14 @@ class TestType(TestBase):
 
         with self.assertRaisesRegex(
                 ValueError,
-                'name `datetime` is reserved'):
+                r"name `datetime` must not start with a lowercase "
+                r"character \(a-z\)"):
             await client0.query(r''' set_type('datetime', {}); ''')
 
         with self.assertRaisesRegex(
                 ValueError,
-                'name `closure` is reserved'):
+                r"name `closure` must not start with a lowercase "
+                r"character \(a-z\)"):
             await client0.query(r''' new_type('closure'); ''')
 
         await client0.query(r'''

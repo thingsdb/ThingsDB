@@ -94,11 +94,6 @@ class TestRoom(TestBase):
 
     async def test_room_err(self, cl0, cl1, cl2):
         with self.assertRaisesRegex(
-                ValueError,
-                'name `room` is reserved'):
-            await cl0.query('new_type("room");')
-
-        with self.assertRaisesRegex(
                 NumArgumentsError,
                 'function `room` takes at most 1 argument but 2 were given;'):
             await cl0.query('room(nil, nil);')

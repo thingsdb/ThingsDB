@@ -85,6 +85,7 @@ static cleri_node_t *closure__node_from_strn(
 
             if (!res->is_valid)
             {
+                /* TODO: improve error message? */
                 ex_set(e, EX_SYNTAX_ERROR, "invalid syntax in closure");
                 goto fail1;
             }

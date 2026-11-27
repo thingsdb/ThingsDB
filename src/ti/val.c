@@ -71,6 +71,7 @@ static ti_val_t *val__sset;
 static ti_val_t *val__sstr;
 static ti_val_t *val__stask;
 static ti_val_t *val__suuid;
+static ti_val_t *val__stemplate;
 static ti_val_t *val__swano;
 static ti_val_t *val__sthing;
 static ti_val_t *val__stimeval;
@@ -838,6 +839,20 @@ ti_val_t *ti_val_from_vup_e(ti_vup_t *vup, ex_t *e)
                 ex_set_mem(e);
             return (ti_val_t *) uuid;
         }
+        case MPACK_EXT_TEMPLATE:
+        {
+            ti_qbind_t syntax = {
+                    .immutable_n = 0,
+                    .flags = vup->collection
+                        ? TI_QBIND_FLAG_COLLECTION
+                        : TI_QBIND_FLAG_THINGSDB,
+            };
+            return (ti_val_t *) ti_template_create(
+                    &syntax,
+                    (const char *) obj.via.ext.data,
+                    obj.via.ext.n,
+                    e);
+        }
         }
         ex_set(e, EX_BAD_DATA,
                 "msgpack extension type %d is not supported by ThingsDB",
@@ -853,15 +868,17 @@ ti_val_t *ti_val_from_vup_e(ti_vup_t *vup, ex_t *e)
 int ti_val_init_common(void)
 {
     ex_t e = {0};
-    ti_qbind_t syntax = {
-            .immutable_n = 0,
-            .flags = TI_QBIND_FLAG_COLLECTION|TI_QBIND_FLAG_THINGSDB,
-    };
+    ti_qbind_t syntax;
+
+    ti_qbind_reset(&syntax, TI_QBIND_FLAG_COLLECTION|TI_QBIND_FLAG_THINGSDB);
     val__default_closure = \
             (ti_val_t *) ti_closure_from_strn(&syntax, "||nil", 5, &e);
+
+    ti_qbind_reset(&syntax, TI_QBIND_FLAG_COLLECTION|TI_QBIND_FLAG_THINGSDB);
+    val__empty_template = \
+            (ti_val_t *) ti_template_create(&syntax, "{42}", 4, &e);
     val__empty_bin = (ti_val_t *) ti_bin_create(NULL, 0);
     val__empty_str = (ti_val_t *) ti_str_from_str("");
-    val__empty_template = (ti_val_t *) ti_template_create("``", 2, &e);
     val__default_re = (ti_val_t *) ti_regex_from_strn("/.*/", 4, &e);
     val__sany = (ti_val_t *) ti_str_from_str("any");
     val__snil = (ti_val_t *) ti_str_from_str(TI_VAL_NIL_S);
@@ -870,6 +887,7 @@ int ti_val_init_common(void)
     val__sano = (ti_val_t *) ti_str_from_str(TI_VAL_ANO_S);
     val__swano = (ti_val_t *) ti_str_from_str(TI_VAL_WANO_S);
     val__suuid = (ti_val_t *) ti_str_from_str(TI_VAL_UUID_S);
+    val__stemplate = (ti_val_t *) ti_str_from_str(TI_VAL_TEMPLATE_S);
     val__sbool = (ti_val_t *) ti_str_from_str(TI_VAL_BOOL_S);
     val__sdatetime = (ti_val_t *) ti_str_from_str(TI_VAL_DATETIME_S);
     val__sdict = (ti_val_t *) ti_str_from_str(TI_VAL_DICT_S);
@@ -940,7 +958,7 @@ int ti_val_init_common(void)
         !val__data_name || !val__time_name || !val__re_email || !val__sdict ||
         !val__smodule || !val__re_url || !val__re_tel || !val__async_name ||
         !val__anonymous_name || !val__sano || !val__swano || !val__suuid ||
-        !val__empty_template)
+        !val__stemplate || !val__empty_template)
     {
         return -1;
     }
@@ -988,6 +1006,7 @@ void ti_val_drop_common(void)
     ti_val_drop(val__strue);
     ti_val_drop(val__stuple);
     ti_val_drop(val__suuid);
+    ti_val_drop(val__stemplate);
     ti_val_drop(val__swano);
     ti_val_drop(val__swthing);
     ti_val_drop(val__tar_gz_str);
@@ -1573,7 +1592,7 @@ size_t ti_val_get_len(ti_val_t *val)
     case TI_VAL_UUID:
         return sizeof(((ti_uuid_t *) val)->id);
     case TI_VAL_TEMPLATE:
-        return ((ti_template_t *) val)->node->len;
+        return ti_template_n((ti_template_t *) val);
     case TI_VAL_MEMBER:
         return ti_val_get_len(VMEMBER(val));
     case TI_VAL_FUTURE:
@@ -1782,7 +1801,7 @@ size_t ti_val_alloc_size(ti_val_t *val)
     case TI_VAL_UUID:
         return 64;
     case TI_VAL_TEMPLATE:
-        return ((ti_template_t *) val)->node->len + 32;
+        return ((ti_template_t *) val)->node->len + 9;
     case TI_VAL_ERROR:
         return ((ti_verror_t *) val)->msg_n + 128;
     case TI_VAL_MEMBER:
@@ -1834,10 +1853,9 @@ ti_val_t *ti_val_strv(ti_val_t *val)
     case TI_VAL_ANO:            return ti_grab(val__sano);
     case TI_VAL_WANO:           return ti_grab(val__swano);
     case TI_VAL_UUID:           return ti_grab(val__suuid);
+    case TI_VAL_TEMPLATE:       return ti_grab(val__stemplate);
     case TI_VAL_FUTURE:         return ti_grab(val__sfuture);
     case TI_VAL_MODULE:         return ti_grab(val__smodule);
-    case TI_VAL_TEMPLATE:
-        assert(0);
     }
     assert(0);
     return ti_val_empty_str();
@@ -1901,14 +1919,13 @@ int ti_val_copy(ti_val_t **val, ti_thing_t *parent, void *key, uint8_t deep)
     case TI_VAL_WANO:
         return ti_wano_copy((ti_wano_t **) val, deep);
     case TI_VAL_UUID:
+    case TI_VAL_TEMPLATE:
         return 0;
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
         ti_val_unsafe_drop(*val);
         *val = (ti_val_t *) ti_nil_get();
         return 0;
-    case TI_VAL_TEMPLATE:
-        break;
     }
     assert(0);
     return -1;
@@ -1946,12 +1963,12 @@ int ti_val_copy_nested(ti_val_t **val, uint8_t deep)
     case TI_VAL_WANO:
         return ti_wano_copy((ti_wano_t **) val, deep);
     case TI_VAL_UUID:
+    case TI_VAL_TEMPLATE:
         return 0;
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
     case TI_VAL_SET:
     case TI_VAL_DICT:
-    case TI_VAL_TEMPLATE:
         break;
     }
     assert(0);
@@ -2016,14 +2033,13 @@ int ti_val_dup(ti_val_t **val, ti_thing_t *parent, void *key, uint8_t deep)
     case TI_VAL_WANO:
         return ti_wano_dup((ti_wano_t **) val, deep);
     case TI_VAL_UUID:
+    case TI_VAL_TEMPLATE:
         return 0;
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
         ti_val_unsafe_drop(*val);
         *val = (ti_val_t *) ti_nil_get();
         return 0;
-    case TI_VAL_TEMPLATE:
-        break;
     }
     assert(0);
     return -1;
@@ -2061,12 +2077,12 @@ int ti_val_dup_nested(ti_val_t **val, uint8_t deep)
     case TI_VAL_WANO:
         return ti_wano_dup((ti_wano_t **) val, deep);
     case TI_VAL_UUID:
+    case TI_VAL_TEMPLATE:
         return 0;
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
     case TI_VAL_SET:
     case TI_VAL_DICT:
-    case TI_VAL_TEMPLATE:
         break;
     }
     assert(0);
@@ -2283,6 +2299,21 @@ int ti_val_member_to_str(ti_val_t **val, ex_t *e)
 int ti_val_closure_to_str(ti_val_t **val, ex_t *e)
 {
     ti_val_t *v = (ti_val_t *) ti_closure_def((ti_closure_t *) *val);
+    if (!v)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+    ti_val_unsafe_drop(*val);
+    *val = v;
+    return 0;
+}
+int ti_val_template_to_str(ti_val_t **val, ex_t *e)
+{
+    ti_template_t *template = (ti_template_t *) (*val);
+    ti_val_t *v = (ti_val_t *) ti_str_create(
+            template->node->str+1,
+            template->node->len-2);
     if (!v)
     {
         ex_set_mem(e);

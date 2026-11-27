@@ -134,6 +134,14 @@ static int export__uuid(ti_fmt_t *fmt, uuid_t uuid)
         buf_write(&fmt->buf, ')')
     );
 }
+static int export__template(ti_fmt_t *fmt, ti_template_t *tpl)
+{
+    return (
+        buf_append_str(&fmt->buf, "template(") ||
+        ti_fmt_strn(fmt, tpl->node->str, tpl->node->len) ||
+        buf_write(&fmt->buf, ')')
+    );
+}
 
 static int export__new_type_cb(ti_type_t *type_, ti_fmt_t *fmt)
 {

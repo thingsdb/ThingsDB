@@ -30,7 +30,7 @@
 #define TI_VAL_ANO_S        "<anonymous>"
 #define TI_VAL_WANO_S       "<<anonymous>>"
 #define TI_VAL_UUID_S       "uuid"
-#define TI_VAL_UUID_S       "template"
+#define TI_VAL_TEMPLATE_S   "template"
 
 #define TI_KIND_S_THING     "#"     /* Externally, Thing */
 #define TI_KIND_S_INSTANCE  "."     /* Internally, New typed thing */

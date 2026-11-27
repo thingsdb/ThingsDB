@@ -79,6 +79,10 @@ static inline _Bool val__as_bool_raw(ti_val_t *val)
 {
     return !!((ti_raw_t *) val)->n;
 }
+static inline _Bool val__as_bool_template(ti_val_t *val)
+{
+    return !!ti_template_n((ti_template_t *) val);
+}
 static inline _Bool val__as_bool_arr(ti_val_t *val)
 {
     return !!VARR(val)->n;
@@ -216,7 +220,7 @@ static inline const char *val__uuid_type_str(ti_val_t *UNUSED(val))
 {
     return TI_VAL_UUID_S;
 }
-static inline const char *val__uuid_type_str(ti_val_t *UNUSED(val))
+static inline const char *val__template_type_str(ti_val_t *UNUSED(val))
 {
     return TI_VAL_TEMPLATE_S;
 }
@@ -713,8 +717,8 @@ static ti_val_type_t ti_val_type_props[26] = {
         .to_nested = val__to_nested,
         .to_client_pk = (ti_val_to_client_pk_cb) val__template_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) ti_template_to_store_pk,
-        .get_type_str = val__uuid_type_str,
-        .as_bool = val__as_bool_true,
+        .get_type_str = val__template_type_str,
+        .as_bool = val__as_bool_template,
         .attach = val__no_attach,
         .allowed_as_vtask_arg = true,
     },
@@ -1420,10 +1424,8 @@ static inline int ti_val_make_assignable(
     case TI_VAL_ANO:
     case TI_VAL_WANO:
     case TI_VAL_UUID:
-        return 0;
     case TI_VAL_TEMPLATE:
-        assert(0);
-        return -1;
+        return 0;
     case TI_VAL_FUTURE:
         ex_set(e, EX_TYPE_ERROR, TI_FUTURE_NESTED_ERR);
         return e->nr;
@@ -1470,18 +1472,6 @@ static inline int val__str_to_uuid(ti_val_t **val, ex_t *e)
     {
         ti_val_unsafe_drop(*val);
         *val = (ti_val_t *) uuid;
-    }
-    return e->nr;
-}
-
-static inline int val__str_to_template(ti_val_t **val, ex_t *e)
-{
-    ti_str_t *str = (ti_str_t *) *val;
-    ti_template_t *template = ti_template_create(str->str, str->n, e);
-    if (template)
-    {
-        ti_val_unsafe_drop(*val);
-        *val = (ti_val_t *) template;
     }
     return e->nr;
 }

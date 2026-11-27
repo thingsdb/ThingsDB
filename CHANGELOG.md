@@ -6,6 +6,16 @@
   - `bytes.decrypt()`: https://docs.thingsdb.io/v1/data-types/bytes/decrypt/
 * No longer accept type or enum names starting with lowercase (a-z) pr #486.
 
+Template:
+- [ ] Test export
+- [ ] Test recursive
+- [ ] Test with changes (and no change)
+- [ ] Test without scope argument
+- [ ] Test with typed instance scope
+- [ ] Test with illegal scope (thing with incompatible prop names, e.g. d[''] = 5)
+- [ ] Test with dict (force create d['']=..; and then d.del('') and then use d)
+
+
 # v1.12.0
 
 * Avoid re-allocating/packing for `mpdata`; write as `mpkg` directly, pr #480.

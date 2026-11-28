@@ -70,6 +70,8 @@ typedef enum
 
     OPR_UUID_UUID           =TI_VAL_UUID<<5|TI_VAL_UUID,
 
+    OPR_TEMPLATE_TEMPLATE   =TI_VAL_TEMPLATE<<5|TI_VAL_TEMPLATE,
+
 } ti_opr_perm_t;
 
 #endif  /* TI_OPR_OPRINC_H_ */

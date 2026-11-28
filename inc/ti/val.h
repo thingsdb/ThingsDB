@@ -51,6 +51,7 @@ int ti_val_make_float(ti_val_t **val, double d);
 ti_val_t *ti_val_from_vup(ti_vup_t *vup);
 ti_val_t *ti_val_from_vup_e(ti_vup_t *vup, ex_t *e);
 ti_val_t *ti_val_empty_str(void);
+ti_val_t *ti_val_empty_template(void);
 ti_val_t *ti_val_default_re(void);
 ti_val_t *ti_val_default_closure(void);
 ti_val_t *ti_val_charset_str(void);
@@ -94,6 +95,7 @@ int ti_val_vtask_to_str(ti_val_t **val, ex_t *e);
 int ti_val_error_to_str(ti_val_t **val, ex_t *e);
 int ti_val_member_to_str(ti_val_t **val, ex_t *e);
 int ti_val_closure_to_str(ti_val_t **val, ex_t *e);
+int ti_val_template_to_str(ti_val_t **val, ex_t *e);
 int ti_val_ano_to_str(ti_val_t **val, ex_t *e);
 
 #endif /* TI_VAL_H_ */

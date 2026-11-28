@@ -753,9 +753,6 @@ int ti_index(ti_query_t *query, cleri_node_t *nd, ex_t *e)
                 : index__get_thing(query, slice->children, e);
 
         break;
-    case TI_VAL_TEMPLATE:
-        assert(0);
-        /* fall through */
     case TI_VAL_NIL:
     case TI_VAL_INT:
     case TI_VAL_FLOAT:
@@ -773,6 +770,7 @@ int ti_index(ti_query_t *query, cleri_node_t *nd, ex_t *e)
     case TI_VAL_ANO:
     case TI_VAL_WANO:
     case TI_VAL_UUID:
+    case TI_VAL_TEMPLATE:
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
         if (do_slice)

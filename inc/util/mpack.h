@@ -26,6 +26,7 @@ typedef enum
     MPACK_EXT_NAME,
     MPACK_EXT_ANO,
     MPACK_EXT_UUID,
+    MPACK_EXT_TEMPLATE,
 } mpack_ext_t;
 
 typedef struct

@@ -419,6 +419,8 @@ static int wrap__field_val(
                 flags);
     case TI_VAL_UUID:
         return ti_uuid_to_client_pk(VUUID(val), &vp->pk);
+    case TI_VAL_TEMPLATE:
+        return ti_template_to_client_pk((ti_template_t *) val, &vp->pk);
     case TI_VAL_FUTURE:
         return VFUT(val)
                 ? wrap__field_val(
@@ -431,8 +433,6 @@ static int wrap__field_val(
                 : msgpack_pack_nil(&vp->pk);
     case TI_VAL_MODULE:
         return msgpack_pack_nil(&vp->pk);
-    case TI_VAL_TEMPLATE:
-        break;
     }
     assert(0);
     return -1;

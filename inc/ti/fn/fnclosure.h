@@ -66,6 +66,7 @@ static int do__f_closure_new(ti_query_t *query, cleri_node_t *nd, ex_t *e)
     case TI_VAL_ANO:
     case TI_VAL_WANO:
     case TI_VAL_UUID:
+    case TI_VAL_TEMPLATE:
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
         ex_set(e, EX_TYPE_ERROR,
@@ -84,8 +85,6 @@ static int do__f_closure_new(ti_query_t *query, cleri_node_t *nd, ex_t *e)
                 e);
         ti_val_unsafe_drop((ti_val_t *) str);
         break;
-    case TI_VAL_TEMPLATE:
-        assert(0);
     }
 
     return e->nr;

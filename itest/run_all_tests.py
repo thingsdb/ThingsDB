@@ -39,6 +39,7 @@ from test_scopes import TestScopes
 from test_statements import TestStatements
 from test_syntax import TestSyntax
 from test_tasks import TestTasks
+from test_template import TestTemplate
 from test_thingsdb_functions import TestThingsDBFunctions
 from test_type import TestType
 from test_types import TestTypes
@@ -120,6 +121,7 @@ if __name__ == '__main__':
     run_test(TestStatements(), hide_version=hide_version())
     run_test(TestSyntax(), hide_version=hide_version())
     run_test(TestTasks(), hide_version=hide_version())
+    run_test(TestTemplate(), hide_version=hide_version())
     run_test(TestThingsDBFunctions(), hide_version=hide_version())
     run_test(TestType(), hide_version=hide_version())
     run_test(TestTypes(), hide_version=hide_version())

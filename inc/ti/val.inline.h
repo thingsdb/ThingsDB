@@ -79,6 +79,10 @@ static inline _Bool val__as_bool_raw(ti_val_t *val)
 {
     return !!((ti_raw_t *) val)->n;
 }
+static inline _Bool val__as_bool_template(ti_val_t *val)
+{
+    return !!ti_template_n((ti_template_t *) val);
+}
 static inline _Bool val__as_bool_arr(ti_val_t *val)
 {
     return !!VARR(val)->n;
@@ -216,7 +220,10 @@ static inline const char *val__uuid_type_str(ti_val_t *UNUSED(val))
 {
     return TI_VAL_UUID_S;
 }
-
+static inline const char *val__template_type_str(ti_val_t *UNUSED(val))
+{
+    return TI_VAL_TEMPLATE_S;
+}
 static inline int val__nil_to_client_pk(ti_val_t *UNUSED(v), ti_vp_t *vp, int UNUSED(d), int UNUSED(f))
 {
     return msgpack_pack_nil(&vp->pk);
@@ -288,6 +295,10 @@ static inline int val__closure_to_client_pk(ti_val_t *val, ti_vp_t *vp, int UNUS
 static inline int val__uuid_to_client_pk(ti_val_t *val, ti_vp_t *vp, int UNUSED(d), int UNUSED(f))
 {
     return ti_uuid_to_client_pk(VUUID(val), &vp->pk);
+}
+static inline int val__template_to_client_pk(ti_val_t *val, ti_vp_t *vp, int UNUSED(d), int UNUSED(f))
+{
+    return ti_template_to_client_pk((ti_template_t *) val, &vp->pk);
 }
 static inline int val__future_to_client_pk(ti_future_t *future, ti_vp_t *vp, int deep, int flags);
 static inline int val__module_to_client_pk(ti_module_t *UNUSED(module), ti_vp_t *vp, int UNUSED(deep), int UNUSED(flags));
@@ -698,7 +709,19 @@ static ti_val_type_t ti_val_type_props[26] = {
         .attach = val__no_attach,
         .allowed_as_vtask_arg = true,
     },
-
+    /* TI_VAL_TEMPLATE */
+    {
+        .destroy = (ti_val_destroy_cb) ti_template_destroy,
+        .to_str = ti_val_template_to_str,
+        .to_uuid = val__no_to_uuid,
+        .to_nested = val__to_nested,
+        .to_client_pk = (ti_val_to_client_pk_cb) val__template_to_client_pk,
+        .to_store_pk = (ti_val_to_store_pk_cb) ti_template_to_store_pk,
+        .get_type_str = val__template_type_str,
+        .as_bool = val__as_bool_template,
+        .attach = val__no_attach,
+        .allowed_as_vtask_arg = true,
+    },
     /* TI_VAL_FUTURE */
     {
         .destroy = (ti_val_destroy_cb) ti_future_destroy,
@@ -721,11 +744,6 @@ static ti_val_type_t ti_val_type_props[26] = {
         .get_type_str = val__module_type_str,
         .as_bool = val__as_bool_true,
         .attach = val__no_attach,
-        .allowed_as_vtask_arg = false,
-    },
-    /* TI_VAL_TEMPLATE */
-    {
-        .destroy = (ti_val_destroy_cb) ti_template_destroy,
         .allowed_as_vtask_arg = false,
     },
 };
@@ -1023,6 +1041,11 @@ static inline _Bool ti_val_is_wano(ti_val_t *val)
 static inline _Bool ti_val_is_uuid(ti_val_t *val)
 {
     return val->tp == TI_VAL_UUID;
+}
+
+static inline _Bool ti_val_is_template(ti_val_t *val)
+{
+    return val->tp == TI_VAL_TEMPLATE;
 }
 
 static inline _Bool ti_val_is_room(ti_val_t *val)
@@ -1401,6 +1424,7 @@ static inline int ti_val_make_assignable(
     case TI_VAL_ANO:
     case TI_VAL_WANO:
     case TI_VAL_UUID:
+    case TI_VAL_TEMPLATE:
         return 0;
     case TI_VAL_FUTURE:
         ex_set(e, EX_TYPE_ERROR, TI_FUTURE_NESTED_ERR);
@@ -1408,9 +1432,6 @@ static inline int ti_val_make_assignable(
     case TI_VAL_MODULE:
         ex_set(e, EX_TYPE_ERROR, TI_MODULE_NESTED_ERR);
         return e->nr;
-    case TI_VAL_TEMPLATE:
-        assert(0);
-        return -1;
     }
     ((ti_parent_t *) *val)->parent = parent;
     ((ti_parent_t *) *val)->key_ = key;
@@ -1536,6 +1557,7 @@ static inline _Bool val__spec_enum_eq_to_val(uint16_t spec, ti_val_t *val)
  *   TI_SPEC_NUMBER,
  *   TI_SPEC_BOOL,
  *   TI_SPEC_UUID,
+ *   TI_SPEC_TEMPLATE,
  *   TI_SPEC_ARR,
  *   TI_SPEC_SET,
  *   TI_SPEC_DICT,
@@ -1552,7 +1574,7 @@ static inline _Bool val__spec_enum_eq_to_val(uint16_t spec, ti_val_t *val)
  *   TI_SPEC_ENUM,
  */
 
-static ti_val_spec_t ti_val_spec_map[27] = {
+static ti_val_spec_t ti_val_spec_map[28] = {
         {.is_spec=ti_val_is_thing},
         {.is_spec=ti_val_is_raw},
         {.is_spec=ti_val_is_str},
@@ -1566,6 +1588,7 @@ static ti_val_spec_t ti_val_spec_map[27] = {
         {.is_spec=ti_val_is_number},
         {.is_spec=ti_val_is_bool},
         {.is_spec=ti_val_is_uuid},
+        {.is_spec=ti_val_is_template},
         {.is_spec=ti_val_is_array},
         {.is_spec=ti_val_is_set},
         {.is_spec=ti_val_is_dict},

@@ -134,6 +134,14 @@ static int export__uuid(ti_fmt_t *fmt, uuid_t uuid)
         buf_write(&fmt->buf, ')')
     );
 }
+static int export__template(ti_fmt_t *fmt, ti_template_t *tpl)
+{
+    return (
+        buf_append_str(&fmt->buf, "template(") ||
+        ti_fmt_strn(fmt, tpl->node->str+1, tpl->node->len-2) ||
+        buf_write(&fmt->buf, ')')
+    );
+}
 
 static int export__new_type_cb(ti_type_t *type_, ti_fmt_t *fmt)
 {
@@ -563,6 +571,8 @@ static int export__val(ti_fmt_t *fmt, ti_val_t *val)
         return buf_append_str(buf, "&{}.wrap() /* WARN: not exported */");
     case TI_VAL_UUID:
         return export__uuid(fmt, VUUID(val));
+    case TI_VAL_TEMPLATE:
+        return export__template(fmt, (ti_template_t * ) val);
     case TI_VAL_FUTURE:
         return buf_append_str(buf, "future(||nil) /* WARN: not exported */");
     case TI_VAL_MODULE:
@@ -573,8 +583,6 @@ static int export__val(ti_fmt_t *fmt, ti_val_t *val)
             "%.*s /* WARN: module must be installed */",
             module->name->n, module->name->str);
     }
-    case TI_VAL_TEMPLATE:
-        assert(0);
     }
      return 0;
 }

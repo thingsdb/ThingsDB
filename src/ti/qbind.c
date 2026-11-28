@@ -134,6 +134,7 @@
 #include <ti/fn/fnisstr.h>
 #include <ti/fn/fnistask.h>
 #include <ti/fn/fnistel.h>
+#include <ti/fn/fnistemplate.h>
 #include <ti/fn/fnisthing.h>
 #include <ti/fn/fnistimeval.h>
 #include <ti/fn/fnistimezone.h>
@@ -209,6 +210,7 @@
 #include <ti/fn/fnrenameprocedure.h>
 #include <ti/fn/fnrenametype.h>
 #include <ti/fn/fnrenameuser.h>
+#include <ti/fn/fnrender.h>
 #include <ti/fn/fnreplace.h>
 #include <ti/fn/fnresetcounters.h>
 #include <ti/fn/fnrestartmodule.h>
@@ -250,6 +252,7 @@
 #include <ti/fn/fntan.h>
 #include <ti/fn/fntask.h>
 #include <ti/fn/fntasks.h>
+#include <ti/fn/fntemplate.h>
 #include <ti/fn/fntest.h>
 #include <ti/fn/fnthen.h>
 #include <ti/fn/fnthing.h>
@@ -312,15 +315,15 @@ static void qbind__statement(ti_qbind_t *qbind, cleri_node_t *nd);
  *
  * Command:
  *
- *    pcre2grep -o1 '\.name\=\"(\w+)' qbind.c | gperf -E -k '*,1,$' -m 400
+ *    pcre2grep -o1 '\.name\=\"(\w+)' qbind.c | gperf -E -k '*,1,$' -m 500
  */
 enum
 {
-    TOTAL_KEYWORDS = 291,
+    TOTAL_KEYWORDS = 294,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
-    MIN_HASH_VALUE = 42,
-    MAX_HASH_VALUE = 781
+    MIN_HASH_VALUE = 18,
+    MAX_HASH_VALUE = 855
 };
 
 /*
@@ -332,32 +335,32 @@ static inline unsigned int qbind__hash(
 {
     static unsigned short asso_values[] =
     {
-        782, 782, 782, 782, 782, 782, 782, 782, 782, 782,
-        782, 782, 782, 782, 782, 782, 782, 782, 782, 782,
-        782, 782, 782, 782, 782, 782, 782, 782, 782, 782,
-        782, 782, 782, 782, 782, 782, 782, 782, 782, 782,
-        782, 782, 782, 782, 782, 782, 782, 782,  18,  17,
-        17, 782,  18, 782,  18, 782,  17, 782, 782, 782,
-        782, 782, 782, 782, 782, 782, 782, 782, 782, 782,
-        782, 782, 782, 782, 782, 782, 782, 782, 782, 782,
-        782, 782, 782, 782, 782, 782, 782, 782, 782, 782,
-        782, 782, 782, 782, 782,  17, 782,  22, 118, 123,
-        26,  19, 171, 217, 229,  17,  19,  66,  19,  61,
-        22,  24,  78,  82,  18,  17,  18,  26, 233, 189,
-        339, 182,  25, 782, 782, 782, 782, 782, 782, 782,
-        782, 782, 782, 782, 782, 782, 782, 782, 782, 782,
-        782, 782, 782, 782, 782, 782, 782, 782, 782, 782,
-        782, 782, 782, 782, 782, 782, 782, 782, 782, 782,
-        782, 782, 782, 782, 782, 782, 782, 782, 782, 782,
-        782, 782, 782, 782, 782, 782, 782, 782, 782, 782,
-        782, 782, 782, 782, 782, 782, 782, 782, 782, 782,
-        782, 782, 782, 782, 782, 782, 782, 782, 782, 782,
-        782, 782, 782, 782, 782, 782, 782, 782, 782, 782,
-        782, 782, 782, 782, 782, 782, 782, 782, 782, 782,
-        782, 782, 782, 782, 782, 782, 782, 782, 782, 782,
-        782, 782, 782, 782, 782, 782, 782, 782, 782, 782,
-        782, 782, 782, 782, 782, 782, 782, 782, 782, 782,
-        782, 782, 782, 782, 782, 782
+        856, 856, 856, 856, 856, 856, 856, 856, 856, 856,
+        856, 856, 856, 856, 856, 856, 856, 856, 856, 856,
+        856, 856, 856, 856, 856, 856, 856, 856, 856, 856,
+        856, 856, 856, 856, 856, 856, 856, 856, 856, 856,
+        856, 856, 856, 856, 856, 856, 856, 856,   7,   7,
+        6, 856,   6, 856,   6, 856,   6, 856, 856, 856,
+        856, 856, 856, 856, 856, 856, 856, 856, 856, 856,
+        856, 856, 856, 856, 856, 856, 856, 856, 856, 856,
+        856, 856, 856, 856, 856, 856, 856, 856, 856, 856,
+        856, 856, 856, 856, 856,   6, 856,  26, 177, 121,
+        13,   8, 192, 404, 242,   6,   9,  14,  30,  70,
+        11,   9, 197,  26,   7,   6,   7,  30,  82, 248,
+        96, 109,  44, 856, 856, 856, 856, 856, 856, 856,
+        856, 856, 856, 856, 856, 856, 856, 856, 856, 856,
+        856, 856, 856, 856, 856, 856, 856, 856, 856, 856,
+        856, 856, 856, 856, 856, 856, 856, 856, 856, 856,
+        856, 856, 856, 856, 856, 856, 856, 856, 856, 856,
+        856, 856, 856, 856, 856, 856, 856, 856, 856, 856,
+        856, 856, 856, 856, 856, 856, 856, 856, 856, 856,
+        856, 856, 856, 856, 856, 856, 856, 856, 856, 856,
+        856, 856, 856, 856, 856, 856, 856, 856, 856, 856,
+        856, 856, 856, 856, 856, 856, 856, 856, 856, 856,
+        856, 856, 856, 856, 856, 856, 856, 856, 856, 856,
+        856, 856, 856, 856, 856, 856, 856, 856, 856, 856,
+        856, 856, 856, 856, 856, 856, 856, 856, 856, 856,
+        856, 856, 856, 856, 856, 856
     };
 
     register unsigned int hval = n;
@@ -628,6 +631,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="is_str",            .fn=do__f_is_str,               ROOT_NE},
     {.name="is_task",           .fn=do__f_is_task,              ROOT_NE},
     {.name="is_tel",            .fn=do__f_is_tel,               ROOT_NE},
+    {.name="is_template",       .fn=do__f_is_template,          ROOT_NE},
     {.name="is_thing",          .fn=do__f_is_thing,             ROOT_NE},
     {.name="is_time_zone",      .fn=do__f_is_time_zone,         ROOT_NE},
     {.name="is_timeval",        .fn=do__f_is_timeval,           ROOT_NE},
@@ -709,6 +713,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="rename_procedure",  .fn=do__f_rename_procedure,     ROOT_BE},
     {.name="rename_type",       .fn=do__f_rename_type,          ROOT_CE},
     {.name="rename_user",       .fn=do__f_rename_user,          ROOT_TE},
+    {.name="render",            .fn=do__f_render,               CHAIN_NE},
     {.name="replace",           .fn=do__f_replace,              CHAIN_NE},
     {.name="reset_counters",    .fn=do__f_reset_counters,       ROOT_NE},
     {.name="restart_module",    .fn=do__f_restart_module,       ROOT_NE},
@@ -751,6 +756,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="tan",               .fn=do__f_tan,                  ROOT_NE},
     {.name="task",              .fn=do__f_task,                 ROOT_BE},
     {.name="tasks",             .fn=do__f_tasks,                ROOT_NE},
+    {.name="template",          .fn=do__f_template,             ROOT_NE},
     {.name="test",              .fn=do__f_test,                 CHAIN_NE},
     {.name="then",              .fn=do__f_then,                 CHAIN_FUT},
     {.name="thing",             .fn=do__f_thing,                ROOT_NE},

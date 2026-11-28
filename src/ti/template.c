@@ -1,8 +1,13 @@
 /*
  * ti/template.c
  */
+#define _GNU_SOURCE
+#include <stdio.h>
 #include <cleri/node.h>
+#include <ti.h>
 #include <ti/do.h>
+#include <ti/ncache.h>
+#include <ti/parseres.h>
 #include <ti/template.h>
 #include <ti/val.h>
 #include <ti/val.inline.h>
@@ -70,21 +75,120 @@ static int template__child(cleri_node_t **childaddr, const char *str, size_t n)
     return 0;
 }
 
+ti_template_t *ti_template_create(
+        ti_qbind_t *syntax,
+        const char *str,
+        size_t n,
+        ex_t *e)
+{
+    ti_template_t *tpl;
+    cleri_node_t *node, *child;
+    cleri_parse_t *res;
+    char *query;
+    if (asprintf(&query, "`%.*s`", (int) n, str) < 0)
+    {
+        ex_set_mem(e);
+        return NULL;
+    }
+    res = cleri_parse2(ti.langdef, query, TI_CLERI_PARSE_FLAGS);
+    if (!res)
+    {
+        ex_set_mem(e);
+        goto fail0;
+    }
+    if (!res->is_valid)
+    {
+        (void) ti_parseres_syntax_err_tpl(res, e);
+        goto fail1;
+    }
+    node = res->tree->children;             /* Sequence (START) */
+
+    /* we should have exactly one statement */
+    if (!node->children || (node->children->next && node->children->next->next))
+    {
+        ex_set(e, EX_BAD_DATA, "template must be exactly one statement");
+        goto fail1;
+    }
+
+    node = node                             /* List of statements */
+            ->children                      /* Sequence - statement */
+            ->children;                     /* expression */
+
+    if (node->cl_obj->gid != CLERI_GID_EXPRESSION ||
+        (node = node->children->next)->cl_obj->gid != CLERI_GID_TEMPLATE)
+    {
+        ex_set(e, EX_LOOKUP_ERROR, "node is not a template");
+        goto fail1;
+    }
+    child = node                        /* sequence */
+            ->children->next            /* repeat */
+            ->children;
+    for (; child; child = child->next)
+    {
+        if (child->cl_obj->tp == CLERI_TP_REGEX)
+            continue;
+        ti_qbind_probe(syntax, child->children->next);
+    }
+    if (ti_template_build(node))
+    {
+        ex_set_mem(e);
+        goto fail1;
+    }
+    tpl = (ti_template_t *) node->data;
+    tpl->flags = syntax->flags & TI_QBIND_FLAG_WSE
+            ? TI_TEMPLATE_FLAG_WSE
+            : 0;
+    tpl->ncache = ti_ncache_create(query, syntax->immutable_n);
+    if (!tpl->ncache)
+    {
+        ex_set_mem(e);
+        goto fail2;
+    }
+    query = NULL;  /* ownership is moved to ncache */
+    child = node                        /* sequence */
+            ->children->next            /* repeat */
+            ->children;
+    for (; child; child = child->next)
+    {
+        if (child->cl_obj->tp == CLERI_TP_REGEX)
+            continue;
+        if (ti_ncache_gen_node_data(
+                syntax,
+                tpl->ncache->immutable_cache,
+                child->children->next,
+                e))
+            goto fail2;
+    }
+
+    cleri_parse_free(res);
+    return tpl;
+
+fail2:
+    ti_template_destroy(tpl);
+fail1:
+    cleri_parse_free(res);
+fail0:
+    free(query);
+    return NULL;
+}
+
 int ti_template_build(cleri_node_t *node)
 {
-    ti_template_t *tmplate = malloc(sizeof(ti_template_t));
+    ti_template_t *tpl = malloc(sizeof(ti_template_t));
     cleri_node_t **childaddr;
     size_t count, diff = 0;
     const char *node_end;
 
-    if (!tmplate)
+    if (!tpl)
         return -1;
 
-    tmplate->tp = TI_VAL_TEMPLATE;
-    tmplate->ref = 1;
-    tmplate->node = node;
+    tpl->ref = 1;
+    tpl->tp = TI_VAL_TEMPLATE;
+    tpl->flags = 0;
+    tpl->node = node;
+    tpl->ncache = NULL;
 
-    tmplate->node->ref++;               /* take a reference */
+    tpl->node->ref++;                   /* take a reference */
     node_end = node->str + 1;           /* take node start (`) + 1 */
 
     childaddr = &node                   /* sequence */
@@ -96,6 +200,7 @@ int ti_template_build(cleri_node_t *node)
         cleri_node_t *nd = (*childaddr);
 
         diff = nd->str - node_end;
+        nd->data = NULL;
 
         if (nd->cl_obj->tp == CLERI_TP_REGEX)
         {
@@ -111,6 +216,7 @@ int ti_template_build(cleri_node_t *node)
                 if (!nd->data)
                     goto failed;
             }
+
         }
         else if (diff)
         {
@@ -128,17 +234,17 @@ int ti_template_build(cleri_node_t *node)
     if (diff && template__child(childaddr, node_end, diff))
         goto failed;
 
-    node->data = tmplate;
+    node->data = tpl;
     return 0;
 
 failed:
-    ti_template_destroy(tmplate);
+    ti_template_destroy(tpl);
     return -1;
 }
 
-int ti_template_compile(ti_template_t *tmplate, ti_query_t *query, ex_t *e)
+int ti_template_compile(ti_template_t *tpl, ti_query_t *query, ex_t *e)
 {
-    cleri_node_t *node = tmplate->node;
+    cleri_node_t *node = tpl->node;
     cleri_node_t *child;
     size_t n = 0;
     ti_raw_t *raw;
@@ -230,7 +336,7 @@ failed:
      * There might have been temporary string made and stored on a node
      * which must be destroyed. Make sure to free this memory.
      */
-    child = tmplate->node               /* sequence */
+    child = tpl->node                   /* sequence */
             ->children->next            /* repeat */
             ->children;
 
@@ -245,11 +351,11 @@ failed:
     return e->nr;
 }
 
-void ti_template_destroy(ti_template_t *tmplate)
+void ti_template_destroy(ti_template_t *tpl)
 {
     cleri_node_t *child;
 
-    child = tmplate->node               /* sequence */
+    child = tpl->node                   /* sequence */
             ->children->next            /* repeat */
             ->children;
 
@@ -260,7 +366,7 @@ void ti_template_destroy(ti_template_t *tmplate)
         else
             ti_val_drop(child->data);
     }
-
-    cleri__node_free(tmplate->node);
-    free(tmplate);
+    cleri__node_free(tpl->node);
+    ti_ncache_destroy(tpl->ncache);
+    free(tpl);
 }

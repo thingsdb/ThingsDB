@@ -53,13 +53,10 @@ static inline int ti_closure_try_wse(
         ex_t *e)
 {
     if (!query->change && (closure->flags & TI_CLOSURE_FLAG_WSE))
-    {
         ex_set(e, EX_OPERATION,
             "closures with side effects require a change but none is created; "
             "use `wse(...)` or append `!` to enforce a change"DOC_WSE);
-        return -1;
-    }
-    return 0;
+    return e->nr;
 }
 
 static inline int ti_closure_inc_future(ti_closure_t *closure, ex_t *e)

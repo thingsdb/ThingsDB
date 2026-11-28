@@ -161,6 +161,7 @@ class TestImport(TestBase):
                 tlist: '[EE]',
                 r: 'R',
                 room: 'room',
+                tpl: 'template',
             });
             mod_type('R', 'rel', 'parent', 'r');
             .to_type('T');
@@ -201,6 +202,7 @@ class TestImport(TestBase):
                 assert(is_nil(.t.id()));
                 assert(procedures_info().len() == 1);
                 assert(.room.name() == 'ROOM');
+                assert(.tpl == template(''));
                 assert(.key == 'secretkey');
                 assert(is_err(try(.key = 'test', operation_err())));
                 assert(type_info('R').load().row == nil);

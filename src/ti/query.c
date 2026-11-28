@@ -25,6 +25,7 @@
 #include <ti/mpkg.h>
 #include <ti/names.h>
 #include <ti/nil.h>
+#include <ti/parseres.h>
 #include <ti/procedures.h>
 #include <ti/proto.h>
 #include <ti/qcache.h>
@@ -527,53 +528,6 @@ static inline int ti_query_investigate(ti_query_t *query, ex_t *e)
     return e->nr;
 }
 
-/* improve error message, pr #468 */
-static int query__test_ambiguous_ne(ti_query_t *query, ex_t *e)
-{
-    register cleri_parse_t *pr = query->with.parseres;
-    register const char *str = pr->str + pr->pos;
-    if (pr->pos >= 4 &&
-        *str == '=' &&
-        *(--str) == '!' &&
-        *(--str) == ')')
-    {
-        size_t line, pos;
-        cleri_parse_expect_start(pr);
-        cleri_parse_line_pos(pr, &line, &pos);
-        ex_set(e, EX_SYNTAX_ERROR,
-            "error at line %zu, position %zu, ambiguous operator `!=`, "
-            "add a space between `)` and `!=` to resolve",
-            line, pos-1);
-        return e->nr;
-    }
-    return 0;
-}
-
-static int query__syntax_err(ti_query_t *query, ex_t *e)
-{
-    if (query__test_ambiguous_ne(query, e))
-        return e->nr;
-
-    int i = cleri_parse_strn(
-            e->msg,
-            EX_MAX_SZ,
-            query->with.parseres,
-            &langdef_translate);
-
-    assert_log(i<EX_MAX_SZ, "expecting >= max size %d>=%d", i, EX_MAX_SZ);
-
-    e->msg[EX_MAX_SZ] = '\0';
-
-    log_warning(
-            "invalid syntax: `%s` (%s)", query->with.parseres->str, e->msg);
-
-    /* we will certainly will not hit the max size, but just to be safe */
-    e->n = i < EX_MAX_SZ ? i : EX_MAX_SZ - 1;
-    e->nr = EX_SYNTAX_ERROR;
-
-    return e->nr;
-}
-
 int ti_query_parse(ti_query_t *query, const char *str, size_t n, ex_t *e)
 {
     char *querystr;
@@ -581,7 +535,7 @@ int ti_query_parse(ti_query_t *query, const char *str, size_t n, ex_t *e)
     if (query->with.parseres)  /* already parsed and investigated */
         return query->with.parseres->is_valid
                 ? e->nr
-                : query__syntax_err(query, e);
+                : ti_parseres_syntax_err(query->with.parseres, e);
 
     querystr = strndup(str, n);
     if (!querystr)
@@ -612,7 +566,7 @@ int ti_query_parse(ti_query_t *query, const char *str, size_t n, ex_t *e)
             ex_set_mem(e);
             goto failed;
         }
-        return query__syntax_err(query, e);
+        return ti_parseres_syntax_err(query->with.parseres, e);
     }
 
     if (ti_query_investigate(query, e) == 0)
@@ -1585,12 +1539,11 @@ static int query__get_things(ti_val_t *val, imap_t *imap)
     case TI_VAL_WANO:
         return query__var_walk_thing(((ti_wano_t *) val)->thing, imap);
     case TI_VAL_UUID:
+    case TI_VAL_TEMPLATE:
         break;
     case TI_VAL_FUTURE:
         return VFUT(val) ? query__get_things(VFUT(val), imap) : 0;
     case TI_VAL_MODULE:
-        break;
-    case TI_VAL_TEMPLATE:
         break;
     }
 

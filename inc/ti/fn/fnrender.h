@@ -25,8 +25,9 @@ static int render__scoped(ti_query_t *query, cleri_node_t *nd, ex_t *e)
         if (ti_thing_i_to_p(thing, &incompatible))
         {
             if (incompatible)
-                ex_set(e, EX_BAD_DATA,
-                        "cannot set property `%s` as scope variable",
+                ex_set(e, EX_VALUE_ERROR,
+                        "cannot set property `%s` as scope variable: "
+                        "invalid variable name",
                         ti_raw_as_printable_str(incompatible));
             else
                 ex_set_mem(e);

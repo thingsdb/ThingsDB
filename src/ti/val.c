@@ -875,8 +875,7 @@ int ti_val_init_common(void)
             (ti_val_t *) ti_closure_from_strn(&syntax, "||nil", 5, &e);
 
     ti_qbind_reset(&syntax, TI_QBIND_FLAG_COLLECTION|TI_QBIND_FLAG_THINGSDB);
-    val__empty_template = \
-            (ti_val_t *) ti_template_create(&syntax, "{42}", 4, &e);
+    val__empty_template =(ti_val_t *) ti_template_create(&syntax, "", 0, &e);
     val__empty_bin = (ti_val_t *) ti_bin_create(NULL, 0);
     val__empty_str = (ti_val_t *) ti_str_from_str("");
     val__default_re = (ti_val_t *) ti_regex_from_strn("/.*/", 4, &e);

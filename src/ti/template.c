@@ -7,6 +7,7 @@
 #include <ti.h>
 #include <ti/do.h>
 #include <ti/ncache.h>
+#include <ti/parseres.h>
 #include <ti/template.h>
 #include <ti/val.h>
 #include <ti/val.inline.h>
@@ -97,8 +98,7 @@ ti_template_t *ti_template_create(
     }
     if (!res->is_valid)
     {
-        /* TODO: improve error message? */
-        ex_sets(e, EX_SYNTAX_ERROR, "invalid syntax in template string");
+        (void) ti_parseres_syntax_err_tpl(res, e);
         goto fail1;
     }
     node = res->tree->children;             /* Sequence (START) */

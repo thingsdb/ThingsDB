@@ -7,17 +7,18 @@
 #include <langdef/hasprop.h>
 #include <ti/closure.h>
 #include <ti/closure.inline.h>
-#include <ti/query.inline.h>
 #include <ti/do.h>
+#include <ti/fmt.h>
 #include <ti/names.h>
 #include <ti/ncache.h>
 #include <ti/nil.h>
+#include <ti/parseres.h>
+#include <ti/query.inline.h>
 #include <ti/raw.inline.h>
 #include <ti/regex.h>
 #include <ti/val.inline.h>
 #include <ti/vfloat.h>
 #include <ti/vint.h>
-#include <ti/fmt.h>
 #include <util/logger.h>
 #include <util/strx.h>
 #include <cleri/node.h>
@@ -86,7 +87,7 @@ static cleri_node_t *closure__node_from_strn(
             if (!res->is_valid)
             {
                 /* TODO: improve error message? */
-                ex_set(e, EX_SYNTAX_ERROR, "invalid syntax in closure");
+                (void) ti_parseres_syntax_err(res, e);
                 goto fail1;
             }
             log_warning("closure with missing semicolons: %s", query);

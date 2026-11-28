@@ -182,6 +182,7 @@ set(SOURCES
     src/ti/node.c
     src/ti/nodes.c
     src/ti/opr.c
+    src/ti/parseres.c
     src/ti/pipe.c
     src/ti/pkg.c
     src/ti/preopr.c

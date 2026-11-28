@@ -138,7 +138,7 @@ static int export__template(ti_fmt_t *fmt, ti_template_t *tpl)
 {
     return (
         buf_append_str(&fmt->buf, "template(") ||
-        ti_fmt_strn(fmt, tpl->node->str, tpl->node->len) ||
+        ti_fmt_strn(fmt, tpl->node->str+1, tpl->node->len-2) ||
         buf_write(&fmt->buf, ')')
     );
 }

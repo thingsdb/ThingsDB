@@ -17,6 +17,7 @@
 #include <ti/vset.h>
 #include <ti/wrap.h>
 #include <ti/datetime.h>
+#include <ti/template.h>
 
 
 int ti_opr_a_to_b(ti_val_t *a, cleri_node_t *nd, ti_val_t **b, ex_t *e)
@@ -119,6 +120,8 @@ _Bool ti__opr_eq_(ti_val_t *a, ti_val_t *b)
                 ((ti_wano_t *) b)->ano->spec_raw);
     case OPR_UUID_UUID:
         return memcmp(VUUID(a), VUUID(b), sizeof(uuid_t)) == 0;
+    case OPR_TEMPLATE_TEMPLATE:
+        return ti_template_eq((ti_template_t *) a, (ti_template_t *) b);
     }
     return false;
 }

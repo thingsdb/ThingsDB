@@ -58,4 +58,12 @@ static inline void ti_template_unlock(ti_template_t *tpl)
     tpl->flags &= ~TI_TEMPLATE_FLAG_LOCK;
 }
 
+static inline _Bool ti_template_eq(ti_template_t *a, ti_template_t *b)
+{
+    return (
+        a->node->len == b->node->len &&
+        memcmp(a->node->str, b->node->str, a->node->len) == 0);
+}
+
+
 #endif  /* TI_TEMPLATE_H_ */

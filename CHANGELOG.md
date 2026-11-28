@@ -4,8 +4,8 @@
 * Added authenticated encryption and decryption support for `bytes`, pr #485.
   - `bytes.encrypt()`: https://docs.thingsdb.io/v1/data-types/bytes/encrypt/
   - `bytes.decrypt()`: https://docs.thingsdb.io/v1/data-types/bytes/decrypt/
-* No longer accept type or enum names starting with lowercase (a-z) pr #486.
-* Added `template` data type, pr #...
+* No longer accept type or enum names starting with lowercase (a-z), pr #486.
+* Added `template` data type, pr #487.
   - `template()`: https://docs.thingsdb.io/v1/collection-api/template/
   - `is_template()`: https://docs.thingsdb.io/v1/collection-api/is/is_template/
   - `template.len()`: https://docs.thingsdb.io/v1/data-types/template/len/

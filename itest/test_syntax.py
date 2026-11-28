@@ -183,6 +183,71 @@ class TestSyntax(TestBase):
         self.assertIsNone(res)
         await client.query("return;")
 
+    async def test_template_strings(self, client):
+        # Basic template strings, interpolation, expressions, and escaping
+        res = await client.query("""//ti
+            name = 'Alice';
+            a = 2;
+            b = 3;
+            [
+                ``,
+                `plain text`,
+                `Hello {name}!`,
+                `{a} + {b} = {a + b}`,
+                `escaped {{braces}} and ``backticks``` ,
+                `nested: {`inner {name}`}`,
+                `dict literal: {{a: {a}}}`,
+                `multiline
+line {b}`,
+            ];
+        """)
+        self.assertEqual(res, [
+            '',
+            'plain text',
+            'Hello Alice!',
+            '2 + 3 = 5',
+            'escaped {braces} and `backticks`',
+            'nested: inner Alice',
+            'dict literal: {a: 2}',
+            'multiline\nline 3',
+        ])
+
+        # Template string inside a closure (storage & formatting)
+        res = await client.query("""//ti
+            f = |x| `value is {x + 1} and {{literal}}`;
+            [f(4), str(f)];
+        """)
+        self.assertEqual(res, [
+            'value is 5 and {literal}',
+            '|x| `value is {x + 1} and {{literal}}`',
+        ])
+
+        # Syntax errors in template strings
+        with self.assertRaises(SyntaxError):
+            await client.query("""//ti
+                `unterminated template;
+            """)
+
+        with self.assertRaises(SyntaxError):
+            await client.query("""//ti
+                `unclosed {expr`;
+            """)
+
+        with self.assertRaises(SyntaxError):
+            await client.query("""//ti
+                `stray } brace`;
+            """)
+
+        with self.assertRaises(SyntaxError):
+            await client.query("""//ti
+                `empty {} expression`;
+            """)
+
+        with self.assertRaises(SyntaxError):
+            await client.query("""//ti
+                `invalid {1 + } expression`;
+            """)
+
 
 if __name__ == '__main__':
     run_test(TestSyntax())

@@ -228,12 +228,13 @@ class TestTemplate(TestBase):
         self.assertEqual(res, 2)
 
         with self.assertRaisesRegex(
-                    SyntaxError,
-                    r"xxx"):
+                    OperationError,
+                    r"template with side effects require a change but none "
+                    r"is created; use `wse\(...\)` or append `!` to enforce "
+                    r"a change;"):
             await q("""//ti
                 template('{.counter += 1}').render();
             """)
-
 
         await q("""//ti
             h_default = TplHolder{};
@@ -288,6 +289,13 @@ class TestTemplate(TestBase):
             await q("""//ti
                 TplHolder({tpl: 'bad {syntax'});
             """)
+
+        # --- Test wrap
+        res = await q("""//ti
+            t = TplHolder{tpl: template('Hello {name}')};
+            t.wrap();
+        """)
+        self.assertEqual(res['tpl'], 'Hello {name}')
 
 
 if __name__ == '__main__':

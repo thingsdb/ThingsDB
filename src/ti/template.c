@@ -188,7 +188,7 @@ int ti_template_build(cleri_node_t *node)
     tpl->node = node;
     tpl->ncache = NULL;
 
-    tpl->node->ref++;               /* take a reference */
+    tpl->node->ref++;                   /* take a reference */
     node_end = node->str + 1;           /* take node start (`) + 1 */
 
     childaddr = &node                   /* sequence */
@@ -336,7 +336,7 @@ failed:
      * There might have been temporary string made and stored on a node
      * which must be destroyed. Make sure to free this memory.
      */
-    child = tpl->node               /* sequence */
+    child = tpl->node                   /* sequence */
             ->children->next            /* repeat */
             ->children;
 
@@ -355,7 +355,7 @@ void ti_template_destroy(ti_template_t *tpl)
 {
     cleri_node_t *child;
 
-    child = tpl->node               /* sequence */
+    child = tpl->node                   /* sequence */
             ->children->next            /* repeat */
             ->children;
 

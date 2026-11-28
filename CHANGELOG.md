@@ -11,27 +11,6 @@
   - `template.len()`: https://docs.thingsdb.io/v1/data-types/template/len/
   - `template.render()`: https://docs.thingsdb.io/v1/data-types/template/render/
 
-
-Template:
-- [ ] Test export
-- [ ] Test recursive
-- [ ] Test with changes (and no change)
-- [ ] Test without scope argument
-- [ ] Test with typed instance scope
-- [ ] Test with illegal scope (thing with incompatible prop names, e.g. d[''] = 5)
-- [ ] Test with dict (force create d['']=..; and then d.del('') and then use d)
-- [ ] Test if two templates are equal (< etc. not supported)
-- [ ] Test invalid templates
-- [ ] Test template .len() function.
-- [ ] Test custom Type with 'template' property (only for templates)
-- [ ] Test is default template is indeed an empty template ''.
-- [ ] Test bool empty template ('') -> false, non-empty -> true.
-- [ ] Test type name (type(..))-> 'template'.
-- [ ] Test auto-conversion (payloaad "str" -> "template" for type).
-- [ ] Test slice template[4:9] -> this should NOT work (no slice support).
-- [ ] Test to str conversion (str(t)) -> str type with expected output.
-
-
 # v1.12.0
 
 * Avoid re-allocating/packing for `mpdata`; write as `mpkg` directly, pr #480.

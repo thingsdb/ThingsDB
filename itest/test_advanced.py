@@ -2176,7 +2176,6 @@ new_procedure('multiply', |a, b| a * b);
                 r'lowercase character \(a-z\)'):
             await client.query('new_type("enum");')
 
-
     async def test_loop_set_relation_error(self, client):
         # bug 302
         with self.assertRaises(AssertionError):
